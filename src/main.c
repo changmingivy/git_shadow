@@ -19,9 +19,9 @@
 #define zHashSiz 8192
 
 
-/*
- * Data struct define.
- */
+/*******************************
+ * DATA STRUCT DEFINE
+ ******************************/
 typedef struct zObjInfo {
 	char path[zCommonBufSiz];  // The directory to be monitored.
 	pthread_t ControlTD;  // The thread which master the watching.
@@ -33,24 +33,24 @@ typedef struct zObjInfo {
 }zObjInfo;
 
 
-/*
- * Function declare.
- */
+/***********************
+ * FUNCTION DECLARE
+ **********************/
 extern char * zget_one_line_from_FILE(FILE *);
 void zinotify_action(char *, _i);
 void zinotify_add_watch_recursively(char *);
 
 
-/*
- * Global var.
- */
+/***************
+ * Global var
+ **************/
 static char *zpPathHash[zHashSiz];
 static _i zInotifyFD;
 
 
-/*
- * Function define.
- */
+/*********************
+ * Function define
+ ********************/
 zObjInfo *
 zread_conf_file(const char *zpConfPath) {
 //TEST: PASS
