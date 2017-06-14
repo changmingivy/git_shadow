@@ -7,7 +7,7 @@
 #include <sys/inotify.h>
 
 #include <pthread.h>
-#include <semaphore.h>  //fix
+#include <semaphore.h>
 
 #include <stdio.h>
 #include <stdlib.h>
