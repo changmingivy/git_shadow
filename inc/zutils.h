@@ -96,6 +96,12 @@
 	}\
 }while(0)
 
+#define zCheck_Pthread_Func_Warning(zRet) do{\
+	if (0 != (zRet)) {\
+		zPrint_Err(zRet, #zRet " != 0", "");\
+	}\
+}while(0)
+
 #define zCheck_Pthread_Func_Exit(zRet) do{\
 	if (0 != (zRet)) {\
 		zPrint_Err(zRet, #zRet " != 0", "");\
@@ -103,9 +109,10 @@
 	}\
 }while(0)
 
-#define zCheck_Pthread_Func_Warning(zRet) do{\
+#define zCheck_Pthread_Func_Thread_Exit(zRet) do{\
 	if (0 != (zRet)) {\
 		zPrint_Err(zRet, #zRet " != 0", "");\
+		pthread_exit(NULL);\
 	}\
 }while(0)
 
