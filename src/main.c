@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 700
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -18,19 +18,17 @@
 
 #define zCommonBufSiz 4096 
 #define zHashSiz 8192
-#define zMaxThreadsNum 256
+#define zMaxThreadsNum 64
 
 
 /*******************************
  * DATA STRUCT DEFINE
  ******************************/
 typedef struct zObjInfo {
+	struct zObjInfo *p_next;
 	_i RecursiveMark;  // Mark recursive monitor.
 //	_i ValidState;  // Mark which node should be added or deleted, 0 for valid, -1 for invalid.
-	pthread_t ControlTD;  // The thread which master the watching.
-
-	struct zObjInfo *p_next;
-
+//	pthread_t ControlTD;  // The thread which master the watching.
 	char path[];  // The directory to be monitored.
 }zObjInfo;
 
@@ -39,16 +37,16 @@ typedef struct zObjInfo {
  * FUNCTION DECLARE
  **********************/
 extern char * zget_one_line_from_FILE(FILE *);
-void zinotify_action(char *, _i);
 void zinotify_add_watch_recursively(char *);
 
 
 /***************
  * Global var
  **************/
-static char *zpPathHash[zHashSiz];
-static _i zInotifyFD;
 static sem_t zSem;
+static _i zInotifyFD;
+static char *zpPathHash[zHashSiz];
+pthread_t zTid;
 
 
 /*********************
@@ -124,7 +122,7 @@ zinotify_add_watch_recursively(char *zpPath) {
 	_i zWid = inotify_add_watch(
 				zInotifyFD, 
 				zpPath,
-				IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVED_TO|IN_MOVED_FROM|IN_EXCL_UNLINK
+				IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MOVE_SELF|IN_MODIFY|IN_MOVED_TO|IN_MOVED_FROM|IN_EXCL_UNLINK
 				);
 	zCheck_Negative_Exit(zWid);
 
@@ -132,20 +130,22 @@ zinotify_add_watch_recursively(char *zpPath) {
 
 	struct dirent *zpEntry;
 	char *zpNewPath;
-	pthread_t zTid;
 
 	DIR *zpDir = opendir(zpPath);
 	zCheck_Null_Exit(zpDir);
 
 	while (NULL != (zpEntry = readdir(zpDir))) {
-		if (DT_DIR == zpEntry->d_type) {
+		if (DT_DIR == zpEntry->d_type 
+				&& strcmp(".", zpEntry->d_name) 
+				&& strcmp("..", zpEntry->d_name) 
+				&& strcmp(".git", zpEntry->d_name)) {
 			zMem_Alloc(zpNewPath, char, 2 + strlen(zpPath) + strlen(zpEntry->d_name));
 
 			strcpy(zpNewPath, zpPath);
 			strcat(zpNewPath, "/");
 			strcat(zpNewPath, zpEntry->d_name);
 
-			zCheck_Pthread_Func_Warning(
+			zCheck_Pthread_Func_Exit(
 					pthread_create(&zTid, NULL, zthread_add_sub_watch, zpNewPath)
 					);
 		}
@@ -162,18 +162,19 @@ zthread_git(void *zpIf) {
 			);
 
 	zCheck_Negative_Thread_Exit(chdir((char*) zpIf));
-	system(
-			"git init .;"
-			"git config --global user.name $USER;"
-			"git config --global user.email $PWD;"
-			"git add .;"
-			"git commit -m \"Inotify auto commit: `date +\"%m-%d %H:%M:%S\"`\""
-			);
+//	system(
+//			"(git init .;"
+//			"git config --global user.name $USER;"
+//			"git config --global user.email $PWD;"
+//			"git add .;"
+//			"git commit -m \"Inotify auto commit: `date +\"%m-%d %H:%M:%S\"`\")>/dev/null"
+//			);
+	system("ps");
 	return NULL;
 }
 
 void
-zinotify_action(char *zpPath, _i zRecursiveMark) {
+zinotify_add_watch(char *zpPath, _i zRecursiveMark) {
 	if (0 == zRecursiveMark) {
 		_i zWid = inotify_add_watch(
 				zInotifyFD,
@@ -183,52 +184,52 @@ zinotify_action(char *zpPath, _i zRecursiveMark) {
 		zCheck_Negative_Exit(zWid);
 
 		zpPathHash[zWid] = zpPath;
-		goto zMark;
 	}
 	else {
-		pid_t zPid = fork();
-		zCheck_Negative_Exit(zPid);
-
-		if (0 == zPid) {
 			zinotify_add_watch_recursively(zpPath);
-		} else {
-			waitpid(zPid, NULL, 0);
+	}
+}
 
-zMark:;
-			char zBuf[zCommonBufSiz] __attribute__ ((aligned(__alignof__(struct inotify_event))));
-			ssize_t zLen;
-		
-			const struct inotify_event *zpEv;
-			char *zpOffset;
-			char *zpNewPath;
-		
-			for (;;) {
-				zLen = read(zInotifyFD, zBuf, sizeof(zBuf));
-				zCheck_Negative_Exit(zLen);
-		
-				for (zpOffset = zBuf; zpOffset < zBuf + zLen; 
-						zpOffset += sizeof(struct inotify_event) + zpEv->len) {
-					zpEv = (const struct inotify_event *)zpOffset;
-		
-					pthread_t zTid;
-					zCheck_Pthread_Func_Warning(
-							pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd])
-							);
+void *
+zthread_wait_event(void *zpIf) {
+	char zBuf[zCommonBufSiz]
+		__attribute__ ((aligned(__alignof__(struct inotify_event))));
+	ssize_t zLen;
 
-					if (zpEv->mask & IN_ISDIR && 
-							(zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
-		
-			  			// If a new subdir is created or moved in, add it to the watch list.
-						zMem_Alloc(zpNewPath, char, 2 + strlen(zpPathHash[zpEv->wd]) + zpEv->len);
-		
-						strcpy(zpNewPath, zpPathHash[zpEv->wd]);
-						strcat(zpNewPath, "/");
-						strcat(zpNewPath, zpEv->name);
-		
-						zinotify_add_watch_recursively(zpNewPath);
-					}
-				}
+	const struct inotify_event *zpEv;
+	char *zpOffset, *zpNewPath;
+
+	for (;;) {
+		zLen = read(zInotifyFD, zBuf, sizeof(zBuf));
+		zCheck_Negative_Exit(zLen);
+
+		for (zpOffset = zBuf; zpOffset < zBuf + zLen; 
+				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
+			zpEv = (const struct inotify_event *)zpOffset;
+
+			if(zpEv->mask & (IN_CREATE|IN_MOVED_TO)) {
+	  		// If a new subdir is created or moved in, add it to the watch list.
+				zMem_Alloc(zpNewPath, char, 2 + strlen(zpPathHash[zpEv->wd]) + zpEv->len);
+	
+				strcpy(zpNewPath, zpPathHash[zpEv->wd]);
+				strcat(zpNewPath, "/");
+				strcat(zpNewPath, zpEv->name);
+	
+				zinotify_add_watch_recursively(zpNewPath);
 			}
+			else if (zpEv->mask & (IN_MODIFY|IN_DELETE|IN_MOVED_FROM)) { }
+			else if (zpEv->mask & (IN_IGNORED|IN_DELETE_SELF|IN_MOVE_SELF)) {
+				free(zpPathHash[zpEv->wd]);  // BUG: can't get this event.
+				continue;
+			}
+			else {
+				fprintf(stderr, "\033[31;01mWARNING: Unknown inotify event occur!!!\033[00m\n");
+			}
+
+			// Git add and commit.
+			zCheck_Pthread_Func_Exit(
+					pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd])
+					);
 		}
 	}
 }
@@ -240,7 +241,7 @@ zthread_add_top_watch(void *zpObjIf) {
 			pthread_detach(pthread_self())
 			);
 
-	zinotify_action(
+	zinotify_add_watch(
 			((zObjInfo *) zpObjIf)->path,
 			((zObjInfo *) zpObjIf)->RecursiveMark
 			);
@@ -266,13 +267,10 @@ zconfig_file_monitor(const char *zpConfPath) {
 			);
 }
 
-void
-zexit_clean(void) {
-	zCheck_Negative_Exit(sem_destroy(&zSem));
-}
-
+/***********************************************************************************/
 _i
 main(_i zArgc, char **zppArgv) {
+	//zdaemonize(NULL);
 	if (3 == zArgc && 0 == strcmp("-f", zppArgv[1])) {
 		struct stat zStat[1];
 		zCheck_Negative_Exit(stat(zppArgv[2], zStat));
@@ -285,38 +283,33 @@ main(_i zArgc, char **zppArgv) {
 		fprintf(stderr, "Usage: file_monitor -f <Config File Path>\n");
 		exit(1);
 	}
-	
-	zObjInfo *zpObjIf[2] = {NULL};
 
+zReLoad:;
 	zInotifyFD = inotify_init();
 	zCheck_Negative_Exit(zInotifyFD);
 
 	zCheck_Negative_Exit(sem_init(&zSem, 0, zMaxThreadsNum));
-	atexit(zexit_clean);
 
-zReload: 
+	zObjInfo *zpObjIf[2] = {NULL};
 	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
 			NULL != zpObjIf[0]; zpObjIf[0] = zpObjIf[0]->p_next) {
 
-		zCheck_Pthread_Func_Warning(
-				pthread_create( &(zpObjIf[0]->ControlTD), NULL, zthread_add_top_watch, zpObjIf[0])
+		zCheck_Pthread_Func_Exit(
+				pthread_create(&zTid, NULL, zthread_add_top_watch, zpObjIf[0])
 				);
 	}
 
+	pthread_create(&zTid, NULL, zthread_wait_event, NULL);
+
 	zconfig_file_monitor(zppArgv[2]);
+
+	close(zInotifyFD);
+	zCheck_Negative_Exit(sem_destroy(&zSem));
 
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
 
-	if (0 == zPid) {
-		for (_i i = 0; i < zHashSiz; i++) {
-			if (NULL != zpPathHash[i]) { free(zpPathHash[i]); }
-		}
-
-		zFree_Memory_Common(zpObjIf[1], zpObjIf[0]);
-		goto zReload;
-	}
-	else {
-		exit(0);
-	}
+	if (0 == zPid) { goto zReLoad; }
+	else { exit(0); }
 }
+/***********************************************************************************/
