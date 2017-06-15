@@ -43,7 +43,7 @@
 /*
  * =>>> Error Management <<<=
  */
-#define zPrint_Err(zCause, zCustomContents) do{ fprintf(stderr, "\
+#define zPrint_Err(zErrNo, zCause, zCustomContents) do{ fprintf(stderr, "\
 	\033[31;01m====[ ERROR ]====\033[00m\n\
 	\033[31;01mFile:\033[00m %s\n\
 	\033[31;01mLine:\033[00m %d\n\
@@ -54,45 +54,58 @@
 	__LINE__,\
 	__func__,\
 	zCause == NULL? "" : zCause,\
-	(NULL == zCause) ? zCustomContents : strerror(errno)); }while(0)
+	(NULL == zCause) ? zCustomContents : strerror(zErrNo)); }while(0)
 
 #define zCheck_Null_Warning(zRes) do{\
 	if (NULL == (zRes)) {\
-		zPrint_Err(#zRes " == NULL", "");\
+		zPrint_Err(errno, #zRes " == NULL", "");\
 	}\
 }while(0)
 
 #define zCheck_Null_Exit(zRes) do{\
 	if (NULL == (zRes)) {\
-		zPrint_Err(#zRes " == NULL", "");\
+		zPrint_Err(errno, #zRes " == NULL", "");\
 		exit(1);\
 	}\
 }while(0)
 
 #define zCheck_Null_Thread_Exit(zRes) do{\
 	if (NULL == (zRes)) {\
-		zPrint_Err(#zRes " == NULL", "");\
+		zPrint_Err(errno, #zRes " == NULL", "");\
 		pthread_exit(NULL);\
 	}\
 }while(0)
 
 #define zCheck_Negative_Warning(zRes) do{\
 	if (0 > (zRes)) {\
-		zPrint_Err(#zRes " < 0", "");\
+		zPrint_Err(errno, #zRes " < 0", "");\
 	}\
 }while(0)
 
 #define zCheck_Negative_Exit(zRes) do{\
 	if (0 > (zRes)) {\
-		zPrint_Err(#zRes " < 0", "");\
+		zPrint_Err(errno, #zRes " < 0", "");\
 		exit(1);\
 	}\
 }while(0)
 
 #define zCheck_Negative_Thread_Exit(zRes) do{\
 	if (0 > (zRes)) {\
-		zPrint_Err(#zRes " < 0", "");\
+		zPrint_Err(errno, #zRes " < 0", "");\
 		pthread_exit(NULL);\
+	}\
+}while(0)
+
+#define zCheck_Pthread_Func_Exit(zRet) do{\
+	if (0 != (zRet)) {\
+		zPrint_Err(zRet, #zRet " != 0", "");\
+		exit(1);\
+	}\
+}while(0)
+
+#define zCheck_Pthread_Func_Warning(zRet) do{\
+	if (0 != (zRet)) {\
+		zPrint_Err(zRet, #zRet " != 0", "");\
 	}\
 }while(0)
 

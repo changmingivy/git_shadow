@@ -25,13 +25,13 @@
  * DATA STRUCT DEFINE
  ******************************/
 typedef struct zObjInfo {
-	char path[zCommonBufSiz];  // The directory to be monitored.
-	pthread_t ControlTD;  // The thread which master the watching.
-
 	_i RecursiveMark;  // Mark recursive monitor.
 //	_i ValidState;  // Mark which node should be added or deleted, 0 for valid, -1 for invalid.
+	pthread_t ControlTD;  // The thread which master the watching.
 
 	struct zObjInfo *p_next;
+
+	char path[];  // The directory to be monitored.
 }zObjInfo;
 
 
@@ -76,7 +76,10 @@ zread_conf_file(const char *zpConfPath) {
 			zpcre_free_tmpsource(zpRetIf[0]);
 			continue;
 		} else {
-			zMem_Alloc(zpObjIf[0], zObjInfo, 1);
+			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
+			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
+
+			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
 			zpObjIf[0]->p_next = NULL;
 			if (0 == zCnt) {
 				zCnt++;
@@ -85,55 +88,54 @@ zread_conf_file(const char *zpConfPath) {
 			zpObjIf[1]->p_next = zpObjIf[0];
 			zpObjIf[1] = zpObjIf[0];
 
-			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
 			zpObjIf[0]->RecursiveMark = atoi(zpRetIf[1]->p_rets[0]);
-			zpcre_free_tmpsource(zpRetIf[1]);
-
-			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
 			strcpy(zpObjIf[0]->path, zpRetIf[2]->p_rets[0]);
-			zpcre_free_tmpsource(zpRetIf[2]);
 
+			zpcre_free_tmpsource(zpRetIf[2]);
+			zpcre_free_tmpsource(zpRetIf[1]);
 			zpcre_free_tmpsource(zpRetIf[0]);
 
 			zpObjIf[0] = zpObjIf[0]->p_next;
 		}
 	}
 
-	zpcre_free_metasource(zpInitIf[0]);
-	zpcre_free_metasource(zpInitIf[1]);
 	zpcre_free_metasource(zpInitIf[2]);
+	zpcre_free_metasource(zpInitIf[1]);
+	zpcre_free_metasource(zpInitIf[0]);
 
 	fclose(zpFile);
 	return zpObjIf[2];
 }
 
 static void *
-zftw_thread(void *zpPath) {
+zthread_add_sub_watch(void *zpPath) {
 //TEST: PASS
-	pthread_detach(pthread_self());
+	zCheck_Pthread_Func_Warning(
+			pthread_detach(pthread_self())
+			);
 	zinotify_add_watch_recursively((char *)zpPath);
-	pthread_exit(NULL);
+	return NULL;
 }
 
 void
 zinotify_add_watch_recursively(char *zpPath) {
 //TEST: PASS
-	zCheck_Negative_Thread_Exit(sem_wait(&zSem));
-	_i zWD = inotify_add_watch(
+	zCheck_Negative_Exit(sem_wait(&zSem));
+	_i zWid = inotify_add_watch(
 				zInotifyFD, 
 				zpPath,
 				IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVED_TO|IN_MOVED_FROM|IN_EXCL_UNLINK
 				);
-	zCheck_Negative_Thread_Exit(zWD);
+	zCheck_Negative_Exit(zWid);
 
-	zpPathHash[zWD] = zpPath;
+	zpPathHash[zWid] = zpPath;
 
 	struct dirent *zpEntry;
 	char *zpNewPath;
-	pthread_t zTD;
+	pthread_t zTid;
 
 	DIR *zpDir = opendir(zpPath);
-	zCheck_Null_Thread_Exit(zpDir);
+	zCheck_Null_Exit(zpDir);
 
 	while (NULL != (zpEntry = readdir(zpDir))) {
 		if (DT_DIR == zpEntry->d_type) {
@@ -143,30 +145,49 @@ zinotify_add_watch_recursively(char *zpPath) {
 			strcat(zpNewPath, "/");
 			strcat(zpNewPath, zpEntry->d_name);
 
-			pthread_create(&zTD, NULL, zftw_thread, zpNewPath);
+			zCheck_Pthread_Func_Warning(
+					pthread_create(&zTid, NULL, zthread_add_sub_watch, zpNewPath)
+					);
 		}
 	}
 
 	closedir(zpDir);
-	zCheck_Negative_Thread_Exit(sem_post(&zSem));
+	zCheck_Negative_Exit(sem_post(&zSem));
+}
+
+void *
+zthread_git(void *zpIf) {
+	zCheck_Pthread_Func_Warning(
+			pthread_detach(pthread_self())
+			);
+
+	zCheck_Negative_Thread_Exit(chdir((char*) zpIf));
+	system(
+			"git init .;"
+			"git config --global user.name $USER;"
+			"git config --global user.email $PWD;"
+			"git add .;"
+			"git commit -m \"Inotify auto commit: `date +\"%m-%d %H:%M:%S\"`\""
+			);
+	return NULL;
 }
 
 void
 zinotify_action(char *zpPath, _i zRecursiveMark) {
 	if (0 == zRecursiveMark) {
-		_i zWD = inotify_add_watch(
+		_i zWid = inotify_add_watch(
 				zInotifyFD,
 				zpPath,
 				IN_CREATE|IN_DELETE|IN_DELETE_SELF|IN_MODIFY|IN_MOVED_TO|IN_MOVED_FROM|IN_EXCL_UNLINK
 				);
-		zCheck_Negative_Thread_Exit(zWD);
+		zCheck_Negative_Exit(zWid);
 
-		zpPathHash[zWD] = zpPath;
+		zpPathHash[zWid] = zpPath;
 		goto zMark;
 	}
 	else {
 		pid_t zPid = fork();
-		zCheck_Negative_Thread_Exit(zPid);
+		zCheck_Negative_Exit(zPid);
 
 		if (0 == zPid) {
 			zinotify_add_watch_recursively(zpPath);
@@ -183,38 +204,28 @@ zMark:;
 		
 			for (;;) {
 				zLen = read(zInotifyFD, zBuf, sizeof(zBuf));
-				zCheck_Negative_Thread_Exit(zLen);
+				zCheck_Negative_Exit(zLen);
 		
 				for (zpOffset = zBuf; zpOffset < zBuf + zLen; 
 						zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 					zpEv = (const struct inotify_event *)zpOffset;
 		
-					zPid = fork();
-					zCheck_Negative_Thread_Exit(zPid);
+					pthread_t zTid;
+					zCheck_Pthread_Func_Warning(
+							pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd])
+							);
+
+					if (zpEv->mask & IN_ISDIR && 
+							(zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
 		
-					if (0 == zPid) {
-						zCheck_Negative_Thread_Exit(chdir(zpPathHash[zpEv->wd]));
-						system(
-								"git init . ;"
-								"git config --global user.name $USER;"
-								"git config --global user.email $PWD;"
-								"git add --all :/;"
-								"git commit -m \"Inotify auto commit: `date +\"%m-%d %H:%M:%S\"`\""
-								);
-					}
-					else {
-						if (zpEv->mask & IN_ISDIR && 
-								(zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
+			  			// If a new subdir is created or moved in, add it to the watch list.
+						zMem_Alloc(zpNewPath, char, 2 + strlen(zpPathHash[zpEv->wd]) + zpEv->len);
 		
-			  				// If a new subdir is created or moved in, add it to the watch list.
-							zMem_Alloc(zpNewPath, char, 2 + strlen(zpPathHash[zpEv->wd]) + zpEv->len);
+						strcpy(zpNewPath, zpPathHash[zpEv->wd]);
+						strcat(zpNewPath, "/");
+						strcat(zpNewPath, zpEv->name);
 		
-							strcpy(zpNewPath, zpPathHash[zpEv->wd]);
-							strcat(zpNewPath, "/");
-							strcat(zpNewPath, zpEv->name);
-		
-							zinotify_add_watch_recursively(zpNewPath);
-						}
+						zinotify_add_watch_recursively(zpNewPath);
 					}
 				}
 			}
@@ -224,15 +235,16 @@ zMark:;
 
 // For each object, create one thread to monitor it.
 static void *
-zobj_thread(void *zpObjIf) {
-	pthread_detach(pthread_self());
+zthread_add_top_watch(void *zpObjIf) {
+	zCheck_Pthread_Func_Warning(
+			pthread_detach(pthread_self())
+			);
 
 	zinotify_action(
 			((zObjInfo *) zpObjIf)->path,
 			((zObjInfo *) zpObjIf)->RecursiveMark
 			);
-
-	pthread_exit(NULL);
+	return NULL;
 }
 
 void
@@ -249,7 +261,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 	char zBuf[zCommonBufSiz] 
 		__attribute__ ((aligned(__alignof__(struct inotify_event))));
 
-	zCheck_Negative_Thread_Exit(
+	zCheck_Negative_Exit(
 			read(zInotifyFD, zBuf, sizeof(zBuf))
 			);
 }
@@ -286,11 +298,8 @@ zReload:
 	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
 			NULL != zpObjIf[0]; zpObjIf[0] = zpObjIf[0]->p_next) {
 
-		pthread_create(
-				&(zpObjIf[0]->ControlTD), 
-				NULL, 
-				zobj_thread,
-				zpObjIf[0]
+		zCheck_Pthread_Func_Warning(
+				pthread_create( &(zpObjIf[0]->ControlTD), NULL, zthread_add_top_watch, zpObjIf[0])
 				);
 	}
 

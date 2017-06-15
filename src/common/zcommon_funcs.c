@@ -137,7 +137,7 @@ zsock_connect(char *zpHost, char *zpPort, _i zFlags) {
 
 	zErr = getaddrinfo(zpHost, zpPort, zpHints, &zpRes);
 	if (-1 == zErr){
-		zPrint_Err(NULL, gai_strerror(zErr));
+		zPrint_Err(errno, NULL, gai_strerror(zErr));
 	}
 
 	zpTmp = zpRes;
