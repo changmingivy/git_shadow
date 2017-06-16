@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -142,7 +142,7 @@ zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
 	zCheck_Null_Exit(zpDir);
 
 	while (NULL != (zpEntry = readdir(zpDir))) {
-		if (DT_DIR == zpEntry->d_type 
+		if (DT_DIR == zpEntry->d_type
 				&& strcmp(".", zpEntry->d_name) 
 				&& strcmp("..", zpEntry->d_name) 
 				&& strcmp(".git", zpEntry->d_name)) {
@@ -193,7 +193,7 @@ zthread_add_top_watch(void *zpObjIf) {
 		zCheck_Null_Exit(zpDir);
 
 		while (NULL != (zpEntry = readdir(zpDir))) {
-			if (DT_DIR == zpEntry->d_type 
+			if (DT_DIR == zpEntry->d_type
 					&& strcmp(".", zpEntry->d_name) 
 					&& strcmp("..", zpEntry->d_name) 
 					&& strcmp(".git", zpEntry->d_name)) {
@@ -231,20 +231,22 @@ zthread_git(void *zpIf) {
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpIf;
 	struct stat zStat;
 
-	if (-1 == stat(zpSubIf->path, &zStat) && errno == ENOENT) {
-		for (_i i = 0; i < zHashSiz; i++) {
-			if (NULL != zpPathHash[i] 
-					&& zpPathHash[i]->UpperWid == zpSubIf->UpperWid) {
-				//free(zpPathHash[i]);  //????????????
+	pthread_mutex_lock(&zMutLock);
+	if (NULL != zpPathHash[zpSubIf->UpperWid]) {
+		if (-1 == stat(zpPathHash[zpSubIf->UpperWid]->path, &zStat)) {
+			for (_i i = 0; i < zHashSiz; i++) {
+				if (NULL != zpPathHash[i] && zpPathHash[i]->UpperWid == zpSubIf->UpperWid) {
+//					free(zpPathHash[i]);
+//					zpPathHash[i] = NULL;
+				}
 			}
 		}
+		else {
+			zCheck_Negative_Thread_Exit(chdir(zpPathHash[zpSubIf->UpperWid]->path));
+			system("sh git_action.sh");  // What you want git to do?
+		}
 	}
-	else {
-		zCheck_Negative_Thread_Exit(chdir(zpSubIf->path));
-		pthread_mutex_lock(&zMutLock);
-		system("sh $PWD/git_action.sh");  // What you want git to do?
-		pthread_mutex_unlock(&zMutLock);
-	}
+	pthread_mutex_unlock(&zMutLock);
 	return NULL;
 }
 
@@ -262,47 +264,26 @@ zthread_wait_event(void *x) {
 		zLen = read(zInotifyFD, zBuf, sizeof(zBuf));
 		zCheck_Negative_Exit(zLen);
 
-		for (zpOffset = zBuf; zpOffset < zBuf + zLen; 
-				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
+		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & IN_ISDIR) {
-				if(zpEv->mask & (IN_CREATE | IN_MOVED_TO)) {
-			  		// If a new subdir is created or moved in, add it to the watch list.
-					// Must do "malloc" here.
-					zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
-							+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
-					zCheck_Null_Exit(zpSubIf);
+			if (zpEv->mask & IN_ISDIR & (IN_CREATE | IN_MOVED_TO)) {
+		  		// If a new subdir is created or moved in, add it to the watch list.
+				// Must do "malloc" here.
+				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
+						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
+				zCheck_Null_Exit(zpSubIf);
 	
-					zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
+				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
 	
-					strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
-					strcat(zpSubIf->path, "/");
-					strcat(zpSubIf->path, zpEv->name);
+				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
+				strcat(zpSubIf->path, "/");
+				strcat(zpSubIf->path, zpEv->name);
 
-					zinotify_add_watch_recursively(zpSubIf);
-				}
-				else if (zpEv->mask & (IN_MODIFY | IN_DELETE | IN_MOVED_FROM)) { }
-				else { continue; }
-	
-				// Git add and commit.
-				zCheck_Pthread_Func_Exit(
-						pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd])
-						);
+				zinotify_add_watch_recursively(zpSubIf);
 			}
-			else {
-				if (zpEv->mask & (
-							IN_CREATE |
-							IN_MODIFY | 
-							IN_CLOSE_WRITE | 
-							IN_DELETE_SELF | 
-							IN_MOVE_SELF |
-							IN_DELETE)) {
-				// Git add and commit.
-	//			zCheck_Pthread_Func_Exit(
-	//					pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd])
-	//					);
-				}
+			else { 
+				zCheck_Pthread_Func_Exit(pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd]));
 			}
 		}
 	}
@@ -315,7 +296,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 			inotify_add_watch(
 				zConfFD,
 				zpConfPath, 
-				IN_CLOSE_WRITE | IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF
+				IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF
 				)
 			); 
 
@@ -334,7 +315,10 @@ zconfig_file_monitor(const char *zpConfPath) {
 				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & (IN_CLOSE_WRITE | IN_MODIFY | IN_CREATE | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
+			if (zpEv->mask 
+					& (IN_MODIFY | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) {
+				return;
+			}
 		}
 	}
 }
