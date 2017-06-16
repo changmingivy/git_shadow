@@ -78,7 +78,7 @@ zread_conf_file(const char *zpConfPath) {
 	char *zpRes = NULL;
 	FILE *zpFile = fopen(zpConfPath, "r");
 
-	zpInitIf[0] = zpcre_init("\\s*\\d\\s*/[/\\w]+");
+	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
 	zpInitIf[1] = zpcre_init("\\d(?=\\s+)");
 	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
 
@@ -185,7 +185,6 @@ zthread_add_top_watch(void *zpObjIf) {
 
 	strcpy(zpTopIf->path, zpPath);
 	zpPathHash[zpTopIf->UpperWid] = zpTopIf;
-	fprintf(stderr, "%s\n", zpPathHash[zpTopIf->UpperWid]->path);
 
 	if (((zObjInfo *) zpObjIf)->RecursiveMark) {
 		size_t zLen = strlen(zpPath);
@@ -281,9 +280,6 @@ zthread_wait_event(void *x) {
 					strcat(zpSubIf->path, "/");
 					strcat(zpSubIf->path, zpEv->name);
 
-					fprintf(stderr, "\033[31;01m add! \033[00m\n");
-					fprintf(stderr, "%s, %d\n", zpPathHash[zpEv->wd]->path, zpPathHash[zpEv->wd]->UpperWid);
-
 					zinotify_add_watch_recursively(zpSubIf);
 				}
 				else if (zpEv->mask & (IN_MODIFY | IN_DELETE | IN_MOVED_FROM)) { }
@@ -338,11 +334,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & (IN_CLOSE_WRITE | IN_MODIFY)) { return; }
-			else if (zpEv->mask & (IN_MOVE_SELF | IN_DELETE_SELF)) {
-				fprintf(stderr, "\033[31;01mConfig file disappeared!\nMonitor daemon exited.\n");
-				exit(1);
-			}
+			if (zpEv->mask & (IN_CLOSE_WRITE | IN_MODIFY | IN_CREATE | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
 		}
 	}
 }
