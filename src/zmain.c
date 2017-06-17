@@ -20,10 +20,34 @@
 
 #define zCommonBufSiz 4096 
 #define zHashSiz 8192
-#define zFileOpenMax 64
+#define zFileOpenMax 1024
+#define zThreadPollSiz 64
 
 #define zWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK
+
+//Thread pool work.
+#define zAdd_To_Thread_Pool(zFunc, zParam) do {\
+		pthread_mutex_lock(&(zLock[0]));\
+		while (-1 == zJobQueue) {\
+			pthread_cond_wait(&(zCond[0]), &(zLock[0]));\
+		}\
+\
+		zThreadPoll[zJobQueue].OpsFunc = zFunc;\
+		zThreadPoll[zJobQueue].p_param = zParam;\
+		zThreadPoll[zJobQueue].MarkStart = 1;\
+\
+		pthread_mutex_lock(&(zLock[1]));\
+		zJobQueue = -1;\
+		pthread_cond_signal(&(zCond[1]));\
+		pthread_mutex_unlock(&(zLock[1]));\
+\
+		pthread_mutex_unlock(&(zLock[0]));\
+\
+		pthread_mutex_lock(&(zLock[2]));\
+		pthread_mutex_unlock(&(zLock[2]));\
+		pthread_cond_signal(&(zCond[2]));\
+}while(0)
 
 /*******************************
  * DATA STRUCT DEFINE
@@ -39,12 +63,14 @@ typedef struct zSubObjInfo {
 	char path[];
 }zSubObjInfo;
 
-
 /***********************
  * FUNCTION DECLARE
  **********************/
 extern char * zget_one_line_from_FILE(FILE *);
-void zinotify_add_watch_recursively(zSubObjInfo *);
+static void * zthread_func(void *zpIndex);
+
+void zthread_poll_init(void);
+void zthread_poll_destroy(void);
 
 
 /***************
@@ -53,17 +79,87 @@ void zinotify_add_watch_recursively(zSubObjInfo *);
 static _i zInotifyFD;
 
 static sem_t zSem;
-static pthread_mutex_t zMutLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t zCond = PTHREAD_COND_INITIALIZER;
+
+static pthread_mutex_t zGitLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 
 static zSubObjInfo *zpPathHash[zHashSiz];
 static char zBitHash[zHashSiz];
 
-pthread_t zTid;
+/**********************
+ * Simple thread pool
+ **********************/
+typedef void * (* zThreadOps) (void *);
 
+typedef struct zThreadJobInfo {
+	pthread_t Tid;
+	_i MarkStart;
+	zThreadOps OpsFunc;
+	void *p_param;
+}zThreadJobInfo;
+
+static zThreadJobInfo zThreadPoll[zThreadPollSiz];
+static _i zIndex[zThreadPollSiz];
+static _i zJobQueue = -1;
+
+static pthread_mutex_t zLock[3] = {PTHREAD_MUTEX_INITIALIZER};
+static pthread_cond_t zCond[3] = {PTHREAD_COND_INITIALIZER};
+
+void
+zthread_poll_init(void) {
+	for (_i i = 0; i < zThreadPollSiz; i++) {
+		zIndex[i] = i;
+		zThreadPoll[i].MarkStart= 0;
+		zCheck_Pthread_Func_Exit(
+				pthread_create(&(zThreadPoll[i].Tid), NULL, zthread_func, &(zIndex[i]))
+				);
+	}
+}
+
+void
+zthread_poll_destroy(void) {
+	for (_i i = 0; i < zThreadPollSiz; i++) {
+		pthread_cancel(zThreadPoll[i].Tid);
+	}
+}
+
+static void *
+zthread_func(void *zpIndex) {
+	zCheck_Pthread_Func_Warning(
+			pthread_detach(pthread_self())
+			);
+	_i i = *((_i *)zpIndex);
+
+zMark:;
+	pthread_mutex_lock(&(zLock[1]));
+	while (-1 != zJobQueue) {  // -1: no other thread is ahead of me.
+		pthread_cond_wait(&zCond[1], &(zLock[1]));
+	}
+
+	pthread_mutex_lock(&(zLock[0]));
+	zJobQueue = i;
+	pthread_cond_signal(&zCond[0]);
+	pthread_mutex_unlock(&(zLock[0]));
+
+	pthread_mutex_unlock(&(zLock[1]));
+
+	// 0: param is not ready, can not start; 1: param ready, can start.
+	pthread_mutex_lock(&(zLock[2]));
+	while (1 != zThreadPoll[i].MarkStart) {
+		pthread_cond_wait(&zCond[2], &(zLock[2]));
+	}
+
+	zThreadPoll[i].MarkStart = 0;
+	pthread_mutex_unlock(&(zLock[2]));
+
+	zThreadPoll[i].OpsFunc(zThreadPoll[i].p_param);
+	
+	goto zMark;
+	return NULL;
+}
 
 /*********************
- * Function define
+ * Major 
  ********************/
 zObjInfo *
 zread_conf_file(const char *zpConfPath) {
@@ -118,18 +214,11 @@ zread_conf_file(const char *zpConfPath) {
 	return zpObjIf[2];
 }
 
-static void *
-zthread_add_sub_watch(void *zpSubIf) {
+void *
+zinotify_add_watch_recursively(void *zpIf) {
 //TEST: PASS
-	zCheck_Pthread_Func_Warning(pthread_detach(pthread_self()));
-	zinotify_add_watch_recursively((zSubObjInfo *)zpSubIf);
-	return NULL;
-}
+	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
-void
-zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
-//TEST: PASS
-	zCheck_Negative_Exit(sem_wait(&zSem));
 	_i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zWatchBit);
 	zCheck_Negative_Exit(zWid);
 
@@ -138,6 +227,7 @@ zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
 	size_t zLen = strlen(zpCurIf->path);
 	struct dirent *zpEntry;
 
+	zCheck_Negative_Exit(sem_wait(&zSem));
 	DIR *zpDir = opendir(zpCurIf->path);
 	zCheck_Null_Exit(zpDir);
 
@@ -157,23 +247,20 @@ zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
 			strcat(zpSubIf->path, "/");
 			strcat(zpSubIf->path, zpEntry->d_name);
 
-			zCheck_Pthread_Func_Exit(
-					pthread_create(&zTid, NULL, zthread_add_sub_watch, zpSubIf)
-					);
+			zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
 		}
 	}
 
 //	free(zpCurIf);  // Can safely free, but NOT free it!
 	closedir(zpDir);
 	zCheck_Negative_Exit(sem_post(&zSem));
+
+	return NULL;
 }
 
 static void *
-zthread_add_top_watch(void *zpObjIf) {
+zinotify_add_top_watch(void *zpObjIf) {
 //TEST: PASS
-	zCheck_Negative_Exit(sem_wait(&zSem));
-	zCheck_Pthread_Func_Warning(pthread_detach(pthread_self()));
-
 	char *zpPath = ((zObjInfo *) zpObjIf)->path;
 
 	zSubObjInfo *zpTopIf = malloc(
@@ -190,6 +277,7 @@ zthread_add_top_watch(void *zpObjIf) {
 		size_t zLen = strlen(zpPath);
 		struct dirent *zpEntry;
 
+		zCheck_Negative_Exit(sem_wait(&zSem));
 		DIR *zpDir = opendir(zpPath);
 		zCheck_Null_Exit(zpDir);
 
@@ -210,53 +298,47 @@ zthread_add_top_watch(void *zpObjIf) {
 				strcat(zpSubIf->path, "/");
 				strcat(zpSubIf->path, zpEntry->d_name);
 
-				zCheck_Pthread_Func_Exit(
-						pthread_create(&zTid, NULL, zthread_add_sub_watch, zpSubIf)
-						);
+				zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
 			}
 		}
 		closedir(zpDir);
+		zCheck_Negative_Exit(sem_post(&zSem));
 	}
-	zCheck_Negative_Exit(sem_post(&zSem));
 	return NULL;
 }
 
 void *
-zthread_git(void *zpCurIf) {
+zgit_action(void *zpCurIf) {
 //TEST: PASS
-	zCheck_Pthread_Func_Warning(
-			pthread_detach(pthread_self())
-			);
-
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
 	struct stat zStat;
 
-	pthread_mutex_lock(&zMutLock);
-	while (1 == zBitHash[zpSubIf->UpperWid]) {
-		pthread_cond_wait(&zCond, &zMutLock);
+	pthread_mutex_lock(&zGitLock);
+	while (0 != zBitHash[zpSubIf->UpperWid]) {
+		pthread_cond_wait(&(zCond[0]), &zGitLock);
 	}
 	zBitHash[zpSubIf->UpperWid] = 1;
-	pthread_mutex_unlock(&zMutLock);
+	pthread_mutex_unlock(&zGitLock);
 
 	if (-1 != stat(zpSubIf->path, &zStat)) {
 		zCheck_Negative_Thread_Exit(chdir(zpSubIf->path));
 		char Buf[strlen(zpPathHash[zpSubIf->UpperWid]->path) + 64];
 		strcpy(Buf, "sh ");
 		strcat(Buf, zpPathHash[zpSubIf->UpperWid]->path);
-		strcat(Buf, "/git_action.sh > /dev/null");
+		strcat(Buf, "/git_action.sh");
 		system(Buf);
 	}
 
-	pthread_mutex_lock(&zMutLock);
+	pthread_mutex_lock(&zGitLock);
 	zBitHash[zpSubIf->UpperWid] = 0;
-	pthread_cond_signal(&zCond);
-	pthread_mutex_unlock(&zMutLock);
+	pthread_cond_signal(&zGitCond);
+	pthread_mutex_unlock(&zGitLock);
 
 	return NULL;
 }
 
 void *
-zthread_wait_event(void *_) {
+zinotify_wait(void *_) {
 //TEST: PASS
 	char zBuf[zCommonBufSiz]
 		__attribute__ ((aligned(__alignof__(struct inotify_event))));
@@ -289,7 +371,7 @@ zthread_wait_event(void *_) {
 					strcat(zpSubIf->path, "/");
 					strcat(zpSubIf->path, zpEv->name);
 
-					zinotify_add_watch_recursively(zpSubIf);
+					zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
 			}
 			else if (zpEv->mask & IN_MOVE_SELF || zpEv->mask & IN_DELETE_SELF){
 				free(zpPathHash[zpEv->wd]);
@@ -297,7 +379,8 @@ zthread_wait_event(void *_) {
 				continue;
 			}
 			else if (zpEv->mask & IN_IGNORED) { continue; }
-			zCheck_Pthread_Func_Exit(pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd]));
+
+			zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 		}
 	}
 }
@@ -354,23 +437,23 @@ zReLoad:;
 	zInotifyFD = inotify_init();
 	zCheck_Negative_Exit(zInotifyFD);
 
+	zthread_poll_init();
 	zCheck_Negative_Exit(sem_init(&zSem, 0, zFileOpenMax));
 
 	zObjInfo *zpObjIf[2] = {NULL};
 	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
 			NULL != zpObjIf[0]; zpObjIf[0] = zpObjIf[0]->p_next) {
 
-		zCheck_Pthread_Func_Exit(
-				pthread_create(&zTid, NULL, zthread_add_top_watch, zpObjIf[0])
-				);
+		zAdd_To_Thread_Pool(zinotify_add_top_watch, zpObjIf[0]);
 	}
 
-	pthread_create(&zTid, NULL, zthread_wait_event, NULL);
+	zAdd_To_Thread_Pool(zinotify_wait, NULL);
 
 	zconfig_file_monitor(zppArgv[2]);
 
-	close(zInotifyFD);
-	zCheck_Negative_Exit(sem_destroy(&zSem));
+	//close(zInotifyFD);
+	//zthread_poll_destroy();
+	//zCheck_Negative_Exit(sem_destroy(&zSem));
 
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
