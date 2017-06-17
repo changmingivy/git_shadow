@@ -20,7 +20,7 @@
 
 #define zCommonBufSiz 4096 
 #define zHashSiz 8192
-#define zMaxThreadsNum 64
+#define zFileOpenMax 64
 
 #define zWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK
@@ -31,8 +31,6 @@
 typedef struct zObjInfo {
 	struct zObjInfo *p_next;
 	_i RecursiveMark;  // Mark recursive monitor.
-//	_i ValidState;  // Mark which node should be added or deleted, 0 for valid, -1 for invalid.
-//	pthread_t ControlTD;  // The thread which master the watching.
 	char path[];  // The directory to be monitored.
 }zObjInfo;
 
@@ -55,10 +53,11 @@ void zinotify_add_watch_recursively(zSubObjInfo *);
 static _i zInotifyFD;
 
 static sem_t zSem;
-static pthread_mutex_t zMutLock = PTHREAD_MUTEX_INITIALIZER;;
+static pthread_mutex_t zMutLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t zCond = PTHREAD_COND_INITIALIZER;
 
 static zSubObjInfo *zpPathHash[zHashSiz];
-//static char zBitHash[zHashSiz];
+static char zBitHash[zHashSiz];
 
 pthread_t zTid;
 
@@ -138,6 +137,7 @@ zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
 
 	size_t zLen = strlen(zpCurIf->path);
 	struct dirent *zpEntry;
+
 	DIR *zpDir = opendir(zpCurIf->path);
 	zCheck_Null_Exit(zpDir);
 
@@ -163,8 +163,8 @@ zinotify_add_watch_recursively(zSubObjInfo *zpCurIf) {
 		}
 	}
 
-	closedir(zpDir);
 //	free(zpCurIf);  // Can safely free, but NOT free it!
+	closedir(zpDir);
 	zCheck_Negative_Exit(sem_post(&zSem));
 }
 
@@ -189,6 +189,7 @@ zthread_add_top_watch(void *zpObjIf) {
 	if (((zObjInfo *) zpObjIf)->RecursiveMark) {
 		size_t zLen = strlen(zpPath);
 		struct dirent *zpEntry;
+
 		DIR *zpDir = opendir(zpPath);
 		zCheck_Null_Exit(zpDir);
 
@@ -216,42 +217,46 @@ zthread_add_top_watch(void *zpObjIf) {
 		}
 		closedir(zpDir);
 	}
-
 	zCheck_Negative_Exit(sem_post(&zSem));
 	return NULL;
 }
 
 void *
-zthread_git(void *zpIf) {
+zthread_git(void *zpCurIf) {
 //TEST: PASS
 	zCheck_Pthread_Func_Warning(
 			pthread_detach(pthread_self())
 			);
 
-	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpIf;
+	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
 	struct stat zStat;
 
 	pthread_mutex_lock(&zMutLock);
-	if (NULL != zpPathHash[zpSubIf->UpperWid]) {
-		if (-1 == stat(zpPathHash[zpSubIf->UpperWid]->path, &zStat)) {
-			for (_i i = 0; i < zHashSiz; i++) {
-				if (NULL != zpPathHash[i] && zpPathHash[i]->UpperWid == zpSubIf->UpperWid) {
-//					free(zpPathHash[i]);
-//					zpPathHash[i] = NULL;
-				}
-			}
-		}
-		else {
-			zCheck_Negative_Thread_Exit(chdir(zpPathHash[zpSubIf->UpperWid]->path));
-			system("sh git_action.sh");  // What you want git to do?
-		}
+	while (1 == zBitHash[zpSubIf->UpperWid]) {
+		pthread_cond_wait(&zCond, &zMutLock);
 	}
+	zBitHash[zpSubIf->UpperWid] = 1;
 	pthread_mutex_unlock(&zMutLock);
+
+	if (-1 != stat(zpSubIf->path, &zStat)) {
+		zCheck_Negative_Thread_Exit(chdir(zpSubIf->path));
+		char Buf[strlen(zpPathHash[zpSubIf->UpperWid]->path) + 64];
+		strcpy(Buf, "sh ");
+		strcat(Buf, zpPathHash[zpSubIf->UpperWid]->path);
+		strcat(Buf, "/git_action.sh > /dev/null");
+		system(Buf);
+	}
+
+	pthread_mutex_lock(&zMutLock);
+	zBitHash[zpSubIf->UpperWid] = 0;
+	pthread_cond_signal(&zCond);
+	pthread_mutex_unlock(&zMutLock);
+
 	return NULL;
 }
 
 void *
-zthread_wait_event(void *x) {
+zthread_wait_event(void *_) {
 //TEST: PASS
 	char zBuf[zCommonBufSiz]
 		__attribute__ ((aligned(__alignof__(struct inotify_event))));
@@ -267,24 +272,32 @@ zthread_wait_event(void *x) {
 		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & IN_ISDIR & (IN_CREATE | IN_MOVED_TO)) {
-		  		// If a new subdir is created or moved in, add it to the watch list.
-				// Must do "malloc" here.
-				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
-						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
-				zCheck_Null_Exit(zpSubIf);
+			if (zpEv->mask & IN_Q_OVERFLOW) {
+				fprintf(stderr, "Queue overflow, some events may be lost!!");
+				continue;
+			}
+			else if (zpEv->mask & IN_ISDIR & (IN_CREATE | IN_MOVED_TO | IN_UNMOUNT)) {
+		  			// If a new subdir is created or moved in, add it to the watch list.
+					// Must do "malloc" here.
+					zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
+							+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
+					zCheck_Null_Exit(zpSubIf);
 	
-				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
+					zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
 	
-				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
-				strcat(zpSubIf->path, "/");
-				strcat(zpSubIf->path, zpEv->name);
+					strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
+					strcat(zpSubIf->path, "/");
+					strcat(zpSubIf->path, zpEv->name);
 
-				zinotify_add_watch_recursively(zpSubIf);
+					zinotify_add_watch_recursively(zpSubIf);
 			}
-			else { 
-				zCheck_Pthread_Func_Exit(pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd]));
+			else if (zpEv->mask & IN_MOVE_SELF || zpEv->mask & IN_DELETE_SELF){
+				free(zpPathHash[zpEv->wd]);
+				zpPathHash[zpEv->wd] = NULL;
+				continue;
 			}
+			else if (zpEv->mask & IN_IGNORED) { continue; }
+			zCheck_Pthread_Func_Exit(pthread_create(&zTid, NULL, zthread_git, zpPathHash[zpEv->wd]));
 		}
 	}
 }
@@ -315,10 +328,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask 
-					& (IN_MODIFY | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) {
-				return;
-			}
+			if (zpEv->mask & (IN_MODIFY | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
 		}
 	}
 }
@@ -344,7 +354,7 @@ zReLoad:;
 	zInotifyFD = inotify_init();
 	zCheck_Negative_Exit(zInotifyFD);
 
-	zCheck_Negative_Exit(sem_init(&zSem, 0, zMaxThreadsNum));
+	zCheck_Negative_Exit(sem_init(&zSem, 0, zFileOpenMax));
 
 	zObjInfo *zpObjIf[2] = {NULL};
 	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
