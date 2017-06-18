@@ -96,3 +96,5 @@ zpcre_free_metasource(zPCREInitInfo *zpInitIf) {
 	pcre2_code_free(zpInitIf->p_pd);
 	free(zpInitIf);
 }
+
+#undef zErrBufLen

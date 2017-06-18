@@ -28,9 +28,10 @@
 #define zWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK | IN_DONT_FOLLOW
 
-/*******************************
- * DATA STRUCT DEFINE
- ******************************/
+
+/**********************
+ * DATA STRUCT DEFINE *
+ **********************/
 typedef struct zObjInfo {
 	struct zObjInfo *p_next;
 	_i RecursiveMark;  // Mark recursive monitor.
@@ -42,9 +43,10 @@ typedef struct zSubObjInfo {
 	char path[];
 }zSubObjInfo;
 
-/***********************
- * FUNCTION DECLARE
- **********************/
+
+/********************
+ * FUNCTION DECLARE *
+ ********************/
 extern void zdaemonize(const char *);
 extern void zfork_do_exec(const char *, char **);
 extern char * zget_one_line_from_FILE(FILE *);
@@ -55,8 +57,8 @@ static void zthread_poll_init(void);
 static void zthread_poll_destroy(void);
 
 
-/***************
- * Global var
+/**************
+ * GLOBAL VAR *
  **************/
 static _i zInotifyFD;
 
@@ -66,9 +68,10 @@ static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 static zSubObjInfo *zpPathHash[zHashSiz];
 static char zBitHash[zHashSiz];
 
-/**********************
- * Simple thread pool
- **********************/
+
+/***************
+ * THREAD POOL *
+ ***************/
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
 		pthread_mutex_lock(&(zLock[0]));\
 		while (-1 == zJobQueue) {\
@@ -109,6 +112,7 @@ static pthread_cond_t zCond[3] = {PTHREAD_COND_INITIALIZER};
 
 static void
 zthread_poll_init(void) {
+//TEST: PASS
 	for (_i i = 0; i < zThreadPollSiz; i++) {
 		zIndex[i] = i;
 		zThreadPoll[i].MarkStart= 0;
@@ -120,6 +124,7 @@ zthread_poll_init(void) {
 
 static void
 zthread_poll_destroy(void) {
+//TEST: PASS
 	for (_i i = 0; i < zThreadPollSiz; i++) {
 		pthread_cancel(zThreadPoll[i].Tid);
 	}
@@ -127,6 +132,7 @@ zthread_poll_destroy(void) {
 
 static void *
 zthread_func(void *zpIndex) {
+//TEST: PASS
 	zCheck_Pthread_Func_Warning(
 			pthread_detach(pthread_self())
 			);
@@ -160,64 +166,12 @@ zMark:;
 	return NULL;
 }
 
-/*********************
- * Major 
- ********************/
-static zObjInfo *
-zread_conf_file(const char *zpConfPath) {
-//TEST: PASS
-	zObjInfo *zpObjIf[3] = {NULL};
 
-	zPCREInitInfo *zpInitIf[3] = {NULL};
-	zPCRERetInfo *zpRetIf[3] = {NULL};
-
-	_i zCnt = 0;
-	char *zpRes = NULL;
-	FILE *zpFile = fopen(zpConfPath, "r");
-
-	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
-	zpInitIf[1] = zpcre_init("\\d(?=\\s+)");
-	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
-
-	while (NULL != (zpRes = zget_one_line_from_FILE(zpFile))) {
-		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
-		if (0 == zpRetIf[0]->cnt) {
-			zpcre_free_tmpsource(zpRetIf[0]);
-			continue;
-		} else {
-			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
-			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
-
-			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
-			zpObjIf[0]->p_next = NULL;
-			if (0 == zCnt) {
-				zCnt++;
-				zpObjIf[2] = zpObjIf[1] = zpObjIf[0];
-			}
-			zpObjIf[1]->p_next = zpObjIf[0];
-			zpObjIf[1] = zpObjIf[0];
-
-			zpObjIf[0]->RecursiveMark = atoi(zpRetIf[1]->p_rets[0]);
-			strcpy(zpObjIf[0]->path, zpRetIf[2]->p_rets[0]);
-
-			zpcre_free_tmpsource(zpRetIf[2]);
-			zpcre_free_tmpsource(zpRetIf[1]);
-			zpcre_free_tmpsource(zpRetIf[0]);
-
-			zpObjIf[0] = zpObjIf[0]->p_next;
-		}
-	}
-
-	zpcre_free_metasource(zpInitIf[2]);
-	zpcre_free_metasource(zpInitIf[1]);
-	zpcre_free_metasource(zpInitIf[0]);
-
-	fclose(zpFile);
-	return zpObjIf[2];
-}
-
+/*************
+ * ADD WATCH *
+ *************/
 static void *
-zinotify_add_watch_recursively(void *zpIf) {
+zinotify_add_sub_watch(void *zpIf) {
 //TEST: PASS
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
@@ -251,7 +205,7 @@ zinotify_add_watch_recursively(void *zpIf) {
 			strcat(zpSubIf->path, "/");
 			strcat(zpSubIf->path, zpEntry->d_name);
 
-			zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
+			zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
 		}
 	}
 
@@ -299,7 +253,7 @@ zinotify_add_top_watch(void *zpObjIf) {
 				strcat(zpSubIf->path, "/");
 				strcat(zpSubIf->path, zpEntry->d_name);
 
-				zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
+				zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
 			}
 		}
 		closedir(zpDir);
@@ -307,6 +261,10 @@ zinotify_add_top_watch(void *zpObjIf) {
 	return NULL;
 }
 
+
+/********************
+ * DEAL WITH EVENTS *
+ ********************/
 static void *
 zgit_action(void *zpCurIf) {
 //TEST: PASS
@@ -375,7 +333,7 @@ zinotify_wait(void *_) {
 					strcat(zpSubIf->path, "/");
 					strcat(zpSubIf->path, zpEv->name);
 
-					zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
+					zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
 					goto zMark;
 			}
 			else if ((zpEv->mask & (IN_CREATE | IN_MOVED_TO | IN_MODIFY | IN_IGNORED))) { 
@@ -389,8 +347,66 @@ zMark:
 	}
 }
 
+
+/***************
+ * CONFIG FILE *
+ ***************/
+static zObjInfo *
+zread_conf_file(const char *zpConfPath) {
+//TEST: PASS
+	zObjInfo *zpObjIf[3] = {NULL};
+
+	zPCREInitInfo *zpInitIf[3] = {NULL};
+	zPCRERetInfo *zpRetIf[3] = {NULL};
+
+	_i zCnt = 0;
+	char *zpRes = NULL;
+	FILE *zpFile = fopen(zpConfPath, "r");
+
+	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
+	zpInitIf[1] = zpcre_init("\\d(?=\\s+)");
+	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
+
+	while (NULL != (zpRes = zget_one_line_from_FILE(zpFile))) {
+		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
+		if (0 == zpRetIf[0]->cnt) {
+			zpcre_free_tmpsource(zpRetIf[0]);
+			continue;
+		} else {
+			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
+			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
+
+			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
+			zpObjIf[0]->p_next = NULL;
+			if (0 == zCnt) {
+				zCnt++;
+				zpObjIf[2] = zpObjIf[1] = zpObjIf[0];
+			}
+			zpObjIf[1]->p_next = zpObjIf[0];
+			zpObjIf[1] = zpObjIf[0];
+
+			zpObjIf[0]->RecursiveMark = atoi(zpRetIf[1]->p_rets[0]);
+			strcpy(zpObjIf[0]->path, zpRetIf[2]->p_rets[0]);
+
+			zpcre_free_tmpsource(zpRetIf[2]);
+			zpcre_free_tmpsource(zpRetIf[1]);
+			zpcre_free_tmpsource(zpRetIf[0]);
+
+			zpObjIf[0] = zpObjIf[0]->p_next;
+		}
+	}
+
+	zpcre_free_metasource(zpInitIf[2]);
+	zpcre_free_metasource(zpInitIf[1]);
+	zpcre_free_metasource(zpInitIf[0]);
+
+	fclose(zpFile);
+	return zpObjIf[2];
+}
+
 static void
 zconfig_file_monitor(const char *zpConfPath) {
+//TEST: PASS
 	_i zConfFD = inotify_init();
 	zCheck_Negative_Exit(
 			inotify_add_watch(
@@ -420,10 +436,13 @@ zconfig_file_monitor(const char *zpConfPath) {
 	}
 }
 
-/***********************************************************************************/
+
+/********
+ * MAIN *
+ ********/
 _i
 main(_i zArgc, char **zppArgv) {
-	//zdaemonize(NULL);
+//TEST: PASS
 	if (3 == zArgc && 0 == strcmp("-f", zppArgv[1])) {
 		struct stat zStat[1];
 		zCheck_Negative_Exit(stat(zppArgv[2], zStat));
@@ -433,7 +452,7 @@ main(_i zArgc, char **zppArgv) {
 			exit(1);
 		}
 	} else {
-		fprintf(stderr, "Usage: file_monitor -f <Config File Path>\n");
+		fprintf(stderr, "Usage: file_monitor -f <Config File Absolute Path>\n");
 		exit(1);
 	}
 
@@ -465,4 +484,3 @@ zReLoad:;
 	if (0 == zPid) { goto zReLoad; }
 	else { exit(0); }
 }
-/***********************************************************************************/
