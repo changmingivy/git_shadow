@@ -287,7 +287,7 @@ zgit_action(void *zpCurIf) {
 		}
 		else {
 			char *zp0Argv[] = {"git", "add", "--all", ".", NULL};
-			char *zp1Argv[] = {"git", "commit", "-m", "auto", NULL};
+			char *zp1Argv[] = {"git", "commit", "-m", zpSubIf->path, NULL};
 
 			zfork_do_exec("git", zp0Argv);
 			zfork_do_exec("git", zp1Argv);
