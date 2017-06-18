@@ -21,10 +21,10 @@
 #define zCommonBufSiz 4096 
 #define zHashSiz 8192
 #define zFileOpenMax 1024
-#define zThreadPollSiz 64
+#define zThreadPollSiz 264
 
 #define zWatchBit \
-	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK
+	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK | IN_DONT_FOLLOW
 
 //Thread pool work.
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
@@ -315,7 +315,7 @@ zgit_action(void *zpCurIf) {
 
 	pthread_mutex_lock(&zGitLock);
 	while (0 != zBitHash[zpSubIf->UpperWid]) {
-		pthread_cond_wait(&(zCond[0]), &zGitLock);
+		pthread_cond_wait(&zGitCond, &zGitLock);
 	}
 	zBitHash[zpSubIf->UpperWid] = 1;
 	pthread_mutex_unlock(&zGitLock);
