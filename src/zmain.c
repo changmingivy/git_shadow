@@ -320,11 +320,19 @@ zgit_action(void *zpCurIf) {
 			zpSubIf->path[strlen(dirname(zpSubIf->path))] = '\0';
 		}
 		else {
-			char Buf[strlen(zpPathHash[zpSubIf->UpperWid]->path) + 64];
-			strcpy(Buf, "sh ");
-			strcat(Buf, zpPathHash[zpSubIf->UpperWid]->path);
-			strcat(Buf, "/git_action.sh");
-			system(Buf);
+			pid_t zPid = fork();
+			zCheck_Negative_Exit(zPid);
+
+			if (0 == zPid) { execlp("git", "git", "add", "--all", ".", NULL); }
+			else { 
+				waitpid(zPid, NULL, 0); 
+
+				pid_t zPid = fork();
+				zCheck_Negative_Exit(zPid);
+
+				if (0 == zPid) { execlp("git", "git", "commit", "-m", "auto", NULL); }
+				else { waitpid(zPid, NULL, 0); }
+			}
 
 			break;
 		}
