@@ -7,7 +7,6 @@
 #include <sys/inotify.h>
 
 #include <pthread.h>
-#include <semaphore.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,35 +18,13 @@
 #include "zpcre2.h"
 
 #define zCommonBufSiz 4096 
+
 #define zHashSiz 8192
-#define zFileOpenMax 1024
-#define zThreadPollSiz 264
+//#define zFileOpenMax 1024
+#define zThreadPollSiz 64
 
 #define zWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK | IN_DONT_FOLLOW
-
-//Thread pool work.
-#define zAdd_To_Thread_Pool(zFunc, zParam) do {\
-		pthread_mutex_lock(&(zLock[0]));\
-		while (-1 == zJobQueue) {\
-			pthread_cond_wait(&(zCond[0]), &(zLock[0]));\
-		}\
-\
-		zThreadPoll[zJobQueue].OpsFunc = zFunc;\
-		zThreadPoll[zJobQueue].p_param = zParam;\
-		zThreadPoll[zJobQueue].MarkStart = 1;\
-\
-		pthread_mutex_lock(&(zLock[1]));\
-		zJobQueue = -1;\
-		pthread_cond_signal(&(zCond[1]));\
-		pthread_mutex_unlock(&(zLock[1]));\
-\
-		pthread_mutex_unlock(&(zLock[0]));\
-\
-		pthread_mutex_lock(&(zLock[2]));\
-		pthread_mutex_unlock(&(zLock[2]));\
-		pthread_cond_signal(&(zCond[2]));\
-}while(0)
 
 /*******************************
  * DATA STRUCT DEFINE
@@ -78,8 +55,6 @@ void zthread_poll_destroy(void);
  **************/
 static _i zInotifyFD;
 
-static sem_t zSem;
-
 static pthread_mutex_t zGitLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 
@@ -89,6 +64,28 @@ static char zBitHash[zHashSiz];
 /**********************
  * Simple thread pool
  **********************/
+#define zAdd_To_Thread_Pool(zFunc, zParam) do {\
+		pthread_mutex_lock(&(zLock[0]));\
+		while (-1 == zJobQueue) {\
+			pthread_cond_wait(&(zCond[0]), &(zLock[0]));\
+		}\
+\
+		zThreadPoll[zJobQueue].OpsFunc = zFunc;\
+		zThreadPoll[zJobQueue].p_param = zParam;\
+		zThreadPoll[zJobQueue].MarkStart = 1;\
+\
+		pthread_mutex_lock(&(zLock[1]));\
+		zJobQueue = -1;\
+		pthread_cond_signal(&(zCond[1]));\
+		pthread_mutex_unlock(&(zLock[1]));\
+\
+		pthread_mutex_unlock(&(zLock[0]));\
+\
+		pthread_mutex_lock(&(zLock[2]));\
+		pthread_mutex_unlock(&(zLock[2]));\
+		pthread_cond_signal(&(zCond[2]));\
+}while(0)
+
 typedef void * (* zThreadOps) (void *);
 
 typedef struct zThreadJobInfo {
@@ -219,17 +216,19 @@ zinotify_add_watch_recursively(void *zpIf) {
 //TEST: PASS
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
+	if (-1 == chdir(zpCurIf->path)) { return NULL; }  // Robustness
 	_i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zWatchBit);
 	zCheck_Negative_Exit(zWid);
 
+	if (NULL != zpPathHash[zWid]) { free(zpPathHash[zWid]); }  // Free old memory before using the same index again.
 	zpPathHash[zWid] = zpCurIf;
+
+	if (-1 == chdir(zpCurIf->path)) { return NULL; }  // Robustness
+	DIR *zpDir = opendir(zpCurIf->path);
+	zCheck_Null_Exit(zpDir);
 
 	size_t zLen = strlen(zpCurIf->path);
 	struct dirent *zpEntry;
-
-	zCheck_Negative_Exit(sem_wait(&zSem));
-	DIR *zpDir = opendir(zpCurIf->path);
-	zCheck_Null_Exit(zpDir);
 
 	while (NULL != (zpEntry = readdir(zpDir))) {
 		if (DT_DIR == zpEntry->d_type
@@ -253,8 +252,6 @@ zinotify_add_watch_recursively(void *zpIf) {
 
 //	free(zpCurIf);  // Can safely free, but NOT free it!
 	closedir(zpDir);
-	zCheck_Negative_Exit(sem_post(&zSem));
-
 	return NULL;
 }
 
@@ -277,7 +274,6 @@ zinotify_add_top_watch(void *zpObjIf) {
 		size_t zLen = strlen(zpPath);
 		struct dirent *zpEntry;
 
-		zCheck_Negative_Exit(sem_wait(&zSem));
 		DIR *zpDir = opendir(zpPath);
 		zCheck_Null_Exit(zpDir);
 
@@ -302,7 +298,6 @@ zinotify_add_top_watch(void *zpObjIf) {
 			}
 		}
 		closedir(zpDir);
-		zCheck_Negative_Exit(sem_post(&zSem));
 	}
 	return NULL;
 }
@@ -311,7 +306,6 @@ void *
 zgit_action(void *zpCurIf) {
 //TEST: PASS
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
-	struct stat zStat;
 
 	pthread_mutex_lock(&zGitLock);
 	while (0 != zBitHash[zpSubIf->UpperWid]) {
@@ -320,14 +314,22 @@ zgit_action(void *zpCurIf) {
 	zBitHash[zpSubIf->UpperWid] = 1;
 	pthread_mutex_unlock(&zGitLock);
 
-	if (-1 != stat(zpSubIf->path, &zStat)) {
-		zCheck_Negative_Thread_Exit(chdir(zpSubIf->path));
-		char Buf[strlen(zpPathHash[zpSubIf->UpperWid]->path) + 64];
-		strcpy(Buf, "sh ");
-		strcat(Buf, zpPathHash[zpSubIf->UpperWid]->path);
-		strcat(Buf, "/git_action.sh");
-		system(Buf);
-	}
+	size_t zLen = strlen(zpPathHash[zpSubIf->UpperWid]->path);
+
+	do {
+		if (-1 == chdir(zpSubIf->path)) {  // Robustness
+			zpSubIf->path[strlen(dirname(zpSubIf->path))] = '\0';
+		}
+		else {
+			char Buf[strlen(zpPathHash[zpSubIf->UpperWid]->path) + 64];
+			strcpy(Buf, "sh ");
+			strcat(Buf, zpPathHash[zpSubIf->UpperWid]->path);
+			strcat(Buf, "/git_action.sh");
+			system(Buf);
+
+			break;
+		}
+	} while (zLen <= strlen(zpSubIf->path)) ;
 
 	pthread_mutex_lock(&zGitLock);
 	zBitHash[zpSubIf->UpperWid] = 0;
@@ -354,11 +356,8 @@ zinotify_wait(void *_) {
 		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & IN_Q_OVERFLOW) {
-				fprintf(stderr, "Queue overflow, some events may be lost!!");
-				continue;
-			}
-			else if (zpEv->mask & IN_ISDIR & (IN_CREATE | IN_MOVED_TO | IN_UNMOUNT)) {
+			if ((zpEv->mask & IN_ISDIR) 
+					&& (zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
 		  			// If a new subdir is created or moved in, add it to the watch list.
 					// Must do "malloc" here.
 					zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
@@ -372,15 +371,15 @@ zinotify_wait(void *_) {
 					strcat(zpSubIf->path, zpEv->name);
 
 					zAdd_To_Thread_Pool(zinotify_add_watch_recursively, zpSubIf);
+					goto zMark;
 			}
-			else if (zpEv->mask & IN_MOVE_SELF || zpEv->mask & IN_DELETE_SELF){
-				free(zpPathHash[zpEv->wd]);
-				zpPathHash[zpEv->wd] = NULL;
-				continue;
+			else if ((zpEv->mask & (IN_CREATE | IN_MOVED_TO | IN_MODIFY | IN_IGNORED))) { 
+zMark:
+				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
-			else if (zpEv->mask & IN_IGNORED) { continue; }
-
-			zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
+			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
+				fprintf(stderr, "Queue overflow, some events may be lost!!");
+			}
 		}
 	}
 }
@@ -438,7 +437,6 @@ zReLoad:;
 	zCheck_Negative_Exit(zInotifyFD);
 
 	zthread_poll_init();
-	zCheck_Negative_Exit(sem_init(&zSem, 0, zFileOpenMax));
 
 	zObjInfo *zpObjIf[2] = {NULL};
 	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
@@ -449,11 +447,10 @@ zReLoad:;
 
 	zAdd_To_Thread_Pool(zinotify_wait, NULL);
 
-	zconfig_file_monitor(zppArgv[2]);
+	zconfig_file_monitor(zppArgv[2]);  // Robustness
 
 	//close(zInotifyFD);
 	//zthread_poll_destroy();
-	//zCheck_Negative_Exit(sem_destroy(&zSem));
 
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
