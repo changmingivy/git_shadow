@@ -371,7 +371,7 @@ zread_conf_file(const char *zpConfPath) {
 	zpInitIf[1] = zpcre_init("^\\d(?=\\s+)");
 	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
 
-	for (_i i = 0; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); i++) {
+	for (_i i = 1; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); i++) {
 		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
