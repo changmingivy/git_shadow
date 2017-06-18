@@ -1,5 +1,7 @@
 #!/bin/sh
 
+zCurDir=$PWD
+
 if [[ 0 -eq `which gcc | wc -l` ]]; then
 	yes|yum install gcc
 elif [[ 0 -eq `which git | wc -l` ]]; then
@@ -8,7 +10,7 @@ fi
 
 mkdir -p ../bin
 
-if [[ 0 -eq `ls ../bin | grep -c git_shadow` ]]; then
+if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
 	yes|yum install pcre2-devel
 	gcc -O2 \
 		-std=c11 \
@@ -21,10 +23,16 @@ if [[ 0 -eq `ls ../bin | grep -c git_shadow` ]]; then
 		../src/common/*
 fi
 
-killall git_shadow
-
 for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
-	rm -rf $zDir/.git/index.lock
+	if [[ 1 -eq `ls -d $zDir 2>/dev/null | wc -l` ]]; then
+		cd $zDir
+		git init . >/dev/null 2>&1
+		git config user.name "git_shadow"
+		git config user.email $PWD
+		rm -rf $zDir/.git/index.lock
+	fi
 done
 
-../bin/git_shadow -f `dirname $PWD`/conf/sample.conf >> ../log/log 2>&1 
+cd $zCurDir
+killall git_shadow 2>/dev/null
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf >> ../log/log 2>&1 
