@@ -200,16 +200,18 @@ zclose_fds(pid_t zPid) {
 	strcat(zPath, zStrPid);
 	strcat(zPath, "/fd");
 	
+	_i zFD;
 	DIR *zpDir = opendir(zPath);
 	while (NULL != (zpDirIf = readdir(zpDir))) {
-		close(atoi(zpDirIf->d_name));
+		zFD = atoi(zpDirIf->d_name);
+		if (2 != zFD) { close(zFD); }
 	}
 	closedir(zpDir);
 }
 
 void
 zdaemonize(const char *zpWorkDir) {
-	_i zFD[3];
+	_i zFD;
 	
 	signal(SIGHUP, SIG_IGN);
 
@@ -230,9 +232,9 @@ zdaemonize(const char *zpWorkDir) {
 
 	zclose_fds(getpid());	
 
-	zFD[0] = open("/dev/null", O_RDWR);
-	zFD[1] = dup2(zFD[0], 1);
-	zFD[2] = dup2(zFD[0], 2);
+	zFD = open("/dev/null", O_RDWR);
+	dup2(zFD, 1);
+//	dup2(zFD, 2);
 }
 
 /*

@@ -54,7 +54,7 @@ extern char * zget_one_line_from_FILE(FILE *);
 static void * zthread_func(void *);
 
 static void zthread_poll_init(void);
-static void zthread_poll_destroy(void);
+//static void zthread_poll_destroy(void);
 
 
 /**************
@@ -122,13 +122,15 @@ zthread_poll_init(void) {
 	}
 }
 
-static void
-zthread_poll_destroy(void) {
-//TEST: PASS
-	for (_i i = 0; i < zThreadPollSiz; i++) {
-		pthread_cancel(zThreadPoll[i].Tid);
-	}
-}
+//static void
+//zthread_poll_destroy(void) {
+//// DO NOT USE!!!
+//// Will kill new created threads!
+//
+//	for (_i i = 0; i < zThreadPollSiz; i++) {
+//		pthread_cancel(zThreadPoll[i].Tid);
+//	}
+//}
 
 static void *
 zthread_func(void *zpIndex) {
@@ -340,9 +342,9 @@ zinotify_wait(void *_) {
 zMark:
 				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
-//			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
-//				fprintf(stderr, "Queue overflow, some events may be lost!!");
-//			}
+			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
+				fprintf(stderr, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
+			}
 		}
 	}
 }
@@ -363,18 +365,29 @@ zread_conf_file(const char *zpConfPath) {
 	char *zpRes = NULL;
 	FILE *zpFile = fopen(zpConfPath, "r");
 
+	struct stat zStatBuf;
+
 	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
-	zpInitIf[1] = zpcre_init("\\d(?=\\s+)");
+	zpInitIf[1] = zpcre_init("^\\d(?=\\s+)");
 	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
 
-	while (NULL != (zpRes = zget_one_line_from_FILE(zpFile))) {
+	for (_i i = 0; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); i++) {
 		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
+			fprintf(stderr, "\033[31m[Line %d]: Invalid entry!\033[00m\n\n", i);
 			continue;
 		} else {
 			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
 			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
+			if (-1 == lstat(zpRetIf[2]->p_rets[0], &zStatBuf) 
+					|| !S_ISDIR(zStatBuf.st_mode)) {
+				zpcre_free_tmpsource(zpRetIf[2]);
+				zpcre_free_tmpsource(zpRetIf[1]);
+				zpcre_free_tmpsource(zpRetIf[0]);
+				fprintf(stderr, "\033[31m[Line %d]: NO such directory or NOT a directory!\033[00m\n\n", i);
+				continue;
+			}
 
 			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
 			zpObjIf[0]->p_next = NULL;
@@ -431,7 +444,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & (IN_MODIFY | IN_IGNORED | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
+			if (zpEv->mask & (IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
 		}
 	}
 }
@@ -445,18 +458,17 @@ main(_i zArgc, char **zppArgv) {
 //TEST: PASS
 	if (3 == zArgc && 0 == strcmp("-f", zppArgv[1])) {
 		struct stat zStat[1];
-		zCheck_Negative_Exit(stat(zppArgv[2], zStat));
-		if (!S_ISREG(zStat->st_mode)) {
-			fprintf(stderr, "Need a regular file!\n"
-					"Usage: file_monitor -f <Config File Path>\n");
+		if (-1 == stat(zppArgv[2], zStat) 
+				|| !S_ISREG(zStat->st_mode)) {
+			fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n\nUsage: file_monitor -f <Config File Path>\033[00m\n");
 			exit(1);
 		}
 	} else {
-		fprintf(stderr, "Usage: file_monitor -f <Config File Absolute Path>\n");
+		fprintf(stderr, "\033[31;01mUsage: file_monitor -f <Config File Absolute Path>\033[00m\n\n");
 		exit(1);
 	}
 
-	zdaemonize(NULL);
+	zdaemonize("/");
 
 zReLoad:;
 	zInotifyFD = inotify_init();
@@ -475,9 +487,8 @@ zReLoad:;
 
 	zconfig_file_monitor(zppArgv[2]);  // Robustness
 
-	//close(zInotifyFD);
-	//zthread_poll_destroy();
-
+	close(zInotifyFD);
+	
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
 
