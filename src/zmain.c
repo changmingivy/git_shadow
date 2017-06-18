@@ -358,8 +358,8 @@ zread_conf_file(const char *zpConfPath) {
 //TEST: PASS
 	zObjInfo *zpObjIf[3] = {NULL};
 
-	zPCREInitInfo *zpInitIf[3] = {NULL};
-	zPCRERetInfo *zpRetIf[3] = {NULL};
+	zPCREInitInfo *zpInitIf[4] = {NULL};
+	zPCRERetInfo *zpRetIf[4] = {NULL};
 
 	_i zCnt = 0;
 	char *zpRes = NULL;
@@ -370,8 +370,16 @@ zread_conf_file(const char *zpConfPath) {
 	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
 	zpInitIf[1] = zpcre_init("^\\d(?=\\s+)");
 	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
+	zpInitIf[3] = zpcre_init("^\\s*($|#)");
 
 	for (_i i = 1; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); i++) {
+		zpRetIf[3] = zpcre_match(zpInitIf[3], zpRes, 0);
+		if (0 < zpRetIf[3]->cnt) {
+			zpcre_free_tmpsource(zpRetIf[3]);
+			continue;
+		}
+		zpcre_free_tmpsource(zpRetIf[3]);
+
 		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
@@ -409,6 +417,7 @@ zread_conf_file(const char *zpConfPath) {
 		}
 	}
 
+	zpcre_free_metasource(zpInitIf[3]);
 	zpcre_free_metasource(zpInitIf[2]);
 	zpcre_free_metasource(zpInitIf[1]);
 	zpcre_free_metasource(zpInitIf[0]);
@@ -460,11 +469,11 @@ main(_i zArgc, char **zppArgv) {
 		struct stat zStat[1];
 		if (-1 == stat(zppArgv[2], zStat) 
 				|| !S_ISREG(zStat->st_mode)) {
-			fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n\nUsage: file_monitor -f <Config File Path>\033[00m\n");
+			fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n\nUsage: git_shadow -f <Config File Path>\033[00m\n");
 			exit(1);
 		}
 	} else {
-		fprintf(stderr, "\033[31;01mUsage: file_monitor -f <Config File Absolute Path>\033[00m\n\n");
+		fprintf(stderr, "\033[31;01mUsage: git_shadow -f <Config File Absolute Path>\033[00m\n\n");
 		exit(1);
 	}
 
