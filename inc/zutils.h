@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+
+#ifndef zPTHREAD_H
+#define zPTHREAD_H
 #include <pthread.h>
+#endif
 
 /*
  * =>>> Aliases For All Basic Types <<<=

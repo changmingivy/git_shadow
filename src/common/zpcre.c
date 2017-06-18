@@ -1,5 +1,7 @@
 #include "zpcre2.h"
 
+#define zErrBufLen 256
+
 static void
 zpcre_get_err(const _i zErrNo) {
 // TEST: pass!

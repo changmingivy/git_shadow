@@ -3,7 +3,6 @@
 
 #include "zutils.h"
 
-#define zErrBufLen 256
 #define zMatchLimit 64
 
 struct zPCRERetInfo{

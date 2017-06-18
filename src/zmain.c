@@ -6,7 +6,10 @@
 #include <sys/stat.h>
 #include <sys/inotify.h>
 
+#ifndef zPTHREAD_H
+#define zPTHREAD_H
 #include <pthread.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,11 +45,14 @@ typedef struct zSubObjInfo {
 /***********************
  * FUNCTION DECLARE
  **********************/
+extern void zdaemonize(const char *);
+extern void zfork_do_exec(const char *, char **);
 extern char * zget_one_line_from_FILE(FILE *);
-static void * zthread_func(void *zpIndex);
 
-void zthread_poll_init(void);
-void zthread_poll_destroy(void);
+static void * zthread_func(void *);
+
+static void zthread_poll_init(void);
+static void zthread_poll_destroy(void);
 
 
 /***************
@@ -101,7 +107,7 @@ static _i zJobQueue = -1;
 static pthread_mutex_t zLock[3] = {PTHREAD_MUTEX_INITIALIZER};
 static pthread_cond_t zCond[3] = {PTHREAD_COND_INITIALIZER};
 
-void
+static void
 zthread_poll_init(void) {
 	for (_i i = 0; i < zThreadPollSiz; i++) {
 		zIndex[i] = i;
@@ -112,7 +118,7 @@ zthread_poll_init(void) {
 	}
 }
 
-void
+static void
 zthread_poll_destroy(void) {
 	for (_i i = 0; i < zThreadPollSiz; i++) {
 		pthread_cancel(zThreadPoll[i].Tid);
@@ -157,7 +163,7 @@ zMark:;
 /*********************
  * Major 
  ********************/
-zObjInfo *
+static zObjInfo *
 zread_conf_file(const char *zpConfPath) {
 //TEST: PASS
 	zObjInfo *zpObjIf[3] = {NULL};
@@ -210,7 +216,7 @@ zread_conf_file(const char *zpConfPath) {
 	return zpObjIf[2];
 }
 
-void *
+static void *
 zinotify_add_watch_recursively(void *zpIf) {
 //TEST: PASS
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
@@ -301,7 +307,7 @@ zinotify_add_top_watch(void *zpObjIf) {
 	return NULL;
 }
 
-void *
+static void *
 zgit_action(void *zpCurIf) {
 //TEST: PASS
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
@@ -320,19 +326,11 @@ zgit_action(void *zpCurIf) {
 			zpSubIf->path[strlen(dirname(zpSubIf->path))] = '\0';
 		}
 		else {
-			pid_t zPid = fork();
-			zCheck_Negative_Exit(zPid);
+			char *zp0Argv[] = {"git", "add", "--all", ".", NULL};
+			char *zp1Argv[] = {"git", "commit", "-m", "auto", NULL};
 
-			if (0 == zPid) { execlp("git", "git", "add", "--all", ".", NULL); }
-			else { 
-				waitpid(zPid, NULL, 0); 
-
-				pid_t zPid = fork();
-				zCheck_Negative_Exit(zPid);
-
-				if (0 == zPid) { execlp("git", "git", "commit", "-m", "auto", NULL); }
-				else { waitpid(zPid, NULL, 0); }
-			}
+			zfork_do_exec("git", zp0Argv);
+			zfork_do_exec("git", zp1Argv);
 
 			break;
 		}
@@ -346,7 +344,7 @@ zgit_action(void *zpCurIf) {
 	return NULL;
 }
 
-void *
+static void *
 zinotify_wait(void *_) {
 //TEST: PASS
 	char zBuf[zCommonBufSiz]
@@ -384,14 +382,14 @@ zinotify_wait(void *_) {
 zMark:
 				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
-			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
-				fprintf(stderr, "Queue overflow, some events may be lost!!");
-			}
+//			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
+//				fprintf(stderr, "Queue overflow, some events may be lost!!");
+//			}
 		}
 	}
 }
 
-void
+static void
 zconfig_file_monitor(const char *zpConfPath) {
 	_i zConfFD = inotify_init();
 	zCheck_Negative_Exit(
@@ -438,6 +436,8 @@ main(_i zArgc, char **zppArgv) {
 		fprintf(stderr, "Usage: file_monitor -f <Config File Path>\n");
 		exit(1);
 	}
+
+	zdaemonize(NULL);
 
 zReLoad:;
 	zInotifyFD = inotify_init();
