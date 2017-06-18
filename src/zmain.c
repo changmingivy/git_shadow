@@ -20,7 +20,6 @@
 #define zCommonBufSiz 4096 
 
 #define zHashSiz 8192
-//#define zFileOpenMax 1024
 #define zThreadPollSiz 64
 
 #define zWatchBit \
