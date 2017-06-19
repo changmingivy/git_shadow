@@ -1,5 +1,5 @@
 #define _XOPEN_SOURCE 700
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -398,13 +398,13 @@ zread_conf_file(const char *zpConfPath) {
 			}
 
 			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
-			zpObjIf[0]->p_next = NULL;
 			if (0 == zCnt) {
 				zCnt++;
 				zpObjIf[2] = zpObjIf[1] = zpObjIf[0];
 			}
 			zpObjIf[1]->p_next = zpObjIf[0];
 			zpObjIf[1] = zpObjIf[0];
+			zpObjIf[0]->p_next = NULL;  // Must here!!!
 
 			zpObjIf[0]->RecursiveMark = atoi(zpRetIf[1]->p_rets[0]);
 			strcpy(zpObjIf[0]->path, zpRetIf[2]->p_rets[0]);
@@ -453,7 +453,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 				zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (zpEv->mask & (IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF)) { return; }
+			if (zpEv->mask & (IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_IGNORED)) { return; }
 		}
 	}
 }
@@ -485,11 +485,15 @@ zReLoad:;
 
 	zthread_poll_init();
 
-	zObjInfo *zpObjIf[2] = {NULL};
-	for (zpObjIf[0] = zpObjIf[1] = zread_conf_file(zppArgv[2]); 
-			NULL != zpObjIf[0]; zpObjIf[0] = zpObjIf[0]->p_next) {
-
-		zAdd_To_Thread_Pool(zinotify_add_top_watch, zpObjIf[0]);
+	zObjInfo *zpObjIf = NULL;
+	if (NULL == (zpObjIf = zread_conf_file(zppArgv[2]))) {
+		fprintf(stderr, "\033[31;01mNo valid entry found!!!\n\033[00m\n");
+	}
+	else {
+		do {
+			zAdd_To_Thread_Pool(zinotify_add_top_watch, zpObjIf);
+			zpObjIf = zpObjIf->p_next;
+		} while (NULL != zpObjIf);
 	}
 
 	zAdd_To_Thread_Pool(zinotify_wait, NULL);
