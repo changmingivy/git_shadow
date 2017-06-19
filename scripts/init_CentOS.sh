@@ -36,10 +36,10 @@ for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
 		git init . >/dev/null 2>&1
 		git config user.name "git_shadow"
 		git config user.email $PWD
-#		rm -rf $zDir/.git/index.lock
+		rm -rf $zDir/.git/index.lock
 	fi
 done
 
 cd $zCurDir
 killall git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf #>> ../log/log 2>&1 
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf >> ../log/log 2>&1 

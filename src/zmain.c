@@ -383,7 +383,7 @@ zread_conf_file(const char *zpConfPath) {
 		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
-			fprintf(stderr, "\033[31m[Line %d]: Invalid entry!\033[00m\n\n", i);
+			fprintf(stderr, "\033[31;00m[Line %d]: Invalid entry!\033[00m\n\n", i);
 			continue;
 		} else {
 			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
@@ -393,7 +393,7 @@ zread_conf_file(const char *zpConfPath) {
 				zpcre_free_tmpsource(zpRetIf[2]);
 				zpcre_free_tmpsource(zpRetIf[1]);
 				zpcre_free_tmpsource(zpRetIf[0]);
-				fprintf(stderr, "\033[31m[Line %d]: NO such directory or NOT a directory!\033[00m\n\n", i);
+				fprintf(stderr, "\033[31;00m[Line %d]: NO such directory or NOT a directory!\033[00m\n\n", i);
 				continue;
 			}
 
