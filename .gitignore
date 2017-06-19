@@ -1,3 +1,7 @@
+a.out
+log/
+bin/
+
 # Prerequisites
 *.d
 

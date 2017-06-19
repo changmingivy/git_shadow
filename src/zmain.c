@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
+//#define _DEFAULT_SOURCE  //NOT supported by CentOS6
+#define _BSD_SOURCE
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -26,7 +27,7 @@
 #define zThreadPollSiz 64
 
 #define zWatchBit \
-	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_EXCL_UNLINK | IN_DONT_FOLLOW
+	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_DONT_FOLLOW //| IN_EXCL_UNLINK  //NOT supported by CentOS6
 
 
 /**********************
