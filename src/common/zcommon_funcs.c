@@ -96,11 +96,11 @@ zstr_to_base64(const char *zpOrig) {
  */
 static struct addrinfo *
 zinit_hints(_i zAF, _i zFlags) {
-	static struct addrinfo zHints[1];
-	zHints->ai_flags = zFlags;
-	zHints->ai_family = (0 == zAF) ? AF_INET : zAF;
+	static struct addrinfo zHints;
+	zHints.ai_flags = zFlags;
+	zHints.ai_family = (0 == zAF) ? AF_INET : zAF;
 
-	return zHints;
+	return &zHints;
 }
 
 #define zMaxTry 4

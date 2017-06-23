@@ -468,12 +468,12 @@ main(_i zArgc, char **zppArgv) {
 //TEST: PASS
 //	extern char *optarg;
 //	extern int optind, opterr, optopt;
-	struct stat zStat[1];
+	struct stat zStat;
 
 	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:"));) {
 	    switch (zOpt) {
 	    case 'f':
-			if (-1 == stat(optarg, zStat) || !S_ISREG(zStat->st_mode)) {
+			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
 				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
 						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
 				exit(1);
