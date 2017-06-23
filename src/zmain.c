@@ -30,6 +30,11 @@
 #define zWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_DONT_FOLLOW //| IN_EXCL_UNLINK  //NOT supported by CentOS6
 
+#define zPrint_Time() do {\
+	zNow = time(NULL);\
+	zpStartTime = localtime(&zNow);\
+	fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m", zpStartTime->tm_year + 1900, zpStartTime->tm_mon, zpStartTime->tm_mday, zpStartTime->tm_hour, zpStartTime->tm_min, zpStartTime->tm_sec); \
+} while(0)
 
 /**********************
  * DATA STRUCT DEFINE *
@@ -70,6 +75,8 @@ static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 static zSubObjInfo *zpPathHash[zHashSiz];
 static char zBitHash[zHashSiz];
 
+static struct tm *zpStartTime;  // Mark the time when this process start.
+static time_t zNow;  //Current time(total secends from 1900-01-01 00:00:00)
 
 /***************
  * THREAD POOL *
@@ -385,7 +392,8 @@ zread_conf_file(const char *zpConfPath) {
 		zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
-			fprintf(stderr, "\033[31;00m[Line %d]: Invalid entry!\033[00m\n\n", i);
+			zPrint_Time();
+			fprintf(stderr, "\033[31mLine %d: Invalid entry!\033[00m\n", i);
 			continue;
 		} else {
 			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
@@ -395,7 +403,8 @@ zread_conf_file(const char *zpConfPath) {
 				zpcre_free_tmpsource(zpRetIf[2]);
 				zpcre_free_tmpsource(zpRetIf[1]);
 				zpcre_free_tmpsource(zpRetIf[0]);
-				fprintf(stderr, "\033[31;00m[Line %d]: NO such directory or NOT a directory!\033[00m\n\n", i);
+				zPrint_Time();
+				fprintf(stderr, "\033[31mLine %d: NO such directory or NOT a directory!\033[00m\n", i);
 				continue;
 			}
 
@@ -469,8 +478,6 @@ main(_i zArgc, char **zppArgv) {
 //TEST: PASS
 //	extern char *optarg;
 //	extern int optind, opterr, optopt;
-	time_t zNow = time(NULL);
-	char *zpLocalTime= ctime(&zNow);
 	struct stat zStat;
 
 	opterr = 0;  // prevent getopt to print err info
@@ -478,13 +485,15 @@ main(_i zArgc, char **zppArgv) {
 	    switch (zOpt) {
 	    case 'f':
 			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
-				fprintf(stderr, "\033[31;01m%s: Config file not exists or is not a regular file!\n"
-						"Usage: %s -f <Config File Path>\033[00m\n", zpLocalTime, zppArgv[0]);
+				zPrint_Time();
+				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
+						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
 				exit(1);
 			}
 	        break;
 	    default: // zOpt == '?'
-		 	fprintf(stderr, "\033[31;01m%s: Invalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", zpLocalTime, optopt, zppArgv[0]);
+			zPrint_Time();
+		 	fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
 			exit(1);
 		}
 	}
