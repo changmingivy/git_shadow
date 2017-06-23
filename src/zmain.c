@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <errno.h>
+#include <time.h>
 
 #include <libgen.h>
 
@@ -468,6 +469,8 @@ main(_i zArgc, char **zppArgv) {
 //TEST: PASS
 //	extern char *optarg;
 //	extern int optind, opterr, optopt;
+	time_t zNow = time(NULL);
+	char *zpLocalTime= ctime(&zNow);
 	struct stat zStat;
 
 	opterr = 0;  // prevent getopt to print err info
@@ -475,13 +478,13 @@ main(_i zArgc, char **zppArgv) {
 	    switch (zOpt) {
 	    case 'f':
 			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
-				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
-						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
+				fprintf(stderr, "\033[31;01m%s: Config file not exists or is not a regular file!\n"
+						"Usage: %s -f <Config File Path>\033[00m\n", zpLocalTime, zppArgv[0]);
 				exit(1);
 			}
 	        break;
 	    default: // zOpt == '?'
-		 	fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n\n", optopt, zppArgv[0]);
+		 	fprintf(stderr, "\033[31;01m%s: Invalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", zpLocalTime, optopt, zppArgv[0]);
 			exit(1);
 		}
 	}
