@@ -382,6 +382,8 @@ zread_conf_file(const char *zpConfPath) {
 	zpInitIf[3] = zpcre_init("^\\s*($|#)");
 
 	for (_i i = 1; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); i++) {
+		zpRes[strlen(zpRes) - 1] = '\0';
+
 		zpRetIf[3] = zpcre_match(zpInitIf[3], zpRes, 0);
 		if (0 < zpRetIf[3]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[3]);
@@ -393,7 +395,7 @@ zread_conf_file(const char *zpConfPath) {
 		if (0 == zpRetIf[0]->cnt) {
 			zpcre_free_tmpsource(zpRetIf[0]);
 			zPrint_Time();
-			fprintf(stderr, "\033[31mLine %d: Invalid entry!\033[00m\n", i);
+			fprintf(stderr, "\033[31m[Line %d] \"%s\": Invalid entry.\033[00m\n", i ,zpRes);
 			continue;
 		} else {
 			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
@@ -404,7 +406,7 @@ zread_conf_file(const char *zpConfPath) {
 				zpcre_free_tmpsource(zpRetIf[1]);
 				zpcre_free_tmpsource(zpRetIf[0]);
 				zPrint_Time();
-				fprintf(stderr, "\033[31mLine %d: NO such directory or NOT a directory!\033[00m\n", i);
+				fprintf(stderr, "\033[31m[Line %d] \"%s\": NO such directory or NOT a directory.\033[00m\n", i, zpRes);
 				continue;
 			}
 
