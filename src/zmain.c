@@ -466,17 +466,28 @@ zconfig_file_monitor(const char *zpConfPath) {
 _i
 main(_i zArgc, char **zppArgv) {
 //TEST: PASS
-	if (3 == zArgc && 0 == strcmp("-f", zppArgv[1])) {
-		struct stat zStat[1];
-		if (-1 == stat(zppArgv[2], zStat) 
-				|| !S_ISREG(zStat->st_mode)) {
-			fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n\nUsage: git_shadow -f <Config File Path>\033[00m\n");
+//	extern char *optarg;
+//	extern int optind, opterr, optopt;
+	struct stat zStat[1];
+
+	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:"));) {
+	    switch (zOpt) {
+	    case 'f':
+			if (-1 == stat(optarg, zStat) || !S_ISREG(zStat->st_mode)) {
+				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
+						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
+				exit(1);
+			}
+	        break;
+	    default: /* '?' */
+		 	fprintf(stderr, "\033[31;01mUsage: %s -f <Config File Absolute Path>\033[00m\n\n", zppArgv[0]);
 			exit(1);
 		}
-	} else {
-		fprintf(stderr, "\033[31;01mUsage: git_shadow -f <Config File Absolute Path>\033[00m\n\n");
-		exit(1);
 	}
+	
+//	for (; optind < zArgc; optind++) {
+//		printf("Argument = %s\n", zppArgv[optind]);
+//	}
 
 	zdaemonize("/");
 
