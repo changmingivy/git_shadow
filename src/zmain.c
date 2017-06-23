@@ -470,6 +470,7 @@ main(_i zArgc, char **zppArgv) {
 //	extern int optind, opterr, optopt;
 	struct stat zStat;
 
+	opterr = 0;  // prevent getopt to print err info
 	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:"));) {
 	    switch (zOpt) {
 	    case 'f':
@@ -479,15 +480,13 @@ main(_i zArgc, char **zppArgv) {
 				exit(1);
 			}
 	        break;
-	    default: /* '?' */
-		 	fprintf(stderr, "\033[31;01mUsage: %s -f <Config File Absolute Path>\033[00m\n\n", zppArgv[0]);
+	    default: // zOpt == '?'
+		 	fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n\n", optopt, zppArgv[0]);
 			exit(1);
 		}
 	}
 	
-//	for (; optind < zArgc; optind++) {
-//		printf("Argument = %s\n", zppArgv[optind]);
-//	}
+//	for (; optind < zArgc; optind++) { printf("Argument = %s\n", zppArgv[optind]); }
 
 	zdaemonize("/");
 
