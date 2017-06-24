@@ -1,0 +1,26 @@
+
+定义结构体：
+struct zFileInfo {
+	struct zFileInfo *next;
+	_i len;
+	char obj[];
+}
+
+free掉旧的cache
+
+分配一块足够大的内存，如 2048 * (256 + sizeof(struct ))
+
+用 popen 执行 git diff --name-only HEAD CURRENT
+读取返回的内容 get_one_line_from_FILE，存入obj字段:内存起始偏移+sizeof(struct)
+
+取字符串长度 strlen 存入结构体字段len
+
+建一个散列数组zHashSize=128，以strlen%zHashSiz存储每一条记录的指针
+
+每一个新建的结构体的内存空间，按上一个的实际长度在已分配的大内存空间上顺序偏移，将新的内存地址存于散列之中
+
+最后执realloc将预分配的大内存缩小到实际用到的总内存大小
+
+
+在 .git/logs 目录没有变动的情况下，对客户端的查询请求，直接返回cache中的数据
+有变动则更新cache

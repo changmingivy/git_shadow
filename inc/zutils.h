@@ -156,3 +156,16 @@ zregister_calloc(int zCnt, size_t zSiz);
 	}\
 	zpObjToFree = zpBridgePointer = NULL;\
 }while(0)
+
+/*
+ * =>>> Print Current Time <<<=
+ */
+struct tm *zpCurrentTimeIf;  // Mark the time when this process start.
+time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
+
+#define zPrint_Time() do {\
+	zMarkNow = time(NULL);\
+	zpCurrentTimeIf = localtime(&zMarkNow);\
+	fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m", zpCurrentTimeIf->tm_year + 1900, zpCurrentTimeIf->tm_mon, zpCurrentTimeIf->tm_mday, zpCurrentTimeIf->tm_hour, zpCurrentTimeIf->tm_min, zpCurrentTimeIf->tm_sec); \
+} while(0)
+

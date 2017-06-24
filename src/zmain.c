@@ -1,5 +1,4 @@
 #define _XOPEN_SOURCE 700
-//#define _DEFAULT_SOURCE  //NOT supported by CentOS6
 #define _BSD_SOURCE
 
 #include <unistd.h>
@@ -27,14 +26,8 @@
 #define zHashSiz 8192
 #define zThreadPollSiz 64
 
-#define zWatchBit \
-	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF | IN_DONT_FOLLOW //| IN_EXCL_UNLINK  //NOT supported by CentOS6
-
-#define zPrint_Time() do {\
-	zNow = time(NULL);\
-	zpStartTime = localtime(&zNow);\
-	fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m", zpStartTime->tm_year + 1900, zpStartTime->tm_mon, zpStartTime->tm_mday, zpStartTime->tm_hour, zpStartTime->tm_min, zpStartTime->tm_sec); \
-} while(0)
+#define zBaseWatchBit \
+	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF
 
 /**********************
  * DATA STRUCT DEFINE *
@@ -75,8 +68,8 @@ static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 static zSubObjInfo *zpPathHash[zHashSiz];
 static char zBitHash[zHashSiz];
 
-static struct tm *zpStartTime;  // Mark the time when this process start.
-static time_t zNow;  //Current time(total secends from 1900-01-01 00:00:00)
+static char *zpShellCommand;
+static FILE *zpShellRetHandler;
 
 /***************
  * THREAD POOL *
@@ -187,7 +180,7 @@ zinotify_add_sub_watch(void *zpIf) {
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
 	if (-1 == chdir(zpCurIf->path)) { return NULL; }  // Robustness
-	_i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zWatchBit);
+	_i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zWid);
 
 	if (NULL != zpPathHash[zWid]) { free(zpPathHash[zWid]); }  // Free old memory before using the same index again.
@@ -234,7 +227,7 @@ zinotify_add_top_watch(void *zpObjIf) {
 			sizeof(zSubObjInfo) + 1 + strlen(zpPath)
 			);
 
-	zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zWatchBit);
+	zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zpTopIf->UpperWid);
 
 	strcpy(zpTopIf->path, zpPath);
@@ -288,22 +281,14 @@ zgit_action(void *zpCurIf) {
 	zBitHash[zpSubIf->UpperWid] = 1;
 	pthread_mutex_unlock(&zGitLock);
 
-	size_t zLen = strlen(zpPathHash[zpSubIf->UpperWid]->path);
+	char zShellBuf[1 + strlen("zEventPath=;") + strlen(zpSubIf->path) + strlen(zpShellCommand)];
+	strcpy(zShellBuf, "zEventPath=");
+	strcat(zShellBuf, zpSubIf->path);
+	strcat(zShellBuf, ";");
+	strcat(zShellBuf, zpShellCommand);
 
-	do {
-		if (-1 == chdir(zpSubIf->path)) {  // Robustness
-			zpSubIf->path[strlen(dirname(zpSubIf->path))] = '\0';
-		}
-		else {
-			char *zp0Argv[] = {"git", "add", "--all", ".", NULL};
-			char *zp1Argv[] = {"git", "commit", "-m", zpSubIf->path, NULL};
-
-			zfork_do_exec("git", zp0Argv);
-			zfork_do_exec("git", zp1Argv);
-
-			break;
-		}
-	} while (zLen <= strlen(zpSubIf->path)) ;
+	zpShellRetHandler = popen(zShellBuf, "r");
+	zCheck_Negative_Exit(zpShellRetHandler);
 
 	pthread_mutex_lock(&zGitLock);
 	zBitHash[zpSubIf->UpperWid] = 0;
@@ -332,27 +317,29 @@ zinotify_wait(void *_) {
 
 			if ((zpEv->mask & IN_ISDIR) 
 					&& (zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
-		  			// If a new subdir is created or moved in, add it to the watch list.
-					// Must do "malloc" here.
-					zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
-							+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
-					zCheck_Null_Exit(zpSubIf);
+		  		// If a new subdir is created or moved in, add it to the watch list.
+				// Must do "malloc" here.
+				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
+						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
+				zCheck_Null_Exit(zpSubIf);
 	
-					zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
+				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
 	
-					strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
-					strcat(zpSubIf->path, "/");
-					strcat(zpSubIf->path, zpEv->name);
+				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
+				strcat(zpSubIf->path, "/");
+				strcat(zpSubIf->path, zpEv->name);
 
-					zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
-					goto zMark;
+				zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
+				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
-			else if ((zpEv->mask & (IN_CREATE | IN_MOVED_TO | IN_MODIFY | IN_IGNORED))) { 
-zMark:
+			else if ((zpEv->mask & zBaseWatchBit)) { 
 				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
 			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
-				fprintf(stderr, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
+				zPrint_Err(0, NULL, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
+			}
+			else {
+				zPrint_Err(0, NULL, "\033[31;01mUnknown event occur!!\033[00m\n");
 			}
 		}
 	}
@@ -483,7 +470,7 @@ main(_i zArgc, char **zppArgv) {
 	struct stat zStat;
 
 	opterr = 0;  // prevent getopt to print err info
-	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:"));) {
+	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:x:"));) {
 	    switch (zOpt) {
 	    case 'f':
 			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
@@ -493,13 +480,15 @@ main(_i zArgc, char **zppArgv) {
 				exit(1);
 			}
 	        break;
+		case 'x':
+			zpShellCommand = optarg;
+			break;
 	    default: // zOpt == '?'
 			zPrint_Time();
 		 	fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
 			exit(1);
 		}
 	}
-	
 //	for (; optind < zArgc; optind++) { printf("Argument = %s\n", zppArgv[optind]); }
 
 	zdaemonize("/");
@@ -512,7 +501,8 @@ zReLoad:;
 
 	zObjInfo *zpObjIf = NULL;
 	if (NULL == (zpObjIf = zread_conf_file(zppArgv[2]))) {
-		fprintf(stderr, "\033[31;01mNo valid entry found!!!\n\033[00m\n");
+		zPrint_Time();
+		fprintf(stderr, "\033[31;01mNo valid entry found in config file!!!\n\033[00m\n");
 	}
 	else {
 		do {
@@ -522,14 +512,11 @@ zReLoad:;
 	}
 
 	zAdd_To_Thread_Pool(zinotify_wait, NULL);
-
 	zconfig_file_monitor(zppArgv[2]);  // Robustness
 
 	close(zInotifyFD);
-	
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
-
 	if (0 == zPid) { goto zReLoad; }
 	else { exit(0); }
 }
