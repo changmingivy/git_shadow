@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE 201112L
+#define _XOPEN_SOURCE 700
+
 #include <sys/socket.h>
 #include <netdb.h>
 
@@ -74,18 +75,11 @@ zstr_to_base64(const char *zpOrig) {
 	_c mask = 63;
 	zRes[0] = zRightOffset[0] & mask;
 
-	for (i = 1; i < zMax; i++) {
-		zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask;
-	}
+	for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
 	zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
 
-	for (i = 0; i < zMax; i++) {
-		zRes[i] = zBase64Dict[(_i)zRes[i]];
-	}
-	
-	for (i = zMax; i < zResLen; i++) {
-		zRes[i] = '=';
-	}
+	for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
+	for (i = zMax; i < zResLen; i++) { zRes[i] = '='; }
 
 	return zRes;
 }
@@ -94,55 +88,57 @@ zstr_to_base64(const char *zpOrig) {
  * Functions for socket connection.
  * Static resource, so DO NOT to attemp to free the result.
  */
+
 static struct addrinfo *
-zinit_hints(_i zAF, _i zFlags) {
+zgenerate_hint(_i zFlags) {
 	static struct addrinfo zHints;
 	zHints.ai_flags = zFlags;
-	zHints.ai_family = (0 == zAF) ? AF_INET : zAF;
-
+	zHints.ai_family = AF_INET;
 	return &zHints;
 }
 
-#define zMaxTry 4
+// Generate a socket fd used by server to do 'accept'.
+struct sockaddr *
+zgenerate_serv_addr(char *zpHost, char *zpPort) {
+	struct addrinfo *zpRes, *zpHint;
+	zpHint = zgenerate_hint(AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV);
+
+	_i zErr = getaddrinfo(zpHost, zpPort, zpHint, &zpRes);
+	if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
+
+	return zpRes->ai_addr;
+}
+
+// Used by client.
 static _i
-ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zAF, _i zType, _i zProto) {
-	if (zAF == 0) {
-		zAF = AF_INET;
-		zType = SOCK_STREAM;
-		zProto = IPPROTO_TCP;
-	}
+ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
+	if (zSockType == 0) { zSockType = SOCK_STREAM; }
+	if (zProto == 0) { zProto = IPPROTO_TCP; }
 
-	_i zSockD = socket(zAF, zType, zProto);
-	zCheck_Negative_Exit(zSockD);
-
-	for (_i i = zMaxTry; i > 0; i--) {
-		if (0 == connect(zSockD, zpAddr, zLen)) {
-			return zSockD;
-		}
-
-		close(zSockD);
-		sleep(2 * (zMaxTry - i));
+	_i zSD = socket(AF_INET, zSockType, zProto);
+	zCheck_Negative_Exit(zSD);
+	for (_i i = 4; i > 0; --i) {
+		if (0 == connect(zSD, zpAddr, zLen)) { return zSD; }
+		close(zSD);
+		sleep(i);
 	}
 
 	return -1;
 }
-#undef zMaxTry
 
+// Used by client.
 _i
-zsock_connect(char *zpHost, char *zpPort, _i zFlags) {
+zconnect(char *zpHost, char *zpPort, _i zFlags) {
 	struct addrinfo *zpRes, *zpTmp, *zpHints;
 	_i zSockD, zErr;
 
-	zpHints = zinit_hints(0, zFlags);
+	zpHints = zgenerate_hint(zFlags);
 
 	zErr = getaddrinfo(zpHost, zpPort, zpHints, &zpRes);
-	if (-1 == zErr){
-		zPrint_Err(errno, NULL, gai_strerror(zErr));
-	}
+	if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
 
-	zpTmp = zpRes;
-	for (; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
-		if((zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0, 0)) > 0) {
+	for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
+		if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
 			freeaddrinfo(zpRes);
 			return zSockD;
 		}
@@ -152,42 +148,35 @@ zsock_connect(char *zpHost, char *zpPort, _i zFlags) {
 	return -1;
 }
 
-char *
-zget_reponse(char *zpReq, char *zpHost, char *zpPort, _i zFlags) {
-	_i zSockD;
-	static char zBuf[zCommonBufSiz];
-
-	zCheck_Negative_Exit((zSockD = zsock_connect(zpHost, zpPort, zFlags)));
-	zCheck_Negative_Exit(send(zSockD, zpReq, strlen(zpReq), 0));
-	zCheck_Negative_Exit(recv(zSockD, zBuf, zCommonBufSiz, MSG_WAITALL));
-
-	shutdown(zSockD, SHUT_RDWR);
-
-	return zBuf;
+// Send message from multi positions.
+_i
+zsendto(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+	return sendto(zSD, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
 }
 
-void
-zbind_dynamic_domain (_i zFlags) {
-	char *zHost = "members.3322.net";
-	char *zPort = "80";
-	char *zReq[3];
+_i
+zsendmsg(_i zSD, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
+	struct msghdr zMsgIf = {
+		.msg_name = zpAddr, 
+		.msg_namelen = INET_ADDRSTRLEN, 
+		.msg_iov = zpIov, 
+		.msg_iovlen = zIovSiz, 
+		.msg_control = NULL, 
+		.msg_controllen = 0, 
+		.msg_flags = 0
+	};
+	return sendmsg(zSD, &zMsgIf, zFlags);
+}
 
-	zReq[0] = "GET /dyndns/update?hostname=fanhui.f3322.net&myip=ipaddress&wildcard=OFF&mx=mail.exchanger.ext&backmx=NO&offline=NO HTTP/1.1\nHost: members.3322.net\nConnection: Close\nAuthorization: Basic ";
-	zReq[1] = zstr_to_base64("aibbigql");
-	zReq[2] = "\n\n";
-
-	char request[] = {'\0'};
-	for (_i i = 0; i < 3; i++) {
-		strcat(request, zReq[i]);
-	}
-
-	free(zReq[1]);
-
-	zget_reponse(request, zHost, zPort, zFlags);
+_i
+zrecvfrom(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+	_i zFlags = MSG_WAITALL;
+	socklen_t zAddrLen = 0;
+	return recvfrom(zSD, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
 }
 
 /*
- * Daemonize a process to daemon.
+ * Daemonize a linux process to daemon.
  */
 static void
 zclose_fds(pid_t zPid) {
@@ -226,9 +215,8 @@ zdaemonize(const char *zpWorkDir) {
 	setsid();
 	zPid = fork();
 	zCheck_Negative_Exit(zPid);
-	if (zPid > 0) {
-		exit(0);
-	}
+
+	if (zPid > 0) { exit(0); }
 
 	zclose_fds(getpid());	
 
@@ -246,12 +234,8 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 	pid_t zPid = fork();
 	zCheck_Negative_Exit(zPid);
 
-	if (0 == zPid) {
-		execvp(zpCommand, zppArgv);
-	}
-	else {
-		waitpid(zPid, NULL, 0);
-	}
+	if (0 == zPid) { execvp(zpCommand, zppArgv); }
+	else { waitpid(zPid, NULL, 0); }
 }
 
 
@@ -264,9 +248,7 @@ zget_one_line_from_FILE(FILE *zpFile) {
 	char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
 	if (NULL == zpRes) {
-		if(0 == feof(zpFile)) {
-			zCheck_Null_Exit(zpRes);
-		}
+		if(0 == feof(zpFile)) { zCheck_Null_Exit(zpRes); }
 		return NULL;
 	}
 	return zBuf;
