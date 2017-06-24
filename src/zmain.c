@@ -29,6 +29,15 @@
 #define zBaseWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF
 
+#define zNewDirMark "2"
+#define zNewFileMark "1"
+#define zModMark "0"
+#define zDelFileMark "-1"
+#define zDelDirMark "-2"
+#define zDelFileSelfMark "-3"
+#define zDelDirSelfMark "-4"
+#define zUnknownMark "-5"
+
 /**********************
  * DATA STRUCT DEFINE *
  **********************/
@@ -40,9 +49,10 @@ typedef struct zObjInfo {
 
 typedef struct zSubObjInfo {
 	_i UpperWid;
+	_i RecursiveMark;
+	char *ActionMark;
 	char path[];
 }zSubObjInfo;
-
 
 /********************
  * FUNCTION DECLARE *
@@ -56,7 +66,6 @@ static void * zthread_func(void *);
 static void zthread_poll_init(void);
 //static void zthread_poll_destroy(void);
 
-
 /**************
  * GLOBAL VAR *
  **************/
@@ -68,7 +77,7 @@ static pthread_cond_t zGitCond = PTHREAD_COND_INITIALIZER;
 static zSubObjInfo *zpPathHash[zHashSiz];
 static char zBitHash[zHashSiz];
 
-static char *zpShellCommand;
+static char *zpShellCommand;  // What to do when get events, two extra VAR available: $zEventType and $zEventPath
 static FILE *zpShellRetHandler;
 
 /***************
@@ -203,6 +212,7 @@ zinotify_add_sub_watch(void *zpIf) {
 					+ 2 + zLen + strlen(zpEntry->d_name));
 			zCheck_Null_Exit(zpSubIf);
 
+			zpSubIf->RecursiveMark = 1;
 			zpSubIf->UpperWid = zpCurIf->UpperWid;
 
 			strcpy(zpSubIf->path, zpCurIf->path);
@@ -219,14 +229,16 @@ zinotify_add_sub_watch(void *zpIf) {
 }
 
 static void *
-zinotify_add_top_watch(void *zpObjIf) {
+zinotify_add_top_watch(void *zpIf) {
 //TEST: PASS
-	char *zpPath = ((zObjInfo *) zpObjIf)->path;
+	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
+	char *zpPath = zpObjIf->path;
 
 	zSubObjInfo *zpTopIf = malloc(
 			sizeof(zSubObjInfo) + 1 + strlen(zpPath)
 			);
 
+	zpTopIf->RecursiveMark = zpObjIf->RecursiveMark;
 	zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zpTopIf->UpperWid);
 
@@ -251,6 +263,7 @@ zinotify_add_top_watch(void *zpObjIf) {
 						+ 2 + zLen + strlen(zpEntry->d_name));
 				zCheck_Null_Exit(zpSubIf);
 	
+				zpSubIf->RecursiveMark = 1;
 				zpSubIf->UpperWid = zpTopIf->UpperWid;
 	
 				strcpy(zpSubIf->path, zpPath);
@@ -270,7 +283,7 @@ zinotify_add_top_watch(void *zpObjIf) {
  * DEAL WITH EVENTS *
  ********************/
 static void *
-zgit_action(void *zpCurIf) {
+zcallback_common_action(void *zpCurIf) {
 //TEST: PASS
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
 
@@ -281,14 +294,16 @@ zgit_action(void *zpCurIf) {
 	zBitHash[zpSubIf->UpperWid] = 1;
 	pthread_mutex_unlock(&zGitLock);
 
-	char zShellBuf[1 + strlen("zEventPath=;") + strlen(zpSubIf->path) + strlen(zpShellCommand)];
+	char zShellBuf[1 + strlen("zEventPath=;zEventType=;") + strlen(zpSubIf->path) + strlen(zpShellCommand)];
 	strcpy(zShellBuf, "zEventPath=");
 	strcat(zShellBuf, zpSubIf->path);
 	strcat(zShellBuf, ";");
+	strcat(zShellBuf, "zEventMark=");  //
+	strcat(zShellBuf, zpSubIf->ActionMark);
+	strcat(zShellBuf, ";");
 	strcat(zShellBuf, zpShellCommand);
 
-	zpShellRetHandler = popen(zShellBuf, "r");  // Don't forget: pclose(zpShellRetHandler);
-	zCheck_Null_Exit(zpShellRetHandler);
+	system(zShellBuf);
 
 	pthread_mutex_lock(&zGitLock);
 	zBitHash[zpSubIf->UpperWid] = 0;
@@ -315,14 +330,17 @@ zinotify_wait(void *_) {
 		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if ((zpEv->mask & IN_ISDIR) 
-					&& (zpEv->mask & IN_CREATE || zpEv->mask & IN_MOVED_TO)) {
+			if (1 == zpPathHash[zpEv->wd]->RecursiveMark 
+					&& (zpEv->mask & IN_ISDIR) 
+					&& ( (zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO) )
+					) {
 		  		// If a new subdir is created or moved in, add it to the watch list.
 				// Must do "malloc" here.
 				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
 						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
 				zCheck_Null_Exit(zpSubIf);
 	
+				zpSubIf->RecursiveMark = 1;
 				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
 	
 				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
@@ -330,17 +348,36 @@ zinotify_wait(void *_) {
 				strcat(zpSubIf->path, zpEv->name);
 
 				zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
-				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
 			}
-			else if ((zpEv->mask & zBaseWatchBit)) { 
-				zAdd_To_Thread_Pool(zgit_action, zpPathHash[zpEv->wd]);
+
+			if (zpEv->mask & (IN_CREATE | IN_MOVED_TO)) { 
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zNewDirMark; }
+				else { zpPathHash[zpEv->wd]->ActionMark = zNewFileMark; }
+			}
+			else if (zpEv->mask & (IN_DELETE | IN_MOVED_FROM)) { 
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zDelDirMark; }
+				else { zpPathHash[zpEv->wd]->ActionMark = zDelFileMark; }
+			}
+			else if (zpEv->mask & (IN_MOVE_SELF | IN_DELETE_SELF)) { 
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zDelDirSelfMark; }
+				else { zpPathHash[zpEv->wd]->ActionMark = zDelFileSelfMark; }
+			}
+			else if (zpEv->mask & IN_MODIFY) {
+				zpPathHash[zpEv->wd]->ActionMark = zModMark;
 			}
 			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
+				zpPathHash[zpEv->wd]->ActionMark = zUnknownMark;
 				zPrint_Err(0, NULL, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
+				goto zMark;
 			}
+			else if (zpEv->mask & IN_IGNORED){ goto zMark; }
 			else {
+				zpPathHash[zpEv->wd]->ActionMark = zUnknownMark;
 				zPrint_Err(0, NULL, "\033[31;01mUnknown event occur!!\033[00m\n");
+				goto zMark;
 			}
+			zAdd_To_Thread_Pool(zcallback_common_action, zpPathHash[zpEv->wd]);
+zMark:;
 		}
 	}
 }
@@ -471,19 +508,19 @@ main(_i zArgc, char **zppArgv) {
 
 	opterr = 0;  // prevent getopt to print err info
 	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:x:"));) {
-	    switch (zOpt) {
-	    case 'f':
+		switch (zOpt) {
+		case 'f':
 			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
 				zPrint_Time();
 				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
 						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
 				exit(1);
 			}
-	        break;
+			break;
 		case 'x':
 			zpShellCommand = optarg;
 			break;
-	    default: // zOpt == '?'
+		default: // zOpt == '?'
 			zPrint_Time();
 		 	fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
 			exit(1);
