@@ -50,7 +50,7 @@ typedef struct zObjInfo {
 typedef struct zSubObjInfo {
 	_i UpperWid;
 	_i RecursiveMark;
-	char *ActionMark;
+	char *p_ActionMark;
 	char path[];
 }zSubObjInfo;
 
@@ -299,7 +299,7 @@ zcallback_common_action(void *zpCurIf) {
 	strcat(zShellBuf, zpSubIf->path);
 	strcat(zShellBuf, ";");
 	strcat(zShellBuf, "zEventMark=");  //
-	strcat(zShellBuf, zpSubIf->ActionMark);
+	strcat(zShellBuf, zpSubIf->p_ActionMark);
 	strcat(zShellBuf, ";");
 	strcat(zShellBuf, zpShellCommand);
 
@@ -351,28 +351,28 @@ zinotify_wait(void *_) {
 			}
 
 			if (zpEv->mask & (IN_CREATE | IN_MOVED_TO)) { 
-				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zNewDirMark; }
-				else { zpPathHash[zpEv->wd]->ActionMark = zNewFileMark; }
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->p_ActionMark = zNewDirMark; }
+				else { zpPathHash[zpEv->wd]->p_ActionMark = zNewFileMark; }
 			}
 			else if (zpEv->mask & (IN_DELETE | IN_MOVED_FROM)) { 
-				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zDelDirMark; }
-				else { zpPathHash[zpEv->wd]->ActionMark = zDelFileMark; }
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->p_ActionMark = zDelDirMark; }
+				else { zpPathHash[zpEv->wd]->p_ActionMark = zDelFileMark; }
 			}
 			else if (zpEv->mask & (IN_MOVE_SELF | IN_DELETE_SELF)) { 
-				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->ActionMark = zDelDirSelfMark; }
-				else { zpPathHash[zpEv->wd]->ActionMark = zDelFileSelfMark; }
+				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->p_ActionMark = zDelDirSelfMark; }
+				else { zpPathHash[zpEv->wd]->p_ActionMark = zDelFileSelfMark; }
 			}
 			else if (zpEv->mask & IN_MODIFY) {
-				zpPathHash[zpEv->wd]->ActionMark = zModMark;
+				zpPathHash[zpEv->wd]->p_ActionMark = zModMark;
 			}
 			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
-				zpPathHash[zpEv->wd]->ActionMark = zUnknownMark;
+				zpPathHash[zpEv->wd]->p_ActionMark = zUnknownMark;
 				zPrint_Err(0, NULL, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
 				goto zMark;
 			}
 			else if (zpEv->mask & IN_IGNORED){ goto zMark; }
 			else {
-				zpPathHash[zpEv->wd]->ActionMark = zUnknownMark;
+				zpPathHash[zpEv->wd]->p_ActionMark = zUnknownMark;
 				zPrint_Err(0, NULL, "\033[31;01mUnknown event occur!!\033[00m\n");
 				goto zMark;
 			}
