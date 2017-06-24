@@ -287,8 +287,8 @@ zgit_action(void *zpCurIf) {
 	strcat(zShellBuf, ";");
 	strcat(zShellBuf, zpShellCommand);
 
-	zpShellRetHandler = popen(zShellBuf, "r");
-	zCheck_Negative_Exit(zpShellRetHandler);
+	zpShellRetHandler = popen(zShellBuf, "r");  // Don't forget: pclose(zpShellRetHandler);
+	zCheck_Null_Exit(zpShellRetHandler);
 
 	pthread_mutex_lock(&zGitLock);
 	zBitHash[zpSubIf->UpperWid] = 0;
