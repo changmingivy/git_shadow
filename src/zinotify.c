@@ -50,8 +50,8 @@ typedef struct zFileDiffInfo {
 	_i CacheVersion;
 	_us FileIndex;  // index in iovec array
 
-	struct iovec *p_DiffContent;
 	_us VecSiz;
+	struct iovec *p_DiffContent;
 
 	char path[];  // the path relative to code repo
 } zFileDiffInfo;
@@ -93,24 +93,24 @@ static char CurTagSig[40];  // git SHA1 sig
 static char *zpShellCommand;  // What to do when get events, two extra VAR available: $zEventType and $zEventPath
 
 static struct  iovec *zpCacheVec;  // Global cache for git diff content
-static _i zpCacheVecSiz;
+static _i zCacheVecSiz;
 
 /*************
  * ADD WATCH *
  *************/
-static void *
+static void
 zinotify_add_sub_watch(void *zpIf) {
 //TEST: PASS
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
-	if (-1 == chdir(zpCurIf->path)) { return NULL; }  // Robustness
+	if (-1 == chdir(zpCurIf->path)) { return; }  // Robustness
 	_i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zWid);
 
 	if (NULL != zpPathHash[zWid]) { free(zpPathHash[zWid]); }  // Free old memory before using the same index again.
 	zpPathHash[zWid] = zpCurIf;
 
-	if (-1 == chdir(zpCurIf->path)) { return NULL; }  // Robustness
+	if (-1 == chdir(zpCurIf->path)) { return; }  // Robustness
 	DIR *zpDir = opendir(zpCurIf->path);
 	zCheck_Null_Exit(zpDir);
 
@@ -140,10 +140,9 @@ zinotify_add_sub_watch(void *zpIf) {
 
 //	free(zpCurIf);  // Can safely free, but NOT free it!
 	closedir(zpDir);
-	return NULL;
 }
 
-static void *
+static void
 zinotify_add_top_watch(void *zpIf) {
 //TEST: PASS
 	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
@@ -194,13 +193,12 @@ zinotify_add_top_watch(void *zpIf) {
 		}
 		closedir(zpDir);
 	}
-	return NULL;
 }
 
 /****************
  * UPDATE CACHE *
  ****************/
-struct iovec *
+static struct iovec *
 zgenerate_cache(void) {
 	_i zNewVersion = (_i)time(NULL);
 
@@ -221,7 +219,7 @@ zgenerate_cache(void) {
 	else {
 		if (0 == (zTotalLine[0] = atoi(zpRes[0]))) { return  NULL; }
 		zMem_Alloc(zpNewCacheVec[0], struct iovec, zTotalLine[0]);
-		zpCacheVecSiz = zTotalLine[0];  // Global Var
+		zCacheVecSiz = zTotalLine[0];  // Global Var
 
 		for (_i i = 0; NULL != (zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0])); i++) {
 			zResLen[0] = strlen(zpRes[0]);
@@ -250,7 +248,7 @@ zgenerate_cache(void) {
 	return zpNewCacheVec[0];
 }
 
-static void *
+static void
 zupdate_cache(void *_) {
 	struct iovec *zpOldCacheIf = zpCacheVec;
 	if (NULL == (zpCacheVec = zgenerate_cache())) {
@@ -267,13 +265,12 @@ zupdate_cache(void *_) {
 		}
 		free(zpOldCacheIf);
 	}
-	return NULL;
 }
 
 /********************
  * DEAL WITH EVENTS *
  ********************/
-static void *
+static void
 zcallback_common_action(void *zpCurIf) {
 //TEST: PASS
 	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
@@ -294,11 +291,9 @@ zcallback_common_action(void *zpCurIf) {
 	zBitHash[zpSubIf->UpperWid] = 0;
 	pthread_cond_signal(&zCommonCond);
 	pthread_mutex_unlock(&zCommonLock);
-
-	return NULL;
 }
 
-static void *
+static void
 zinotify_wait(void *_) {
 //TEST: PASS
 	char zBuf[zCommonBufSiz]

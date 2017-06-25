@@ -69,15 +69,34 @@ zgenerate_hint(_i zFlags) {
 }
 
 // Generate a socket fd used by server to do 'accept'.
-struct sockaddr *
+static struct sockaddr *
 zgenerate_serv_addr(char *zpHost, char *zpPort) {
 	struct addrinfo *zpRes, *zpHint;
 	zpHint = zgenerate_hint(AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV);
 
 	_i zErr = getaddrinfo(zpHost, zpPort, zpHint, &zpRes);
-	if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
+	if (-1 == zErr){ 
+		zPrint_Err(errno, NULL, gai_strerror(zErr)); 
+		exit(1);
+	}
 
 	return zpRes->ai_addr;
+}
+
+// Start server: TCP or UDP,
+// Option zServType: 1 for TCP, 0 for UDP.
+_i
+zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
+	_i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
+	_i zSD = socket(AF_INET, zSockType, 0);
+	zCheck_Negative_Exit(zSD);
+
+	struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
+	zCheck_Negative_Exit(bind(zSD, zpAddrIf, INET_ADDRSTRLEN));
+
+	zCheck_Negative_Exit(listen(zSD, 5));
+
+	return zSD;
 }
 
 // Used by client.
@@ -90,7 +109,7 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 	zCheck_Negative_Exit(zSD);
 	for (_i i = 4; i > 0; --i) {
 		if (0 == connect(zSD, zpAddr, zLen)) { return zSD; }
-		close(zSD);
+		close(zSD);;
 		sleep(i);
 	}
 
@@ -122,7 +141,9 @@ zconnect(char *zpHost, char *zpPort, _i zFlags) {
 // Send message from multi positions.
 _i
 zsendto(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
-	return sendto(zSD, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
+	_i zSentSiz = sendto(zSD, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
+	zCheck_Negative_Exit(zSentSiz);
+	return zSentSiz;
 }
 
 _i
@@ -136,14 +157,18 @@ zsendmsg(_i zSD, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
 		.msg_controllen = 0, 
 		.msg_flags = 0
 	};
-	return sendmsg(zSD, &zMsgIf, zFlags);
+	_i zSentSiz = sendmsg(zSD, &zMsgIf, zFlags);
+	zCheck_Negative_Exit(zSentSiz);
+	return zSentSiz;
 }
 
 _i
-zrecvfrom(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+zrecv_all(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
 	_i zFlags = MSG_WAITALL;
 	socklen_t zAddrLen = 0;
-	return recvfrom(zSD, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
+	_i zRecvSiz = recvfrom(zSD, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
+	zCheck_Negative_Exit(zRecvSiz);
+	return zRecvSiz;
 }
 
 /*

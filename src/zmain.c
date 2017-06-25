@@ -175,7 +175,7 @@ main(_i zArgc, char **zppArgv) {
 	struct stat zStat;
 
 	opterr = 0;  // prevent getopt to print err info
-	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "f:x:"));) {
+	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CSf:x:h:p:"));) {
 		switch (zOpt) {
 		case 'f':
 			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
@@ -187,6 +187,18 @@ main(_i zArgc, char **zppArgv) {
 			break;
 		case 'x':
 			zpShellCommand = optarg;
+			break;
+		case 'h':  // host ip addr
+			// TO DO
+			break;
+		case 'p':  // port
+			// TO DO
+			break;
+		case 'C':  // Client
+			// TO DO
+			break;
+		case 'S':  // Server
+			// TO DO
 			break;
 		default: // zOpt == '?'
 			zPrint_Time();

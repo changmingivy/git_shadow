@@ -3,7 +3,7 @@
 	#include "zutils.h"
 #endif
 
-#define zThreadPollSiz 64
+#define zThreadPollSiz 256
 
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
 		pthread_mutex_lock(&(zLock[0]));\
@@ -27,7 +27,7 @@
 		pthread_cond_signal(&(zCond[2]));\
 }while(0)
 
-typedef void * (* zThreadOps) (void *);
+typedef void (* zThreadOps) (void *);
 
 typedef struct zThreadJobInfo {
 	pthread_t Tid;
