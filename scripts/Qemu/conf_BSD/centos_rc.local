@@ -1,0 +1,11 @@
+#!/bin/sh
+
+zIf="eth0"
+zIP="172.16.0.`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`/16"
+zRoute="172.16.0.1"
+
+ip addr flush dev $zIf
+ip route flush dev $zIf
+
+ip addr add $zIP dev $zIf
+ip route replace default via $zRoute dev $zIf
