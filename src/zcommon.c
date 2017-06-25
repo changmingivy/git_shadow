@@ -88,15 +88,15 @@ zgenerate_serv_addr(char *zpHost, char *zpPort) {
 _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
 	_i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
-	_i zSD = socket(AF_INET, zSockType, 0);
-	zCheck_Negative_Exit(zSD);
+	_i zSd = socket(AF_INET, zSockType, 0);
+	zCheck_Negative_Exit(zSd);
 
 	struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
-	zCheck_Negative_Exit(bind(zSD, zpAddrIf, INET_ADDRSTRLEN));
+	zCheck_Negative_Exit(bind(zSd, zpAddrIf, INET_ADDRSTRLEN));
 
-	zCheck_Negative_Exit(listen(zSD, 5));
+	zCheck_Negative_Exit(listen(zSd, 5));
 
-	return zSD;
+	return zSd;
 }
 
 // Used by client.
@@ -105,11 +105,11 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 	if (zSockType == 0) { zSockType = SOCK_STREAM; }
 	if (zProto == 0) { zProto = IPPROTO_TCP; }
 
-	_i zSD = socket(AF_INET, zSockType, zProto);
-	zCheck_Negative_Exit(zSD);
+	_i zSd = socket(AF_INET, zSockType, zProto);
+	zCheck_Negative_Exit(zSd);
 	for (_i i = 4; i > 0; --i) {
-		if (0 == connect(zSD, zpAddr, zLen)) { return zSD; }
-		close(zSD);;
+		if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
+		close(zSd);;
 		sleep(i);
 	}
 
@@ -140,14 +140,14 @@ zconnect(char *zpHost, char *zpPort, _i zFlags) {
 
 // Send message from multi positions.
 _i
-zsendto(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
-	_i zSentSiz = sendto(zSD, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
+zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+	_i zSentSiz = sendto(zSd, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
 	zCheck_Negative_Exit(zSentSiz);
 	return zSentSiz;
 }
 
 _i
-zsendmsg(_i zSD, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
+zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
 	struct msghdr zMsgIf = {
 		.msg_name = zpAddr, 
 		.msg_namelen = INET_ADDRSTRLEN, 
@@ -157,16 +157,16 @@ zsendmsg(_i zSD, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
 		.msg_controllen = 0, 
 		.msg_flags = 0
 	};
-	_i zSentSiz = sendmsg(zSD, &zMsgIf, zFlags);
+	_i zSentSiz = sendmsg(zSd, &zMsgIf, zFlags);
 	zCheck_Negative_Exit(zSentSiz);
 	return zSentSiz;
 }
 
 _i
-zrecv_all(_i zSD, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
 	_i zFlags = MSG_WAITALL;
 	socklen_t zAddrLen = 0;
-	_i zRecvSiz = recvfrom(zSD, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
+	_i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
 	zCheck_Negative_Exit(zRecvSiz);
 	return zRecvSiz;
 }
