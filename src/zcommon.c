@@ -1,47 +1,20 @@
-#define _XOPEN_SOURCE 700
-
-#include <sys/socket.h>
-#include <netdb.h>
-
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/signal.h>
-#include <sys/syslog.h>
-
-#include <dirent.h>
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-
-#include "zutils.h"
-
-#define zCommonBufSiz 4096 // The defination will be undefine in the end of the file.
-
-void *
-zregister_malloc(const size_t zSiz) {
-	register void *zpRes = malloc(zSiz);
-	zCheck_Null_Exit(zpRes);
-	return zpRes;
-}
-
-void *
-zregister_realloc(void *zpPrev, const size_t zSiz) {
-	register void *zpRes = realloc(zpPrev, zSiz);
-	zCheck_Null_Exit(zpRes);
-	return zpRes;
-}
-
-void *
-zregister_calloc(const int zCnt, const size_t zSiz) {
-	register void *zpRes = calloc(zCnt, zSiz);
-	zCheck_Null_Exit(zpRes);
-	return zpRes;
-}
+#ifndef _Z
+	#define _XOPEN_SOURCE 700
+	#include <sys/socket.h>
+	#include <netdb.h>
+	#include <sys/types.h>
+	#include <unistd.h>
+	#include <fcntl.h>
+	#include <sys/wait.h>
+	#include <sys/stat.h>
+	#include <sys/signal.h>
+	#include <dirent.h>
+	#include <stdio.h>
+	#include <string.h>
+	#include <stdlib.h>
+	#include <errno.h>
+	#include "zutils.h"
+#endif
 
 /*
  * Functions for base64 coding [and decoding(TO DO)]
@@ -86,9 +59,7 @@ zstr_to_base64(const char *zpOrig) {
 
 /*
  * Functions for socket connection.
- * Static resource, so DO NOT to attemp to free the result.
  */
-
 static struct addrinfo *
 zgenerate_hint(_i zFlags) {
 	static struct addrinfo zHints;
@@ -238,7 +209,6 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 	else { waitpid(zPid, NULL, 0); }
 }
 
-
 /*
  * DO NOT try to free memory.
  */
@@ -253,5 +223,3 @@ zget_one_line_from_FILE(FILE *zpFile) {
 	}
 	return zBuf;
 }
-
-#undef zCommonBufSiz

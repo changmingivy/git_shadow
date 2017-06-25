@@ -1,15 +1,17 @@
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-
-#ifndef zPTHREAD_H
-#define zPTHREAD_H
-#include <pthread.h>
+#ifndef _Z
+	#include <stdio.h>
+	#include <stdlib.h>
+	#include <string.h>
+	#include <errno.h>
+	#include <pthread.h>
+	#define zCommonBufSiz 4096
 #endif
 
 /*
  * =>>> Aliases For All Basic Types <<<=
  */
+#define _s signed short int
+#define _us unsigned short int
 #define _i signed int
 #define _ui unsigned int
 #define _l signed long int
@@ -128,13 +130,25 @@
  * =>>> Memory Management <<<=
  */
 void *
-zregister_malloc(size_t zSiz);
+zregister_malloc(const size_t zSiz) {
+	register void *zpRes = malloc(zSiz);
+	zCheck_Null_Exit(zpRes);
+	return zpRes;
+}
 
 void *
-zregister_realloc(void *zpPrev, size_t zSiz);
+zregister_realloc(void *zpPrev, const size_t zSiz) {
+	register void *zpRes = realloc(zpPrev, zSiz);
+	zCheck_Null_Exit(zpRes);
+	return zpRes;
+}
 
 void *
-zregister_calloc(int zCnt, size_t zSiz);
+zregister_calloc(const int zCnt, const size_t zSiz) {
+	register void *zpRes = calloc(zCnt, zSiz);
+	zCheck_Null_Exit(zpRes);
+	return zpRes;
+}
 
 #define zMem_Alloc(zpReqBuf, zType, zCnt) do {\
 	zpReqBuf = (zType *)zregister_malloc((zCnt) * sizeof(zType));\
