@@ -8,12 +8,11 @@
 # $@(after shift):files to deploy
 zdeploy() {
 	local zCodePath=$1
-	local zComment=$2
-    shift 2
+    shift 1
 
 	local zEcsList=`cat $zCodePath/.git_shadow/ecs_host_major_list`
 
-	if [[ '' == zComment || '' == zCommitId ]];then return -1; fi
+	if [[ '' == $zCodePath ]];then return -1; fi
 
 	cat $zCodePath/.git_shadow/.zLock >/dev/null
 	cd $zCodePath
@@ -26,7 +25,7 @@ zdeploy() {
 			git add $zFile
 		done
 	fi
-	git commit -m "$zComment"
+	git commit -m "${zCodePath}: `date -Is`"  # Maybe reveive contents from frontend?
 
 	local i=0
 	local j=0
@@ -101,12 +100,12 @@ zComment=
 zCodePath=
 zCommitId=
 zActionType=
-while getopts DRt:m:p:i: zOption
+while getopts DRt:p:i: zOption
 do
     case $zOption in
 		D) zActionType=zDeploy;;
 		R) zActionType=zRevoke;;
-		m) zComment="$OPTARG";;  # used by 'git commit -m '
+#		m) zComment="$OPTARG";;  # used by 'git commit -m '
 		p) zCodePath="$OPTARG";;  # code path
 		i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
 		?) return -1;;
@@ -115,7 +114,7 @@ done
 shift $[$OPTIND − 1]
 
 if [[ $zActionType -eq $zDeploy ]]; then
-	zdeploy() $zComment $zCodePath $@
+	zdeploy() $zCodePath $@
 elif [[ $zActionType -eq $zRevoke ]]; then
 	zrevoke() $zCommitId $@
 else

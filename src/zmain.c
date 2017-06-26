@@ -8,6 +8,7 @@
 #include <netdb.h>
 
 #include <pthread.h>
+#include <sys/mman.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -33,12 +34,13 @@
 _i zRepoNum;  // how many repositories
 char **zppRepoList;  // each repository's absolute path
 
-char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
-
 struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
 _i *zpCacheVecSiz;
 
-_i *zpSpecWid;
+_i *zpSpecWid;  // watch ID for each repository's .git/logs
+
+char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
+_i *zpLogFd[2];  // opened log fd for each repo
 
 /****************
  * SUB MODULERS *
@@ -209,17 +211,27 @@ main(_i zArgc, char **zppArgv) {
 	}
 
 	zRepoNum = 1 + zArgc - optind;
-	_i zStartIndex = optind;
-
-	zMem_Alloc(zppRepoList, char *, zRepoNum);
-	for (; optind < zArgc; optind++) { 
-		zppRepoList[optind - zStartIndex] = zppArgv[optind];
-	}
 
 	zMem_Alloc(zppCurTagSig, char *, zRepoNum );
 	zMem_Alloc(zppCacheVec, struct iovec *, zRepoNum );
 	zMem_Alloc(zpCacheVecSiz, _i, zRepoNum );
 	zMem_Alloc(zpSpecWid, _i, zRepoNum );
+	zMem_Alloc(zpLogFd[0], _i, zRepoNum );
+	zMem_Alloc(zpLogFd[1], _i, zRepoNum );
+
+	char zBuf[zCommonBufSiz];
+	zMem_Alloc(zppRepoList, char *, zRepoNum);
+	for (_i i = 0; i < zRepoNum; i++) { 
+		zppRepoList[i] = zppArgv[optind];
+
+		sprintf(zBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
+		zpLogFd[0][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
+		zCheck_Negative_Exit(zpLogFd[0][i]);
+
+		sprintf(zBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
+		zpLogFd[1][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		zCheck_Negative_Exit(zpLogFd[1][i]);
+	}
 
 	zdaemonize("/");
 
