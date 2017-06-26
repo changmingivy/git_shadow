@@ -15,6 +15,12 @@
 	#include <libgen.h>
 	#include "zthread_pool.c"
 	void zupdate_cache(void *zpIf);
+	_i zRepoNum;  // how many repositories
+	char **zppRepoList;  // each repository's absolute path
+	char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
+	struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
+	_i *zpCacheVecSiz;
+	_i *zpSpecWid;
 #endif
 
 #include <sys/inotify.h>
@@ -43,7 +49,7 @@ typedef struct zObjInfo {
 
 typedef struct zSubObjInfo {
 	_i RepoId;
-	_i UpperWid;
+	_i UpperWid;  // Maybe, used as REPO ID ?
 	_s RecursiveMark;
 	_s EvType;
 	char path[];
@@ -95,6 +101,7 @@ zinotify_add_sub_watch(void *zpIf) {
 			zCheck_Null_Exit(zpSubIf);
 
 			zpSubIf->RecursiveMark = 1;
+			zpSubIf->RepoId = zpCurIf->RepoId;
 			zpSubIf->UpperWid = zpCurIf->UpperWid;
 
 			strcpy(zpSubIf->path, zpCurIf->path);
@@ -114,24 +121,28 @@ zinotify_add_top_watch(void *zpIf) {
 //TEST: PASS
 	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
 	char *zpPath = zpObjIf->path;
+	size_t zLen = strlen(zpPath);
 
-	zSubObjInfo *zpTopIf = malloc(
-			sizeof(zSubObjInfo) + 1 + strlen(zpPath)
-			);
+	zSubObjInfo *zpTopIf = malloc(sizeof(zSubObjInfo) + 1 + zLen);
+	zCheck_Null_Exit(zpTopIf);
 
 	zpTopIf->RecursiveMark = zpObjIf->RecursiveMark;
+	for (_i i = 0; i < zRepoNum; i++) {
+		if (0 == strncmp(zppRepoList[i], zpPath, strlen(zppRepoList[i]))) {
+			zpTopIf->RepoId = i;
+		}
+		if (0 == strcmp(zpPath + strlen(zppRepoList[i]), ".git/logs") || 0 == strcmp(zpPath + strlen(zppRepoList[i]), "/.git/logs")) {
+			zpSpecWid[i] = zpTopIf->UpperWid;  // @Used for special match ".git/logs"
+		}
+		break;
+	}
 	zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zpTopIf->UpperWid);
-
-//	if (0 == strcmp(strlen(zpPath) - strlen(".git/logs") - 1 + zpPath, ".git/logs")) {
-//		zSpecWid = zpTopIf->UpperWid;  // @Used for special match ".git/logs"
-//	}
 
 	strcpy(zpTopIf->path, zpPath);
 	zpPathHash[zpTopIf->UpperWid] = zpTopIf;
 
 	if (((zObjInfo *) zpObjIf)->RecursiveMark) {
-		size_t zLen = strlen(zpPath);
 		struct dirent *zpEntry;
 
 		DIR *zpDir = opendir(zpPath);
@@ -149,6 +160,7 @@ zinotify_add_top_watch(void *zpIf) {
 				zCheck_Null_Exit(zpSubIf);
 	
 				zpSubIf->RecursiveMark = 1;
+				zpSubIf->RepoId = zpTopIf->RepoId;
 				zpSubIf->UpperWid = zpTopIf->UpperWid;
 	
 				strcpy(zpSubIf->path, zpPath);
@@ -225,7 +237,9 @@ zinotify_wait(void *_) {
 				zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
 			}
 
-			zAdd_To_Thread_Pool(zupdate_cache, &(zpPathHash[zpEv->wd]->RepoId));
+			if (zpPathHash[zpEv->wd]->UpperWid == zpSpecWid[zpPathHash[zpEv->wd]->RepoId]) {
+				zAdd_To_Thread_Pool(zupdate_cache, &(zpPathHash[zpEv->wd]->RepoId));
+			}
 
 //			if (zpEv->mask & (IN_CREATE | IN_MOVED_TO)) { 
 //				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->EvType = zNewDirEv; }

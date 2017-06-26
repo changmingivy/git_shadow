@@ -32,9 +32,13 @@
  **************/
 _i zRepoNum;  // how many repositories
 char **zppRepoList;  // each repository's absolute path
+
 char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
+
 struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
 _i *zpCacheVecSiz;
+
+_i *zpSpecWid;
 
 /****************
  * SUB MODULERS *
@@ -215,6 +219,7 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zppCurTagSig, char *, zRepoNum );
 	zMem_Alloc(zppCacheVec, struct iovec *, zRepoNum );
 	zMem_Alloc(zpCacheVecSiz, _i, zRepoNum );
+	zMem_Alloc(zpSpecWid, _i, zRepoNum );
 
 	zdaemonize("/");
 
