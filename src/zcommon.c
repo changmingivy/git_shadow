@@ -118,7 +118,7 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 
 // Used by client.
 _i
-zconnect(char *zpHost, char *zpPort, _i zFlags) {
+ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 	struct addrinfo *zpRes, *zpTmp, *zpHints;
 	_i zSockD, zErr;
 

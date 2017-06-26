@@ -232,6 +232,10 @@ main(_i zArgc, char **zppArgv) {
 		sprintf(zBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
 		zpLogFd[1][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
 		zCheck_Negative_Exit(zpLogFd[1][i]);
+
+		sprintf(zBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
+		zpLogFd[2][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		zCheck_Negative_Exit(zpLogFd[1][i]);
 	}
 
 	zdaemonize("/");

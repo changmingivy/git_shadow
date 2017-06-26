@@ -57,11 +57,13 @@ typedef struct zDeployLogInfo {
 	_i index;  // index of deploy history, used as hash
 //	char BaseSig[40];  // DO NOT NEED! write to log3, hash with index
 	_ul TimeStamp;
+	_i DeployRate;  // success rate == $DeployRate / 1000
 	_ul offset;
 	_i len;
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
+	_i ClientAddr;  // 0xffffffff = htonl()
 	_i CacheVersion;
 	_us RepoId;  // correspond to the name of code repository
 	_us DeployState;
@@ -214,8 +216,19 @@ zstart_server(char *zpHost, char *zpPort, _i zServType) {
 }
 
 void
-zstart_client(void) {
+zclient_reply(char *zpHost, char *zpPort) {
+	_i zSd = ztcp_connect(zpHost, zpPort, AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV);
+	if (-1 == zSd) {
+		zPrint_Err(0, NULL, "Connect to server failed.");
+		exit(1);
+	}
 
+	if (2 != zsendto(zSd, "@", 2, NULL)) {
+		zPrint_Err(0, NULL, "Reply @ to server failed.");
+		exit(1);
+	}
+
+	zCheck_Negative_Exit(shutdown(zSd, SHUT_RDWR));
 }
 
 /****************
