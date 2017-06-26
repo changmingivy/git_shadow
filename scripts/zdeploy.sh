@@ -93,7 +93,8 @@ zrevoke() {
 }
 
 #######################################################
-zDeploy=1
+zDeployAll=2
+zDeployOne=1
 zRevoke=-1
 
 zComment=
@@ -103,18 +104,21 @@ zActionType=
 while getopts DRt:p:i: zOption
 do
     case $zOption in
-		D) zActionType=zDeploy;;
+		d) zActionType=zDeployOne;;
+		D) zActionType=zDeployAll;;
 		R) zActionType=zRevoke;;
 #		m) zComment="$OPTARG";;  # used by 'git commit -m '
-		p) zCodePath="$OPTARG";;  # code path
+		P) zCodePath="$OPTARG";;  # code path
 		i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
 		?) return -1;;
     esac
 done
 shift $[$OPTIND − 1]
 
-if [[ $zActionType -eq $zDeploy ]]; then
+if [[ $zActionType -eq $zDeployOne ]]; then
 	zdeploy() $zCodePath $@
+elif [[ $zActionType -eq $zDeployAll ]]; then
+	zdeploy() $zCodePath
 elif [[ $zActionType -eq $zRevoke ]]; then
 	zrevoke() $zCommitId $@
 else

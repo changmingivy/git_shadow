@@ -52,14 +52,12 @@ typedef struct zFileDiffInfo {
 	char path[];  // the path relative to code repo
 } zFileDiffInfo;
 
-typedef struct zDeployLogInfo {
+typedef struct zDeployLogInfo {  // write to log.meta
 	_i RepoId;  // correspond to the name of code repository
 	_i index;  // index of deploy history, used as hash
-//	char BaseSig[40];  // DO NOT NEED! write to log3, hash with index
-	_ul TimeStamp;
-	_i DeployRate;  // success rate == $DeployRate / 1000
 	_ul offset;
 	_i len;
+	_ul TimeStamp;
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
@@ -68,6 +66,9 @@ typedef struct zDeployResInfo {
 	_us RepoId;  // correspond to the name of code repository
 	_us DeployState;
 } zDeployResInfo;
+
+_i zTotalHost;
+_i zReplyCnt;
 
 /*
  * return contents from cache directly
@@ -80,6 +81,7 @@ typedef struct zDeployResInfo {
  * 		-D:deploy, need shell script
  * 		-L:list deploy log
  * 		-R:revoke, need shell script
+ * 		-r:reply msg from ECS
  */
 void
 zlist_diff_files(_i zSd, zFileDiffInfo *zpIf){
@@ -87,7 +89,7 @@ zlist_diff_files(_i zSd, zFileDiffInfo *zpIf){
 }
 
 void
-zlist_diff_contents(_i zSd, zFileDiffInfo *zpIf){
+zprint_diff_contents(_i zSd, zFileDiffInfo *zpIf){
 	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpIf->RepoId]->iov_base))->CacheVersion) {
 		zsendmsg(zSd, zpIf->p_DiffContent, zpIf->VecSiz, 0, NULL);
 	}
@@ -131,27 +133,84 @@ zlist_log(_i zSd, zFileDiffInfo *zpIf) {
 }
 
 void
-zdeploy_new(_i zSd, zFileDiffInfo *zpIf){
-	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpIf->RepoId]->iov_base))->CacheVersion) {
+zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
+	struct timespec zNanoSecIf = {
+		.tv_sec = 0,
+		.tv_nsec = 200000000,
+	};
+
+	while (zReplyCnt < zTotalHost) {
+		nanosleep(&zNanoSecIf, NULL);
+	}
+
+	// write to log.meta
+	struct stat zStatBuf;
+	zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatBuf));
+
+	zDeployLogInfo zDeployIf;
+	pread(zpLogFd[0][zRepoId], &zDeployIf, sizeof(zDeployLogInfo), zStatBuf.st_size - sizeof(zDeployLogInfo));
+
+	zDeployIf.RepoId = zRepoId;
+	zDeployIf.index += sizeof(zDeployLogInfo);
+	zDeployIf.offset += zPathLen;
+	zDeployIf.TimeStamp = time(NULL);
+	zDeployIf.len = zPathLen;
+
+	if (sizeof(zDeployLogInfo) != write(zpLogFd[0][zRepoId], &zDeployIf, sizeof(zDeployLogInfo))) {
+		zPrint_Err(0, NULL, "Can't write to log.meta!");
+		exit(1);
+	}
+	// write to log.data
+	if (zPathLen != write(zpLogFd[1][zRepoId], zpPathName, zPathLen)) {
+		zPrint_Err(0, NULL, "Can't write to log.data!");
+		exit(1);
+	}
+	// write to log.sig
+	if ( 40 != write(zpLogFd[2][zRepoId], zppCurTagSig[zRepoId], 40)) {
+		zPrint_Err(0, NULL, "Can't write to log.sig!");
+		exit(1);
+	}
+}
+
+void
+zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
+	if (zpDiffIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpDiffIf->RepoId]->iov_base))->CacheVersion) {
 		char zShellBuf[4096];
-		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -p %s", zppRepoList[zpIf->RepoId]);
+		char *zpLogContents;
+		_i zLogSiz;
+		if (0 == zMarkAll) { 
+			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -P %s %s", zppRepoList[zpDiffIf->RepoId], zpDiffIf->path); 
+			zpLogContents = zpDiffIf->path;
+			zLogSiz = zpDiffIf->PathLen;
+		} 
+		else { 
+			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -P %s", zppRepoList[zpDiffIf->RepoId]); 
+			zpLogContents = "ALL";
+			zLogSiz = 4 * sizeof(char);
+		}
 		system(zShellBuf);
 		// TO DO: receive deploy results from ECS, 
 		// and send it to frontend,
 		// recv confirm information from frontend,
-		// and write deploy log.
-	}
+
+		zwrite_log(zpDiffIf->RepoId, zpLogContents, zLogSiz);
+		zsendto(zSd, "Y", 2 * sizeof(char), NULL);
+	} 
 	else {
 		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // if cache version has changed, return a '!' to frontend
 	}
 }
 
 void
-zrevoke_from_log(_i zSd, zDeployLogInfo *zpIf){
+zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf){
 		// TO DO: receive deploy results from ECS, 
 		// and send it to frontend,
 		// recv confirm information from frontend,
-		// and write deploy log.
+
+	char zBuf[zpLogIf->len];
+	pread(zpLogFd[1][zpLogIf->RepoId], &zBuf, zpLogIf->len, zpLogIf->offset);
+	zwrite_log(zpLogIf->RepoId, zBuf,zpLogIf->len);
+	zsendto(zSd, "Y", 2 * sizeof(char), NULL);
 }
 
 void
@@ -164,11 +223,14 @@ zdo_serv(void *zpIf) {
 		case 'l':
 			zlist_diff_files(zSd, (zFileDiffInfo *)(zReqBuf + 1));
 			break;
-		case 'd':
-			zlist_diff_contents(zSd, (zFileDiffInfo *)(zReqBuf + 1));
+		case 'p':
+			zprint_diff_contents(zSd, (zFileDiffInfo *)(zReqBuf + 1));
 			break;
-		case 'D':
-			zdeploy_new(zSd, (zFileDiffInfo *)(zReqBuf + 1));
+		case 'd':  // deploy one file
+			zdeploy(zSd, (zFileDiffInfo *)(zReqBuf + 1), 0);
+			break;
+		case 'D':  // deploy all
+			zdeploy(zSd, (zFileDiffInfo *)(zReqBuf + 1), 1);
 			break;
 		case 'L':
 			zlist_log(zSd, (zFileDiffInfo *)(zReqBuf + 1));
@@ -176,6 +238,9 @@ zdo_serv(void *zpIf) {
 		case 'R':
 			zrevoke_from_log(zSd, (zDeployLogInfo *)(zReqBuf + 1));  // Need to disign a log struct
 			break;
+//		case 'r':
+//			zreply_counter((void *)(zReqBuf + 1));
+//			break;
 		default:
 			zPrint_Err(0, NULL, "Undefined request");
 	}
