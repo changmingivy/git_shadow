@@ -28,7 +28,7 @@
 	char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
 	struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
 	_i *zpCacheVecSiz;
-	_i *zpLogFd[2];  // opened log fd for each repo
+	_i *zpLogFd[3];  // opened log fd for each repo
 #endif
 
 #include <sys/epoll.h>
@@ -46,23 +46,24 @@ typedef struct zFileDiffInfo {
 	_us FileIndex;  // index in iovec array
 
 	struct iovec *p_DiffContent;
-	_us VecSiz;
+	_i VecSiz;
 
-	_us PathLen;
+	_i PathLen;
 	char path[];  // the path relative to code repo
 } zFileDiffInfo;
 
 typedef struct zDeployLogInfo {
-	_i index;  // deploy index, used as hash
-	char BaseTagSig[40];  // where to come back
+	_i RepoId;  // correspond to the name of code repository
+	_i index;  // index of deploy history, used as hash
+//	char BaseSig[40];  // DO NOT NEED! write to log3, hash with index
 	_ul TimeStamp;
 	_ul offset;
 	_i len;
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
-	_us CacheVersion;
-	_us DeployState;
+	_i CacheVersion;
+	_i DeployState;
 } zDeployResInfo;
 
 /*
@@ -74,6 +75,7 @@ typedef struct zDeployResInfo {
  * 		-l:list modified file list, default behavior
  * 		-d:file content diff
  * 		-D:deploy, need shell script
+ * 		-L:list deploy log
  * 		-R:revoke, need shell script
  */
 void
@@ -85,22 +87,6 @@ void
 zlist_diff_contents(_i zSd, zFileDiffInfo *zpIf){
 	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpIf->RepoId]->iov_base))->CacheVersion) {
 		zsendmsg(zSd, zpIf->p_DiffContent, zpIf->VecSiz, 0, NULL);
-	}
-	else {
-		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // if cache version has changed, return a '!' to frontend
-	}
-}
-
-void
-zdeploy_new(_i zSd, zFileDiffInfo *zpIf){
-	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpIf->RepoId]->iov_base))->CacheVersion) {
-		char zShellBuf[4096];
-		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -p %s", zppRepoList[zpIf->RepoId]);
-		system(zShellBuf);
-		// TO DO: receive deploy results from ECS, 
-		// and send it to frontend,
-		// recv confirm information from frontend,
-		// and write deploy log.
 	}
 	else {
 		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // if cache version has changed, return a '!' to frontend
@@ -142,8 +128,27 @@ zlist_log(_i zSd, zFileDiffInfo *zpIf) {
 }
 
 void
-zrevoke_from_log(_i zSd, zDeployLogInfo *zpIf){
+zdeploy_new(_i zSd, zFileDiffInfo *zpIf){
+	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVec[zpIf->RepoId]->iov_base))->CacheVersion) {
+		char zShellBuf[4096];
+		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -p %s", zppRepoList[zpIf->RepoId]);
+		system(zShellBuf);
+		// TO DO: receive deploy results from ECS, 
+		// and send it to frontend,
+		// recv confirm information from frontend,
+		// and write deploy log.
+	}
+	else {
+		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // if cache version has changed, return a '!' to frontend
+	}
+}
 
+void
+zrevoke_from_log(_i zSd, zDeployLogInfo *zpIf){
+		// TO DO: receive deploy results from ECS, 
+		// and send it to frontend,
+		// recv confirm information from frontend,
+		// and write deploy log.
 }
 
 void

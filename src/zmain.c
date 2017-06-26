@@ -40,7 +40,7 @@ _i *zpCacheVecSiz;
 _i *zpSpecWid;  // watch ID for each repository's .git/logs
 
 char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
-_i *zpLogFd[2];  // opened log fd for each repo
+_i *zpLogFd[3];  // opened log fd for each repo: one for metadata, one for filenames, one for commit sig
 
 /****************
  * SUB MODULERS *
@@ -218,6 +218,7 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zpSpecWid, _i, zRepoNum );
 	zMem_Alloc(zpLogFd[0], _i, zRepoNum );
 	zMem_Alloc(zpLogFd[1], _i, zRepoNum );
+	zMem_Alloc(zpLogFd[2], _i, zRepoNum );
 
 	char zBuf[zCommonBufSiz];
 	zMem_Alloc(zppRepoList, char *, zRepoNum);
