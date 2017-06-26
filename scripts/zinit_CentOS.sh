@@ -15,14 +15,13 @@ rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
 	gcc -O2 \
-		-std=c11 \
+		-std=c99 \
 		-I../inc \
 		-lpthread \
 		-lpcre2-8 \
 		-D_XOPEN_SOURCE=700 \
 		-o ../bin/git_shadow \
-		../src/zmain.c \
-		../src/common/*
+		../src/zmain.c
 fi
 
 if [[ 0 -eq `ls $HOME/.gitconfig 2>/dev/null | wc -l` ]]; then
