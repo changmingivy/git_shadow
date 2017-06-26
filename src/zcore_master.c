@@ -63,7 +63,8 @@ typedef struct zDeployLogInfo {
 
 typedef struct zDeployResInfo {
 	_i CacheVersion;
-	_i DeployState;
+	_us RepoId;  // correspond to the name of code repository
+	_us DeployState;
 } zDeployResInfo;
 
 /*
