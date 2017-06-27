@@ -7,6 +7,9 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include <sys/inotify.h>
+#include <sys/epoll.h>
+
 #include <pthread.h>
 #include <sys/mman.h>
 
@@ -28,9 +31,54 @@
 
 #define zCommonBufSiz 4096 
 
+/**********************
+ * DATA STRUCT DEFINE *
+ **********************/
+typedef struct zFileDiffInfo {
+	_ui CacheVersion;
+	_us RepoId;  // correspond to the name of code repository
+	_us FileIndex;  // index in iovec array
+
+	struct iovec *p_DiffContent;
+	_ui VecSiz;
+
+	_ui PathLen;
+	char path[];  // the path relative to code repo
+} zFileDiffInfo;
+
+typedef struct zDeployLogInfo {  // write to log.meta
+	_ui RepoId;  // correspond to the name of code repository
+	_ui index;  // index of deploy history, used as hash
+	_ul offset;
+	_ui len;
+	_ul TimeStamp;
+} zDeployLogInfo;
+
+typedef struct zDeployResInfo {
+	_ui ClientAddr;  // 0xffffffff
+	_us RepoId;  // correspond to the name of code repository
+	_us DeployState;
+} zDeployResInfo;
+
+/*************************/
+typedef struct zObjInfo {
+	struct zObjInfo *p_next;
+	_i RecursiveMark;  // Mark recursive monitor.
+	char path[];  // The directory to be monitored.
+}zObjInfo;
+
+typedef struct zSubObjInfo {
+	_i RepoId;
+	_i UpperWid;  // Maybe, used as REPO ID ?
+	_s RecursiveMark;
+	_s EvType;
+	char path[];
+}zSubObjInfo;
+
 /**************
  * GLOBAL VAR *
  **************/
+#define zDeployHashSiz 1024
 _i zRepoNum;  // how many repositories
 char **zppRepoList;  // each repository's absolute path
 
@@ -46,13 +94,22 @@ pthread_mutex_t *zpDeployLock;
 _i *zpTotalHost;
 _i *zpReplyCnt;
 
+zDeployResInfo ***zpppDpResHash, **zppDpResList;  // base on the 32bit IPv4 addr, store as _ui
+
+#define zWatchHashSiz 8192
+_i zInotifyFD;
+zSubObjInfo *zpPathHash[zWatchHashSiz];
+char zBitHash[zWatchHashSiz];
+char *zpShellCommand;  // What to do when get events, two extra VAR available: $zEvType and $zEvPath
+
 /****************
  * SUB MODULERS *
  ****************/
-#include "zcommon.c"
+#include "zbase_utils.c"
 #include "zpcre.c"
 #include "zthread_pool.c"
-#include "zcore.c"
+#include "znetwork.c"
+#include "zinotify_callback.c"
 #include "zinotify.c"
 
 /*************************
@@ -171,9 +228,10 @@ zconfig_file_monitor(const char *zpConfPath) {
 _i
 main(_i zArgc, char **zppArgv) {
 //TEST: PASS
-	_i zErr = 0;
-	char zRepoPathBuf[zCommonBufSiz];
-	struct stat zStat;
+	char zPathBuf[zCommonBufSiz];
+	struct stat zStatIf;
+	_i zFd, zSiz, zErr;
+	zFd = zSiz = zErr = 0;
 
 	//extern char *optarg;
 	//extern int optind, opterr, optopt;
@@ -181,7 +239,7 @@ main(_i zArgc, char **zppArgv) {
 	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CSf:x:h:p:"));) {
 		switch (zOpt) {
 		case 'f':
-			if (-1 == stat(optarg, &zStat) || !S_ISREG(zStat.st_mode)) {
+			if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {
 				zPrint_Time();
 				fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
 						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
@@ -230,29 +288,46 @@ main(_i zArgc, char **zppArgv) {
 
 	zMem_Alloc(zpTotalHost, _i, zRepoNum );
 	zMem_Alloc(zpReplyCnt, _i, zRepoNum );
-
-	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
-
+/**/ 
 	zMem_Alloc(zppRepoList, char *, zRepoNum);
+	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
+	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
+	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+
 	for (_i i = 0; i < zRepoNum; i++) { 
+		zppRepoList[i] = zppArgv[optind];
+
+		sprintf(zPathBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
+		zpLogFd[0][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
+		zCheck_Negative_Exit(zpLogFd[0][i]);
+
+		sprintf(zPathBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
+		zpLogFd[1][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		zCheck_Negative_Exit(zpLogFd[1][i]);
+
+		sprintf(zPathBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
+		zpLogFd[2][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		zCheck_Negative_Exit(zpLogFd[1][i]);
+
 		if (0 != (zErr =pthread_mutex_init(&(zpDeployLock[i]), NULL))) {
 			zPrint_Err(zErr, NULL, "Init deploy lock failed!");
 			exit(1);
 		}
 
-		zppRepoList[i] = zppArgv[optind];
+		sprintf(zPathBuf, "%s/.git_shadow/client_list_all", zppArgv[optind]);
+		zFd = open(zPathBuf, O_RDONLY);
+		zCheck_Negative_Exit(fstat(zFd, &zStatIf));
 
-		sprintf(zRepoPathBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
-		zpLogFd[0][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
-		zCheck_Negative_Exit(zpLogFd[0][i]);
-
-		sprintf(zRepoPathBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
-		zpLogFd[1][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
-		zCheck_Negative_Exit(zpLogFd[1][i]);
-
-		sprintf(zRepoPathBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
-		zpLogFd[2][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
-		zCheck_Negative_Exit(zpLogFd[1][i]);
+		zSiz = zStatIf.st_size / sizeof(zDeployResInfo);
+		zMem_Alloc(zppDpResList[i], zDeployResInfo, zSiz);
+		for (_i j = 0; j < zSiz; j++) {
+			errno = 0;
+			if (sizeof(zDeployResInfo) != read(zFd, &zppDpResList[i][j], sizeof(zDeployResInfo))) {
+				zPrint_Err(errno, NULL, "read client info failed!");
+				exit(1);
+			}
+		}
+		close(zFd);
 	}
 
 	zdaemonize("/");

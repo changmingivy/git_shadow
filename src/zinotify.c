@@ -1,31 +1,7 @@
 #ifndef _Z
-	#define _XOPEN_SOURCE 700
-	#define _BSD_SOURCE
-	#include <sys/types.h>
-	#include <sys/uio.h>
-	#include <unistd.h>
-	#include <sys/wait.h>
-	#include <sys/stat.h>
-	#include <sys/inotify.h>
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <dirent.h>
-	#include <errno.h>
-	#include <time.h>
-	#include <libgen.h>
-	#include "zthread_pool.c"
-	void zupdate_cache(void *zpIf);
-	_i zRepoNum;  // how many repositories
-	char **zppRepoList;  // each repository's absolute path
-	char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
-	struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
-	_i *zpCacheVecSiz;
-	_i *zpSpecWid;
+	#include "zmain.c"
 #endif
 
-#include <sys/inotify.h>
-
-#define zHashSiz 8192
 #define zBaseWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF
 
@@ -37,36 +13,6 @@
 #define zDelFileSelfEv -3
 #define zDelDirSelfEv -4
 #define zUnknownEv -5
-
-/**********************
- * DATA STRUCT DEFINE *
- **********************/
-typedef struct zObjInfo {
-	struct zObjInfo *p_next;
-	_i RecursiveMark;  // Mark recursive monitor.
-	char path[];  // The directory to be monitored.
-}zObjInfo;
-
-typedef struct zSubObjInfo {
-	_i RepoId;
-	_i UpperWid;  // Maybe, used as REPO ID ?
-	_s RecursiveMark;
-	_s EvType;
-	char path[];
-}zSubObjInfo;
-
-/**************
- * GLOBAL VAR *
- **************/
-_i zInotifyFD;
-
-pthread_mutex_t zCommonLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t zCommonCond = PTHREAD_COND_INITIALIZER;
-
-zSubObjInfo *zpPathHash[zHashSiz];
-char zBitHash[zHashSiz];
-
-char *zpShellCommand;  // What to do when get events, two extra VAR available: $zEvType and $zEvPath
 
 /*************
  * ADD WATCH *
@@ -178,29 +124,6 @@ zinotify_add_top_watch(void *zpIf) {
  * DEAL WITH EVENTS *
  ********************/
 void
-zcallback_common_action(void *zpCurIf) {
-//TEST: PASS
-	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
-
-	pthread_mutex_lock(&zCommonLock);
-	while (0 != zBitHash[zpSubIf->UpperWid]) {
-		pthread_cond_wait(&zCommonCond, &zCommonLock);
-	}
-	zBitHash[zpSubIf->UpperWid] = 1;
-	pthread_mutex_unlock(&zCommonLock);
-
-	char zShellBuf[1 + strlen("zEvPath=;zEvType=;") + strlen(zpSubIf->path) + strlen(zpShellCommand)];
-	sprintf(zShellBuf, "zEvPath=%s;zEvMark=%d;%s", zpSubIf->path, zpSubIf->EvType, zpShellCommand);
-
-	system(zShellBuf);
-
-	pthread_mutex_lock(&zCommonLock);
-	zBitHash[zpSubIf->UpperWid] = 0;
-	pthread_cond_signal(&zCommonCond);
-	pthread_mutex_unlock(&zCommonLock);
-}
-
-void
 zinotify_wait(void *_) {
 //TEST: PASS
 	char zBuf[zCommonBufSiz]
@@ -274,7 +197,6 @@ zinotify_wait(void *_) {
 	}
 }
 
-#undef zHashSiz
 #undef zBaseWatchBit 
 #undef zNewDirEv
 #undef zNewFileEv

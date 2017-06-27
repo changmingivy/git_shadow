@@ -1,9 +1,9 @@
+#ifndef _Z
+	#include "zmain.c"
+#endif
+
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
 #include <pcre2.h>  //compile with '-lpcre2-8'
-
-#ifndef _Z
-	#include "zutils.h"
-#endif
 
 #define zMatchLimit 64
 #define zErrBufLen 256

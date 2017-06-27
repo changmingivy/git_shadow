@@ -1,19 +1,5 @@
 #ifndef _Z
-	#define _XOPEN_SOURCE 700
-	#include <sys/socket.h>
-	#include <netdb.h>
-	#include <sys/types.h>
-	#include <unistd.h>
-	#include <fcntl.h>
-	#include <sys/wait.h>
-	#include <sys/stat.h>
-	#include <sys/signal.h>
-	#include <dirent.h>
-	#include <stdio.h>
-	#include <string.h>
-	#include <stdlib.h>
-	#include <errno.h>
-	#include "zutils.h"
+	#include "zmain.c"
 #endif
 
 /*

@@ -1,77 +1,10 @@
 #ifndef _Z
-	#define _XOPEN_SOURCE 700
-	#define _BSD_SOURCE
-	#include <sys/types.h>
-	#include <sys/socket.h>
-	#include <netdb.h>
-	#include <pthread.h>
-	#include <unistd.h>
-	#include <fcntl.h>
-	#include <sys/wait.h>
-	#include <sys/stat.h>
-	#include <sys/signal.h>
-	#include <sys/inotify.h>
-	#include <stdio.h>
-	#include <stdlib.h>
-	#include <string.h>
-	#include <time.h>
-	#include <errno.h>
-	#include <dirent.h>
-	#include <libgen.h>
-	#include <sys/mman.h>
-	#include "zutils.h"
-	#include "zcommon.c"
-	#include "zthread_pool.c"
-	#define zCommonBufSiz 4096 
-	char **zppRepoList;  // each repository's absolute path
-	_i zRepoNum;  // how many repositories
-	char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
-	struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
-	_i *zpCacheVecSiz;
-	_i *zpLogFd[3];  // opened log fd for each repo
-	pthread_mutex_t *zpDeployLock;
-	_i *zpTotalHost;
-	_i *zpReplyCnt;
+	#include "zmain.c"
 #endif
 
-#include <sys/epoll.h>
-
+#define zMaxEvents 64
 #define UDP 0
 #define TCP 1
-
-#define zMaxEvents 64
-#define zHashSiz 1024  // [] ???
-
-/**********************
- * DATA STRUCT DEFINE *
- **********************/
-typedef struct zFileDiffInfo {
-	_ui CacheVersion;
-	_us RepoId;  // correspond to the name of code repository
-	_us FileIndex;  // index in iovec array
-
-	struct iovec *p_DiffContent;
-	_ui VecSiz;
-
-	_ui PathLen;
-	char path[];  // the path relative to code repo
-} zFileDiffInfo;
-
-typedef struct zDeployLogInfo {  // write to log.meta
-	_ui RepoId;  // correspond to the name of code repository
-	_ui index;  // index of deploy history, used as hash
-	_ul offset;
-	_ui len;
-	_ul TimeStamp;
-} zDeployLogInfo;
-
-typedef struct zDeployResInfo {
-	_ui ClientAddr;  // 0xffffffff
-	_us RepoId;  // correspond to the name of code repository
-	_us DeployState;
-} zDeployResInfo;
-
-zDeployLogInfo *zpDeployResHash[zHashSiz];  // base on the 32bit IPv4 addr, store as _i
 
 /*
  * return contents from cache directly
@@ -342,89 +275,6 @@ zclient_reply(char *zpHost, char *zpPort) {
 	shutdown(zSd, SHUT_RDWR);
 }
 
-/****************
- * UPDATE CACHE *
- ****************/
-struct iovec *
-zgenerate_cache(_i zRepoId) {
-	_i zNewVersion = (_i)time(NULL);
-
-	struct iovec *zpNewCacheVec[2] = {NULL};
-
-	FILE *zpShellRetHandler[2] = {NULL};
-	_i zDiffFilesNum = 0;
-
-	char *zpRes[2] = {NULL};
-	size_t zResLen[2] = {0};
-	_i zBaseSiz = sizeof(zFileDiffInfo);
-	char zShellBuf[zCommonBufSiz];
-
-	zpShellRetHandler[0] = popen("git diff --name-only HEAD CURRENT | wc -l && git diff --name-only HEAD CURRENT | git log --format=%H -n 1 CURRENT", "r");
-	zCheck_Null_Exit(zpShellRetHandler);
-
-	if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) { return 0; }
-	else {
-		if (0 == (zDiffFilesNum = atoi(zpRes[0]))) { return  NULL; }
-		zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFilesNum);
-		zpCacheVecSiz[zRepoId] = zDiffFilesNum;  // Global Var
-
-		for (_i i = 0; i < zDiffFilesNum - 1; i++) {
-			zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
-
-			zResLen[0] = strlen(zpRes[0]);
-			zCheck_Null_Exit(
-					zpNewCacheVec[0][i].iov_base = malloc(1 + zResLen[0] + zBaseSiz)
-					);
-			((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->CacheVersion = zNewVersion;
-			((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->RepoId= zRepoId;
-			((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->FileIndex = i;
-			strcpy(((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->path, zpRes[0]);
-
-			sprintf(zShellBuf, "git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zpRes[0], zpRes[0]);
-			zpShellRetHandler[1] = popen(zShellBuf, "r");
-			zCheck_Null_Exit(zpShellRetHandler);
-
-			zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));
-
-			for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
-				zResLen[1] = strlen(zpRes[1]);
-				zMem_Alloc(zpNewCacheVec[j]->iov_base, char, 1 + zResLen[1]);
-				strcpy(((char *)(zpNewCacheVec[1][j].iov_base)), zpRes[1]);
-			}
-			pclose(zpShellRetHandler[1]);
-		}
-
-		char *zpBuf = zget_one_line_from_FILE(zpShellRetHandler[0]);
-		zMem_Alloc(zppCurTagSig[zRepoId], char, 40);  // Not include '\0'
-		strncpy(zppCurTagSig[zRepoId], zpBuf, 40);  // Global Var
-		pclose(zpShellRetHandler[0]);
-	}
-
-	pthread_mutex_lock(&zpDeployLock[zRepoId]);
-	return zpNewCacheVec[0];
-	pthread_mutex_unlock(&zpDeployLock[zRepoId]);
-}
-
-void
-zupdate_cache(void *zpIf) {
-	_i zRepoId = *((_i *)zpIf);
-	struct iovec *zpOldCacheIf = zppCacheVec[zRepoId];
-	if (NULL == (zppCacheVec[zRepoId] = zgenerate_cache(zRepoId))) {
-		zppCacheVec[zRepoId] = zpOldCacheIf;  // Global Var
-	}
-	else {
-		//struct iovec *zpOldCacheIf = (struct iovec *)zpIf;
-		for (_ui i = 0; i < zpOldCacheIf->iov_len; i++) { 
-			for (_ui j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
-				free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
-			}
-			free(((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent);
-			free(zpOldCacheIf[i].iov_base); 
-		}
-		free(zpOldCacheIf);
-	}
-}
-
+#undef zMaxEvents
 #undef UDP
 #undef TCP
-#undef zMaxEvents
