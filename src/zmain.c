@@ -42,6 +42,10 @@ _i *zpSpecWid;  // watch ID for each repository's .git/logs
 char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
 _i *zpLogFd[3];  // opened log fd for each repo: one for metadata, one for filenames, one for commit sig
 
+pthread_mutex_t *zpDeployLock;
+_i *zpTotalHost;
+_i *zpReplyCnt;
+
 /****************
  * SUB MODULERS *
  ****************/
@@ -167,10 +171,12 @@ zconfig_file_monitor(const char *zpConfPath) {
 _i
 main(_i zArgc, char **zppArgv) {
 //TEST: PASS
-//	extern char *optarg;
-//	extern int optind, opterr, optopt;
+	_i zErr = 0;
+	char zRepoPathBuf[zCommonBufSiz];
 	struct stat zStat;
 
+	//extern char *optarg;
+	//extern int optind, opterr, optopt;
 	opterr = 0;  // prevent getopt to print err info
 	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CSf:x:h:p:"));) {
 		switch (zOpt) {
@@ -212,29 +218,40 @@ main(_i zArgc, char **zppArgv) {
 
 	zRepoNum = 1 + zArgc - optind;
 
-	zMem_Alloc(zppCurTagSig, char *, zRepoNum );
-	zMem_Alloc(zppCacheVec, struct iovec *, zRepoNum );
-	zMem_Alloc(zpCacheVecSiz, _i, zRepoNum );
-	zMem_Alloc(zpSpecWid, _i, zRepoNum );
-	zMem_Alloc(zpLogFd[0], _i, zRepoNum );
-	zMem_Alloc(zpLogFd[1], _i, zRepoNum );
-	zMem_Alloc(zpLogFd[2], _i, zRepoNum );
+	zMem_Alloc(zppCurTagSig, char *, zRepoNum);
+	zMem_Alloc(zpSpecWid, _i, zRepoNum);
 
-	char zBuf[zCommonBufSiz];
+	zMem_Alloc(zppCacheVec, struct iovec *, zRepoNum);
+	zMem_Alloc(zpCacheVecSiz, _i, zRepoNum);
+
+	zMem_Alloc(zpLogFd[0], _i, zRepoNum);
+	zMem_Alloc(zpLogFd[1], _i, zRepoNum);
+	zMem_Alloc(zpLogFd[2], _i, zRepoNum);
+
+	zMem_Alloc(zpTotalHost, _i, zRepoNum );
+	zMem_Alloc(zpReplyCnt, _i, zRepoNum );
+
+	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
+
 	zMem_Alloc(zppRepoList, char *, zRepoNum);
 	for (_i i = 0; i < zRepoNum; i++) { 
+		if (0 != (zErr =pthread_mutex_init(&(zpDeployLock[i]), NULL))) {
+			zPrint_Err(zErr, NULL, "Init deploy lock failed!");
+			exit(1);
+		}
+
 		zppRepoList[i] = zppArgv[optind];
 
-		sprintf(zBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
-		zpLogFd[0][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
+		sprintf(zRepoPathBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
+		zpLogFd[0][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
 		zCheck_Negative_Exit(zpLogFd[0][i]);
 
-		sprintf(zBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
-		zpLogFd[1][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		sprintf(zRepoPathBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
+		zpLogFd[1][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 
-		sprintf(zBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
-		zpLogFd[2][i] = open(zBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
+		sprintf(zRepoPathBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
+		zpLogFd[2][i] = open(zRepoPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 	}
 

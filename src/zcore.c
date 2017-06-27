@@ -29,46 +29,49 @@
 	struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
 	_i *zpCacheVecSiz;
 	_i *zpLogFd[3];  // opened log fd for each repo
+	pthread_mutex_t *zpDeployLock;
+	_i *zpTotalHost;
+	_i *zpReplyCnt;
 #endif
 
 #include <sys/epoll.h>
 
 #define UDP 0
 #define TCP 1
+
 #define zMaxEvents 64
+#define zHashSiz 1024  // [] ???
 
 /**********************
  * DATA STRUCT DEFINE *
  **********************/
 typedef struct zFileDiffInfo {
-	_i CacheVersion;
+	_ui CacheVersion;
 	_us RepoId;  // correspond to the name of code repository
 	_us FileIndex;  // index in iovec array
 
 	struct iovec *p_DiffContent;
-	_i VecSiz;
+	_ui VecSiz;
 
-	_i PathLen;
+	_ui PathLen;
 	char path[];  // the path relative to code repo
 } zFileDiffInfo;
 
 typedef struct zDeployLogInfo {  // write to log.meta
-	_i RepoId;  // correspond to the name of code repository
-	_i index;  // index of deploy history, used as hash
+	_ui RepoId;  // correspond to the name of code repository
+	_ui index;  // index of deploy history, used as hash
 	_ul offset;
-	_i len;
+	_ui len;
 	_ul TimeStamp;
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
-	_i ClientAddr;  // 0xffffffff = htonl()
-	_i CacheVersion;
+	_ui ClientAddr;  // 0xffffffff
 	_us RepoId;  // correspond to the name of code repository
 	_us DeployState;
 } zDeployResInfo;
 
-_i zTotalHost;
-_i zReplyCnt;
+zDeployLogInfo *zpDeployResHash[zHashSiz];  // base on the 32bit IPv4 addr, store as _i
 
 /*
  * return contents from cache directly
@@ -76,12 +79,12 @@ _i zReplyCnt;
  * msg form(sent from frontend, to git_shadow):
  * [OpsMark(l/d/D/R)][struct zFileDiffInfo]
  * Meaning:
- * 		-l:list modified file list, default behavior
- * 		-d:file content diff
- * 		-D:deploy, need shell script
- * 		-L:list deploy log
- * 		-R:revoke, need shell script
- * 		-r:reply msg from ECS
+ *		 -l:list modified file list, default behavior
+ *		 -d:file content diff
+ *		 -D:deploy, need shell script
+ *		 -L:list deploy log
+ *		 -R:revoke, need shell script
+ *		 -r:reply msg from ECS
  */
 void
 zlist_diff_files(_i zSd, zFileDiffInfo *zpIf){
@@ -133,16 +136,14 @@ zlist_log(_i zSd, zFileDiffInfo *zpIf) {
 }
 
 void
+zmilli_sleep(_i zMilliSec) {
+	static struct timespec zNanoSecIf = { .tv_sec = 0, };
+	zNanoSecIf.tv_nsec  = zMilliSec * 1000000;
+	nanosleep(&zNanoSecIf, NULL);
+}
+
+void
 zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
-	struct timespec zNanoSecIf = {
-		.tv_sec = 0,
-		.tv_nsec = 200000000,
-	};
-
-	while (zReplyCnt < zTotalHost) {
-		nanosleep(&zNanoSecIf, NULL);
-	}
-
 	// write to log.meta
 	struct stat zStatBuf;
 	zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatBuf));
@@ -178,22 +179,30 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 		char zShellBuf[4096];
 		char *zpLogContents;
 		_i zLogSiz;
-		if (0 == zMarkAll) { 
-			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -P %s %s", zppRepoList[zpDiffIf->RepoId], zpDiffIf->path); 
-			zpLogContents = zpDiffIf->path;
-			zLogSiz = zpDiffIf->PathLen;
-		} 
-		else { 
+		if (1 == zMarkAll) { 
 			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -P %s", zppRepoList[zpDiffIf->RepoId]); 
 			zpLogContents = "ALL";
 			zLogSiz = 4 * sizeof(char);
+		} 
+		else { 
+			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -P %s %s", zppRepoList[zpDiffIf->RepoId], zpDiffIf->path); 
+			zpLogContents = zpDiffIf->path;
+			zLogSiz = zpDiffIf->PathLen;
 		}
+
+		pthread_mutex_lock(&(zpDeployLock[zpDiffIf->RepoId]));
 		system(zShellBuf);
-		// TO DO: receive deploy results from ECS, 
-		// and send it to frontend,
-		// recv confirm information from frontend,
+
+		do {
+			// TO DO: receive deploy results from ECS, 
+			// and send it to frontend,
+			// recv confirm information from frontend,
+			zmilli_sleep(1000);
+		} while (zpReplyCnt[zpDiffIf->RepoId] < zpTotalHost[zpDiffIf->RepoId]);
 
 		zwrite_log(zpDiffIf->RepoId, zpLogContents, zLogSiz);
+		pthread_mutex_unlock(&(zpDeployLock[zpDiffIf->RepoId]));
+
 		zsendto(zSd, "Y", 2 * sizeof(char), NULL);
 	} 
 	else {
@@ -203,14 +212,21 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 
 void
 zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf){
+	pthread_mutex_lock(&(zpDeployLock[zpLogIf->RepoId]));
+
+	do {
 		// TO DO: receive deploy results from ECS, 
 		// and send it to frontend,
 		// recv confirm information from frontend,
+		zmilli_sleep(1000);
+	} while (zpReplyCnt[zpLogIf->RepoId] < zpTotalHost[zpLogIf->RepoId]);
 
 	char zBuf[zpLogIf->len];
 	pread(zpLogFd[1][zpLogIf->RepoId], &zBuf, zpLogIf->len, zpLogIf->offset);
 	zwrite_log(zpLogIf->RepoId, zBuf,zpLogIf->len);
 	zsendto(zSd, "Y", 2 * sizeof(char), NULL);
+
+	pthread_mutex_unlock(&(zpDeployLock[zpLogIf->RepoId]));
 }
 
 void
@@ -238,14 +254,15 @@ zdo_serv(void *zpIf) {
 		case 'R':
 			zrevoke_from_log(zSd, (zDeployLogInfo *)(zReqBuf + 1));  // Need to disign a log struct
 			break;
-//		case 'r':
-//			zreply_counter((void *)(zReqBuf + 1));
-//			break;
+		case 'r':
+			zpReplyCnt[((zDeployResInfo *)(zReqBuf + 1))->RepoId]++;
+			break;
 		default:
 			zPrint_Err(0, NULL, "Undefined request");
 	}
 }
 
+// exec on server
 void
 zstart_server(char *zpHost, char *zpPort, _i zServType) {
 	struct epoll_event zEv, zEvents[zMaxEvents];
@@ -280,20 +297,49 @@ zstart_server(char *zpHost, char *zpPort, _i zServType) {
 	}
 }
 
+// exec on ECS
 void
 zclient_reply(char *zpHost, char *zpPort) {
+	zDeployResInfo zDpResIf;
+
+	_i zFd = open("/PATH/TO/MyIp", O_RDONLY);  // form like 10.10.10.10, Receive from cmdline?
+	zCheck_Negative_Exit(zFd);
+
+	char zAddrBuf[INET_ADDRSTRLEN] = {'\0'};
+	zCheck_Negative_Exit(read(zFd, zAddrBuf, INET_ADDRSTRLEN));
+	_i zStrResLen = (_i)(strlen(zAddrBuf) - 3);
+	for (_i i =0, j = 0; j < zStrResLen; i++, j++) {
+		while ('.' == zAddrBuf[i]) { i++; }
+		zAddrBuf[j] = zAddrBuf[i];
+	}
+	zDpResIf.ClientAddr = strtol(zAddrBuf, NULL, 10);
+	close(zFd);
+
+	zFd = open("/PATH/TO/REPO/.git_shadwo/log.meta", O_RDONLY);  // Receive from cmdline?
+	zCheck_Negative_Exit(zFd);
+
+	zDeployLogInfo zDpLogIf;
+	zCheck_Negative_Exit(read(zFd, &zDpLogIf, sizeof(zDeployLogInfo)));
+	zDpResIf.RepoId = zDpLogIf.RepoId;
+	close(zFd);
+
 	_i zSd = ztcp_connect(zpHost, zpPort, AI_CANONNAME | AI_NUMERICHOST | AI_NUMERICSERV);
 	if (-1 == zSd) {
 		zPrint_Err(0, NULL, "Connect to server failed.");
 		exit(1);
 	}
 
-	if (2 != zsendto(zSd, "@", 2, NULL)) {
-		zPrint_Err(0, NULL, "Reply @ to server failed.");
+	struct iovec zVec[2];
+	char zMark = 'r';
+	zVec[0].iov_base = &zDpResIf;
+	zVec[0].iov_len = sizeof(zDeployResInfo);
+	zVec[1].iov_base = &zMark;
+	zVec[1].iov_len = sizeof(char);
+	if ((sizeof(char) + sizeof(zDeployLogInfo)) != zsendmsg(zSd, zVec, 2, 0, NULL)) {
+		zPrint_Err(0, NULL, "Reply to server failed.");
 		exit(1);
 	}
-
-	zCheck_Negative_Exit(shutdown(zSd, SHUT_RDWR));
+	shutdown(zSd, SHUT_RDWR);
 }
 
 /****************
@@ -354,21 +400,22 @@ zgenerate_cache(_i zRepoId) {
 		pclose(zpShellRetHandler[0]);
 	}
 
+	pthread_mutex_lock(&zpDeployLock[zRepoId]);
 	return zpNewCacheVec[0];
+	pthread_mutex_unlock(&zpDeployLock[zRepoId]);
 }
 
 void
 zupdate_cache(void *zpIf) {
 	_i zRepoId = *((_i *)zpIf);
-
 	struct iovec *zpOldCacheIf = zppCacheVec[zRepoId];
 	if (NULL == (zppCacheVec[zRepoId] = zgenerate_cache(zRepoId))) {
 		zppCacheVec[zRepoId] = zpOldCacheIf;  // Global Var
 	}
 	else {
 		//struct iovec *zpOldCacheIf = (struct iovec *)zpIf;
-		for (size_t i = 0; i < zpOldCacheIf->iov_len; i++) { 
-			for (_i j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
+		for (_ui i = 0; i < zpOldCacheIf->iov_len; i++) { 
+			for (_ui j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
 				free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
 			}
 			free(((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent);
