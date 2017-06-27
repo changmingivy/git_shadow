@@ -95,7 +95,8 @@ zrevoke() {
 #######################################################
 zDeployAll=2
 zDeployOne=1
-zRevoke=-1
+zRevokeOne=-1
+zRevokeAll=-2
 
 zComment=
 zCodePath=
@@ -106,7 +107,8 @@ do
     case $zOption in
 		d) zActionType=zDeployOne;;
 		D) zActionType=zDeployAll;;
-		R) zActionType=zRevoke;;
+		l) zActionType=zRevokeOne;;
+		R) zActionType=zRevokeAll;;
 #		m) zComment="$OPTARG";;  # used by 'git commit -m '
 		P) zCodePath="$OPTARG";;  # code path
 		i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
@@ -119,8 +121,10 @@ if [[ $zActionType -eq $zDeployOne ]]; then
 	zdeploy() $zCodePath $@
 elif [[ $zActionType -eq $zDeployAll ]]; then
 	zdeploy() $zCodePath
-elif [[ $zActionType -eq $zRevoke ]]; then
+elif [[ $zActionType -eq $zRevokeOne ]]; then
 	zrevoke() $zCommitId $@
+elif [[ $zActionType -eq $zRevokeAll ]]; then
+	zrevoke() $zCommitId
 else
 	printf "\033[31;01mUnknown request!\033[00m\n" 1>&2
 fi

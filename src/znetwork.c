@@ -126,17 +126,27 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 		pthread_mutex_lock(&(zpDeployLock[zpDiffIf->RepoId]));
 		system(zShellBuf);
 
+		_ui zSendBuf[zpRepoClientNum[zpDiffIf->RepoId]];
+		_i i;
 		do {
-			// TO DO: receive deploy results from ECS, 
-			// and send it to frontend,
-			// recv confirm information from frontend,
-			zmilli_sleep(1000);
+			zmilli_sleep(2000);
+
+			for (i = 0; i < zpRepoClientNum[zpDiffIf->RepoId]; i++) {
+				if (0 == zppDpResList[zpDiffIf->RepoId][i].DeployState) {
+					zSendBuf[i] = zppDpResList[zpDiffIf->RepoId][i].ClientAddr;
+				}
+			}
+
+			zsendto(zSd, zSendBuf, i * sizeof(_ui), NULL);
 		} while (zpReplyCnt[zpDiffIf->RepoId] < zpTotalHost[zpDiffIf->RepoId]);
 
 		zwrite_log(zpDiffIf->RepoId, zpLogContents, zLogSiz);
-		pthread_mutex_unlock(&(zpDeployLock[zpDiffIf->RepoId]));
 
-		zsendto(zSd, "Y", 2 * sizeof(char), NULL);
+		for (_i i = 0; i < zpRepoClientNum[zpDiffIf->RepoId]; i++) {
+			zppDpResList[zpDiffIf->RepoId][i].DeployState = 0;
+		}
+
+		pthread_mutex_unlock(&(zpDeployLock[zpDiffIf->RepoId]));
 	} 
 	else {
 		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // if cache version has changed, return a '!' to frontend
@@ -144,22 +154,66 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 }
 
 void
-zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf){
-	pthread_mutex_lock(&(zpDeployLock[zpLogIf->RepoId]));
+zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf, _i zMarkAll){
+	char zPathBuf[zpLogIf->len];
+	char zCommitSigBuf[41];
+	zCommitSigBuf[40] = '\0';
 
+	pread(zpLogFd[1][zpLogIf->RepoId], &zPathBuf, zpLogIf->len, zpLogIf->offset);
+	pread(zpLogFd[2][zpLogIf->RepoId], &zCommitSigBuf, 40 * sizeof(char), 40 * sizeof(char) * zpLogIf->index);
+
+	char zShellBuf[4096];
+	char *zpLogContents;
+	_i zLogSiz;
+	if (1 == zMarkAll) { 
+		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -R -i %s -P %s", zCommitSigBuf, zppRepoList[zpLogIf->RepoId]); 
+		zpLogContents = "ALL";
+		zLogSiz = 4 * sizeof(char);
+	} 
+	else { 
+		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -i %s -P %s %s", zCommitSigBuf, zppRepoList[zpLogIf->RepoId], zPathBuf); 
+		zpLogContents = zPathBuf;
+		zLogSiz = zpLogIf->len;
+	}
+
+	pthread_mutex_lock(&(zpDeployLock[zpLogIf->RepoId]));
+	system(zShellBuf);
+
+	_ui zSendBuf[zpRepoClientNum[zpLogIf->RepoId]];
+	_i i;
 	do {
-		// TO DO: receive deploy results from ECS, 
-		// and send it to frontend,
-		// recv confirm information from frontend,
-		zmilli_sleep(1000);
+		zmilli_sleep(2000);
+
+		for (i = 0; i < zpRepoClientNum[zpLogIf->RepoId]; i++) {
+			if (0 == zppDpResList[zpLogIf->RepoId][i].DeployState) {
+				zSendBuf[i] = zppDpResList[zpLogIf->RepoId][i].ClientAddr;
+			}
+		}
+
+		zsendto(zSd, zSendBuf, i * sizeof(_ui), NULL);
 	} while (zpReplyCnt[zpLogIf->RepoId] < zpTotalHost[zpLogIf->RepoId]);
 
-	char zBuf[zpLogIf->len];
-	pread(zpLogFd[1][zpLogIf->RepoId], &zBuf, zpLogIf->len, zpLogIf->offset);
-	zwrite_log(zpLogIf->RepoId, zBuf,zpLogIf->len);
-	zsendto(zSd, "Y", 2 * sizeof(char), NULL);
+	zwrite_log(zpLogIf->RepoId, zpLogContents, zLogSiz);
+
+	for (_i i = 0; i < zpRepoClientNum[zpLogIf->RepoId]; i++) {
+		zppDpResList[zpLogIf->RepoId][i].DeployState = 0;
+	}
 
 	pthread_mutex_unlock(&(zpDeployLock[zpLogIf->RepoId]));
+}
+
+void
+zget_deploy_result(zDeployResInfo *zpDpResIf) {
+	zDeployResInfo *zpTmp = zpppDpResHash[zpDpResIf->RepoId][zpDpResIf->ClientAddr % zDeployHashSiz];
+	while (zpTmp != NULL) {
+		if (zpTmp->ClientAddr == zpDpResIf->ClientAddr) {
+			zpTmp->DeployState = 1;
+			zpReplyCnt[((zDeployResInfo *)(zpDpResIf+ 1))->RepoId]++;
+			return;
+		}
+		zpTmp = zpTmp->p_next;
+	}
+	zPrint_Err(0, NULL, "Unknown client reply!!!");
 }
 
 void
@@ -184,11 +238,14 @@ zdo_serv(void *zpIf) {
 		case 'L':
 			zlist_log(zSd, (zFileDiffInfo *)(zReqBuf + 1));
 			break;
-		case 'R':
-			zrevoke_from_log(zSd, (zDeployLogInfo *)(zReqBuf + 1));  // Need to disign a log struct
+		case 'r':  // revoke one file
+			zrevoke_from_log(zSd, (zDeployLogInfo *)(zReqBuf + 1), 0);
 			break;
-		case 'r':
-			zpReplyCnt[((zDeployResInfo *)(zReqBuf + 1))->RepoId]++;
+		case 'R':  // revoke all
+			zrevoke_from_log(zSd, (zDeployLogInfo *)(zReqBuf + 1), 1);
+			break;
+		case 'g':
+			zget_deploy_result((zDeployResInfo *)(zReqBuf + 1));
 			break;
 		default:
 			zPrint_Err(0, NULL, "Undefined request");
@@ -264,10 +321,10 @@ zclient_reply(char *zpHost, char *zpPort) {
 
 	struct iovec zVec[2];
 	char zMark = 'r';
-	zVec[0].iov_base = &zDpResIf;
-	zVec[0].iov_len = sizeof(zDeployResInfo);
-	zVec[1].iov_base = &zMark;
-	zVec[1].iov_len = sizeof(char);
+	zVec[0].iov_base = &zMark;
+	zVec[0].iov_len = sizeof(char);
+	zVec[1].iov_base = &zDpResIf;
+	zVec[1].iov_len = sizeof(zDeployResInfo);
 	if ((sizeof(char) + sizeof(zDeployLogInfo)) != zsendmsg(zSd, zVec, 2, 0, NULL)) {
 		zPrint_Err(0, NULL, "Reply to server failed.");
 		exit(1);

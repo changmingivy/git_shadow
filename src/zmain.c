@@ -110,6 +110,8 @@ _i *zpReplyCnt;
 
 zDeployResInfo ***zpppDpResHash, **zppDpResList;  // base on the 32bit IPv4 addr, store as _ui
 
+_i *zpRepoClientNum;
+
 /****************
  * SUB MODULERS *
  ****************/
@@ -275,9 +277,12 @@ main(_i zArgc, char **zppArgv) {
 		case 'S':  // Server
 			// TO DO
 			break;
-		case 'I':
+		case 'I':  // Dirs to ignore
 			zpIgnoreRegex = optarg;
 			// TO DO  // Expect regular express, special what to ignore: ./../.git/.svn and so on
+			break;
+		case 't':
+			// TO DO
 			break;
 		default: // zOpt == '?'
 			zPrint_Time();
@@ -310,10 +315,10 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
 	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
 	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+	zMem_Alloc(zpRepoClientNum, _i, zRepoNum);
 
 	char zPathBuf[zCommonBufSiz];
-	_i zFd, zSiz, zErr;
-	zFd = zSiz = zErr = 0;
+	_i zFd, zErr;
 
 	zCallBackList[0] = zupdate_cache;  //
 	zDeployResInfo *zpTmp = NULL;
@@ -342,10 +347,10 @@ main(_i zArgc, char **zppArgv) {
 		zFd = open(zPathBuf, O_RDONLY);
 		zCheck_Negative_Exit(fstat(zFd, &zStatIf));
 
-		zSiz = zStatIf.st_size / sizeof(zDeployResInfo);
-		zMem_Alloc(zppDpResList[i], zDeployResInfo, zSiz);
+		zpRepoClientNum[i] = zStatIf.st_size / sizeof(_ui);
+		zMem_Alloc(zppDpResList[i], zDeployResInfo, zpRepoClientNum[i]);
 		zMem_C_Alloc(zpppDpResHash[i], zDeployResInfo *, zDeployHashSiz);
-		for (_i j = 0; j < zSiz; j++) {
+		for (_i j = 0; j < zpRepoClientNum[i]; j++) {
 			zppDpResList[i][j].RepoId = i;
 			zppDpResList[i][j].DeployState = 0;
 
