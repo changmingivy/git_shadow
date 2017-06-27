@@ -251,6 +251,7 @@ _i
 main(_i zArgc, char **zppArgv) {
 //TEST: PASS
 	struct stat zStatIf;
+	char *zpHost, *zpPort;
 
 	//extern char *optarg;
 	//extern int optind, opterr, optopt;
@@ -266,22 +267,15 @@ main(_i zArgc, char **zppArgv) {
 			}
 			break;
 		case 'h':  // host ip addr
-			// TO DO
+			zpHost = optarg;
 			break;
-		case 'p':  // port
-			// TO DO
+		case 'p':  // port num
+			zpPort = optarg;
 			break;
 		case 'C':  // Client
 			// TO DO
 			break;
 		case 'S':  // Server
-			// TO DO
-			break;
-		case 'I':  // Dirs to ignore
-			zpIgnoreRegex = optarg;
-			// TO DO  // Expect regular express, special what to ignore: ./../.git/.svn and so on
-			break;
-		case 't':
 			// TO DO
 			break;
 		default: // zOpt == '?'
@@ -312,9 +306,12 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zpReplyCnt, _i, zRepoNum );
 /**/ 
 	zMem_Alloc(zppRepoList, char *, zRepoNum);
+
 	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
+
 	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
 	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+
 	zMem_Alloc(zpRepoClientNum, _i, zRepoNum);
 
 	char zPathBuf[zCommonBufSiz];
