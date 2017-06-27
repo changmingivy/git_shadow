@@ -70,6 +70,7 @@ typedef struct zObjInfo {
 
 typedef struct zSubObjInfo {
 	_i RepoId;
+	zThreadPoolOps CallBack;
 	_i UpperWid;  // Maybe, used as REPO ID ?
 	_s RecursiveMark;
 	_s EvType;
