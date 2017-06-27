@@ -29,12 +29,33 @@
 
 #include "zutils.h"
 
+#include "zbase_utils.c"
+#include "zpcre.c"
+
 #define zCommonBufSiz 4096 
 
 /**********************
  * DATA STRUCT DEFINE *
  **********************/
 typedef void (* zThreadPoolOps) (void *);
+//////////////////////////////////////////
+typedef struct zObjInfo {
+	struct zObjInfo *p_next;
+	char *zpRegexStr;
+	_s CallBackId;
+	_s RecursiveMark;  // Mark recursive monitor.
+	char path[];  // The directory to be monitored.
+}zObjInfo;
+
+typedef struct zSubObjInfo {
+	zPCREInitInfo *zpRegexIf;
+	_i RepoId;
+	_i UpperWid;  // Maybe, used as REPO ID ?
+	_s RecursiveMark;
+	_s EvType;
+	zThreadPoolOps CallBack;
+	char path[];
+}zSubObjInfo;
 //////////////////////////////////////////
 typedef struct zFileDiffInfo {
 	_ui CacheVersion;
@@ -60,34 +81,25 @@ typedef struct zDeployResInfo {
 	_ui ClientAddr;  // 0xffffffff
 	_us RepoId;  // correspond to the name of code repository
 	_us DeployState;
+	struct zDeployResInfo *p_next;
 } zDeployResInfo;
-//////////////////////////////////////////
-typedef struct zObjInfo {
-	struct zObjInfo *p_next;
-	_i RecursiveMark;  // Mark recursive monitor.
-	char path[];  // The directory to be monitored.
-}zObjInfo;
-
-typedef struct zSubObjInfo {
-	_i RepoId;
-	zThreadPoolOps CallBack;
-	_i UpperWid;  // Maybe, used as REPO ID ?
-	_s RecursiveMark;
-	_s EvType;
-	char path[];
-}zSubObjInfo;
 
 /**************
  * GLOBAL VAR *
  **************/
+#define zWatchHashSiz 8192
+_i zInotifyFD;
+zSubObjInfo *zpPathHash[zWatchHashSiz];
+char zBitHash[zWatchHashSiz];
+char *zpIgnoreRegex;
+zThreadPoolOps zCallBackList[16];  // Which function to call when get event
+
 #define zDeployHashSiz 1024
 _i zRepoNum;  // how many repositories
 char **zppRepoList;  // each repository's absolute path
 
 struct  iovec **zppCacheVec;  // each repository's Global cache for git diff content
 _i *zpCacheVecSiz;
-
-_i *zpSpecWid;  // watch ID for each repository's .git/logs
 
 char **zppCurTagSig;  // each repository's CURRENT(git tag) SHA1 sig
 _i *zpLogFd[3];  // opened log fd for each repo: one for metadata, one for filenames, one for commit sig
@@ -98,18 +110,10 @@ _i *zpReplyCnt;
 
 zDeployResInfo ***zpppDpResHash, **zppDpResList;  // base on the 32bit IPv4 addr, store as _ui
 
-#define zWatchHashSiz 8192
-_i zInotifyFD;
-zSubObjInfo *zpPathHash[zWatchHashSiz];
-char zBitHash[zWatchHashSiz];
-char *zpShellCommand;  // What to do when get events, two extra VAR available: $zEvType and $zEvPath
-
 /****************
  * SUB MODULERS *
  ****************/
-#include "zbase_utils.c"
 #include "zthread_pool.c"
-#include "zpcre.c"
 #include "zinotify_callback.c"
 #include "zinotify.c"
 #include "znetwork.c"
@@ -122,8 +126,8 @@ zread_conf_file(const char *zpConfPath) {
 //TEST: PASS
 	zObjInfo *zpObjIf[3] = {NULL};
 
-	zPCREInitInfo *zpInitIf[4] = {NULL};
-	zPCRERetInfo *zpRetIf[4] = {NULL};
+	zPCREInitInfo *zpInitIf[6] = {NULL};
+	zPCRERetInfo *zpRetIf[6] = {NULL};
 
 	_i zCnt = 0;
 	char *zpRes = NULL;
@@ -131,8 +135,10 @@ zread_conf_file(const char *zpConfPath) {
 
 	struct stat zStatBuf;
 
-	zpInitIf[0] = zpcre_init("^\\s*\\d\\s*/[/\\w]+");
-	zpInitIf[1] = zpcre_init("^\\d(?=\\s+)");
+	zpInitIf[0] = zpcre_init("^\\s*\\d\\s+\\d\\s+/[/\\w]+");
+	zpInitIf[1] = zpcre_init("^\\d");
+	zpInitIf[4] = zpcre_init("\\d+(?=\\s+/)");   // New field for CallBack func index
+	zpInitIf[5] = zpcre_init("\\w+(?=\\s+($|#))");   // New field for Ignore Regex Str
 	zpInitIf[2] = zpcre_init("[/\\w]+(?=\\s*$)");
 	zpInitIf[3] = zpcre_init("^\\s*($|#)");
 
@@ -153,17 +159,18 @@ zread_conf_file(const char *zpConfPath) {
 			fprintf(stderr, "\033[31m[Line %d] \"%s\": Invalid entry.\033[00m\n", i ,zpRes);
 			continue;
 		} else {
-			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
 			zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[0]->p_rets[0], 0);
 			if (-1 == lstat(zpRetIf[2]->p_rets[0], &zStatBuf) 
 					|| !S_ISDIR(zStatBuf.st_mode)) {
 				zpcre_free_tmpsource(zpRetIf[2]);
-				zpcre_free_tmpsource(zpRetIf[1]);
 				zpcre_free_tmpsource(zpRetIf[0]);
 				zPrint_Time();
 				fprintf(stderr, "\033[31m[Line %d] \"%s\": NO such directory or NOT a directory.\033[00m\n", i, zpRes);
 				continue;
 			}
+			zpRetIf[1] = zpcre_match(zpInitIf[1], zpRetIf[0]->p_rets[0], 0);
+			zpRetIf[4] = zpcre_match(zpInitIf[4], zpRetIf[0]->p_rets[0], 0);
+			zpRetIf[5] = zpcre_match(zpInitIf[5], zpRetIf[0]->p_rets[0], 0);
 
 			zpObjIf[0] = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
 			if (0 == zCnt) {
@@ -175,8 +182,17 @@ zread_conf_file(const char *zpConfPath) {
 			zpObjIf[0]->p_next = NULL;  // Must here!!!
 
 			zpObjIf[0]->RecursiveMark = atoi(zpRetIf[1]->p_rets[0]);
+			zpObjIf[0]->CallBackId = atoi(zpRetIf[4]->p_rets[0]);
 			strcpy(zpObjIf[0]->path, zpRetIf[2]->p_rets[0]);
+			if (0 == zpRetIf[5]->cnt) {
+				zpObjIf[0]->zpRegexStr = "^[.]{1,2}$";
+			} else {
+				zMem_Alloc(zpObjIf[0]->zpRegexStr,char, 1 + strlen(zpRetIf[5]->p_rets[0]));
+				strcpy(zpObjIf[0]->zpRegexStr, zpRetIf[5]->p_rets[0]);
+			}
 
+			zpcre_free_tmpsource(zpRetIf[5]);
+			zpcre_free_tmpsource(zpRetIf[4]);
 			zpcre_free_tmpsource(zpRetIf[2]);
 			zpcre_free_tmpsource(zpRetIf[1]);
 			zpcre_free_tmpsource(zpRetIf[0]);
@@ -185,6 +201,8 @@ zread_conf_file(const char *zpConfPath) {
 		}
 	}
 
+	zpcre_free_metasource(zpInitIf[5]);
+	zpcre_free_metasource(zpInitIf[4]);
 	zpcre_free_metasource(zpInitIf[3]);
 	zpcre_free_metasource(zpInitIf[2]);
 	zpcre_free_metasource(zpInitIf[1]);
@@ -230,15 +248,12 @@ zconfig_file_monitor(const char *zpConfPath) {
 _i
 main(_i zArgc, char **zppArgv) {
 //TEST: PASS
-	char zPathBuf[zCommonBufSiz];
 	struct stat zStatIf;
-	_i zFd, zSiz, zErr;
-	zFd = zSiz = zErr = 0;
 
 	//extern char *optarg;
 	//extern int optind, opterr, optopt;
 	opterr = 0;  // prevent getopt to print err info
-	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CSf:x:h:p:"));) {
+	for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CSf:h:p:I:"));) {
 		switch (zOpt) {
 		case 'f':
 			if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {
@@ -247,9 +262,6 @@ main(_i zArgc, char **zppArgv) {
 						"Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
 				exit(1);
 			}
-			break;
-		case 'x':
-			zpShellCommand = optarg;
 			break;
 		case 'h':  // host ip addr
 			// TO DO
@@ -262,6 +274,10 @@ main(_i zArgc, char **zppArgv) {
 			break;
 		case 'S':  // Server
 			// TO DO
+			break;
+		case 'I':
+			zpIgnoreRegex = optarg;
+			// TO DO  // Expect regular express, special what to ignore: ./../.git/.svn and so on
 			break;
 		default: // zOpt == '?'
 			zPrint_Time();
@@ -279,7 +295,6 @@ main(_i zArgc, char **zppArgv) {
 	zRepoNum = 1 + zArgc - optind;
 
 	zMem_Alloc(zppCurTagSig, char *, zRepoNum);
-	zMem_Alloc(zpSpecWid, _i, zRepoNum);
 
 	zMem_Alloc(zppCacheVec, struct iovec *, zRepoNum);
 	zMem_Alloc(zpCacheVecSiz, _i, zRepoNum);
@@ -295,6 +310,13 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
 	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
 	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+
+	char zPathBuf[zCommonBufSiz];
+	_i zFd, zSiz, zErr;
+	zFd = zSiz = zErr = 0;
+
+	zCallBackList[0] = zupdate_cache;  //
+	zDeployResInfo *zpTmp = NULL;
 
 	for (_i i = 0; i < zRepoNum; i++) { 
 		zppRepoList[i] = zppArgv[optind];
@@ -322,11 +344,27 @@ main(_i zArgc, char **zppArgv) {
 
 		zSiz = zStatIf.st_size / sizeof(zDeployResInfo);
 		zMem_Alloc(zppDpResList[i], zDeployResInfo, zSiz);
+		zMem_C_Alloc(zpppDpResHash[i], zDeployResInfo *, zDeployHashSiz);
 		for (_i j = 0; j < zSiz; j++) {
+			zppDpResList[i][j].RepoId = i;
+			zppDpResList[i][j].DeployState = 0;
+
 			errno = 0;
-			if (sizeof(zDeployResInfo) != read(zFd, &zppDpResList[i][j], sizeof(zDeployResInfo))) {
+			if (sizeof(_ui) != read(zFd, &(zppDpResList[i][j].ClientAddr), sizeof(_ui))) {
 				zPrint_Err(errno, NULL, "read client info failed!");
 				exit(1);
+			}
+
+			zpTmp = zpppDpResHash[i][j % zDeployHashSiz];
+			if (NULL == zpTmp) {
+				zpTmp->p_next = NULL;
+				zpppDpResHash[i][j % zDeployHashSiz] = &(zppDpResList[i][j]);
+			} 
+			else {
+				while (NULL != zpTmp->p_next) { zpTmp = zpTmp->p_next; }
+				zMem_Alloc(zpTmp->p_next, zDeployResInfo, 1);
+				zpTmp->p_next->p_next = NULL;
+				zpTmp->p_next = &(zppDpResList[i][j]);
 			}
 		}
 		close(zFd);

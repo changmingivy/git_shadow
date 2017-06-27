@@ -2,32 +2,6 @@
 	#include "zmain.c"
 #endif
 
-pthread_mutex_t zCommonLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t zCommonCond = PTHREAD_COND_INITIALIZER;
-
-void
-zcallback_common_action(void *zpCurIf) {
-//TEST: PASS
-	zSubObjInfo *zpSubIf = (zSubObjInfo *)zpCurIf;
-
-	pthread_mutex_lock(&zCommonLock);
-	while (0 != zBitHash[zpSubIf->UpperWid]) {
-		pthread_cond_wait(&zCommonCond, &zCommonLock);
-	}
-	zBitHash[zpSubIf->UpperWid] = 1;
-	pthread_mutex_unlock(&zCommonLock);
-
-	char zShellBuf[1 + strlen("zEvPath=;zEvType=;") + strlen(zpSubIf->path) + strlen(zpShellCommand)];
-	sprintf(zShellBuf, "zEvPath=%s;zEvMark=%d;%s", zpSubIf->path, zpSubIf->EvType, zpShellCommand);
-
-	system(zShellBuf);
-
-	pthread_mutex_lock(&zCommonLock);
-	zBitHash[zpSubIf->UpperWid] = 0;
-	pthread_cond_signal(&zCommonCond);
-	pthread_mutex_unlock(&zCommonLock);
-}
-
 /****************
  * UPDATE CACHE *
  ****************/

@@ -36,19 +36,24 @@ zinotify_add_sub_watch(void *zpIf) {
 	size_t zLen = strlen(zpCurIf->path);
 	struct dirent *zpEntry;
 
+	zPCRERetInfo *zpRetIf = NULL;
 	while (NULL != (zpEntry = readdir(zpDir))) {
-		if (DT_DIR == zpEntry->d_type
-				&& strcmp(".", zpEntry->d_name) 
-				&& strcmp("..", zpEntry->d_name) 
-				&& strcmp(".git", zpEntry->d_name)) {
+		if (DT_DIR == zpEntry->d_type) {
+			zpRetIf = zpcre_match(zpCurIf->zpRegexIf, zpEntry->d_name, 0);
+			if (0 != zpRetIf->cnt) {
+				zpcre_free_tmpsource(zpRetIf);
+				continue;
+			}
+
 			// Must do "malloc" here.
-			zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
-					+ 2 + zLen + strlen(zpEntry->d_name));
+			zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
 			zCheck_Null_Exit(zpSubIf);
 
-			zpSubIf->RecursiveMark = 1;
 			zpSubIf->RepoId = zpCurIf->RepoId;
 			zpSubIf->UpperWid = zpCurIf->UpperWid;
+			zpSubIf->CallBack = zpCurIf->CallBack;
+			zpSubIf->RecursiveMark = zpCurIf->RecursiveMark;
+			zpSubIf->zpRegexIf = zpCurIf->zpRegexIf;
 
 			strcpy(zpSubIf->path, zpCurIf->path);
 			strcat(zpSubIf->path, "/");
@@ -72,16 +77,10 @@ zinotify_add_top_watch(void *zpIf) {
 	zSubObjInfo *zpTopIf = malloc(sizeof(zSubObjInfo) + 1 + zLen);
 	zCheck_Null_Exit(zpTopIf);
 
+	zpTopIf->zpRegexIf = zpcre_init(zpObjIf->zpRegexStr);
 	zpTopIf->RecursiveMark = zpObjIf->RecursiveMark;
-	for (_i i = 0; i < zRepoNum; i++) {
-		if (0 == strncmp(zppRepoList[i], zpPath, strlen(zppRepoList[i]))) {
-			zpTopIf->RepoId = i;
-		}
-		if (0 == strcmp(zpPath + strlen(zppRepoList[i]), ".git/logs") || 0 == strcmp(zpPath + strlen(zppRepoList[i]), "/.git/logs")) {
-			zpSpecWid[i] = zpTopIf->UpperWid;  // @Used for special match ".git/logs"
-		}
-		break;
-	}
+	zpTopIf->CallBack = (-1 == zpObjIf->CallBackId) ? NULL : zCallBackList[zpObjIf->CallBackId];
+
 	zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zBaseWatchBit | IN_DONT_FOLLOW);
 	zCheck_Negative_Exit(zpTopIf->UpperWid);
 
@@ -94,20 +93,25 @@ zinotify_add_top_watch(void *zpIf) {
 		DIR *zpDir = opendir(zpPath);
 		zCheck_Null_Exit(zpDir);
 
+		zPCRERetInfo *zpRetIf = NULL;
 		while (NULL != (zpEntry = readdir(zpDir))) {
-			if (DT_DIR == zpEntry->d_type
-					&& strcmp(".", zpEntry->d_name) 
-					&& strcmp("..", zpEntry->d_name) 
-					&& strcmp(".git", zpEntry->d_name)) {
+			if (DT_DIR == zpEntry->d_type) {
+				zpRetIf = zpcre_match(zpTopIf->zpRegexIf, zpEntry->d_name, 0);
+				if (0 != zpRetIf->cnt) {
+					zpcre_free_tmpsource(zpRetIf);
+					continue;
+				}
 
 				// Must do "malloc" here.
 				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
 						+ 2 + zLen + strlen(zpEntry->d_name));
 				zCheck_Null_Exit(zpSubIf);
 	
-				zpSubIf->RecursiveMark = 1;
+				zpSubIf->RecursiveMark = zpTopIf->RecursiveMark;
 				zpSubIf->RepoId = zpTopIf->RepoId;
+				zpSubIf->CallBack = zpTopIf->CallBack;
 				zpSubIf->UpperWid = zpTopIf->UpperWid;
+				zpSubIf->zpRegexIf = zpTopIf->zpRegexIf;
 	
 				strcpy(zpSubIf->path, zpPath);
 				strcat(zpSubIf->path, "/");
@@ -150,8 +154,11 @@ zinotify_wait(void *_) {
 						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
 				zCheck_Null_Exit(zpSubIf);
 	
-				zpSubIf->RecursiveMark = 1;
+				zpSubIf->RepoId = zpPathHash[zpEv->wd]->RepoId;
 				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
+				zpSubIf->CallBack = zpPathHash[zpEv->wd]->CallBack;
+				zpSubIf->RecursiveMark = zpPathHash[zpEv->wd]->RecursiveMark;
+				zpSubIf->zpRegexIf = zpPathHash[zpEv->wd]->zpRegexIf;
 	
 				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
 				strcat(zpSubIf->path, "/");
@@ -160,39 +167,9 @@ zinotify_wait(void *_) {
 				zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
 			}
 
-			if (zpPathHash[zpEv->wd]->UpperWid == zpSpecWid[zpPathHash[zpEv->wd]->RepoId]) {
-				zAdd_To_Thread_Pool(zupdate_cache, &(zpPathHash[zpEv->wd]->RepoId));
+			if (NULL != zpPathHash[zpEv->wd]->CallBack) {
+				zAdd_To_Thread_Pool(zpPathHash[zpEv->wd]->CallBack, NULL);
 			}
-
-//			if (zpEv->mask & (IN_CREATE | IN_MOVED_TO)) { 
-//				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->EvType = zNewDirEv; }
-//				else { zpPathHash[zpEv->wd]->EvType = zNewFileEv; }
-//			}
-//			else if (zpEv->mask & (IN_DELETE | IN_MOVED_FROM)) { 
-//				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->EvType = zDelDirEv; }
-//				else { zpPathHash[zpEv->wd]->EvType = zDelFileEv; }
-//			}
-//			else if (zpEv->mask & (IN_MOVE_SELF | IN_DELETE_SELF)) { 
-//				if (zpEv->mask & IN_ISDIR) { zpPathHash[zpEv->wd]->EvType = zDelDirSelfEv; }
-//				else { zpPathHash[zpEv->wd]->EvType = zDelFileSelfEv; }
-//			}
-//			else if (zpEv->mask & IN_MODIFY) {
-//				zpPathHash[zpEv->wd]->EvType = zModEv;
-//			}
-//			else if (zpEv->mask & IN_Q_OVERFLOW) {  // Robustness
-//				zpPathHash[zpEv->wd]->EvType = zUnknownEv;
-//				zPrint_Err(0, NULL, "\033[31;01mQueue overflow, some events may be lost!!\033[00m\n");
-//				goto zEv;
-//			}
-//			else if (zpEv->mask & IN_IGNORED){ goto zEv; }
-//			else {
-//				zpPathHash[zpEv->wd]->EvType = zUnknownEv;
-//				zPrint_Err(0, NULL, "\033[31;01mUnknown event occur!!\033[00m\n");
-//				goto zEv;
-//			}
-//
-//			zAdd_To_Thread_Pool(zcallback_common_action, zpPathHash[zpEv->wd]);
-//zEv:;
 		}
 	}
 }
