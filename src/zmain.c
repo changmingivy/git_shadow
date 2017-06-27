@@ -34,6 +34,8 @@
 /**********************
  * DATA STRUCT DEFINE *
  **********************/
+typedef void (* zThreadPoolOps) (void *);
+//////////////////////////////////////////
 typedef struct zFileDiffInfo {
 	_ui CacheVersion;
 	_us RepoId;  // correspond to the name of code repository
@@ -59,8 +61,7 @@ typedef struct zDeployResInfo {
 	_us RepoId;  // correspond to the name of code repository
 	_us DeployState;
 } zDeployResInfo;
-
-/*************************/
+//////////////////////////////////////////
 typedef struct zObjInfo {
 	struct zObjInfo *p_next;
 	_i RecursiveMark;  // Mark recursive monitor.
@@ -106,11 +107,11 @@ char *zpShellCommand;  // What to do when get events, two extra VAR available: $
  * SUB MODULERS *
  ****************/
 #include "zbase_utils.c"
-#include "zpcre.c"
 #include "zthread_pool.c"
-#include "znetwork.c"
+#include "zpcre.c"
 #include "zinotify_callback.c"
 #include "zinotify.c"
+#include "znetwork.c"
 
 /*************************
  * DEAL WITH CONFIG FILE *

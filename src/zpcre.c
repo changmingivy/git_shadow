@@ -1,5 +1,5 @@
 #ifndef _Z
-	#include "zmain.c"
+	#include "zutils.h"
 #endif
 
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
@@ -21,7 +21,7 @@ struct zPCREInitInfo {
 };
 typedef struct zPCREInitInfo zPCREInitInfo;
 
-static void
+void
 zpcre_get_err(const _i zErrNo) {
 // TEST: pass!
 	PCRE2_UCHAR zBuffer[zErrBufLen];
@@ -93,7 +93,7 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
 	return zpRetIf;
 }
 
-// static zPCRERetInfo *
+// zPCRERetInfo *
 // zpcre_substitude(PCRE2_SPTR zPattern, PCRE2_SPTR zSubject, _i zMatchAllMark) {
 // 	;  //TO DO
 // }

@@ -5,7 +5,7 @@
 /*
  * Functions for base64 coding [and decoding(TO DO)]
  */
-static char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 char *
 zstr_to_base64(const char *zpOrig) {
 	_i zOrigLen = strlen(zpOrig);
@@ -46,7 +46,7 @@ zstr_to_base64(const char *zpOrig) {
 /*
  * Functions for socket connection.
  */
-static struct addrinfo *
+struct addrinfo *
 zgenerate_hint(_i zFlags) {
 	static struct addrinfo zHints;
 	zHints.ai_flags = zFlags;
@@ -55,7 +55,7 @@ zgenerate_hint(_i zFlags) {
 }
 
 // Generate a socket fd used by server to do 'accept'.
-static struct sockaddr *
+struct sockaddr *
 zgenerate_serv_addr(char *zpHost, char *zpPort) {
 	struct addrinfo *zpRes, *zpHint;
 	zpHint = zgenerate_hint(AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV);
@@ -86,7 +86,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
 }
 
 // Used by client.
-static _i
+_i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 	if (zSockType == 0) { zSockType = SOCK_STREAM; }
 	if (zProto == 0) { zProto = IPPROTO_TCP; }
@@ -160,7 +160,7 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
 /*
  * Daemonize a linux process to daemon.
  */
-static void
+void
 zclose_fds(pid_t zPid) {
 	struct dirent *zpDirIf;
 	char zStrPid[8], zPath[64];
