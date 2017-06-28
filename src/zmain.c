@@ -91,7 +91,7 @@ typedef struct zDeployResInfo {
 _i zInotifyFD;   // inotify 主描述符
 zSubObjInfo *zpPathHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
-zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
+zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
 _i zRepoNum;  // 总共有多少个代码库
@@ -124,7 +124,6 @@ _ui *zpPreLoadLogVecSiz;
 #define zSelfIpPath ".git_shadow/info/client/host_ip_me.bin"  // 整式同上，存储自身的ipv4地址
 #define zAllIpPathTxt ".git_shadow/info/client/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
 #define zMajorIpPathTxt ".git_shadow/info/client/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式）
-#define zSelfIpPathTxt ".git_shadow/info/client/host_ip_me.txt"  // 点分格式自身ipv4地址
 
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
 #define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
@@ -343,6 +342,7 @@ main(_i zArgc, char **zppArgv) {
 
 	// +++___+++ 需要手动维护每个回调函数的索引 +++___+++
 	zCallBackList[0] = zupdate_cache;
+	zCallBackList[1] = zupdate_ipv4_db;
 
 	zDeployResInfo *zpTmp = NULL;
 	for (_i i = 0; i < zRepoNum; i++) { 
@@ -435,23 +435,3 @@ zReLoad:;
 	else { exit(0); }
 }
 
-/*****************************************************************/
-// TO DO。。。。
-// 将文本格式的ipv4地址转换成二进制无符号整型
-_ui
-zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
-	char zAddrBuf[INET_ADDRSTRLEN];
-	strcpy(zAddrBuf, zpStrAddr);
-	_ui zValidLen = (strlen(zAddrBuf) - 3);
-	_ui i, j;
-	for (i =0, j = 0; j < zValidLen; i++, j++) {
-		while ('.' == zAddrBuf[i]) { i++; }
-		zAddrBuf[j] = zAddrBuf[i];
-	}
-	zAddrBuf[j] = '\0';
-	return (_ui)strtol(zAddrBuf, NULL, 10);
-}
-
-// 获取本机所有的ipv4地址，并存储、转换
-// ip addr | grep -oP '(\d{1,3}\.){3}\d{1,3}' | grep -v 127
-/*****************************************************************/

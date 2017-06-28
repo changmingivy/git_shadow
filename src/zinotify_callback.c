@@ -113,3 +113,69 @@ zupdate_cache(void *zpIf) {
 		munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->len - zpTmpIf->offset);
 	}
 }
+
+// 将文本格式的ipv4地址转换成二进制无符号整型
+_ui
+zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
+	char zAddrBuf[INET_ADDRSTRLEN];
+	strcpy(zAddrBuf, zpStrAddr);
+	_ui zValidLen = (strlen(zAddrBuf) - 3);
+	_ui i, j;
+	for (i =0, j = 0; j < zValidLen; i++, j++) {
+		while ('.' == zAddrBuf[i]) { i++; }
+		zAddrBuf[j] = zAddrBuf[i];
+	}
+	zAddrBuf[j] = '\0';
+	return (_ui)strtol(zAddrBuf, NULL, 10);
+}
+
+// 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新
+void
+zupdate_ipv4_db(void *zpIf) {
+	_i zFd[3] = {0};
+	FILE *zpFileHandler = NULL;
+	char *zpBuf = NULL;
+	_ui zIpv4Addr = 0;
+	_us zRepoId = *((_us *)zpIf);
+
+	zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY); 
+	zCheck_Negative_Exit(zFd[0]);
+
+	// 更新全员ip数据库
+	zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY);
+	zCheck_Negative_Exit(zFd[1]);
+	zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT | O_APPEND, 0600);
+	zCheck_Negative_Exit(zFd[2]);
+
+	zpFileHandler = fdopen(zFd[1], "r");
+	zCheck_Null_Exit(zpFileHandler);
+	while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
+		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
+		if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
+			zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
+			exit(1);
+		}
+	}
+
+	fclose(zpFileHandler);
+	close(zFd[2]);
+	close(zFd[1]);
+
+	// 更新自身ip数据库
+	zFd[2] = openat(zFd[0], zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT | O_APPEND, 0600);
+	zCheck_Negative_Exit(zFd[2]);
+	
+	zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r");
+	zCheck_Null_Exit(zpFileHandler);
+	while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
+		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
+		if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
+			zPrint_Err(0, NULL, "Write to $zSelfIpPath failed!");
+			exit(1);
+		}
+	}
+
+	fclose(zpFileHandler);
+	close(zFd[2]);
+	close(zFd[0]);
+}
