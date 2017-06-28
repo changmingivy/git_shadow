@@ -22,7 +22,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 			"&& git log --format=%H -n 1 CURRENT", "r");  // 第一行返回的是文件总数
 	zCheck_Null_Exit(zpShellRetHandler);
 
-	pthread_rwlock_wrlock(&zpRWLock[zRepoId]);  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
+	pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
 	if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) { return NULL; }  // 命令没有返回结果，代表没有差异文件，理设上不存在此种情况
 	else {
 		if (0 == (zDiffFilesNum = atoi(zpRes[0]))) { return  NULL; }  // 同上，用于防止意外原因扰乱缓存数据
@@ -86,7 +86,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 		}
 	}
 
-	pthread_rwlock_unlock(&zpRWLock[zRepoId]);
+	pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 	return zpNewCacheVec[0];
 }
 void
