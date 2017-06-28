@@ -5,21 +5,11 @@
 #define zBaseWatchBit \
 	IN_MODIFY | IN_CREATE | IN_MOVED_TO | IN_DELETE | IN_MOVED_FROM | IN_DELETE_SELF | IN_MOVE_SELF
 
-#define zNewDirEv 2
-#define zNewFileEv 1
-#define zModEv 0
-#define zDelFileEv -1
-#define zDelDirEv -2
-#define zDelFileSelfEv -3
-#define zDelDirSelfEv -4
-#define zUnknownEv -5
-
 /*************
  * ADD WATCH *
  *************/
 void
 zinotify_add_sub_watch(void *zpIf) {
-//TEST: PASS
 	zSubObjInfo *zpCurIf = (zSubObjInfo *) zpIf;
 
 	if (-1 == chdir(zpCurIf->path)) { return; }  // Robustness
@@ -69,7 +59,6 @@ zinotify_add_sub_watch(void *zpIf) {
 
 void
 zinotify_add_top_watch(void *zpIf) {
-//TEST: PASS
 	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
 	char *zpPath = zpObjIf->path;
 	size_t zLen = strlen(zpPath);
@@ -129,9 +118,7 @@ zinotify_add_top_watch(void *zpIf) {
  ********************/
 void
 zinotify_wait(void *_) {
-//TEST: PASS
-	char zBuf[zCommonBufSiz]
-		__attribute__ ((aligned(__alignof__(struct inotify_event))));
+	char zBuf[zCommonBufSiz] __attribute__ ((aligned(__alignof__(struct inotify_event))));
 	ssize_t zLen;
 
 	const struct inotify_event *zpEv;
@@ -144,10 +131,7 @@ zinotify_wait(void *_) {
 		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
-			if (1 == zpPathHash[zpEv->wd]->RecursiveMark 
-					&& (zpEv->mask & IN_ISDIR) 
-					&& ( (zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO) )
-					) {
+			if (1 == zpPathHash[zpEv->wd]->RecursiveMark && (zpEv->mask & IN_ISDIR) && ( (zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO) )) {
 		  		// If a new subdir is created or moved in, add it to the watch list.
 				// Must do "malloc" here.
 				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
@@ -174,12 +158,11 @@ zinotify_wait(void *_) {
 	}
 }
 
-#undef zBaseWatchBit 
-#undef zNewDirEv
-#undef zNewFileEv
-#undef zModEv
-#undef zDelFileEv
-#undef zDelDirEv
-#undef zDelFileSelfEv
-#undef zDelDirSelfEv
-#undef zUnknownEv
+#define zNewDirEv 2
+#define zNewFileEv 1
+#define zModEv 0
+#define zDelFileEv -1
+#define zDelDirEv -2
+#define zDelFileSelfEv -3
+#define zDelDirSelfEv -4
+#define zUnknownEv -5
