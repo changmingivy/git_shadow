@@ -38,7 +38,7 @@
  * DATA STRUCT DEFINE *
  **********************/
 typedef void (* zThreadPoolOps) (void *);
-//////////////////////////////////////////
+//----------------------------------
 typedef struct zObjInfo {
 	struct zObjInfo *p_next;
 	char *zpRegexStr;
@@ -56,7 +56,7 @@ typedef struct zSubObjInfo {
 	zThreadPoolOps CallBack;
 	char path[];
 }zSubObjInfo;
-//////////////////////////////////////////
+//----------------------------------
 typedef struct zFileDiffInfo {
 	_ui CacheVersion;
 	_us RepoId;  // correspond to the name of code repository
@@ -69,7 +69,7 @@ typedef struct zFileDiffInfo {
 	char path[];  // the path relative to code repo
 } zFileDiffInfo;
 
-typedef struct zDeployLogInfo {  // write to log.meta
+typedef struct zDeployLogInfo {  // write to log/meta
 	_ui RepoId;  // correspond to the name of code repository
 	_ui index;  // index of deploy history, used as hash
 	_ul offset;
@@ -111,6 +111,10 @@ _i *zpReplyCnt;
 zDeployResInfo ***zpppDpResHash, **zppDpResList;  // base on the 32bit IPv4 addr, store as _ui
 
 _i *zpRepoClientNum;
+
+#define zPreLoadLogSiz 10  // TO DO ....................................
+zDeployLogInfo zPreLoadLogMetaIf[zPreLoadLogSiz];
+char *zpPreLoadLogData;
 
 /****************
  * SUB MODULERS *
@@ -323,15 +327,15 @@ main(_i zArgc, char **zppArgv) {
 	for (_i i = 0; i < zRepoNum; i++) { 
 		zppRepoList[i] = zppArgv[optind];
 
-		sprintf(zPathBuf, "%s/.git_shadow/log.meta", zppArgv[optind]);
-		zpLogFd[0][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log metadata
+		sprintf(zPathBuf, "%s/.git_shadow/log/meta", zppArgv[optind]);
+		zpLogFd[0][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log/metadata
 		zCheck_Negative_Exit(zpLogFd[0][i]);
 
-		sprintf(zPathBuf, "%s/.git_shadow/log.data", zppArgv[optind]);
+		sprintf(zPathBuf, "%s/.git_shadow/log/data", zppArgv[optind]);
 		zpLogFd[1][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 
-		sprintf(zPathBuf, "%s/.git_shadow/log.sig", zppArgv[optind]);
+		sprintf(zPathBuf, "%s/.git_shadow/log/sig", zppArgv[optind]);
 		zpLogFd[2][i] = open(zPathBuf, O_RDWR | O_CREAT | O_APPEND, 0600);  // log filename
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 
@@ -402,3 +406,25 @@ zReLoad:;
 	if (0 == zPid) { goto zReLoad; }
 	else { exit(0); }
 }
+
+
+_ui
+zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
+	char zAddrBuf[INET_ADDRSTRLEN];
+	strcpy(zAddrBuf, zpStrAddr);
+	_ui zValidLen = (strlen(zAddrBuf) - 3);
+	_ui i, j;
+	for (i =0, j = 0; j < zValidLen; i++, j++) {
+		while ('.' == zAddrBuf[i]) { i++; }
+		zAddrBuf[j] = zAddrBuf[i];
+	}
+	zAddrBuf[j] = '\0';
+	return (_ui)strtol(zAddrBuf, NULL, 10);
+}
+
+
+
+
+
+
+//ip addr | grep -oP '(\d{1,3}\.){3}\d{1,3}' | grep -v 127
