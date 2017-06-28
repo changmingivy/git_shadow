@@ -27,12 +27,11 @@
 #include <dirent.h>
 #include <libgen.h>
 
-#include "zutils.h"
+#define zCommonBufSiz 4096 
 
+#include "zutils.h"
 #include "zbase_utils.c"
 #include "zpcre.c"
-
-#define zCommonBufSiz 4096 
 
 /**********************
  * DATA STRUCT DEFINE *
