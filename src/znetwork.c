@@ -33,23 +33,28 @@
 // 列出差异文件路径名称列表
 void
 zlist_diff_files(_i zSd, zFileDiffInfo *zpIf){
+	pthread_rwlock_rdlock(&(zpRWLock[zpIf->RepoId]));
 	zsendmsg(zSd, zppCacheVecIf[zpIf->RepoId], zpCacheVecSiz[zpIf->RepoId], 0, NULL);  // 直接从缓存中提取
+	pthread_rwlock_unlock(&(zpRWLock[zpIf->RepoId]));
 }
 
 // 打印当前版本缓存与CURRENT标签之间的指定文件的内容差异
 void
 zprint_diff_contents(_i zSd, zFileDiffInfo *zpIf){
+	pthread_rwlock_rdlock(&(zpRWLock[zpIf->RepoId]));
 	if (zpIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zpIf->RepoId]->iov_base))->CacheVersion) {
 		zsendmsg(zSd, zpIf->p_DiffContent, zpIf->VecSiz, 0, NULL);  // 直接从缓存中提取
 	}
 	else {
 		zsendto(zSd, "!", 2 * sizeof(char), NULL);  //  若缓存版本不一致，要求前端刷新页面
 	}
+	pthread_rwlock_unlock(&(zpRWLock[zpIf->RepoId]));
 }
 
 // 列出最近zPreLoadLogSiz次或全部历史布署日志
 void
 zlist_log(_i zSd, _i zRepoId, _i zMarkAll) {
+	pthread_rwlock_rdlock(&(zpRWLock[zRepoId]));
 	_i zVecSiz;
 	if ( 0 == zMarkAll ){	// 默认直接直接回复预存的最近zPreLoadLogSiz次记录
 		zsendmsg(zSd, zppPreLoadLogVecIf[zRepoId], zpPreLoadLogVecSiz[zRepoId], 0, NULL);
@@ -86,6 +91,7 @@ zlist_log(_i zSd, _i zRepoId, _i zMarkAll) {
 		munmap(zpMetaLogIf, zStatBufIf.st_size);  // 解除mmap
 		munmap(zpDataLog, zDataLogSiz);
 	}
+	pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 }
 
 void
@@ -146,7 +152,7 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 			zLogSiz = zpDiffIf->PathLen;
 		}
 
-		pthread_mutex_lock(&(zpDeployLock[zpDiffIf->RepoId]));  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+		pthread_rwlock_wrlock(&(zpRWLock[zpDiffIf->RepoId]));  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 		system(zShellBuf);
 
 		_ui zSendBuf[zpTotalHost[zpDiffIf->RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
@@ -170,7 +176,7 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMarkAll) {
 			zppDpResList[zpDiffIf->RepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
 		}
 
-		pthread_mutex_unlock(&(zpDeployLock[zpDiffIf->RepoId]));  // 释放锁
+		pthread_rwlock_unlock(&(zpRWLock[zpDiffIf->RepoId]));  // 释放锁
 	} 
 	else {
 		zsendto(zSd, "!", 2 * sizeof(char), NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求刷新页面
@@ -201,7 +207,7 @@ zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf, _i zMarkAll){
 		zLogSiz = zpLogIf->len;
 	}
 
-	pthread_mutex_lock(&(zpDeployLock[zpLogIf->RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+	pthread_rwlock_wrlock(&(zpRWLock[zpLogIf->RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 	system(zShellBuf);
 
 	_ui zSendBuf[zpTotalHost[zpLogIf->RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
@@ -225,7 +231,7 @@ zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf, _i zMarkAll){
 		zppDpResList[zpLogIf->RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0
 	}
 
-	pthread_mutex_unlock(&(zpDeployLock[zpLogIf->RepoId]));
+	pthread_rwlock_unlock(&(zpRWLock[zpLogIf->RepoId]));
 }
 
 // 接收并更新对应的布署状态确认信息

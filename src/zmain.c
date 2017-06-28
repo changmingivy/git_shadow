@@ -1,7 +1,7 @@
 #define _Z
 #define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-//#define _BSD_SOURCE
+//#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -100,7 +100,8 @@ char **zppRepoPathList;  // 每个代码库的绝对路径
 char **zppCurTagSig;  // 每个代码库当前的CURRENT标签的SHA1 sig
 _i *zpLogFd[3];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
 
-pthread_mutex_t *zpDeployLock;  // 每个代码库对应一把互斥锁
+pthread_rwlock_t *zpRWLock;  // 每个代码库对应一把读写锁
+pthread_rwlockattr_t zRWLockAttr;
 
 _i *zpTotalHost;  // 存储每个代码库后端的主机总数
 _i *zpReplyCnt;  // 即时统计每个代码库已返回布署状态的主机总数，当其值与zpTotalHost相等时，即表达布署成功
@@ -111,17 +112,9 @@ zDeployResInfo ***zpppDpResHash, **zppDpResList;  // 每个代码库对应一个
 struct  iovec **zppCacheVecIf;  // 每个代码库对应一个缓存区
 _i *zpCacheVecSiz;  // 对应于每个代码库的缓存区大小，即：缓存的对象数量
 
-#define zPreLoadLogSiz 16  // TO DO ....................................
+#define zPreLoadLogSiz 16
 struct iovec **zppPreLoadLogVecIf;  // 以iovec形式缓存的最近布署日志信息
 _ui *zpPreLoadLogVecSiz;
-
-/**********
- * 子模块 *
- **********/
-#include "zthread_pool.c"
-#include "zinotify_callback.c"
-#include "zinotify.c"  // 监控代码库文件变动
-#include "znetwork.c"  // 对外提供网络服务
 
 /************
  * 配置文件 *
@@ -136,6 +129,14 @@ _ui *zpPreLoadLogVecSiz;
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
 #define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
 #define zSigLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
+
+/**********
+ * 子模块 *
+ **********/
+#include "zthread_pool.c"
+#include "zinotify_callback.c"
+#include "zinotify.c"  // 监控代码库文件变动
+#include "znetwork.c"  // 对外提供网络服务
 
 /*************************
  * DEAL WITH CONFIG FILE *
@@ -268,7 +269,8 @@ zconfig_file_monitor(const char *zpConfPath) {
  ********/
 _i
 main(_i zArgc, char **zppArgv) {
-	_i zActionType = 0;  // 若该值为 1 则启动服务端功能,若为 2 则启动客户端功能
+	_i zFd[2] = {0}, zActionType = 0, zErr = 0;
+
 	char *zpHost, *zpPort;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
 	struct stat zStatIf;
 
@@ -303,6 +305,12 @@ main(_i zArgc, char **zppArgv) {
 		exit(1);
 	}
 
+	zErr = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
+	if (0 > zErr) {
+		zPrint_Err(zErr, NULL, "rwlock set attr failed!");
+		exit(1);
+	}
+
 	// 代码库总数量
 	zRepoNum = 1 + zArgc - optind;
 
@@ -325,15 +333,13 @@ main(_i zArgc, char **zppArgv) {
 	zMem_Alloc(zpReplyCnt, _i, zRepoNum );
 	// 索引每个代码库绝对路径名称
 	zMem_Alloc(zppRepoPathList, char *, zRepoNum);
-	// 索引每个代码库的互斥锁
-	zMem_Alloc(zpDeployLock, pthread_mutex_t, zRepoNum);
+	// 索引每个代码库的读写锁
+	zMem_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
 
 	// 每个代码库对应一个线性数组，用于接收每个ECS返回的确认信息
 	// 同时基于这个线性数组建立一个HASH索引，以提高写入时的定位速度
 	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
 	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
-
-	_i zFd[2], zErr;
 
 	// +++___+++ 需要手动维护每个回调函数的索引 +++___+++
 	zCallBackList[0] = zupdate_cache;
@@ -356,8 +362,8 @@ main(_i zArgc, char **zppArgv) {
 		zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 
-		// 为每个代码库生成一把互斥锁
-		if (0 != (zErr =pthread_mutex_init(&(zpDeployLock[i]), NULL))) {
+		// 为每个代码库生成一把读写锁，锁属性设置写者优先
+		if (0 != (zErr =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
 			zPrint_Err(zErr, NULL, "Init deploy lock failed!");
 			exit(1);
 		}
