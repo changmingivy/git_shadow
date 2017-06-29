@@ -29,9 +29,9 @@
 
 #define zCommonBufSiz 4096 
 
-#include "zutils.h"
-#include "zbase_utils.c"
-#include "zpcre.c"
+#include "../inc/zutils.h"
+#include "ops/zbase_utils.c"
+#include "pcre2/zpcre.c"
 
 /****************
  * 数据结构定义 *
@@ -142,12 +142,12 @@ _ui *zpPreLoadLogVecSiz;
 /**********
  * 子模块 *
  **********/
-#include "zthread_pool.c"
-#include "zinotify_callback.c"
-#include "zinotify.c"  // 监控代码库文件变动
-#include "znetwork.c"  // 对外提供网络服务
-#include "zparse_conf_file.c"  // 读取主配置文件
-#include "MD5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
+#include "ops/zthread_pool.c"
+#include "inotify/zinotify_callback.c"
+#include "inotify/zinotify.c"  // 监控代码库文件变动
+#include "ops/znetwork.c"  // 对外提供网络服务
+#include "ops/zparse_conf_file.c"  // 读取主配置文件
+#include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 
 /***************************
  * +++___ main 函数 ___+++ *
