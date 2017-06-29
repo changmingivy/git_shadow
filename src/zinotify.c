@@ -29,7 +29,7 @@ zinotify_add_sub_watch(void *zpIf) {
 	zPCRERetInfo *zpRetIf = NULL;
 	while (NULL != (zpEntry = readdir(zpDir))) {
 		if (DT_DIR == zpEntry->d_type) {
-			zpRetIf = zpcre_match(zpCurIf->zpRegexIf, zpEntry->d_name, 0);
+			zpRetIf = zpcre_match(zpCurIf->p_PCREInitIf, zpEntry->d_name, 0);
 			if (0 != zpRetIf->cnt) {
 				zpcre_free_tmpsource(zpRetIf);
 				continue;
@@ -43,7 +43,7 @@ zinotify_add_sub_watch(void *zpIf) {
 			zpSubIf->UpperWid = zpCurIf->UpperWid;
 			zpSubIf->CallBack = zpCurIf->CallBack;
 			zpSubIf->RecursiveMark = zpCurIf->RecursiveMark;
-			zpSubIf->zpRegexIf = zpCurIf->zpRegexIf;
+			zpSubIf->p_PCREInitIf = zpCurIf->p_PCREInitIf;
 
 			strcpy(zpSubIf->path, zpCurIf->path);
 			strcat(zpSubIf->path, "/");
@@ -60,13 +60,13 @@ zinotify_add_sub_watch(void *zpIf) {
 void
 zinotify_add_top_watch(void *zpIf) {
 	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
-	char *zpPath = zpObjIf->path;
+	char *zpPath = zpObjIf->StrBuf + zpObjIf->ObjPathOffset;
 	size_t zLen = strlen(zpPath);
 
 	zSubObjInfo *zpTopIf = malloc(sizeof(zSubObjInfo) + 1 + zLen);
 	zCheck_Null_Exit(zpTopIf);
 
-	zpTopIf->zpRegexIf = zpcre_init(zpObjIf->zpRegexStr);
+	zpTopIf->p_PCREInitIf = zpcre_init(zpObjIf->StrBuf + zpObjIf->RegexStrOffset);
 	zpTopIf->RecursiveMark = zpObjIf->RecursiveMark;
 	zpTopIf->CallBack = (-1 == zpObjIf->CallBackId) ? NULL : zCallBackList[zpObjIf->CallBackId];
 
@@ -85,7 +85,7 @@ zinotify_add_top_watch(void *zpIf) {
 		zPCRERetInfo *zpRetIf = NULL;
 		while (NULL != (zpEntry = readdir(zpDir))) {
 			if (DT_DIR == zpEntry->d_type) {
-				zpRetIf = zpcre_match(zpTopIf->zpRegexIf, zpEntry->d_name, 0);
+				zpRetIf = zpcre_match(zpTopIf->p_PCREInitIf, zpEntry->d_name, 0);
 				if (0 != zpRetIf->cnt) {
 					zpcre_free_tmpsource(zpRetIf);
 					continue;
@@ -100,7 +100,7 @@ zinotify_add_top_watch(void *zpIf) {
 				zpSubIf->RepoId = zpTopIf->RepoId;
 				zpSubIf->CallBack = zpTopIf->CallBack;
 				zpSubIf->UpperWid = zpTopIf->UpperWid;
-				zpSubIf->zpRegexIf = zpTopIf->zpRegexIf;
+				zpSubIf->p_PCREInitIf = zpTopIf->p_PCREInitIf;
 	
 				strcpy(zpSubIf->path, zpPath);
 				strcat(zpSubIf->path, "/");
@@ -142,7 +142,7 @@ zinotify_wait(void *_) {
 				zpSubIf->UpperWid = zpPathHash[zpEv->wd]->UpperWid;
 				zpSubIf->CallBack = zpPathHash[zpEv->wd]->CallBack;
 				zpSubIf->RecursiveMark = zpPathHash[zpEv->wd]->RecursiveMark;
-				zpSubIf->zpRegexIf = zpPathHash[zpEv->wd]->zpRegexIf;
+				zpSubIf->p_PCREInitIf = zpPathHash[zpEv->wd]->p_PCREInitIf;
 	
 				strcpy(zpSubIf->path, zpPathHash[zpEv->wd]->path);
 				strcat(zpSubIf->path, "/");
@@ -158,11 +158,11 @@ zinotify_wait(void *_) {
 	}
 }
 
-#define zNewDirEv 2
-#define zNewFileEv 1
-#define zModEv 0
-#define zDelFileEv -1
-#define zDelDirEv -2
-#define zDelFileSelfEv -3
-#define zDelDirSelfEv -4
-#define zUnknownEv -5
+//#define zNewDirEv 2
+//#define zNewFileEv 1
+//#define zModEv 0
+//#define zDelFileEv -1
+//#define zDelDirEv -2
+//#define zDelFileSelfEv -3
+//#define zDelDirSelfEv -4
+//#define zUnknownEv -5

@@ -4,9 +4,6 @@
 
 #define zMaxEvents 64
 
-#define UDP 0
-#define TCP 1
-
 /****************
  * 模块整体信息 *
  ****************/
@@ -292,11 +289,12 @@ zdo_serv(void *zpSd) {
 
 // 启动git_shadow服务器
 void
-zstart_server(char *zpHost, char *zpPort, _i zServType) {
+zstart_server(void *zpIf) {
+	zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
 	struct epoll_event zEv, zEvents[zMaxEvents];
 	_i zMajorSd, zConnSd, zEvNum, zEpollSd;
 
-	zMajorSd = zgenerate_serv_SD(zpHost, zpPort, zServType);  // 已经做完bind和listen
+	zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 已经做完bind和listen
 
 	zEpollSd = epoll_create1(0);
 	zCheck_Negative_Exit(zEpollSd);
@@ -351,7 +349,7 @@ zclient_reply(char *zpHost, char *zpPort) {
 		exit(1);
 	}
 
-	zFd = open(zSelfIpPath, O_RDONLY);  // 读取本机的所有非回环ip地地，依次发送状态确认信息至服务端
+	zFd = open(zSelfIpPath, O_RDONLY);  // 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端
 	zCheck_Negative_Exit(zFd);
 
 	_ui zIpv4Bin;
@@ -369,5 +367,3 @@ zclient_reply(char *zpHost, char *zpPort) {
 }
 
 #undef zMaxEvents
-#undef UDP
-#undef TCP

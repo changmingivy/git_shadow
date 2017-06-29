@@ -132,11 +132,11 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
 // 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新
 void
 zupdate_ipv4_db(void *zpIf) {
-	_i zFd[3] = {0};
 	FILE *zpFileHandler = NULL;
 	char *zpBuf = NULL;
 	_ui zIpv4Addr = 0;
 	_us zRepoId = *((_us *)zpIf);
+	_i zFd[3] = {0};
 
 	zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY); 
 	zCheck_Negative_Exit(zFd[0]);
@@ -149,14 +149,25 @@ zupdate_ipv4_db(void *zpIf) {
 
 	zpFileHandler = fdopen(zFd[1], "r");
 	zCheck_Null_Exit(zpFileHandler);
-	while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
+	zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
+	zPCRERetInfo *zpPCREResIf;
+	for (_i i = 1; NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler)); i++) {
+		zpPCREResIf = zpcre_match(zpPCREInitIf, zpBuf, 0);
+		if (0 == zpPCREResIf->cnt) {
+			zpcre_free_tmpsource(zpPCREResIf);
+			zPrint_Time();
+			fprintf(stderr, "\033[31;01m[%s]-[Line %d]: Invalid entry!\033[00m\n", zAllIpPath, i);
+			continue;
+		}
+		zpcre_free_tmpsource(zpPCREResIf);
+
 		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
 		if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
 			zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
 			exit(1);
 		}
 	}
-
+	zpcre_free_metasource(zpPCREInitIf);
 	fclose(zpFileHandler);
 	close(zFd[2]);
 	close(zFd[1]);
