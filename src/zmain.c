@@ -13,8 +13,6 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
-#include <bsd/md5.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
@@ -149,6 +147,7 @@ _ui *zpPreLoadLogVecSiz;
 #include "zinotify.c"  // 监控代码库文件变动
 #include "znetwork.c"  // 对外提供网络服务
 #include "zparse_conf_file.c"  // 读取主配置文件
+#include "MD5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 
 /***************************
  * +++___ main 函数 ___+++ *

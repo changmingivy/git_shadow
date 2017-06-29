@@ -6,9 +6,6 @@
  * DEAL WITH CONFIG FILE *
  *************************/
 
-//# RepoPath				ObjPath			RecursiveMark	CallBackId	RegexToIgnore
-///home/git/miaopai		.git/logs		1				0			^[.]{1,2}$
-
 // 读取主配置文件
 zObjInfo *
 zread_conf_file(const char *zpConfPath) {

@@ -291,7 +291,7 @@ zconfirm_deploy_state(_i zSd) {
 // 接收新的ipv4列表，写入txt文件，然后向发送者返回32位的MD5校验值
 void
 zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
-	_i zFd, zRecvSiz, zMd5ResSiz;
+	_i zFd, zRecvSiz;
 	char *zpWrPath = (zMark == 0) ? zMajorIpPathTxt : zAllIpPathTxt;
 	char zRecvBuf[zCommonBufSiz], zPathBuf[zCommonBufSiz] = {'\0'};
 
@@ -311,11 +311,8 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
 	zCheck_Negative_Exit(zRecvSiz);
 	close(zFd);
 
-	// 返回MD5 checksum
-	char *zpMd5Res = MD5File(zPathBuf, NULL);
-	zCheck_Null_Exit(zpMd5Res);
-	zMd5ResSiz = strlen(zpMd5Res);
-	if (zMd5ResSiz != zsendto(zSd, zpMd5Res, strlen(zpMd5Res), NULL)) {
+	// 回复收到的ipv4列表文件的 MD5 checksum
+	if (zBytes(32) != zsendto(zSd, zgenerate_file_sig_md5(zPathBuf), zBytes(32), NULL)) {
 		zPrint_Err(0, NULL, "Reply to frontend failed!"); 
 	}
 	shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
