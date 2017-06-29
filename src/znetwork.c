@@ -298,7 +298,7 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
 	strcpy(zPathBuf, zppRepoPathList[zRepoId]);
 	strcat(zPathBuf, "/");
 	strcat(zPathBuf, zpWrPath);
-	zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT);
+	zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600);
 	zCheck_Negative_Exit(zFd);
 
 	// 接收网络数据并同步写入文件
