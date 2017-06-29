@@ -25,7 +25,7 @@ void
 zpcre_get_err(const _i zErrNo) {
 // TEST: pass!
 	PCRE2_UCHAR zBuffer[zErrBufLen];
-	pcre2_get_error_message(zErrNo, zBuffer, sizeof(zBuffer));
+	pcre2_get_error_message(zErrNo, zBuffer, zSizeOf(zBuffer));
 	zPrint_Err(errno, NULL, (char *)zBuffer);
 	exit(1);
 }

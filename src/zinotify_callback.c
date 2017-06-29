@@ -32,7 +32,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 		for (_i i = 0; i < zDiffFilesNum - 1; i++) {
 			zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
 
-			zCheck_Null_Exit(zpNewCacheVec[0][i].iov_base = malloc(1 + strlen(zpRes[0]) + sizeof(zFileDiffInfo)));
+			zCheck_Null_Exit(zpNewCacheVec[0][i].iov_base = malloc(1 + strlen(zpRes[0]) + zSizeOf(zFileDiffInfo)));
 
 			((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->CacheVersion = zNewVersion;
 			((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->RepoId= zRepoId;
@@ -64,10 +64,10 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 	struct stat zStatBufIf;
 
 	zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatBufIf));  // 获取当前日志文件属性
-	zpPreLoadLogVecSiz[zRepoId] = (zStatBufIf.st_size / sizeof(zDeployLogInfo)) > zPreLoadLogSiz ? zPreLoadLogSiz : (zStatBufIf.st_size / sizeof(zDeployLogInfo));  // 计算需要缓存的实际日志数量
+	zpPreLoadLogVecSiz[zRepoId] = (zStatBufIf.st_size / zSizeOf(zDeployLogInfo)) > zPreLoadLogSiz ? zPreLoadLogSiz : (zStatBufIf.st_size / zSizeOf(zDeployLogInfo));  // 计算需要缓存的实际日志数量
 	zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
 
-	zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));  // 将meta日志mmap至内存
+	zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));  // 将meta日志mmap至内存
 	zCheck_Null_Exit(zpMetaLogIf);
 
 	zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
@@ -78,7 +78,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 	for (_ui i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
 		if (0 == i % 2) {
 			zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
-			zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
+			zppPreLoadLogVecIf[zRepoId][i].iov_len = zSizeOf(zDeployLogInfo);
 		}
 		else {
 			zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLog + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
@@ -89,6 +89,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 	pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 	return zpNewCacheVec[0];
 }
+
 void
 zupdate_cache(void *zpIf) {
 	_i zRepoId = *((_i *)zpIf);
@@ -109,7 +110,7 @@ zupdate_cache(void *zpIf) {
 		free(zpOldCacheIf);
 		// 如下部分用于销毁旧的布署日志缓存
 		zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
-		munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));
+		munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));
 		munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->len - zpTmpIf->offset);
 	}
 }
@@ -129,22 +130,87 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
 	return (_ui)strtol(zAddrBuf, NULL, 10);
 }
 
-// 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新
+// 客户端更新自身ipv4数据库文件
 void
-zupdate_ipv4_db(void *zpIf) {
+zupdate_ipv4_db_self(_i zBaseFd) {
+	char *zpBuf = NULL;
+	_ui zIpv4Addr = 0;
+	_i zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
+	zCheck_Negative_Exit(zFd);
+	
+	FILE *zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r");
+	zCheck_Null_Exit(zpFileHandler);
+	while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
+		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
+		if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
+			zPrint_Err(0, NULL, "Write to $zSelfIpPath failed!");
+			exit(1);
+		}
+	}
+
+	fclose(zpFileHandler);
+	close(zFd);
+}
+
+// 更新ipv4 地址缓存
+void
+zupdate_ipv4_db_hash(_i zRepoId) {
+	_i zFd[2] = {0};
+	struct stat zStatIf;
+	zDeployResInfo *zpTmpIf;
+
+	zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
+	zCheck_Negative_Exit(zFd[0]);
+	// 打开客户端ip地址数据库文件
+	zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY);
+	zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
+	close(zFd[0]);
+
+	zpTotalHost[zRepoId] = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
+	zMem_Alloc(zppDpResList[zRepoId], zDeployResInfo, zpTotalHost[zRepoId]);  // 分配数组空间，用于顺序读取
+	zMem_C_Alloc(zpppDpResHash[zRepoId], zDeployResInfo *, zDeployHashSiz);  // 对应的 HASH 索引,用于快速定位写入
+	for (_i j = 0; j < zpTotalHost[zRepoId]; j++) {
+		zppDpResList[zRepoId][j].RepoId = zRepoId;  // 写入代码库索引值
+		zppDpResList[zRepoId][j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+
+		errno = 0;
+		if (zSizeOf(_ui) != read(zFd[1], &(zppDpResList[zRepoId][j].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+			zPrint_Err(errno, NULL, "read client info failed!");
+			exit(1);
+		}
+
+		zpTmpIf = zpppDpResHash[zRepoId][j % zDeployHashSiz];  // HASH 定位
+		if (NULL == zpTmpIf) {
+			zpTmpIf->p_next = NULL;
+			zpppDpResHash[zRepoId][j % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
+		} 
+		else {
+			while (NULL != zpTmpIf->p_next) { zpTmpIf = zpTmpIf->p_next; }  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+			zMem_Alloc(zpTmpIf->p_next, zDeployResInfo, 1);
+			zpTmpIf->p_next->p_next = NULL;
+			zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
+		}
+	}
+	close(zFd[1]);
+}
+
+// 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新，更新全员ip数据库
+void
+zupdate_ipv4_db_all(void *zpIf) {
 	FILE *zpFileHandler = NULL;
 	char *zpBuf = NULL;
 	_ui zIpv4Addr = 0;
 	_us zRepoId = *((_us *)zpIf);
 	_i zFd[3] = {0};
 
+	pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
+
 	zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY); 
 	zCheck_Negative_Exit(zFd[0]);
 
-	// 更新全员ip数据库
 	zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY);
 	zCheck_Negative_Exit(zFd[1]);
-	zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT | O_APPEND, 0600);
+	zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
 	zCheck_Negative_Exit(zFd[2]);
 
 	zpFileHandler = fdopen(zFd[1], "r");
@@ -162,7 +228,7 @@ zupdate_ipv4_db(void *zpIf) {
 		zpcre_free_tmpsource(zpPCREResIf);
 
 		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
-		if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
+		if (zSizeOf(_ui) != write(zFd[2], &zIpv4Addr, zSizeOf(_ui))) {
 			zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
 			exit(1);
 		}
@@ -171,22 +237,10 @@ zupdate_ipv4_db(void *zpIf) {
 	fclose(zpFileHandler);
 	close(zFd[2]);
 	close(zFd[1]);
-
-	// 更新自身ip数据库
-	zFd[2] = openat(zFd[0], zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT | O_APPEND, 0600);
-	zCheck_Negative_Exit(zFd[2]);
-	
-	zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r");
-	zCheck_Null_Exit(zpFileHandler);
-	while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
-		zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
-		if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
-			zPrint_Err(0, NULL, "Write to $zSelfIpPath failed!");
-			exit(1);
-		}
-	}
-
-	fclose(zpFileHandler);
-	close(zFd[2]);
 	close(zFd[0]);
+
+	// ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
+	zupdate_ipv4_db_hash(zRepoId);
+
+	pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 }

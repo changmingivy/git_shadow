@@ -7,6 +7,9 @@
 	#define zCommonBufSiz 4096
 #endif
 
+#define zBytes(zNum) ((_i)(zNum * sizeof(char)))
+#define zSizeOf(zObj) ((_i)sizeof(zObj))
+
 /*
  * =>>> Aliases For All Basic Types <<<=
  */

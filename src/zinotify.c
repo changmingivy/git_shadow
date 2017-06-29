@@ -36,7 +36,7 @@ zinotify_add_sub_watch(void *zpIf) {
 			}
 
 			// Must do "malloc" here.
-			zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
+			zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
 			zCheck_Null_Exit(zpSubIf);
 
 			zpSubIf->RepoId = zpCurIf->RepoId;
@@ -63,7 +63,7 @@ zinotify_add_top_watch(void *zpIf) {
 	char *zpPath = zpObjIf->StrBuf + zpObjIf->ObjPathOffset;
 	size_t zLen = strlen(zpPath);
 
-	zSubObjInfo *zpTopIf = malloc(sizeof(zSubObjInfo) + 1 + zLen);
+	zSubObjInfo *zpTopIf = malloc(zSizeOf(zSubObjInfo) + 1 + zLen);
 	zCheck_Null_Exit(zpTopIf);
 
 	zpTopIf->p_PCREInitIf = zpcre_init(zpObjIf->StrBuf + zpObjIf->RegexStrOffset);
@@ -92,7 +92,7 @@ zinotify_add_top_watch(void *zpIf) {
 				}
 
 				// Must do "malloc" here.
-				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
+				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) 
 						+ 2 + zLen + strlen(zpEntry->d_name));
 				zCheck_Null_Exit(zpSubIf);
 	
@@ -125,16 +125,16 @@ zinotify_wait(void *_) {
 	char *zpOffset;
 
 	for (;;) {
-		zLen = read(zInotifyFD, zBuf, sizeof(zBuf));
+		zLen = read(zInotifyFD, zBuf, zSizeOf(zBuf));
 		zCheck_Negative_Exit(zLen);
 
-		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
+		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 
 			if (1 == zpPathHash[zpEv->wd]->RecursiveMark && (zpEv->mask & IN_ISDIR) && ( (zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO) )) {
 		  		// If a new subdir is created or moved in, add it to the watch list.
 				// Must do "malloc" here.
-				zSubObjInfo *zpSubIf = malloc(sizeof(zSubObjInfo) 
+				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) 
 						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
 				zCheck_Null_Exit(zpSubIf);
 	

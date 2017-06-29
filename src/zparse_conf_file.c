@@ -80,7 +80,7 @@ zread_conf_file(const char *zpConfPath) {
 			_ui zObjPathLen = strlen(zpRetIf[4]->p_rets[0]);
 			_ui zRegexStrLen = strlen(zpRetIf[7]->p_rets[0]);
 
-			zpObjIf[0] = malloc(sizeof(zObjInfo) + 3 + strlen(zpRetIf[3]->p_rets[0]) + zObjPathLen + zRegexStrLen);
+			zpObjIf[0] = malloc(zSizeOf(zObjInfo) + 3 + strlen(zpRetIf[3]->p_rets[0]) + zObjPathLen + zRegexStrLen);
 			if (0 == zCnt) {
 				zCnt++;
 				zpObjIf[2] = zpObjIf[1] = zpObjIf[0];
@@ -153,10 +153,10 @@ zconfig_file_monitor(const char *zpConfPath) {
 	char *zpOffset;
 
 	for (;;) {
-		zLen = read(zConfFD, zBuf, sizeof(zBuf));
+		zLen = read(zConfFD, zBuf, zSizeOf(zBuf));
 		zCheck_Negative_Exit(zLen);
 
-		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += sizeof(struct inotify_event) + zpEv->len) {
+		for (zpOffset = zBuf; zpOffset < zBuf + zLen; zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
 			zpEv = (const struct inotify_event *)zpOffset;
 			if (zpEv->mask & (IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_IGNORED)) { return; }
 		}

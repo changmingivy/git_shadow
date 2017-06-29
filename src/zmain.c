@@ -13,6 +13,8 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
+#include <bsd/md5.h>
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
@@ -130,10 +132,10 @@ _ui *zpPreLoadLogVecSiz;
  * 配置文件 *
  ************/
 // 以下路径均是相对于所属代码库的顶级路径
-#define zAllIpPath ".git_shadow/info/client/host_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
-#define zSelfIpPath ".git_shadow/info/client/host_ip_me.bin"  // 格式同上，存储自身的ipv4地址
-#define zAllIpPathTxt ".git_shadow/info/client/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
-#define zMajorIpPathTxt ".git_shadow/info/client/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式）
+#define zAllIpPath ".git_shadow/info/client_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
+#define zSelfIpPath ".git_shadow/info/client_ip_self.bin"  // 格式同上，存储客户端自身的ipv4地址
+#define zAllIpPathTxt ".git_shadow/info/client_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
+#define zMajorIpPathTxt ".git_shadow/info/client_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
 #define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
@@ -184,15 +186,14 @@ main(_i zArgc, char **zppArgv) {
 	}
 
 	if (1 == zActionType) {  // 客户端功能，用于在ECS上由git hook自动执行，向服务端发送状态确认信息
+		zupdate_ipv4_db_self(AT_FDCWD);  // 回应之前客户端将更新自身的ipv4地址库
 		zclient_reply(zNetServIf.p_host, zNetServIf.p_port);
 		return 0;
 	}
 
-//	if (optind >= zArgc) { exit(1); } // 已改为在配置文件中指定对应代码库的路径
 	zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-
 zReLoad:;
-	_i zFd[2] = {0}, zErr = 0;
+	_i zFd[2] = {0}, zRet = 0;
 	zInotifyFD = inotify_init();  // 生成inotify master fd
 	zCheck_Negative_Exit(zInotifyFD);
 
@@ -214,9 +215,13 @@ zReLoad:;
 		} while (NULL != zpObjIf);
 	}
 
-	zErr = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
-	if (0 > zErr) {
-		zPrint_Err(zErr, NULL, "rwlock set attr failed!");
+	// +++___+++ 需要手动维护每个回调函数的索引 +++___+++
+	zCallBackList[0] = zupdate_cache;
+	zCallBackList[1] = zupdate_ipv4_db_all;
+
+	zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
+	if (0 > zRet) {
+		zPrint_Err(zRet, NULL, "rwlock set attr failed!");
 		exit(1);
 	}
 
@@ -247,15 +252,24 @@ zReLoad:;
 	zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
 	zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
 
-	// +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-	zCallBackList[0] = zupdate_cache;
-	zCallBackList[1] = zupdate_ipv4_db;
-
-	zDeployResInfo *zpTmp = NULL;
 	for (_i i = 0; i < zRepoNum; i++) { 
 		// 打开代码库顶层目录，生成目录fd供接下来的openat使用
 		zFd[0] = open(zppRepoPathList[i], O_RDONLY);
 		zCheck_Negative_Exit(zFd[0]);
+
+		// 如果 .git_shadow 路径不存在，创建之，并从远程拉取该代码库的客户端ipv4列表
+		if (-1 != mkdirat(zFd[0], ".git_shadow", 0700)) {
+			// 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
+			zCheck_Negative_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
+			zCheck_Negative_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
+		}
+		else if(errno != EEXIST) { 
+			zPrint_Err(errno, NULL, "Can't create DIR: .git_shadow !"); 
+			exit(1); 
+		}
+
+		zupdate_ipv4_db_all(&i);
+		zgenerate_cache(i);
 
 		// 打开meta日志文件
 		zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
@@ -267,45 +281,16 @@ zReLoad:;
 		zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
 		zCheck_Negative_Exit(zpLogFd[1][i]);
 
+		close(zFd[0]);  // zFd[0] 用完关闭
+
 		// 为每个代码库生成一把读写锁，锁属性设置写者优先
-		if (0 != (zErr =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
-			zPrint_Err(zErr, NULL, "Init deploy lock failed!");
+		if (0 != (zRet =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
+			zPrint_Err(zRet, NULL, "Init deploy lock failed!");
 			exit(1);
 		}
 
-		// 读取所在代码库的所有主机ip地址
-		zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY);
-		zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
-
-		close(zFd[0]);  // zFd[0] 用完关闭
-
-		zpTotalHost[i] = zStatIf.st_size / sizeof(_ui);  // 主机总数
-		zMem_Alloc(zppDpResList[i], zDeployResInfo, zpTotalHost[i]);  // 分配数组空间，用于顺序读取
-		zMem_C_Alloc(zpppDpResHash[i], zDeployResInfo *, zDeployHashSiz);  // 对应的 HASH 索引,用于快速定位写入
-		for (_i j = 0; j < zpTotalHost[i]; j++) {
-			zppDpResList[i][j].RepoId = i;  // 写入代码库索引值
-			zppDpResList[i][j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
-
-			errno = 0;
-			if (sizeof(_ui) != read(zFd[1], &(zppDpResList[i][j].ClientAddr), sizeof(_ui))) { // 读入二进制格式的ipv4地址
-				zPrint_Err(errno, NULL, "read client info failed!");
-				exit(1);
-			}
-
-			zpTmp = zpppDpResHash[i][j % zDeployHashSiz];  // HASH 定位
-			if (NULL == zpTmp) {
-				zpTmp->p_next = NULL;
-				zpppDpResHash[i][j % zDeployHashSiz] = &(zppDpResList[i][j]);  // 若顶层为空，直接指向数组中对应的位置
-			} 
-			else {
-				while (NULL != zpTmp->p_next) { zpTmp = zpTmp->p_next; }  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
-				zMem_Alloc(zpTmp->p_next, zDeployResInfo, 1);
-				zpTmp->p_next->p_next = NULL;
-				zpTmp->p_next = &(zppDpResList[i][j]);
-			}
-		}
-
-		close(zFd[1]);  // zFd[1] 用完关闭
+		// 更新zpppDpResHash 与 **zppDpResList，每个代码库对应一个布署状态数据及与之配套的链式HASH
+		zupdate_ipv4_db_hash(i);
 	}
 
 	zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生 
