@@ -2,6 +2,7 @@
  * 算法部分的源码来自 openssl 库
  */
 #ifndef _Z
+    #define _BSD_SOURCE
     #include <string.h>
     #include <sys/mman.h>
     #include <sys/stat.h>
@@ -218,6 +219,7 @@ zgenerate_file_sig_md5(char *zpPathName) {
 
     void *zpX = mmap(NULL, zStatIf.st_size, PROT_READ, MAP_PRIVATE, zFd, 0);
     zCheck_Null_Exit(zpX);
+    madvise(zpX, zStatIf.st_size, MADV_WILLNEED);
 
     MD5_CTX zMd5Handler;
     MD5Init(&zMd5Handler);
