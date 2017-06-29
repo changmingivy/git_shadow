@@ -71,27 +71,26 @@ zlist_log(_i zSd, _i zMark) {
 		zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
 	}
 
-	_i zRepoId = zIf.RepoId;
-	pthread_rwlock_rdlock(&(zpRWLock[zRepoId]));
+	pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
 	_i zVecSiz;
 	if ( 0 == zMark ){	// 默认直接直接回复预存的最近zPreLoadLogSiz次记录
-		zsendmsg(zSd, zppPreLoadLogVecIf[zRepoId], zpPreLoadLogVecSiz[zRepoId], 0, NULL);
+		zsendmsg(zSd, zppPreLoadLogVecIf[zIf.RepoId], zpPreLoadLogVecSiz[zIf.RepoId], 0, NULL);
 	}
 	else {  // 若前端请求列出所有历史记录，从日志文件中读取
 		struct stat zStatBufIf;
 		zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
-		zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &(zStatBufIf)));  // 获取日志属性
+		zCheck_Negative_Exit(fstat(zpLogFd[0][zIf.RepoId], &(zStatBufIf)));  // 获取日志属性
 	
 		zVecSiz = 2 * zStatBufIf.st_size / zSizeOf(zDeployLogInfo);  // 确定存储缓存区的大小
 		struct iovec zVec[zVecSiz];
 	
-		zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zStatBufIf.st_size, PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], 0);  // 将meta日志mmap至内存
+		zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zStatBufIf.st_size, PROT_READ, MAP_PRIVATE, zpLogFd[0][zIf.RepoId], 0);  // 将meta日志mmap至内存
 		zCheck_Null_Exit(zpMetaLogIf);
 		madvise(zpMetaLogIf, zStatBufIf.st_size, MADV_WILLNEED);  // 提示内核大量预读
 	
 		zpTmpIf = zpMetaLogIf + zStatBufIf.st_size / zSizeOf(zDeployLogInfo) - 1;
 		_ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->len;  // 根据meta日志属性确认data日志偏移量
-		char *zpDataLog = (char *)mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], 0);  // 将data日志mmap至内存
+		char *zpDataLog = (char *)mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zIf.RepoId], 0);  // 将data日志mmap至内存
 		zCheck_Null_Exit(zpDataLog);
 		madvise(zpDataLog, zDataLogSiz, MADV_WILLNEED);  // 提示内核大量预读
 	
@@ -109,7 +108,7 @@ zlist_log(_i zSd, _i zMark) {
 		munmap(zpMetaLogIf, zStatBufIf.st_size);  // 解除mmap
 		munmap(zpDataLog, zDataLogSiz);
 	}
-	pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
+	pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
 	shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
 }
 
@@ -155,53 +154,53 @@ zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
 
 // 执行布署
 void
-zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMark) {
-	zDeployLogInfo zIf;
-	if (zBytes(8) > zrecv_all(zSd, &zIf, zSizeOf(zDeployLogInfo), NULL)) {
+zdeploy(_i zSd,  _i zMark) {
+	zFileDiffInfo zDiffIf;
+	if (zBytes(8) > zrecv_all(zSd, &zDiffIf, zSizeOf(zDiffIf), NULL)) {
 		zPrint_Err(0, NULL, "Recv data failed!");
 		zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
 	}
 
-	if (zpDiffIf->CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zpDiffIf->RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
+	if (zDiffIf.CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zDiffIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
 		char zShellBuf[4096];  // 存放SHELL命令字符串
 		char *zpLogContents;   // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
 		_i zLogSiz;
 		if (1 == zMark) { 
-			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -P %s", zppRepoPathList[zpDiffIf->RepoId]); 
+			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -D -P %s", zppRepoPathList[zDiffIf.RepoId]); 
 			zpLogContents = "ALL";
 			zLogSiz = zBytes(4);
 		} 
 		else { 
-			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -P %s %s", zppRepoPathList[zpDiffIf->RepoId], zpDiffIf->path); 
-			zpLogContents = zpDiffIf->path;
-			zLogSiz = zpDiffIf->PathLen;
+			sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -d -P %s %s", zppRepoPathList[zDiffIf.RepoId], zDiffIf.path); 
+			zpLogContents = zDiffIf.path;
+			zLogSiz = zDiffIf.PathLen;
 		}
 
-		pthread_rwlock_wrlock(&(zpRWLock[zpDiffIf->RepoId]));  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+		pthread_rwlock_wrlock(&(zpRWLock[zDiffIf.RepoId]));  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 		system(zShellBuf);
 
-		_ui zSendBuf[zpTotalHost[zpDiffIf->RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+		_ui zSendBuf[zpTotalHost[zDiffIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
 		_i i;
 		do {
 			zmilli_sleep(2000);  // 每隔0.2秒向前端返回一次结果
 
-			for (i = 0; i < zpTotalHost[zpDiffIf->RepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
-				if (0 == zppDpResList[zpDiffIf->RepoId][i].DeployState) {
-					zSendBuf[i] = zppDpResList[zpDiffIf->RepoId][i].ClientAddr;
+			for (i = 0; i < zpTotalHost[zDiffIf.RepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
+				if (0 == zppDpResList[zDiffIf.RepoId][i].DeployState) {
+					zSendBuf[i] = zppDpResList[zDiffIf.RepoId][i].ClientAddr;
 				}
 			}
 
 			zsendto(zSd, zSendBuf, i * zSizeOf(_ui), NULL);
-		} while (zpReplyCnt[zpDiffIf->RepoId] < zpTotalHost[zpDiffIf->RepoId]);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
-		zpReplyCnt[zpDiffIf->RepoId] = 0;
+		} while (zpReplyCnt[zDiffIf.RepoId] < zpTotalHost[zDiffIf.RepoId]);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
+		zpReplyCnt[zDiffIf.RepoId] = 0;
 
-		zwrite_log(zpDiffIf->RepoId, zpLogContents, zLogSiz);  // 将本次布署信息写入日志
+		zwrite_log(zDiffIf.RepoId, zpLogContents, zLogSiz);  // 将本次布署信息写入日志
 
-		for (_i i = 0; i < zpTotalHost[zpDiffIf->RepoId]; i++) {
-			zppDpResList[zpDiffIf->RepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
+		for (_i i = 0; i < zpTotalHost[zDiffIf.RepoId]; i++) {
+			zppDpResList[zDiffIf.RepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
 		}
 
-		pthread_rwlock_unlock(&(zpRWLock[zpDiffIf->RepoId]));  // 释放锁
+		pthread_rwlock_unlock(&(zpRWLock[zDiffIf.RepoId]));  // 释放锁
 	} 
 	else {
 		zsendto(zSd, "!", zBytes(2), NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
@@ -211,53 +210,59 @@ zdeploy(_i zSd, zFileDiffInfo *zpDiffIf, _i zMark) {
 
 // 依据布署日志，撤销指定文件或整次提交
 void
-zrevoke_from_log(_i zSd, zDeployLogInfo *zpLogIf, _i zMark){
-	char zPathBuf[zpLogIf->len];  // 存放待撤销的目标文件路径
+zrevoke_from_log(_i zSd, _i zMark){
+	zDeployLogInfo zLogIf;
+	if (zBytes(8) > zrecv_all(zSd, &zLogIf, zSizeOf(zLogIf), NULL)) {
+		zPrint_Err(0, NULL, "Recv data failed!");
+		zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
+	}
+
+	char zPathBuf[zLogIf.len];  // 存放待撤销的目标文件路径
 	char zCommitSigBuf[41];  // 存放40位的git commit签名
 	zCommitSigBuf[40] = '\0';
 
-	zCheck_Negative_Exit(pread(zpLogFd[1][zpLogIf->RepoId], &zPathBuf, zpLogIf->len, zpLogIf->offset));
-	zCheck_Negative_Exit(pread(zpLogFd[2][zpLogIf->RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zpLogIf->index));
+	zCheck_Negative_Exit(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.len, zLogIf.offset));
+	zCheck_Negative_Exit(pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index));
 
 	char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
 	char *zpLogContents;  // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
 	_i zLogSiz;
 	if (1 == zMark) { 
-		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -R -i %s -P %s", zCommitSigBuf, zppRepoPathList[zpLogIf->RepoId]); 
+		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -R -i %s -P %s", zCommitSigBuf, zppRepoPathList[zLogIf.RepoId]); 
 		zpLogContents = "ALL";
 		zLogSiz = zBytes(4);
 	} 
 	else { 
-		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -r -i %s -P %s %s", zCommitSigBuf, zppRepoPathList[zpLogIf->RepoId], zPathBuf); 
+		sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -r -i %s -P %s %s", zCommitSigBuf, zppRepoPathList[zLogIf.RepoId], zPathBuf); 
 		zpLogContents = zPathBuf;
-		zLogSiz = zpLogIf->len;
+		zLogSiz = zLogIf.len;
 	}
 
-	pthread_rwlock_wrlock(&(zpRWLock[zpLogIf->RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+	pthread_rwlock_wrlock(&(zpRWLock[zLogIf.RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 	system(zShellBuf);
 
-	_ui zSendBuf[zpTotalHost[zpLogIf->RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+	_ui zSendBuf[zpTotalHost[zLogIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
 	_i i;
 	do {
 		zmilli_sleep(2000);  // 每0.2秒统计一次结果，并发往前端
 
-		for (i = 0; i < zpTotalHost[zpLogIf->RepoId]; i++) {
-			if (0 == zppDpResList[zpLogIf->RepoId][i].DeployState) {
-				zSendBuf[i] = zppDpResList[zpLogIf->RepoId][i].ClientAddr;
+		for (i = 0; i < zpTotalHost[zLogIf.RepoId]; i++) {
+			if (0 == zppDpResList[zLogIf.RepoId][i].DeployState) {
+				zSendBuf[i] = zppDpResList[zLogIf.RepoId][i].ClientAddr;
 			}
 		}
 
 		zsendto(zSd, zSendBuf, i * zSizeOf(_ui), NULL);  // 向前端发送当前未成功的列表
-	} while (zpReplyCnt[zpLogIf->RepoId] < zpTotalHost[zpLogIf->RepoId]);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
-		zpReplyCnt[zpLogIf->RepoId] = 0;
+	} while (zpReplyCnt[zLogIf.RepoId] < zpTotalHost[zLogIf.RepoId]);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
+		zpReplyCnt[zLogIf.RepoId] = 0;
 
-	zwrite_log(zpLogIf->RepoId, zpLogContents, zLogSiz);  // 撤销完成，写入日志
+	zwrite_log(zLogIf.RepoId, zpLogContents, zLogSiz);  // 撤销完成，写入日志
 
-	for (_i i = 0; i < zpTotalHost[zpLogIf->RepoId]; i++) {
-		zppDpResList[zpLogIf->RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0
+	for (_i i = 0; i < zpTotalHost[zLogIf.RepoId]; i++) {
+		zppDpResList[zLogIf.RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0
 	}
 
-	pthread_rwlock_unlock(&(zpRWLock[zpLogIf->RepoId]));
+	pthread_rwlock_unlock(&(zpRWLock[zLogIf.RepoId]));
 	shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
 }
 
@@ -334,17 +339,17 @@ zdo_serv(void *zpSd) {
 		case 'P':  // print:打印某个文件的详细变动内容
 			zprint_diff_contents(zSd);
 			break;
-		case 'd':  // deploy:布署单个文件
-			zdeploy(zSd, 0);
-			break;
-		case 'D':  // DEPLOY:布署当前提交所有文件
-			zdeploy(zSd, 1);
-			break;
 		case 'l':  // LIST:打印最近zPreLoadLogSiz次布署日志
 			zlist_log(zSd, 0);
 			break;
 		case 'L':  // LIST:打印所有历史布署日志
 			zlist_log(zSd, 1);
+			break;
+		case 'd':  // deploy:布署单个文件
+			zdeploy(zSd, 0);
+			break;
+		case 'D':  // DEPLOY:布署当前提交所有文件
+			zdeploy(zSd, 1);
 			break;
 		case 'r':  // revoke:撤销单个文件的更改
 			zrevoke_from_log(zSd, 0);

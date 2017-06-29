@@ -92,8 +92,7 @@ zinotify_add_top_watch(void *zpIf) {
 				}
 
 				// Must do "malloc" here.
-				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) 
-						+ 2 + zLen + strlen(zpEntry->d_name));
+				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
 				zCheck_Null_Exit(zpSubIf);
 	
 				zpSubIf->RecursiveMark = zpTopIf->RecursiveMark;
@@ -134,8 +133,7 @@ zinotify_wait(void *_) {
 			if (1 == zpPathHash[zpEv->wd]->RecursiveMark && (zpEv->mask & IN_ISDIR) && ( (zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO) )) {
 		  		// If a new subdir is created or moved in, add it to the watch list.
 				// Must do "malloc" here.
-				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) 
-						+ 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
+				zSubObjInfo *zpSubIf = malloc(zSizeOf(zSubObjInfo) + 2 + strlen(zpPathHash[zpEv->wd]->path) + zpEv->len);
 				zCheck_Null_Exit(zpSubIf);
 	
 				zpSubIf->RepoId = zpPathHash[zpEv->wd]->RepoId;
