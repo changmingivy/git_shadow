@@ -7,7 +7,7 @@ zget_children_summary(const zNodeInfo *zpNodeIf, _i *zpResOUT) {
 // TEST: pass!
     if (NULL != zpNodeIf) {
         *zpResOUT += zpNodeIf->total;
-    
+
         zNodeInfo *zp0NodeIf;
         for (_i i = 0; i < zpNodeIf->total; i++) {
             zp0NodeIf = zpNodeIf->pp_children[i];
@@ -27,10 +27,10 @@ zgen_inbound_info(const zNodeInfo *zpNodeIf, zInboundInfo **zpCurInIf, const _i 
     if (NULL != zpNodeIf) {
         _i zRes = 0;
         _i zMark = 0;
-    
+
         // Self completed.
         zMem_C_Alloc((*zpCurInIf)->p_data, char, 1 + 4 + strlen(zpNodeIf->p_PkgName) + strlen(zpNodeIf->p_FuncName) + strlen(zpNodeIf->p_FuncDef));
-    
+
         strcpy((*zpCurInIf)->p_data, zpNodeIf->p_PkgName);
         strcat((*zpCurInIf)->p_data, ".");
         strcat((*zpCurInIf)->p_data, zpNodeIf->p_FuncName);
@@ -42,7 +42,7 @@ zgen_inbound_info(const zNodeInfo *zpNodeIf, zInboundInfo **zpCurInIf, const _i 
         (*zpCurInIf)->summary = zRes;
         (*zpCurInIf)->total = zpNodeIf->total;
         (*zpCurInIf)->vOffSet = 1 + zVOffSet;
-    
+
         // Enter recursion.
         zMem_Alloc((*zpCurInIf)->pp_children, zInboundInfo *, zpNodeIf->total);
         for(_i i = 0;i < zpNodeIf->total; i++) {

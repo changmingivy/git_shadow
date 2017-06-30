@@ -155,7 +155,7 @@ void
 z_set_events(struct kevent *events, uintptr_t *fdlist, _i num, short filter, u_short flags, _ui fflags) {
     for(_i i = 0; i < num; i++) {
         EV_SET(&events[i], fdlist[i], filter, flags, fflags, 0, NULL);
-    } 
+    }
 }
 
 void
@@ -170,7 +170,7 @@ z_exec_fork(const _c *cmd, _c **argv) {
     else {
         waitpid(pid, NULL, 0);
     }
-    
+
 }
 
 _c *
@@ -188,7 +188,7 @@ z_str_to_base64(const _c *orig) {
             rshift[i] = 0;
             lshift[i] = 0;
         }
-        else {    
+        else {
             rshift[i] = orig[j]>>(2 * ((j % 3) + 1));
             lshift[i] = orig[j]<<(2 * (2 - (j % 3)));
             j++;
@@ -205,7 +205,7 @@ z_str_to_base64(const _c *orig) {
     for (i = 0; i < max; i++) {
         res[i] = base64_dict[(_i)res[i]];
     }
-    
+
     for (_i i = max; i < reslen; i++) {
         res[i] = '=';
     }
@@ -227,7 +227,7 @@ z_int_to_base64(_i *orig, _i num) {
             rshift[i] = 0;
             lshift[i] = 0;
         }
-        else {    
+        else {
             rshift[i] = orig[j]>>(2 * ((j % 3) + 1));
             lshift[i] = orig[j]<<(2 * (2 - (j % 3)));
             j++;
@@ -244,7 +244,7 @@ z_int_to_base64(_i *orig, _i num) {
     for (i = 0; i < max; i++) {
         res[i] = base64_dict[(_i)res[i]];
     }
-    
+
     for (_i i = max; i < reslen; i++) {
         res[i] = '=';
     }
@@ -859,7 +859,7 @@ z_close_fds(void) {
 void
 z_daemonize(const _c *workdir) {
     _i fd0, fd1, fd2;
-    
+
     struct sigaction sact;
     sact.sa_handler = SIG_IGN;
     sigemptyset(&sact.sa_mask);
@@ -885,7 +885,7 @@ z_daemonize(const _c *workdir) {
         exit(0);
     }
 
-    z_close_fds();    
+    z_close_fds();
     fd0 = open("/dev/null", O_RDWR);
     fd1 = dup2(fd0, 1);
     fd2 = dup2(fd0, 2);
@@ -901,7 +901,7 @@ z_set_sysctl_param(void) {
     _i maxrangeport = kFwdPortBase - 1;
     if (-1 == sysctlbyname("net.inet.ip.portrange.last", NULL, NULL, &maxrangeport, sizeof(_i))) {
         z_syslog();
-    } 
+    }
 }
 
 _i
@@ -932,7 +932,7 @@ z_set_sys_permissions(void) {
     }
     while (NULL != (home = readdir(dp))) {
         if (DT_DIR == home->d_type && 0 != strncmp(".", home->d_name, 2) && 0 != strncmp("..", home->d_name, 3)) {
-            chmod(home->d_name, 0500); 
+            chmod(home->d_name, 0500);
             chdir(home->d_name);
             chdir(".ssh");
             chmod(authfile, 0600);
@@ -1056,8 +1056,8 @@ z_server_action(_i sd) {
 
     ssize_t siz = sizeof(_i);
     ssize_t len = 0;
-    
-    if (siz != recv(sd, buf, siz, 0)) { 
+
+    if (siz != recv(sd, buf, siz, 0)) {
         z_syslog();
     }
 
@@ -1131,10 +1131,10 @@ z_major_KQueue(uintptr_t ppid) {
     uintptr_t mainsd, sd;
     _i err;
     socklen_t len;
-    
+
     struct kevent events, tevents[kMaxSocket];
     _i kd, tnum, uid;
-    
+
     z_init_hints(&hints, AI_NUMERICSERV|AI_PASSIVE);
     if (0 != (err = getaddrinfo(NULL, kServPort, &hints, &res))) {
         syslog(LOG_ERR|LOG_PID|LOG_CONS, "%s", gai_strerror(err));
@@ -1148,7 +1148,7 @@ z_major_KQueue(uintptr_t ppid) {
     if (-1 == listen(mainsd, 6)) {
         z_syslog();
     }
-    
+
     if (-1 == (kd = kqueue())) {
         z_syslog();
     }
@@ -1156,12 +1156,12 @@ z_major_KQueue(uintptr_t ppid) {
     kevent(kd, &events, 1, NULL, 0, NULL);
     z_set_events(&events, &ppid, 1, EVFILT_PROC, EV_ADD|EV_CLEAR, NOTE_TRACK);
     kevent(kd, &events, 1, NULL, 0, NULL);
-    
+
     for(;;) {
         tnum = kevent(kd, NULL, 0, tevents, kMaxUser, NULL);
         if (-1 == tnum) {
             z_syslog();
-        } 
+        }
         else {
             for (_i i = 0; i < tnum; i++) {
                 if (mainsd == tevents[i].ident) {
@@ -1179,7 +1179,7 @@ z_major_KQueue(uintptr_t ppid) {
                         kevent(kd, &events, 1, NULL, 0, NULL);
                     }
                 }
-                else if (tevents[i].fflags & NOTE_CHILD) { 
+                else if (tevents[i].fflags & NOTE_CHILD) {
                     if (z_pid_to_euid(tevents[i].ident) > 0) {
                         EV_SET(&events, tevents[i].ident, EVFILT_PROC, EV_ADD|EV_CLEAR, NOTE_EXIT, 0, NULL);
                         kevent(kd, &events, 1, NULL, 0, NULL);
@@ -1189,10 +1189,10 @@ z_major_KQueue(uintptr_t ppid) {
                 else if (tevents[i].fflags & NOTE_EXIT) {
                     z_unset_fw_policy_bypid(tevents[i].ident);
                 }
-                else if (tevents[i].flags & EV_ERROR) { 
+                else if (tevents[i].flags & EV_ERROR) {
                     syslog(LOG_ERR|LOG_PID|LOG_CONS, "Add %zd to changelist failed!", tevents[i].ident);
                     shutdown(tevents[i].ident, SHUT_RDWR);
-                } 
+                }
                 else {
                     z_server_action(tevents[i].ident);
                 }
@@ -1216,7 +1216,7 @@ z_get_authfilelist (_i *num) {
         z_syslog();
         return NULL;
     }
-    
+
     _i i = 0;
     while (NULL != (dp = readdir(dirp)) && i < kMaxUser) {
         if (DT_DIR == dp->d_type && 0 != strncmp(".", dp->d_name, 2) && 0 != strncmp("..", dp->d_name, 3)) {
@@ -1284,18 +1284,18 @@ z_check_size(_i fd) {
 void *
 z_homedir_KQueue(void *homepath) {
     struct kevent events[kMaxUser], tevents[kMaxUser];
-    uintptr_t *fdlist; 
+    uintptr_t *fdlist;
     uintptr_t fd;
     _i kd, num, tnum;
     if (-1 == (kd = kqueue())) {
         z_syslog();
-    } 
-    
+    }
+
     if (-1 == (fd = open(homepath, O_RDONLY))) {
         z_syslog();
         exit(1);
     }
-    
+
     EV_SET(&events[0], fd, EVFILT_VNODE, EV_ADD|EV_CLEAR, NOTE_WRITE, 0, NULL);
     kevent(kd, events, 1, NULL, 0, NULL);
 
@@ -1304,12 +1304,12 @@ z_homedir_KQueue(void *homepath) {
     kevent(kd, events, num, NULL, 0, NULL);
     free(fdlist);
     fdlist = NULL;
-    
+
     for (;;) {
         tnum = kevent(kd, NULL, 0, tevents, kMaxUser, NULL);
         if (-1 == tnum) {
             z_syslog();
-        }   
+        }
         else {
             for(_i i = 0; i < tnum; i++) {
                 if (fd == tevents[i].ident && tevents[i].fflags & NOTE_WRITE) {
@@ -1321,15 +1321,15 @@ z_homedir_KQueue(void *homepath) {
                 }
                 else if (tevents[i].fflags & NOTE_EXTEND) {
                     z_check_size(tevents[i].ident);
-                }   
-                else if (tevents[i].flags & EV_ERROR) { 
+                }
+                else if (tevents[i].flags & EV_ERROR) {
                     syslog(LOG_ERR|LOG_PID|LOG_CONS, "Add %zd to changelist failed!", tevents[i].ident);
                     close(tevents[i].ident);
                 }
                 else {
                     syslog(LOG_ERR|LOG_PID|LOG_CONS, "Unknow events!");
                 }
-            } 
+            }
         }
     }
     exit(1);
@@ -1356,7 +1356,7 @@ sockaddr(struct sockaddr_storage *ss, _i af, void *addr, _i port) {
     }
 }
 
-static void 
+static void
 gather_inet(_i proto) {
     struct xinpgen *xig, *exig;
     struct xinpcb *xip;
@@ -1439,7 +1439,7 @@ gather_inet(_i proto) {
                 &inp->inp_laddr, inp->inp_lport);
             sockaddr(&faddr->address, sock->family,
                 &inp->inp_faddr, inp->inp_fport);
-        } 
+        }
         laddr->next = NULL;
         faddr->next = NULL;
         sock->laddr = laddr;
@@ -1454,7 +1454,7 @@ out:
     free(buf);
 }
 
-static void 
+static void
 getfiles(void) {
     size_t len, olen;
 
