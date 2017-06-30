@@ -1,12 +1,17 @@
 /*
  * 算法部分的源码来自 openssl 库
+ * 此算法在针对2M以内小文件时，性能与命令行md5sum工具相当
+ * 针对大文件性能很差
+ * 配置文件的大小通常在1M以内
  */
 #ifndef _Z
+    #define _DEFAULT_SOURCE
     #define _BSD_SOURCE
     #include <string.h>
     #include <sys/mman.h>
     #include <sys/stat.h>
     #include <fcntl.h>
+    #include <unistd.h>
     #include "../../inc/zutils.h"
 #endif
 
@@ -205,9 +210,10 @@ MD5Final(MD5_CTX *context,_uc digest[16]) {
     MD5Encode(digest,context->state,16);
 }
 
-// 获取文件的MD5检验和checksum
+// 获取文件的MD5 checksum
 char *
 zgenerate_file_sig_md5(char *zpPathName) {
+// TEST: PASS
     _uc zOrigRes[16];
     static char zRes[32];
 
