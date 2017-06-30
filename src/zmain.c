@@ -1,7 +1,7 @@
 #define _Z
 #define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
-//#define _BSD_SOURCE
+#define _BSD_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -45,7 +45,7 @@ typedef struct {
     zPCREInitInfo *p_PCREInitIf;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
-} zSubObjInfo;
+} zObjInfo;
 //----------------------------------
 typedef struct {
     _ui CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
@@ -89,7 +89,7 @@ char **zppRepoPathList;  // 每个代码库的绝对路径
 
 #define zWatchHashSiz 8192  // 最多可监控的目标总数
 _i zInotifyFD;   // inotify 主描述符
-zSubObjInfo *zpPathHash[zWatchHashSiz];  // 以watch id建立的HASH索引
+zObjInfo *zpPathHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
@@ -136,7 +136,7 @@ _ui *zpPreLoadLogVecSiz;
 #include "inotify/zinotify_callback.c"
 #include "inotify/zinotify.c"  // 监控代码库文件变动
 #include "ops/znetwork.c"  // 对外提供网络服务
-#include "ops/zparse_conf_file.c"  // 读取主配置文件
+#include "ops/zinit_from_conf.c"  // 读取主配置文件
 #include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 
 /***************************
@@ -144,10 +144,11 @@ _ui *zpPreLoadLogVecSiz;
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
+	char *zpConfFilePath = NULL;
+    struct stat zStatIf;
     _i zActionType = 0;
     zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
     zNetServIf.zServType = TCP;
-    struct stat zStatIf;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Cuh:p:f:"));) {
         switch (zOpt) {
@@ -166,6 +167,7 @@ main(_i zArgc, char **zppArgv) {
                         "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
                 exit(1);
             }
+			zpConfFilePath = optarg;
             break;
         default: // zOpt == '?'  // 若指定了无效的选项，报错退出
             zPrint_Time();
@@ -192,23 +194,9 @@ zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
     zCallBackList[0] = zupdate_cache;
     zCallBackList[1] = zupdate_ipv4_db_all;
-	zCallBackList[2] = ztest_func;
 
-    zObjInfo *zpObjIf = NULL;
-    if (NULL == (zpObjIf = zread_conf_file(zppArgv[2]))) {  // 从主配置文件中读取内容存入链表
-        zPrint_Time();
-        fprintf(stderr, "\033[31;01mNo valid entry found in config file!!!\n\033[00m\n");
-    }
-    else {
-        do {
-            zAdd_To_Thread_Pool(zinotify_add_top_watch, zpObjIf);  // 读到的有效条目，添加到inotify中进行监控
-            if (0 != strcmp("/", zpObjIf->StrBuf)) {
-                zRepoNum++;
-                zppRepoPathList[zRepoNum] = zpObjIf->StrBuf;
-            }
-            zpObjIf = zpObjIf->p_next;
-        } while (NULL != zpObjIf);
-    }
+	// 解析主配置文件，并将有效条目添加到监控队列
+	zparse_conf_and_add_top_watch(zpConfFilePath);
 
     zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
     if (0 > zRet) {

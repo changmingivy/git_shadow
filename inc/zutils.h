@@ -67,16 +67,16 @@
 } while(0)
 
 #define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
-	void *zpX = zRes;\
-	if (NULL == (zpX)) {\
+	void *zpMiddleTmpPoint = zRes;\
+	if (NULL == (zpMiddleTmpPoint)) {\
 		zPrint_Err(errno, #zRes " == NULL", "");\
 		return __VA_ARGS__;\
 	}\
 } while(0)
 
 #define zCheck_Null_Exit(zRes) do{\
-	void *zpX = zRes;\
-	if (NULL == (zpX)) {\
+	void *zpMiddleTmpPoint = zRes;\
+	if (NULL == (zpMiddleTmpPoint)) {\
 		zPrint_Err(errno, #zRes " == NULL", "");\
 		exit(1);\
 	}\
