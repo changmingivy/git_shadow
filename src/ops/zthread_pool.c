@@ -24,14 +24,14 @@
         pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
         pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
         pthread_cond_signal(&(zThreadPoolCond[2]));\
-}while(0)
+} while(0)
 
 typedef struct zThreadJobInfo {
     pthread_t Tid;
     _i MarkStart;
     zThreadPoolOps OpsFunc;
     void *p_param;
-}zThreadJobInfo;
+} zThreadJobInfo;
 
 zThreadJobInfo zThreadPoll[zThreadPollSiz];
 _i zIndex[zThreadPollSiz];
@@ -43,9 +43,7 @@ pthread_cond_t zThreadPoolCond[3] = {PTHREAD_COND_INITIALIZER};
 void *
 zthread_func(void *zpIndex) {
 //TEST: PASS
-    zCheck_Pthread_Func_Warning(
-            pthread_detach(pthread_self())
-            );
+    zCheck_Pthread_Func_Return(pthread_detach(pthread_self()), NULL);
     _i i = *((_i *)zpIndex);
 
 zMark:;
@@ -82,7 +80,7 @@ zthread_poll_init(void) {
     for (_i i = 0; i < zThreadPollSiz; i++) {
         zIndex[i] = i;
         zThreadPoll[i].MarkStart= 0;
-        zCheck_Pthread_Func_Exit(pthread_create(&(zThreadPoll[i].Tid), NULL, zthread_func, &(zIndex[i])));
+        zCheck_Pthread_Func_Return(pthread_create(&(zThreadPoll[i].Tid), NULL, zthread_func, &(zIndex[i])),);
     }
 }
 

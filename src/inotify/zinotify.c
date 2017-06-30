@@ -14,7 +14,7 @@ zinotify_add_sub_watch(void *zpIf) {
 
     if (NULL == &(zpCurIf->path[0])) { return; }  // Robustness
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
-    zCheck_Negative_Exit(zWid);
+    zCheck_Negative_Return(zWid,);
 
     if (NULL != zpPathHash[zWid]) {
         free(zpPathHash[zWid]);  // Free old memory before using the same index again.
@@ -23,7 +23,7 @@ zinotify_add_sub_watch(void *zpIf) {
 
     if (NULL == &(zpCurIf->path[0])) { return; }  // Robustness
     DIR *zpDir = opendir(zpCurIf->path);
-    zCheck_Null_Exit(zpDir);
+    zCheck_Null_Return(zpDir,);
 
     size_t zLen = strlen(zpCurIf->path);
     struct dirent *zpEntry;
@@ -42,7 +42,7 @@ zinotify_add_sub_watch(void *zpIf) {
                     + 2
                     + zLen
                     + strlen(zpEntry->d_name));
-            zCheck_Null_Exit(zpSubIf);
+            zCheck_Null_Return(zpSubIf,);
 
             // 为新监控目标填冲基本信息
             zpSubIf->RepoId = zpCurIf->RepoId;
@@ -70,14 +70,14 @@ zinotify_add_top_watch(void *zpIf) {
     size_t zLen = strlen(zpPath);
 
     zSubObjInfo *zpTopIf = malloc(zSizeOf(zSubObjInfo) + 1 + zLen);
-    zCheck_Null_Exit(zpTopIf);
+    zCheck_Null_Return(zpTopIf,);
 
     zpTopIf->p_PCREInitIf = zpcre_init(zpObjIf->StrBuf + zpObjIf->RegexStrOffset);
     zpTopIf->RecursiveMark = zpObjIf->RecursiveMark;
     zpTopIf->CallBack = (-1 == zpObjIf->CallBackId) ? NULL : zCallBackList[zpObjIf->CallBackId];
 
     zpTopIf->UpperWid = inotify_add_watch(zInotifyFD, zpPath, zBaseWatchBit | IN_DONT_FOLLOW);
-    zCheck_Negative_Exit(zpTopIf->UpperWid);
+    zCheck_Negative_Return(zpTopIf->UpperWid,);
 
     strcpy(zpTopIf->path, zpPath);
     zpPathHash[zpTopIf->UpperWid] = zpTopIf;
@@ -86,7 +86,7 @@ zinotify_add_top_watch(void *zpIf) {
         struct dirent *zpEntry;
 
         DIR *zpDir = opendir(zpPath);
-        zCheck_Null_Exit(zpDir);
+        zCheck_Null_Return(zpDir,);
 
         zPCRERetInfo *zpRetIf = NULL;
         while (NULL != (zpEntry = readdir(zpDir))) {
@@ -102,7 +102,7 @@ zinotify_add_top_watch(void *zpIf) {
                         + 2
                         + zLen
                         + strlen(zpEntry->d_name));
-                zCheck_Null_Exit(zpSubIf);
+                zCheck_Null_Return(zpSubIf,);
 
                 // 为新监控目标填冲基本信息
                 zpSubIf->RecursiveMark = zpTopIf->RecursiveMark;
@@ -136,7 +136,7 @@ zinotify_wait(void *_) {
 
     for (;;) {
         zLen = read(zInotifyFD, zBuf, zSizeOf(zBuf));
-        zCheck_Negative_Exit(zLen);
+        zCheck_Negative_Return(zLen,);
 
         for (zpOffset = zBuf; zpOffset < zBuf + zLen;
                 zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
@@ -152,7 +152,7 @@ zinotify_wait(void *_) {
                         + 2
                         + strlen(zpPathHash[zpEv->wd]->path)
                         + zpEv->len);
-                zCheck_Null_Exit(zpSubIf);
+                zCheck_Null_Return(zpSubIf,);
 
                 // 为新监控目标填冲基本信息
                 zpSubIf->RepoId = zpPathHash[zpEv->wd]->RepoId;
@@ -173,4 +173,27 @@ zinotify_wait(void *_) {
             }
         }
     }
+}
+
+/////////////////////////////////////////////////////////////////////
+void
+ztest_func(void *_) {
+	fprintf(stderr, "Success!\n");
+}
+
+_i
+main(void) {
+	zObjInfo *zpObjIf = malloc(zSizeOf(zObjInfo) + zBytes(22));
+	zpObjIf->ObjPathOffset = 5;  // test
+	zpObjIf->RegexStrOffset = 10;  // ^[.]{1,2}$
+	zpObjIf->CallBackId = 3;
+	zpObjIf->RecursiveMark = 1;
+	strcpy(zpObjIf->StrBuf, "/tmp");
+	strcpy(zpObjIf->StrBuf + 5, "/tmp");
+	strcpy(zpObjIf->StrBuf + 10, "^[.]{1,2}$");
+
+    zInotifyFD = inotify_init();  // 生成inotify master fd
+	zinotify_add_top_watch(zpObjIf);
+	zinotify_wait(NULL);
+	return 0;
 }

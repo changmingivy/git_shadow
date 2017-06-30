@@ -134,12 +134,12 @@ zread_conf_file(const char *zpConfPath) {
 void
 zconfig_file_monitor(const char *zpConfPath) {
     _i zConfFD = inotify_init();
-    zCheck_Negative_Exit(
+    zCheck_Negative_Return(
             inotify_add_watch(
                 zConfFD,
                 zpConfPath,
                 IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF
-                )
+                ),
             );
 
     char zBuf[zCommonBufSiz]
@@ -151,7 +151,7 @@ zconfig_file_monitor(const char *zpConfPath) {
 
     for (;;) {
         zLen = read(zConfFD, zBuf, zSizeOf(zBuf));
-        zCheck_Negative_Exit(zLen);
+        zCheck_Negative_Return(zLen,);
 
         for (zpOffset = zBuf; zpOffset < zBuf + zLen;
                 zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {

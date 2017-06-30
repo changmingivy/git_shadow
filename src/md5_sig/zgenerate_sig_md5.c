@@ -218,13 +218,13 @@ zgenerate_file_sig_md5(char *zpPathName) {
     static char zRes[32];
 
     _i zFd = open(zpPathName, O_RDONLY);
-    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Return(zFd, NULL);
 
     struct stat zStatIf;
-    zCheck_Negative_Exit(fstat(zFd, &zStatIf));
+    zCheck_Negative_Return(fstat(zFd, &zStatIf), NULL);
 
     void *zpX = mmap(NULL, zStatIf.st_size, PROT_READ, MAP_PRIVATE, zFd, 0);
-    zCheck_Null_Exit(zpX);
+    zCheck_Null_Return(zpX, NULL);
     madvise(zpX, zStatIf.st_size, MADV_WILLNEED);
 
     MD5_CTX zMd5Handler;

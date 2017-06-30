@@ -79,19 +79,19 @@ zlist_log(_i zSd, _i zMark) {
     else {  // 若前端请求列出所有历史记录，从日志文件中读取
         struct stat zStatBufIf;
         zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
-        zCheck_Negative_Exit(fstat(zpLogFd[0][zIf.RepoId], &(zStatBufIf)));  // 获取日志属性
+        zCheck_Negative_Return(fstat(zpLogFd[0][zIf.RepoId], &(zStatBufIf)),);  // 获取日志属性
 
         zVecSiz = 2 * zStatBufIf.st_size / zSizeOf(zDeployLogInfo);  // 确定存储缓存区的大小
         struct iovec zVec[zVecSiz];
 
         zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zStatBufIf.st_size, PROT_READ, MAP_PRIVATE, zpLogFd[0][zIf.RepoId], 0);  // 将meta日志mmap至内存
-        zCheck_Null_Exit(zpMetaLogIf);
+        zCheck_Null_Return(zpMetaLogIf,);
         madvise(zpMetaLogIf, zStatBufIf.st_size, MADV_WILLNEED);  // 提示内核大量预读
 
         zpTmpIf = zpMetaLogIf + zStatBufIf.st_size / zSizeOf(zDeployLogInfo) - 1;
         _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->len;  // 根据meta日志属性确认data日志偏移量
         char *zpDataLog = (char *)mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zIf.RepoId], 0);  // 将data日志mmap至内存
-        zCheck_Null_Exit(zpDataLog);
+        zCheck_Null_Return(zpDataLog,);
         madvise(zpDataLog, zDataLogSiz, MADV_WILLNEED);  // 提示内核大量预读
 
         for (_i i = 0; i < zVecSiz; i++) {  // 拼装日志信息
@@ -124,10 +124,10 @@ void
 zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
     // write to .git_shadow/log/meta
     struct stat zStatBufIf;
-    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatBufIf));  // 获取当前日志文件属性
+    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf),);  // 获取当前日志文件属性
 
     zDeployLogInfo zDeployIf;
-    zCheck_Negative_Exit(pread(zpLogFd[0][zRepoId], &zDeployIf, zSizeOf(zDeployLogInfo), zStatBufIf.st_size - zSizeOf(zDeployLogInfo)));  // 读出前一个记录的信息
+    zCheck_Negative_Return(pread(zpLogFd[0][zRepoId], &zDeployIf, zSizeOf(zDeployLogInfo), zStatBufIf.st_size - zSizeOf(zDeployLogInfo)),);  // 读出前一个记录的信息
 
     zDeployIf.RepoId = zRepoId;  // 代码库ID相同
     zDeployIf.index += 1;  // 布署索引偏移量增加1(即：顺序记录布署批次ID)，用于从sig日志文件中快整定位对应的commit签名
@@ -221,8 +221,8 @@ zrevoke_from_log(_i zSd, _i zMark){
     char zCommitSigBuf[41];  // 存放40位的git commit签名
     zCommitSigBuf[40] = '\0';
 
-    zCheck_Negative_Exit(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.len, zLogIf.offset));
-    zCheck_Negative_Exit(pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index));
+    zCheck_Negative_Return(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.len, zLogIf.offset),);
+    zCheck_Negative_Return(pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index),);
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char *zpLogContents;  // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
@@ -299,7 +299,7 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
     strcat(zPathBuf, "/");
     strcat(zPathBuf, zpWrPath);
     zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Return(zFd,);
 
     // 接收网络数据并同步写入文件
     while (0 < (zRecvSiz = recv(zSd, zRecvBuf, zCommonBufSiz, 0))) {
@@ -308,7 +308,7 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
             exit(1);
         }
     }
-    zCheck_Negative_Exit(zRecvSiz);
+    zCheck_Negative_Return(zRecvSiz,);
     close(zFd);
 
     // 回复收到的ipv4列表文件的 MD5 checksum
@@ -378,24 +378,24 @@ zstart_server(void *zpIf) {
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 已经做完bind和listen
 
     zEpollSd = epoll_create1(0);
-    zCheck_Negative_Exit(zEpollSd);
+    zCheck_Negative_Return(zEpollSd,);
 
     zEv.events = EPOLLIN;
     zEv.data.fd = zMajorSd;
-    zCheck_Negative_Exit(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv));
+    zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
     for (;;) {
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
-        zCheck_Negative_Exit(zEvNum);
+        zCheck_Negative_Return(zEvNum,);
 
         for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
                zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0);
-               zCheck_Negative_Exit(zConnSd);
+               zCheck_Negative_Return(zConnSd,);
 
                zEv.events = EPOLLIN | EPOLLET;  // 新创建的socket以边缘触发模式监控
                zEv.data.fd = zConnSd;
-               zCheck_Negative_Exit(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv));
+               zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             }
             else {
                 zAdd_To_Thread_Pool(zdo_serv, &(zEvents[i].data.fd));
@@ -417,10 +417,10 @@ zclient_reply(char *zpHost, char *zpPort) {
     zVec[1].iov_len = zSizeOf(zDeployResInfo);
 
     zFd = open(zMetaLogPath, O_RDONLY);
-    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Return(zFd,);
 
     zDeployLogInfo zDpLogIf;
-    zCheck_Negative_Exit(read(zFd, &zDpLogIf, zSizeOf(zDeployLogInfo)));
+    zCheck_Negative_Return(read(zFd, &zDpLogIf, zSizeOf(zDeployLogInfo)),);
     zDpResIf.RepoId = zDpLogIf.RepoId;  // 标识版本库ID
     close(zFd);
 
@@ -431,11 +431,11 @@ zclient_reply(char *zpHost, char *zpPort) {
     }
 
     zFd = open(zSelfIpPath, O_RDONLY);  // 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端
-    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Return(zFd,);
 
     _ui zIpv4Bin;
     while (0 != (zResLen = read(zFd, &zIpv4Bin, zSizeOf(_ui)))) {
-        zCheck_Negative_Exit(zResLen);
+        zCheck_Negative_Return(zResLen,);
         zDpResIf.ClientAddr = zIpv4Bin;  // 标识本机身份：ipv4地址
         if ((zBytes(4) + zSizeOf(zDeployLogInfo)) != zsendmsg(zSd, zVec, 2, 0, NULL)) {
             zPrint_Err(0, NULL, "Reply to server failed.");

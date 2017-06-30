@@ -38,23 +38,13 @@
  ****************/
 typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
 //----------------------------------
-typedef struct zObjInfo {  // 用于存储从配置文件中读到的内容
-    struct zObjInfo *p_next;
-    _s CallBackId;  // 回调函数索引，需要main函数中手动维护
-    _s RecursiveMark;  // 是否递归标志
-    _s ObjPathOffset;  // 需要inotify去监控的路径名称在StrBuf字段中的起始地址（偏移量）
-    _s RegexStrOffset;  // 正则表达式字符串在StrBuf字段中的地始地址（偏移量），符合此正则表达式的目录或文件将不被inotify监控
-    char StrBuf[];  // 代码库绝对路径名称的偏移量为0，即StrBuf直接指向代码库绝对路径名称
-}zObjInfo;
-
 typedef struct {
-    zPCREInitInfo *p_PCREInitIf;  // 继承自 zObjInfo
-    _i RepoId;  // 每个代码库对应的索引
+    _us RepoId;  // 每个代码库对应的索引
+    _us RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    _s RecursiveMark;  // 继承自 zObjInfo
-    _s EvType;  // 自定义的inotify 事件类型，作为脚本变量提供给外部的SHELL脚本
+    zPCREInitInfo *p_PCREInitIf;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char path[];  // 继承自 zObjInfo
+    char path[];  // 被监控对象的绝对路径名称
 } zSubObjInfo;
 //----------------------------------
 typedef struct {
@@ -191,12 +181,18 @@ main(_i zArgc, char **zppArgv) {
     }
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+
 zReLoad:;
     _i zFd[2] = {0}, zRet = 0;
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
     zthread_poll_init();  // 初始化线程池
+
+    // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
+    zCallBackList[0] = zupdate_cache;
+    zCallBackList[1] = zupdate_ipv4_db_all;
+	zCallBackList[2] = ztest_func;
 
     zObjInfo *zpObjIf = NULL;
     if (NULL == (zpObjIf = zread_conf_file(zppArgv[2]))) {  // 从主配置文件中读取内容存入链表
@@ -213,10 +209,6 @@ zReLoad:;
             zpObjIf = zpObjIf->p_next;
         } while (NULL != zpObjIf);
     }
-
-    // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zupdate_cache;
-    zCallBackList[1] = zupdate_ipv4_db_all;
 
     zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
     if (0 > zRet) {

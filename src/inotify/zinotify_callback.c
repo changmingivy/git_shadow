@@ -20,7 +20,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
     zpShellRetHandler[0] = popen("git diff --name-only HEAD CURRENT | wc -l "
             "&& git diff --name-only HEAD CURRENT "
             "&& git log --format=%H -n 1 CURRENT", "r");  // 第一行返回的是文件总数
-    zCheck_Null_Exit(zpShellRetHandler);
+    zCheck_Null_Return(zpShellRetHandler, NULL);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {
@@ -36,7 +36,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
         for (_i i = 0; i < zDiffFilesNum - 1; i++) {
             zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
 
-            zCheck_Null_Exit(zpNewCacheVec[0][i].iov_base = malloc(1 + strlen(zpRes[0]) + zSizeOf(zFileDiffInfo)));
+            zCheck_Null_Return(zpNewCacheVec[0][i].iov_base = malloc(1 + strlen(zpRes[0]) + zSizeOf(zFileDiffInfo)), NULL);
 
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->CacheVersion = zNewVersion;
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->RepoId= zRepoId;
@@ -45,7 +45,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
 
             sprintf(zShellBuf, "git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zpRes[0], zpRes[0]);
             zpShellRetHandler[1] = popen(zShellBuf, "r");
-            zCheck_Null_Exit(zpShellRetHandler);
+            zCheck_Null_Return(zpShellRetHandler, NULL);
 
             zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
 
@@ -67,17 +67,17 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
     zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
     struct stat zStatBufIf;
 
-    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatBufIf));  // 获取当前日志文件属性
+    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
     zpPreLoadLogVecSiz[zRepoId] = (zStatBufIf.st_size / zSizeOf(zDeployLogInfo)) > zPreLoadLogSiz ? zPreLoadLogSiz : (zStatBufIf.st_size / zSizeOf(zDeployLogInfo));  // 计算需要缓存的实际日志数量
     zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
 
     zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));  // 将meta日志mmap至内存
-    zCheck_Null_Exit(zpMetaLogIf);
+    zCheck_Null_Return(zpMetaLogIf, NULL);
 
     zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
     _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->len - zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
     char *zpDataLog = mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset);  // 将data日志mmap至内存
-    zCheck_Null_Exit(zpDataLog);
+    zCheck_Null_Return(zpDataLog, NULL);
 
     for (_ui i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
         if (0 == i % 2) {
@@ -140,10 +140,10 @@ zupdate_ipv4_db_self(_i zBaseFd) {
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
     _i zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Return(zFd,);
 
     FILE *zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r");
-    zCheck_Null_Exit(zpFileHandler);
+    zCheck_Null_Return(zpFileHandler,);
     while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
         if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
@@ -164,10 +164,10 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     zDeployResInfo *zpTmpIf;
 
     zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Exit(zFd[0]);
+    zCheck_Negative_Return(zFd[0],);
     // 打开客户端ip地址数据库文件
     zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY);
-    zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
+    zCheck_Negative_Return(fstat(zFd[1], &zStatIf),);
     close(zFd[0]);
 
     zpTotalHost[zRepoId] = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
@@ -210,15 +210,15 @@ zupdate_ipv4_db_all(void *zpIf) {
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 
     zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Exit(zFd[0]);
+    zCheck_Negative_Return(zFd[0],);
 
     zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY);
-    zCheck_Negative_Exit(zFd[1]);
+    zCheck_Negative_Return(zFd[1],);
     zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Exit(zFd[2]);
+    zCheck_Negative_Return(zFd[2],);
 
     zpFileHandler = fdopen(zFd[1], "r");
-    zCheck_Null_Exit(zpFileHandler);
+    zCheck_Null_Return(zpFileHandler,);
     zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
     zPCRERetInfo *zpPCREResIf;
     for (_i i = 1; NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler)); i++) {

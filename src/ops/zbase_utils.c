@@ -75,12 +75,12 @@ _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     _i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
     _i zSd = socket(AF_INET, zSockType, 0);
-    zCheck_Negative_Exit(zSd);
+    zCheck_Negative_Return(zSd, -1);
 
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
-    zCheck_Negative_Exit(bind(zSd, zpAddrIf, INET_ADDRSTRLEN));
+    zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
 
-    zCheck_Negative_Exit(listen(zSd, 5));
+    zCheck_Negative_Return(listen(zSd, 5), -1);
 
     return zSd;
 }
@@ -92,7 +92,7 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
     if (zProto == 0) { zProto = IPPROTO_TCP; }
 
     _i zSd = socket(AF_INET, zSockType, zProto);
-    zCheck_Negative_Exit(zSd);
+    zCheck_Negative_Return(zSd, -1);
     for (_i i = 4; i > 0; --i) {
         if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
         close(zSd);;
@@ -128,7 +128,7 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
     _i zSentSiz = sendto(zSd, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
-    zCheck_Negative_Exit(zSentSiz);
+    zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
@@ -144,7 +144,7 @@ zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
         .msg_flags = 0
     };
     _i zSentSiz = sendmsg(zSd, &zMsgIf, zFlags);
-    zCheck_Negative_Exit(zSentSiz);
+    zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
@@ -153,7 +153,7 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
     _i zFlags = MSG_WAITALL;
     socklen_t zAddrLen = 0;
     _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
-    zCheck_Negative_Exit(zRecvSiz);
+    zCheck_Negative_Return(zRecvSiz, -1);
     return zRecvSiz;
 }
 
@@ -187,16 +187,16 @@ zdaemonize(const char *zpWorkDir) {
     signal(SIGHUP, SIG_IGN);
 
     umask(0);
-    zCheck_Negative_Exit(chdir(NULL == zpWorkDir? "/" : zpWorkDir));
+    zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
 
     pid_t zPid = fork();
-    zCheck_Negative_Exit(zPid);
+    zCheck_Negative_Return(zPid,);
 
     if (zPid > 0) { exit(0); }
 
     setsid();
     zPid = fork();
-    zCheck_Negative_Exit(zPid);
+    zCheck_Negative_Return(zPid,);
 
     if (zPid > 0) { exit(0); }
 
@@ -214,10 +214,14 @@ zdaemonize(const char *zpWorkDir) {
 void
 zfork_do_exec(const char *zpCommand, char **zppArgv) {
     pid_t zPid = fork();
-    zCheck_Negative_Exit(zPid);
+    zCheck_Negative_Return(zPid,);
 
-    if (0 == zPid) { execvp(zpCommand, zppArgv); }
-    else { waitpid(zPid, NULL, 0); }
+    if (0 == zPid) {
+		execvp(zpCommand, zppArgv);
+	}
+    else {
+		waitpid(zPid, NULL, 0);
+	}
 }
 
 /*
@@ -229,7 +233,9 @@ zget_one_line_from_FILE(FILE *zpFile) {
     char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
     if (NULL == zpRes) {
-        if(0 == feof(zpFile)) { zCheck_Null_Exit(zpRes); }
+        if(0 == feof(zpFile)) {
+			zCheck_Null_Return(zpRes, NULL);
+		}
         return NULL;
     }
     return zBuf;

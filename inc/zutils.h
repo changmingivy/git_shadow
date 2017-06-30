@@ -66,63 +66,43 @@
 	(NULL == zCause) ? zCustomContents : strerror(zErrNo));\
 } while(0)
 
-#define zCheck_Null_Warning(zRes) do{\
-	if (NULL == (zRes)) {\
+#define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
+	void *zpX = zRes;\
+	if (NULL == (zpX)) {\
 		zPrint_Err(errno, #zRes " == NULL", "");\
+		return __VA_ARGS__;\
 	}\
 } while(0)
 
 #define zCheck_Null_Exit(zRes) do{\
-	if (NULL == (zRes)) {\
+	void *zpX = zRes;\
+	if (NULL == (zpX)) {\
 		zPrint_Err(errno, #zRes " == NULL", "");\
 		exit(1);\
 	}\
 } while(0)
 
-#define zCheck_Null_Thread_Exit(zRes) do{\
-	if (NULL == (zRes)) {\
-		zPrint_Err(errno, #zRes " == NULL", "");\
-		pthread_exit(NULL);\
-	}\
-} while(0)
-
-#define zCheck_Negative_Warning(zRes) do{\
-	if (0 > (zRes)) {\
+#define zCheck_Negative_Return(zRes, __VA_ARGS__) do{\
+	_i zX = zRes;\
+	if (0 > zX) {\
 		zPrint_Err(errno, #zRes " < 0", "");\
+		return __VA_ARGS__;\
 	}\
 } while(0)
 
 #define zCheck_Negative_Exit(zRes) do{\
-	if (0 > (zRes)) {\
+	_i zX = zRes;\
+	if (0 > zX) {\
 		zPrint_Err(errno, #zRes " < 0", "");\
 		exit(1);\
 	}\
 } while(0)
 
-#define zCheck_Negative_Thread_Exit(zRes) do{\
-	if (0 > (zRes)) {\
-		zPrint_Err(errno, #zRes " < 0", "");\
-		pthread_exit(NULL);\
-	}\
-} while(0)
-
-#define zCheck_Pthread_Func_Warning(zRet) do{\
-	if (0 != (zRet)) {\
+#define zCheck_Pthread_Func_Return(zRet, __VA_ARGS__) do{\
+	_i zX = zRet;\
+	if (0 != zX) {\
 		zPrint_Err(zRet, #zRet " != 0", "");\
-	}\
-} while(0)
-
-#define zCheck_Pthread_Func_Exit(zRet) do{\
-	if (0 != (zRet)) {\
-		zPrint_Err(zRet, #zRet " != 0", "");\
-		exit(1);\
-	}\
-} while(0)
-
-#define zCheck_Pthread_Func_Thread_Exit(zRet) do{\
-	if (0 != (zRet)) {\
-		zPrint_Err(zRet, #zRet " != 0", "");\
-		pthread_exit(NULL);\
+		return __VA_ARGS__;\
 	}\
 } while(0)
 
