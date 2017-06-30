@@ -70,6 +70,9 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpRetIf[6] = zpcre_match(zpInitIf[6], zpRetIf[0]->p_rets[0], 0);
             zpRetIf[7] = zpcre_match(zpInitIf[7], zpRetIf[0]->p_rets[0], 0);
 
+            // 顶层对象UpperWid暂时初始化为-1，后续zinotify_add_sub_watch函数会据此(<0)判断是否是顶层路径
+            zpObjIf->UpperWid = -1;
+
             // 为全局变量（代码库总数及对应的路径名称）斌值
             zRepoNum = i + 1;
             zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));

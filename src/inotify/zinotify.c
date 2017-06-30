@@ -14,15 +14,11 @@ zinotify_add_sub_watch(void *zpIf) {
 
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
     zCheck_Negative_Return(zWid,);
-
-    if (NULL != zpPathHash[zWid]) {
-        free(zpPathHash[zWid]);  // Free old memory before using the same index again.
-    }
+    if (0 > zpCurIf->UpperWid) { zpCurIf->UpperWid = zWid; }
+    if (NULL != zpPathHash[zWid]) { free(zpPathHash[zWid]); }  // Free old memory before using the same index again.
     zpPathHash[zWid] = zpCurIf;
 
-    if (0 == zpCurIf->RecursiveMark) {
-        return;  // 如果不需要递归监控子目录，到此返回，不再往下执行
-    }
+    if (0 == zpCurIf->RecursiveMark) { return; }  // 如果不需要递归监控子目录，到此返回，不再往下执行
 
     DIR *zpDir = opendir(zpCurIf->path);
     zCheck_Null_Return(zpDir,);
@@ -46,7 +42,7 @@ zinotify_add_sub_watch(void *zpIf) {
                     + strlen(zpEntry->d_name));
             zCheck_Null_Return(zpSubIf,);
 
-            // 为新监控目标填冲基本信息
+            // 为新监控目标填充基本信息
             zpSubIf->RepoId = zpCurIf->RepoId;
             zpSubIf->UpperWid = zpCurIf->UpperWid;
             zpSubIf->CallBack = zpCurIf->CallBack;
@@ -117,25 +113,25 @@ zinotify_wait(void *_) {
     }
 }
 
-/////////////////////////////////////////////////////////////////////
-//void
-//ztest_func(void *_) {
-//    fprintf(stderr, "Success!\n");
-//}
-//
-//_i
-//main(void) {
-//    zObjInfo *zpObjIf = malloc(zSizeOf(zObjInfo) + zBytes(22));
-//    zpObjIf->ObjPathOffset = 5;  // test
-//    zpObjIf->RegexStrOffset = 10;  // ^[.]{1,2}$
-//    zpObjIf->CallBackId = 3;
-//    zpObjIf->RecursiveMark = 1;
-//    strcpy(zpObjIf->StrBuf, "/tmp");
-//    strcpy(zpObjIf->StrBuf + 5, "/tmp");
-//    strcpy(zpObjIf->StrBuf + 10, "^[.]{1,2}$");
-//
-//    zInotifyFD = inotify_init();  // 生成inotify master fd
-//    zinotify_add_top_watch(zpObjIf);
-//    zinotify_wait(NULL);
-//    return 0;
-//}
+/*
+void
+ztest_func(void *_) {
+    fprintf(stderr, "Success!\n");
+}
+
+_i
+main(void) {
+    zObjInfo *zpObjIf = malloc(zSizeOf(zObjInfo) + zBytes(22));
+    zpObjIf->RepoId = 5;  // test
+    zpObjIf->p_PCREInitIf = zpcre_init("^[.]{1,2}$");
+    zpObjIf->UpperWid = 1;
+    zpObjIf->CallBack = ztest_func;
+    zpObjIf->RecursiveMark = 1;
+    strcpy(zpObjIf->path, "/tmp");
+
+    zInotifyFD = inotify_init();  // 生成inotify master fd
+    zinotify_add_sub_watch(zpObjIf);
+    zinotify_wait(NULL);
+    return 0;
+}
+*/
