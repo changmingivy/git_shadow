@@ -63,7 +63,8 @@
 	__LINE__,\
 	__func__,\
 	zCause == NULL? "" : zCause,\
-	(NULL == zCause) ? zCustomContents : strerror(zErrNo)); }while(0)
+	(NULL == zCause) ? zCustomContents : strerror(zErrNo));\
+}while(0)
 
 #define zCheck_Null_Warning(zRes) do{\
 	if (NULL == (zRes)) {\
