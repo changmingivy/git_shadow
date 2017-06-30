@@ -20,9 +20,9 @@ zinotify_add_sub_watch(void *zpIf) {
     }
     zpPathHash[zWid] = zpCurIf;
 
-	if (0 == zpCurIf->RecursiveMark) {
-		return;  // 如果不需要递归监控子目录，到此返回，不再往下执行
-	}
+    if (0 == zpCurIf->RecursiveMark) {
+        return;  // 如果不需要递归监控子目录，到此返回，不再往下执行
+    }
 
     DIR *zpDir = opendir(zpCurIf->path);
     zCheck_Null_Return(zpDir,);
@@ -120,22 +120,22 @@ zinotify_wait(void *_) {
 /////////////////////////////////////////////////////////////////////
 //void
 //ztest_func(void *_) {
-//	fprintf(stderr, "Success!\n");
+//    fprintf(stderr, "Success!\n");
 //}
 //
 //_i
 //main(void) {
-//	zObjInfo *zpObjIf = malloc(zSizeOf(zObjInfo) + zBytes(22));
-//	zpObjIf->ObjPathOffset = 5;  // test
-//	zpObjIf->RegexStrOffset = 10;  // ^[.]{1,2}$
-//	zpObjIf->CallBackId = 3;
-//	zpObjIf->RecursiveMark = 1;
-//	strcpy(zpObjIf->StrBuf, "/tmp");
-//	strcpy(zpObjIf->StrBuf + 5, "/tmp");
-//	strcpy(zpObjIf->StrBuf + 10, "^[.]{1,2}$");
+//    zObjInfo *zpObjIf = malloc(zSizeOf(zObjInfo) + zBytes(22));
+//    zpObjIf->ObjPathOffset = 5;  // test
+//    zpObjIf->RegexStrOffset = 10;  // ^[.]{1,2}$
+//    zpObjIf->CallBackId = 3;
+//    zpObjIf->RecursiveMark = 1;
+//    strcpy(zpObjIf->StrBuf, "/tmp");
+//    strcpy(zpObjIf->StrBuf + 5, "/tmp");
+//    strcpy(zpObjIf->StrBuf + 10, "^[.]{1,2}$");
 //
 //    zInotifyFD = inotify_init();  // 生成inotify master fd
-//	zinotify_add_top_watch(zpObjIf);
-//	zinotify_wait(NULL);
-//	return 0;
+//    zinotify_add_top_watch(zpObjIf);
+//    zinotify_wait(NULL);
+//    return 0;
 //}

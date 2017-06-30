@@ -144,7 +144,7 @@ _ui *zpPreLoadLogVecSiz;
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
-	char *zpConfFilePath = NULL;
+    char *zpConfFilePath = NULL;
     struct stat zStatIf;
     _i zActionType = 0;
     zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
@@ -167,7 +167,7 @@ main(_i zArgc, char **zppArgv) {
                         "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
                 exit(1);
             }
-			zpConfFilePath = optarg;
+            zpConfFilePath = optarg;
             break;
         default: // zOpt == '?'  // 若指定了无效的选项，报错退出
             zPrint_Time();
@@ -195,8 +195,8 @@ zReLoad:;
     zCallBackList[0] = zupdate_cache;
     zCallBackList[1] = zupdate_ipv4_db_all;
 
-	// 解析主配置文件，并将有效条目添加到监控队列
-	zparse_conf_and_add_top_watch(zpConfFilePath);
+    // 解析主配置文件，并将有效条目添加到监控队列
+    zparse_conf_and_add_top_watch(zpConfFilePath);
 
     zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
     if (0 > zRet) {

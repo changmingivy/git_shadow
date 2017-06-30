@@ -217,11 +217,11 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
     zCheck_Negative_Return(zPid,);
 
     if (0 == zPid) {
-		execvp(zpCommand, zppArgv);
-	}
+        execvp(zpCommand, zppArgv);
+    }
     else {
-		waitpid(zPid, NULL, 0);
-	}
+        waitpid(zPid, NULL, 0);
+    }
 }
 
 /*
@@ -234,8 +234,8 @@ zget_one_line_from_FILE(FILE *zpFile) {
 
     if (NULL == zpRes) {
         if(0 == feof(zpFile)) {
-			zCheck_Null_Return(zpRes, NULL);
-		}
+            zCheck_Null_Return(zpRes, NULL);
+        }
         return NULL;
     }
     return zBuf;

@@ -70,51 +70,51 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpRetIf[6] = zpcre_match(zpInitIf[6], zpRetIf[0]->p_rets[0], 0);
             zpRetIf[7] = zpcre_match(zpInitIf[7], zpRetIf[0]->p_rets[0], 0);
 
-			// 为全局变量（代码库总数及对应的路径名称）斌值
+            // 为全局变量（代码库总数及对应的路径名称）斌值
             zRepoNum = i + 1;
-			zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));
-			zCheck_Null_Exit(zppRepoPathList);
+            zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));
+            zCheck_Null_Exit(zppRepoPathList);
 
-			// (1)取代码库路径   (2)为RepoId字段斌值
+            // (1)取代码库路径   (2)为RepoId字段斌值
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[3]->p_rets[0],0);
-			zMem_Alloc(zppRepoPathList[i], char, 1 + strlen(zpRetIf[2]->p_rets[0]));
-			strcpy(zppRepoPathList[i], zpRetIf[2]->p_rets[0]);
-			zpObjIf->RepoId = i;  // 为被监控对象的代码库ID字段斌值
+            zMem_Alloc(zppRepoPathList[i], char, 1 + strlen(zpRetIf[2]->p_rets[0]));
+            strcpy(zppRepoPathList[i], zpRetIf[2]->p_rets[0]);
+            zpObjIf->RepoId = i;  // 为被监控对象的代码库ID字段斌值
 
-			zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
+            zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
             strcpy(zpObjIf->path, zpRetIf[2]->p_rets[0]);  // 将代码库绝对路径名称复制到被监控对象名称缓存区
             zpcre_free_tmpsource(zpRetIf[2]);
 
-			// 取被监控对象路径
+            // 取被监控对象路径
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[4]->p_rets[0],0);
-			if ('/' == zpRetIf[2]->p_rets[0][0]) {  // 若被监控对象路径名称是绝对路径，覆盖先前复制过来的代码库路径
-				zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
-				zCheck_Null_Exit(zpObjIf);
-            	strcpy(zpObjIf->path, zpRetIf[2]->p_rets[0]);
-			} else {
-				zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 2 + strlen(zpObjIf->path) + strlen(zpRetIf[2]->p_rets[0]));
-				zCheck_Null_Exit(zpObjIf);
-            	strcat(zpObjIf->path, "/");  // 若被监控对象的路径名称是相对路径，则首先在代码库路径后拼接一个'/'
-            	strcat(zpObjIf->path, zpRetIf[2]->p_rets[0]);  // 最后拼接被监控对象的相对路径
-			}
+            if ('/' == zpRetIf[2]->p_rets[0][0]) {  // 若被监控对象路径名称是绝对路径，覆盖先前复制过来的代码库路径
+                zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
+                zCheck_Null_Exit(zpObjIf);
+                strcpy(zpObjIf->path, zpRetIf[2]->p_rets[0]);
+            } else {
+                zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 2 + strlen(zpObjIf->path) + strlen(zpRetIf[2]->p_rets[0]));
+                zCheck_Null_Exit(zpObjIf);
+                strcat(zpObjIf->path, "/");  // 若被监控对象的路径名称是相对路径，则首先在代码库路径后拼接一个'/'
+                strcat(zpObjIf->path, zpRetIf[2]->p_rets[0]);  // 最后拼接被监控对象的相对路径
+            }
             zpcre_free_tmpsource(zpRetIf[2]);
 
-			// 取递归标志
+            // 取递归标志
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[5]->p_rets[0],0);
             zpObjIf->RecursiveMark = atoi(zpRetIf[2]->p_rets[0]);  // 递归标志
             zpcre_free_tmpsource(zpRetIf[2]);
 
-			// 取回调函数指针
+            // 取回调函数指针
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[6]->p_rets[0],0);
             zpObjIf->CallBack = zCallBackList[atoi(zpRetIf[2]->p_rets[0])];  // 以配置文件中的ID索引函数指针
             zpcre_free_tmpsource(zpRetIf[2]);
 
-			// 取正则表达式结构体指针
+            // 取正则表达式结构体指针
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[7]->p_rets[0],0);
-			zpObjIf->p_PCREInitIf = zpcre_init(zpRetIf[2]->p_rets[0]);  // 首先编译正则表达式字符串
+            zpObjIf->p_PCREInitIf = zpcre_init(zpRetIf[2]->p_rets[0]);  // 首先编译正则表达式字符串
             zpcre_free_tmpsource(zpRetIf[2]);
 
-			// 释放本次匹配使用的所有临时资源
+            // 释放本次匹配使用的所有临时资源
             zpcre_free_tmpsource(zpRetIf[7]);
             zpcre_free_tmpsource(zpRetIf[6]);
             zpcre_free_tmpsource(zpRetIf[5]);
@@ -123,8 +123,8 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpcre_free_tmpsource(zpRetIf[1]);
             zpcre_free_tmpsource(zpRetIf[0]);
 
-			// 执行到此处已生成有效信息，将其添加到监控队列
-			zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
+            // 执行到此处已生成有效信息，将其添加到监控队列
+            zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
         }
     }
 
