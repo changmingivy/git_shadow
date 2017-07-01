@@ -10,6 +10,7 @@
  *************/
 void
 zinotify_add_sub_watch(void *zpIf) {
+// TEST: PASS
     zObjInfo *zpCurIf = (zObjInfo *) zpIf;
 
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
@@ -63,6 +64,7 @@ zinotify_add_sub_watch(void *zpIf) {
  ********************/
 void
 zinotify_wait(void *_) {
+// TEST: PASS
     char zBuf[zCommonBufSiz]
         __attribute__ ((aligned(__alignof__(struct inotify_event))));
     ssize_t zLen;

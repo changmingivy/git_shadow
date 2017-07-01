@@ -1,5 +1,4 @@
 #ifndef _Z
-    //#include "../zmain.c"
 #define _XOPEN_SOURCE 700
 	#include <sys/types.h>
 	#include <sys/socket.h>
@@ -12,48 +11,6 @@
 #include <fcntl.h>
 #include <dirent.h>
 #endif
-
-/*
- * Functions for base64 coding [and decoding(TO DO)]
- */
-char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-char *
-zstr_to_base64(const char *zpOrig) {
-// TEST: PASS
-    _i zOrigLen = strlen(zpOrig);
-    _i zMax = (0 == zOrigLen % 3) ? (zOrigLen / 3 * 4) : (1 + zOrigLen / 3 * 4);
-    _i zResLen = zMax + (4- (zMax % 4));
-
-    char zRightOffset[zMax], zLeftOffset[zMax];
-
-    char *zRes;
-    zMem_Alloc(zRes, char, zResLen);
-
-    _i i, j;
-
-    for (i = j = 0; i < zMax; i++) {
-        if (3 == (i % 4)) {
-            zRightOffset[i] = 0;
-            zLeftOffset[i] = 0;
-        }
-        else {
-            zRightOffset[i] = zpOrig[j]>>(2 * ((j % 3) + 1));
-            zLeftOffset[i] = zpOrig[j]<<(2 * (2 - (j % 3)));
-            j++;
-        }
-    }
-
-    _c mask = 63;
-    zRes[0] = zRightOffset[0] & mask;
-
-    for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
-    zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
-
-    for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
-    for (i = zMax; i < zResLen; i++) { zRes[i] = '='; }
-
-    return zRes;
-}
 
 /*
  * Functions for socket connection.
@@ -144,7 +101,6 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
     return zSentSiz;
 }
 
-// 调用一次或多冷send类函数之后，如果数所已发送完毕，需要关闭套接字，以访对端长期阻塞
 _i
 zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
     struct msghdr zMsgIf = {
@@ -171,98 +127,20 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
 }
 
 _i
-zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
-    _i zFlags = MSG_DONTWAIT;
-    socklen_t zAddrLen = 0;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
-    zCheck_Negative_Return(zRecvSiz, -1);
-    return zRecvSiz;
-}
+main(void) {
+	struct iovec zVec[3];
+	zVec[0].iov_base = "-0-";
+	zVec[0].iov_len = 4;
+	zVec[1].iov_base = "-1-";
+	zVec[1].iov_len = 4;
+	zVec[2].iov_base = "-2-";
+	zVec[2].iov_len = 4;
 
-/*
- * Daemonize a linux process to daemon.
- */
-void
-zclose_fds(pid_t zPid) {
-// TEST: PASS
-    struct dirent *zpDirIf;
-    char zStrPid[8], zPath[64];
-
-    sprintf(zStrPid, "%d", zPid);
-
-    strcpy(zPath, "/proc/");
-    strcat(zPath, zStrPid);
-    strcat(zPath, "/fd");
-
-    _i zFD;
-    DIR *zpDir = opendir(zPath);
-    while (NULL != (zpDirIf = readdir(zpDir))) {
-        zFD = atoi(zpDirIf->d_name);
-        if (2 != zFD) { close(zFD); }
-    }
-    closedir(zpDir);
-}
-
-void
-zdaemonize(const char *zpWorkDir) {
-// TEST: PASS
-    _i zFD;
-
-    signal(SIGHUP, SIG_IGN);
-
-    umask(0);
-    zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
-
-    pid_t zPid = fork();
-    zCheck_Negative_Return(zPid,);
-
-    if (zPid > 0) { exit(0); }
-
-    setsid();
-    zPid = fork();
-    zCheck_Negative_Return(zPid,);
-
-    if (zPid > 0) { exit(0); }
-
-    zclose_fds(getpid());
-
-    zFD = open("/dev/null", O_RDWR);
-    dup2(zFD, 1);
-//  dup2(zFD, 2);
-}
-
-/*
- * Fork a child process to exec an outer command.
- * The "zppArgv" must end with a "NULL"
- */
-void
-zfork_do_exec(const char *zpCommand, char **zppArgv) {
-// TEST: PASS
-    pid_t zPid = fork();
-    zCheck_Negative_Return(zPid,);
-
-    if (0 == zPid) {
-        execvp(zpCommand, zppArgv);
-    }
-    else {
-        waitpid(zPid, NULL, 0);
-    }
-}
-
-/*
- * DO NOT try to free memory.
- */
-char *
-zget_one_line_from_FILE(FILE *zpFile) {
-// TEST: PASS
-    static char zBuf[zCommonBufSiz];
-    char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
-
-    if (NULL == zpRes) {
-        if(0 == feof(zpFile)) {
-            zCheck_Null_Return(zpRes, NULL);
-        }
-        return NULL;
-    }
-    return zBuf;
+	_i zSd = zgenerate_serv_SD("127.0.0.1", "20000", 1);
+	listen(zSd, 128);
+	while (1) {
+		_i zConnSd = accept(zSd, NULL, NULL);
+		zsendmsg(zConnSd, zVec, 3, 0, NULL);
+//		shutdown(zConnSd, SHUT_RDWR);
+	}
 }

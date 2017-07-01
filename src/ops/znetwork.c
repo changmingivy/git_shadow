@@ -31,24 +31,26 @@
 void
 zlist_diff_files(_i zSd){
     zFileDiffInfo zIf;
-    if (zBytes(8) > zrecv_all(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
+		return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
 }
 
 // 打印当前版本缓存与CURRENT标签之间的指定文件的内容差异
 void
 zprint_diff_contents(_i zSd){
     zFileDiffInfo zIf;
-    if (zBytes(8) > zrecv_all(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
+		return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
@@ -59,16 +61,17 @@ zprint_diff_contents(_i zSd){
         zsendto(zSd, "!", zBytes(2), NULL);  //  若缓存版本不一致，要求前端重发报文
     }
     pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);
 }
 
 // 列出最近zPreLoadLogSiz次或全部历史布署日志
 void
 zlist_log(_i zSd, _i zMark) {
     zDeployLogInfo zIf;
-    if (zBytes(8) > zrecv_all(zSd, &zIf, zSizeOf(zDeployLogInfo), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zDeployLogInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
+		return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
@@ -109,7 +112,7 @@ zlist_log(_i zSd, _i zMark) {
         munmap(zpDataLog, zDataLogSiz);
     }
     pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);
 }
 
 void
@@ -156,9 +159,10 @@ zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
 void
 zdeploy(_i zSd,  _i zMark) {
     zFileDiffInfo zDiffIf;
-    if (zBytes(8) > zrecv_all(zSd, &zDiffIf, zSizeOf(zDiffIf), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zDiffIf, zSizeOf(zDiffIf), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
+		return;
     }
 
     if (zDiffIf.CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zDiffIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
@@ -205,14 +209,14 @@ zdeploy(_i zSd,  _i zMark) {
     else {
         zsendto(zSd, "!", zBytes(2), NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
     }
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);
 }
 
 // 依据布署日志，撤销指定文件或整次提交
 void
 zrevoke_from_log(_i zSd, _i zMark){
     zDeployLogInfo zLogIf;
-    if (zBytes(8) > zrecv_all(zSd, &zLogIf, zSizeOf(zLogIf), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zLogIf, zSizeOf(zLogIf), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
     }
@@ -263,14 +267,14 @@ zrevoke_from_log(_i zSd, _i zMark){
     }
 
     pthread_rwlock_unlock(&(zpRWLock[zLogIf.RepoId]));
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);
 }
 
 // 接收并更新对应的布署状态确认信息
 void
-zconfirm_deploy_state(_i zSd) {
+zconfirm_deploy_state(_i zSd, _i zMark) {
     zDeployResInfo zDpResIf;
-    if (zBytes(8) > zrecv_all(zSd, &zDpResIf, zSizeOf(zDeployResInfo), NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zDpResIf, zSizeOf(zDeployResInfo), NULL)) {
         zPrint_Err(0, NULL, "Reply to frontend failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
     }
@@ -285,7 +289,9 @@ zconfirm_deploy_state(_i zSd) {
         zpTmp = zpTmp->p_next;
     }
     zPrint_Err(0, NULL, "Unknown client reply!!!");
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+
+	// 若是与ECS建立的连接，则关闭；若是与前端的连接，则保持
+	if (0 == zMark) { shutdown(zSd, SHUT_RDWR); }
 }
 
 // 接收新的ipv4列表，写入txt文件，然后向发送者返回32位的MD5校验值
@@ -315,7 +321,7 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
     if (zBytes(32) != zsendto(zSd, zgenerate_file_sig_md5(zPathBuf), zBytes(32), NULL)) {
         zPrint_Err(0, NULL, "Reply to frontend failed!");
     }
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接则不需要关闭
+//  shutdown(zSd, SHUT_RDWR);
 }
 
 // 路由函数
@@ -324,8 +330,8 @@ zdo_serv(void *zpSd) {
     _i zSd = *((_i *)zpSd);
 
     char zReqBuf[zBytes(4)];
-    if (zBytes(4) > zrecv_all(zSd, zReqBuf, zBytes(4), NULL)) { // 接收前端指令信息
-        zPrint_Err(0, NULL, "recv_all ERROR!");
+    if (zBytes(4) > zrecv_nohang(zSd, zReqBuf, zBytes(4), NULL)) { // 接收前端指令信息
+        zPrint_Err(0, NULL, "recv ERROR!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
     }
 
@@ -355,7 +361,10 @@ zdo_serv(void *zpSd) {
             zrevoke_from_log(zSd, 1);
             break;
         case 'c':  // confirm:客户端回复的布署成功确认信息
-            zconfirm_deploy_state(zSd);
+            zconfirm_deploy_state(zSd, 0);
+            break;
+        case 'C':  // CONFIRM:前端回复的人工确认信息
+            zconfirm_deploy_state(zSd, 1);
             break;
         case 'u':  // update major clients ipv4 addr txt file: 与中控机直接通信的master客户端列表数据需要更新
             zupdate_ipv4_db_txt(zSd, zReqBuf[1], 0);  // zReqBuf[1] 存储代码库索引号／代号
