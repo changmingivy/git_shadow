@@ -1,16 +1,5 @@
 #ifndef _Z
-    //#include "../zmain.c"
-#define _XOPEN_SOURCE 700
-	#include <sys/types.h>
-	#include <sys/socket.h>
-	#include <netdb.h>
-	#include "zutils.h"
-#include <sys/stat.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/signal.h>
-#include <fcntl.h>
-#include <dirent.h>
+    #include "../zmain.c"
 #endif
 
 /*
@@ -60,6 +49,7 @@ zstr_to_base64(const char *zpOrig) {
  */
 struct addrinfo *
 zgenerate_hint(_i zFlags) {
+// TEST: PASS
     static struct addrinfo zHints;
     zHints.ai_flags = zFlags;
     zHints.ai_family = AF_INET;
@@ -69,6 +59,7 @@ zgenerate_hint(_i zFlags) {
 // Generate a socket fd used by server to do 'accept'.
 struct sockaddr *
 zgenerate_serv_addr(char *zpHost, char *zpPort) {
+// TEST: PASS
     struct addrinfo *zpRes, *zpHint;
     zpHint = zgenerate_hint(AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV);
 
@@ -85,6 +76,7 @@ zgenerate_serv_addr(char *zpHost, char *zpPort) {
 // Option zServType: 1 for TCP, 0 for UDP.
 _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
+// TEST: PASS
     _i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
     _i zSd = socket(AF_INET, zSockType, 0);
     zCheck_Negative_Return(zSd, -1);
@@ -100,6 +92,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
 // Used by client.
 _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
+// TEST: PASS
     if (zSockType == 0) { zSockType = SOCK_STREAM; }
     if (zProto == 0) { zProto = IPPROTO_TCP; }
 
@@ -117,6 +110,7 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 // Used by client.
 _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
+// TEST: PASS
     struct addrinfo *zpRes, *zpTmp, *zpHints;
     _i zSockD, zErr;
 
@@ -136,17 +130,18 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
     return -1;
 }
 
-// Send message from multi positions.
 _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+// TEST: PASS
     _i zSentSiz = sendto(zSd, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
     zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
-// 调用一次或多冷send类函数之后，如果数所已发送完毕，需要关闭套接字，以访对端长期阻塞
+// Send message from multi positions.
 _i
 zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
+// TEST: PASS
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
         .msg_namelen = INET_ADDRSTRLEN,
@@ -163,6 +158,7 @@ zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
 
 _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+// TEST: PASS
     _i zFlags = MSG_WAITALL;
     socklen_t zAddrLen = 0;
     _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
@@ -172,6 +168,7 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
 
 _i
 zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+// TEST: PASS
     _i zFlags = MSG_DONTWAIT;
     socklen_t zAddrLen = 0;
     _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
@@ -203,6 +200,7 @@ zclose_fds(pid_t zPid) {
     closedir(zpDir);
 }
 
+// 这个版本的daemonize会保持标准错误输出描述符处于打开状态
 void
 zdaemonize(const char *zpWorkDir) {
 // TEST: PASS
