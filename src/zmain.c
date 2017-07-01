@@ -42,7 +42,7 @@ typedef struct {
     _us RepoId;  // 每个代码库对应的索引
     _us RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    zPCREInitInfo *p_PCREInitIf;  // 符合此正则表达式的目录或文件将不被inotify监控
+//  zPCREInitInfo *p_PCREInitIf;  // 符合此正则表达式的目录或文件将不被inotify监控，跨线程执行有问题
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
@@ -84,14 +84,16 @@ typedef struct zNetServInfo {
 /************
  * 全局变量 *
  ************/
-_i zRepoNum = -1;  // 总共有多少个代码库
+_i zRepoNum;  // 总共有多少个代码库
 char **zppRepoPathList;  // 每个代码库的绝对路径
+
+char **zppRegexPattern;  // 存储每个顶层路径及其子路径适用的正则表达式字符串
 
 #define zWatchHashSiz 8192  // 最多可监控的目标总数
 _i zInotifyFD;   // inotify 主描述符
-zObjInfo *zpPathHash[zWatchHashSiz];  // 以watch id建立的HASH索引
+zObjInfo *zpObjHash[zWatchHashSiz] = {NULL};  // 以watch id建立的HASH索引
 
-zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
+zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
 char **zppCurTagSig;  // 每个代码库当前的CURRENT标签的SHA1 sig

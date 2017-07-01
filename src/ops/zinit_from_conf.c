@@ -9,7 +9,7 @@
 // 读取主配置文件
 void
 zparse_conf_and_add_top_watch(const char *zpConfPath) {
-    zObjInfo *zpObjIf;
+	zObjInfo *zpTopObjIf;
     zPCREInitInfo *zpInitIf[8];
     zPCRERetInfo *zpRetIf[8];
     char *zpRes = NULL;
@@ -70,51 +70,54 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpRetIf[6] = zpcre_match(zpInitIf[6], zpRetIf[0]->p_rets[0], 0);
             zpRetIf[7] = zpcre_match(zpInitIf[7], zpRetIf[0]->p_rets[0], 0);
 
-            // 顶层对象UpperWid暂时初始化为-1，后续zinotify_add_sub_watch函数会据此(<0)判断是否是顶层路径
-            zpObjIf->UpperWid = -1;
-
-            // 为全局变量（代码库总数及对应的路径名称）斌值
-            zRepoNum = i + 1;
-            zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));
+            // 分配指针空间：代码库绝对路径
+            zppRepoPathList = realloc(zppRepoPathList, (i + 1) * sizeof(char *));
             zCheck_Null_Exit(zppRepoPathList);
 
-            // (1)取代码库路径   (2)为RepoId字段斌值
+            // 取代码库路径
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[3]->p_rets[0],0);
             zMem_Alloc(zppRepoPathList[i], char, 1 + strlen(zpRetIf[2]->p_rets[0]));
             strcpy(zppRepoPathList[i], zpRetIf[2]->p_rets[0]);
-            zpObjIf->RepoId = i;  // 为被监控对象的代码库ID字段斌值
 
-            zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
-            strcpy(zpObjIf->path, zpRetIf[2]->p_rets[0]);  // 将代码库绝对路径名称复制到被监控对象名称缓存区
+            // 将代码库绝对路径名称复制到被监控对象结构体path字段
+            zpTopObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
+            strcpy(zpTopObjIf->path, zpRetIf[2]->p_rets[0]);
             zpcre_free_tmpsource(zpRetIf[2]);
+
+            zRepoNum += 1;  // 更新全局代码库计数，若同一代码库下有多个目标被监控，则此代码库将有多个ID，均指向相同路径
+            zpTopObjIf->RepoId = i;  // 将被监控对象关联到其所属代码库ID
+            zpTopObjIf->UpperWid = -1; // 顶层对象UpperWid暂时初始化为-1，后续zinotify_add_sub_watch函数会据此(<0)判断是否是顶层路径
 
             // 取被监控对象路径
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[4]->p_rets[0],0);
             if ('/' == zpRetIf[2]->p_rets[0][0]) {  // 若被监控对象路径名称是绝对路径，覆盖先前复制过来的代码库路径
-                zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
-                zCheck_Null_Exit(zpObjIf);
-                strcpy(zpObjIf->path, zpRetIf[2]->p_rets[0]);
+                zpTopObjIf = realloc(zpTopObjIf, sizeof(zObjInfo) + 1 + strlen(zpRetIf[2]->p_rets[0]));
+                zCheck_Null_Exit(zpTopObjIf);
+                strcpy(zpTopObjIf->path, zpRetIf[2]->p_rets[0]);
             } else {
-                zpObjIf = realloc(zpObjIf, sizeof(zObjInfo) + 2 + strlen(zpObjIf->path) + strlen(zpRetIf[2]->p_rets[0]));
-                zCheck_Null_Exit(zpObjIf);
-                strcat(zpObjIf->path, "/");  // 若被监控对象的路径名称是相对路径，则首先在代码库路径后拼接一个'/'
-                strcat(zpObjIf->path, zpRetIf[2]->p_rets[0]);  // 最后拼接被监控对象的相对路径
+                zpTopObjIf = realloc(zpTopObjIf, sizeof(zObjInfo) + 2 + strlen(zpTopObjIf->path) + strlen(zpRetIf[2]->p_rets[0]));
+                zCheck_Null_Exit(zpTopObjIf);
+                strcat(zpTopObjIf->path, "/");  // 若被监控对象的路径名称是相对路径，则首先在代码库路径后拼接一个'/'
+                strcat(zpTopObjIf->path, zpRetIf[2]->p_rets[0]);  // 最后拼接被监控对象的相对路径
             }
             zpcre_free_tmpsource(zpRetIf[2]);
 
             // 取递归标志
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[5]->p_rets[0],0);
-            zpObjIf->RecursiveMark = atoi(zpRetIf[2]->p_rets[0]);  // 递归标志
+            zpTopObjIf->RecursiveMark = atoi(zpRetIf[2]->p_rets[0]);  // 递归标志
             zpcre_free_tmpsource(zpRetIf[2]);
 
             // 取回调函数指针
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[6]->p_rets[0],0);
-            zpObjIf->CallBack = zCallBackList[atoi(zpRetIf[2]->p_rets[0])];  // 以配置文件中的ID索引函数指针
+            zpTopObjIf->CallBack = zCallBackList[atoi(zpRetIf[2]->p_rets[0])];  // 以配置文件中的ID索引函数指针
             zpcre_free_tmpsource(zpRetIf[2]);
 
-            // 取正则表达式结构体指针
+            // 取正则表达式字符串
             zpRetIf[2] = zpcre_match(zpInitIf[2], zpRetIf[7]->p_rets[0],0);
-            zpObjIf->p_PCREInitIf = zpcre_init(zpRetIf[2]->p_rets[0]);  // 首先编译正则表达式字符串
+			zppRegexPattern = realloc(zppRegexPattern, (i + 1) * sizeof(char *));
+			zCheck_Null_Exit(zppRegexPattern);
+			zMem_Alloc(zppRegexPattern[i], char, 1 + strlen(zpRetIf[2]->p_rets[0]));
+			strcpy(zppRegexPattern[i], zpRetIf[2]->p_rets[0]);
             zpcre_free_tmpsource(zpRetIf[2]);
 
             // 释放本次匹配使用的所有临时资源
@@ -127,7 +130,7 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpcre_free_tmpsource(zpRetIf[0]);
 
             // 执行到此处已生成有效信息，将其添加到监控队列
-            zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
+            zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpTopObjIf);
         }
     }
 
