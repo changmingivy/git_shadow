@@ -7,11 +7,11 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include <sys/inotify.h>
-#include <sys/epoll.h>
-
 #include <pthread.h>
 #include <sys/mman.h>
+#include <setjmp.h>
+#include <sys/inotify.h>
+#include <sys/epoll.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <ctype.h>
 
 #define zCommonBufSiz 4096
 
@@ -42,7 +43,7 @@ typedef struct {
     _us RepoId;  // 每个代码库对应的索引
     _us RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-//  zPCREInitInfo *p_PCREInitIf;  // 符合此正则表达式的目录或文件将不被inotify监控，跨线程执行有问题
+    char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
@@ -84,10 +85,9 @@ typedef struct zNetServInfo {
 /************
  * 全局变量 *
  ************/
+#define zMaxRepoNum 1024
 _i zRepoNum;  // 总共有多少个代码库
 char **zppRepoPathList;  // 每个代码库的绝对路径
-
-char **zppRegexPattern;  // 存储每个顶层路径及其子路径适用的正则表达式字符串
 
 #define zWatchHashSiz 8192  // 最多可监控的目标总数
 _i zInotifyFD;   // inotify 主描述符
@@ -138,12 +138,13 @@ _ui *zpPreLoadLogVecSiz;
 #include "ops/zthread_pool.c"
 #include "inotify/zinotify_callback.c"
 #include "inotify/zinotify.c"  // 监控代码库文件变动
-#include "ops/zinit_from_conf.c"  // 读取主配置文件
+//#include "ops/zinit_from_conf.c"  // 读取主配置文件
 #include "ops/znetwork.c"  // 对外提供网络服务
 
 /***************************
  * +++___ main 函数 ___+++ *
  ***************************/
+/*
 _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
@@ -285,3 +286,4 @@ zReLoad:;
     if (0 == zPid) { goto zReLoad; }
     else { exit(0); }
 }
+*/
