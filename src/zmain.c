@@ -270,7 +270,11 @@ zReLoad:;
         close(zFd[0]);  // zFd[0] 用完关闭
 
         zupdate_ipv4_db_all(&i);
-        zgenerate_cache(i);
+        zppCacheVecIf[i] = zgenerate_cache(i);
+
+		for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
+			printf("%zd\n", zppCacheVecIf[i]->iov_len);
+		}
     }
 
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生

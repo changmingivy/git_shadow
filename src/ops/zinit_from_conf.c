@@ -26,8 +26,6 @@ zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 	_i zRealRepoNum = 0;
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
 		(*zpLineNum)++;  // 维持行号
-        (*zppRes)[strlen(*zppRes) - 1] = ' ';  // 清除行末的换行符 '\n'
-
         zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
         if (0 == zpRetIf[0]->cnt) {
             zpcre_free_tmpsource(zpRetIf[0]);
@@ -35,6 +33,8 @@ zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
             zpcre_free_tmpsource(zpRetIf[0]);
             continue;
 		}
+
+		if (strlen(*zppRes) == 0) { continue; }
 
         zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
         if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
@@ -105,8 +105,6 @@ zparse_conf_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 	
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
 		(*zpLineNum)++;  // 维持行号
-        (*zppRes)[strlen(*zppRes) - 1] = ' ';  // 清除行末的换行符 '\n'
-
         zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
         if (0 == zpRetIf[0]->cnt) {
             zpcre_free_tmpsource(zpRetIf[0]);
@@ -114,6 +112,8 @@ zparse_conf_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
             zpcre_free_tmpsource(zpRetIf[0]);
             continue;
 		}
+
+		if (strlen(*zppRes) == 0) { continue; }
 
         zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
         if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
@@ -199,8 +199,6 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
     zpInitIf[1] = zpcre_init("(?<=^\\[)\\S+(?=\\]\\s*($|#))");  // 匹配区块标题：[REPO] 或 [INOTIFY]
 
     for (_i zLineNum = 1; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); zLineNum++) {
-        zpRes[strlen(zpRes) - 1] = ' ';  // 清除行末的换行符 '\n'
-
         zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);  // 若是空白行或注释行，跳过
         if (0 == zpRetIf[0]->cnt) {
             zpcre_free_tmpsource(zpRetIf[0]);
@@ -208,6 +206,8 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
             zpcre_free_tmpsource(zpRetIf[0]);
             continue;
 		}
+
+		if (strlen(zpRes) == 0) { continue; }
 
 zMark:  // 解析函数据行完毕后，跳转到此处
 		if (NULL == zpRes) { return; }

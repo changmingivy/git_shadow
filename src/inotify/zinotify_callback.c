@@ -29,7 +29,7 @@ zgenerate_cache(_i zRepoId) {
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {
-        return NULL;  // 命令没有返回结果，代表没有差异文件，理设上不存在此种情况
+        return NULL;  // 命令没有返回结果，代表没有差异文件，理论上不存在此种情况
     }
     else {
         if (0 == (zDiffFilesNum = atoi(zpRes[0]))) {
@@ -52,6 +52,9 @@ zgenerate_cache(_i zRepoId) {
             zpShellRetHandler[1] = popen(zShellBuf[1], "r");
             zCheck_Null_Return(zpShellRetHandler, NULL);
 
+			zCheck_Null_Exit(
+					zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
+					);
             zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
 
             for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {

@@ -14,7 +14,7 @@ mkdir -p ../bin
 rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
-	clang -g -O2 \
+	clang -g \
 		-Wall \
 		-Wextra \
 		-std=c99 \
