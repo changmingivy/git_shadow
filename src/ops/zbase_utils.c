@@ -248,26 +248,20 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 }
 
 /*
- * DO NOT try to free memory.
+ * DO NOT forget to free memory.
  * \n has been deleted!!!
  */
 char *
 zget_one_line_from_FILE(FILE *zpFile) {
 // TEST: PASS
-    static char zBuf[zCommonBufSiz];
-    _i zLastIndex = -1;
+    char zBuf[zCommonBufSiz];
     char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
     if (NULL == zpRes) {
-        if(0 == feof(zpFile)) {
-            zCheck_Null_Exit(zpRes);
-        }
+        if(0 == feof(zpFile)) { zCheck_Null_Exit(zpRes); }
         return NULL;
     }
 
-    zLastIndex = strlen(zBuf) - 1;
-    while ('\n' == zBuf[zLastIndex]) { zLastIndex--; }
-    zBuf[zLastIndex + 1] = '\0';  // 清理行尾的所有换行符
-
-    return zBuf;
+    zpRes[strlen(zBuf) -1] = '\0';
+    return zpRes;
 }
