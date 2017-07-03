@@ -219,8 +219,8 @@ zupdate_ipv4_db_all(void *zpIf) {
     FILE *zpFileHandler = NULL;
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
-    _i zRepoId = *((_i *)zpIf);
     _i zFd[3] = {0};
+	_i zRepoId = *((_i *)zpIf);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 

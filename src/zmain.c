@@ -146,6 +146,7 @@ _ui *zpPreLoadLogVecSiz;
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
+// TEST: PASS
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
     _i zActionType = 0;
@@ -246,6 +247,7 @@ zReLoad:;
         // 如果 .git_shadow 路径不存在，创建之，并从远程拉取该代码库的客户端ipv4列表
         // 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
 		zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow", 0700));
+		zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
 
@@ -254,9 +256,6 @@ zReLoad:;
             zPrint_Err(zRet, NULL, "Init deploy lock failed!");
             exit(1);
         }
-
-        zupdate_ipv4_db_all(&i);
-        zgenerate_cache(i);
 
         // 打开meta日志文件
         zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
@@ -270,8 +269,8 @@ zReLoad:;
 
         close(zFd[0]);  // zFd[0] 用完关闭
 
-        // 更新zpppDpResHash 与 **zppDpResList，每个代码库对应一个布署状态数据及与之配套的链式HASH
-        zupdate_ipv4_db_hash(i);
+        zupdate_ipv4_db_all(&i);
+        zgenerate_cache(i);
     }
 
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生
