@@ -83,7 +83,7 @@
 } while(0)
 
 #define zCheck_Negative_Return(zRes, __VA_ARGS__) do{\
-	_i zX = zRes;\
+	_i zX = (zRes);\
 	if (0 > zX) {\
 		zPrint_Err(errno, #zRes " < 0", "");\
 		return __VA_ARGS__;\
@@ -91,7 +91,7 @@
 } while(0)
 
 #define zCheck_Negative_Exit(zRes) do{\
-	_i zX = zRes;\
+	_i zX = (zRes);\
 	if (0 > zX) {\
 		zPrint_Err(errno, #zRes " < 0", "");\
 		exit(1);\
@@ -99,7 +99,7 @@
 } while(0)
 
 #define zCheck_Pthread_Func_Return(zRet, __VA_ARGS__) do{\
-	_i zX = zRet;\
+	_i zX = (zRet);\
 	if (0 != zX) {\
 		zPrint_Err(zRet, #zRet " != 0", "");\
 		return __VA_ARGS__;\

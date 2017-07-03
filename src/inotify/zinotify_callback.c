@@ -75,7 +75,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
     zCheck_Null_Return(zpMetaLogIf, NULL);
 
     zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
-    _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->len - zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
+    _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
     char *zpDataLog = mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset);  // 将data日志mmap至内存
     zCheck_Null_Return(zpDataLog, NULL);
 
@@ -86,7 +86,7 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
         }
         else {
             zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLog + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->len;
+            zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
         }
     }
 
@@ -105,7 +105,7 @@ zupdate_cache(void *zpIf) {
           // 若新缓存正常返回，释放掉老缓存的内存空间
         _ui i;
         for (i = 0; i < zpOldCacheIf->iov_len; i++) {
-            for (_ui j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
+            for (_i j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
                 free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
             }
             free(((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent);
@@ -115,7 +115,7 @@ zupdate_cache(void *zpIf) {
         // 如下部分用于销毁旧的布署日志缓存
         zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
         munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));
-        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->len - zpTmpIf->offset);
+        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen- zpTmpIf->offset);
     }
 }
 

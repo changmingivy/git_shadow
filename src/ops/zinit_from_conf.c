@@ -10,20 +10,23 @@ jmp_buf zJmpEnv;
 // 取 [REPO] 区域配置条目
 void
 zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
-    zPCREInitInfo *zpInitIf[4];
-    zPCRERetInfo *zpRetIf[4];
+// TEST: PASS
+	_i zRepoId, zFd;
+    zPCREInitInfo *zpInitIf[5];
+    zPCRERetInfo *zpRetIf[5];
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
     zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*($|#)");  // 检测整体格式是否合法
-    zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
-    zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
+    zpInitIf[2] = zpcre_init("^\\s*\\[\\S+\\]\\s*($|#)");  // 检测是否已到下一个区块标题
+    zpInitIf[3] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
+    zpInitIf[4] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 	
 	zMem_Alloc(zppRepoPathList, char *, zMaxRepoNum); // 预分配足够大的内存空间，待获取实际的代码库数量后，再缩减到实际所需空间
 
 	_i zRealRepoNum = 0;
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
 		(*zpLineNum)++;  // 维持行号
-        (*zppRes)[strlen(*zppRes) - 1] = '\0';  // 清除行末的换行符 '\n'
+        (*zppRes)[strlen(*zppRes) - 1] = ' ';  // 清除行末的换行符 '\n'
 
         zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
         if (0 == zpRetIf[0]->cnt) {
@@ -35,28 +38,46 @@ zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 
         zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
         if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
-            zPrint_Time();
-            fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
-            zpcre_free_tmpsource(zpRetIf[1]);
-			exit(1);
+        	zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
+			if (0 == zpRetIf[2]->cnt) {
+            	zpcre_free_tmpsource(zpRetIf[1]);
+            	zpcre_free_tmpsource(zpRetIf[2]);
+            	zPrint_Time();
+            	fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
+				exit(1);
+			}
+			else {
+            	zpcre_free_tmpsource(zpRetIf[2]);
+				goto zMark;
+			}
 		} else {
             zpcre_free_tmpsource(zpRetIf[1]);
 		}
 
 		zRealRepoNum++;
 
-        zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
         zpRetIf[3] = zpcre_match(zpInitIf[3], *zppRes, 0);
-		zppRepoPathList[atoi(zpRetIf[2]->p_rets[0])] = zpRetIf[3]->p_rets[0];
+        zpRetIf[4] = zpcre_match(zpInitIf[4], *zppRes, 0);
 
-		zpcre_free_tmpsource(zpRetIf[2]);
+		zCheck_Negative_Exit( // 检测代码库路径合法性
+				zFd = open(zpRetIf[4]->p_rets[0], O_RDONLY | O_DIRECTORY)
+				);
+		close(zFd);
+
+		zRepoId = atoi(zpRetIf[3]->p_rets[0]);
+		zMem_Alloc(zppRepoPathList[zRepoId], char, 1 + strlen(zpRetIf[4]->p_rets[0]));
+		strcpy(zppRepoPathList[zRepoId], zpRetIf[4]->p_rets[0]);
+
 		zpcre_free_tmpsource(zpRetIf[3]);
+		zpcre_free_tmpsource(zpRetIf[4]);
 	}
 
+zMark:
 	zpcre_free_metasource(zpInitIf[0]);
 	zpcre_free_metasource(zpInitIf[1]);
 	zpcre_free_metasource(zpInitIf[2]);
 	zpcre_free_metasource(zpInitIf[3]);
+	zpcre_free_metasource(zpInitIf[4]);
 
 	zRepoNum = zRealRepoNum;
 	zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));  // 缩减到实际所需空间
@@ -68,22 +89,23 @@ zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // 取 [INOTIFY] 区域配置条目
 zObjInfo *
 zparse_conf_INOTIFY(FILE *zpFile, char **zppRes, _i *zpLineNum) {
+// TEST: PASS
 	zObjInfo *zpObjIf;
-	_i zRepoId;
+	_i zRepoId, zFd;
     zPCREInitInfo *zpInitIf[7];
     zPCRERetInfo *zpRetIf[7];
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
     zpInitIf[1] = zpcre_init("\\s*\\d+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\d+\\s*($|#)");  // 检测整体格式是否合法
-    zpInitIf[2] = zpcre_init("\\d+(?=\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\d+\\s*($|#)");  // 取所属代码库编号ID
-    zpInitIf[3] = zpcre_init("\\S+(?=\\s+\\S+\\s+\\S+\\s+\\d+\\s*($|#)");  // 取被监控对象路径
-    zpInitIf[4] = zpcre_init("\\S+(?=\\s+\\S+\\s+\\d+\\s*($|#)");  // 取正则表达式子符串
-    zpInitIf[5] = zpcre_init("\\S+(?=\\s+\\d+\\s*($|#)");  // 取是否递归的标志位，可以为：Y/N/YES/NO/yes/y/n/no 等
+    zpInitIf[2] = zpcre_init("\\d+(?=\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\d+\\s*($|#))");  // 取所属代码库编号ID
+    zpInitIf[3] = zpcre_init("\\S+(?=\\s+\\S+\\s+\\S+\\s+\\d+\\s*($|#))");  // 取被监控对象路径
+    zpInitIf[4] = zpcre_init("\\S+(?=\\s+\\S+\\s+\\d+\\s*($|#))");  // 取正则表达式子符串
+    zpInitIf[5] = zpcre_init("\\S+(?=\\s+\\d+\\s*($|#))");  // 取是否递归的标志位，可以为：Y/N/YES/NO/yes/y/n/no 等
     zpInitIf[6] = zpcre_init("\\S+(?=\\s*($|#))");  // 回调函数ID
 	
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
 		(*zpLineNum)++;  // 维持行号
-        (*zppRes)[strlen(*zppRes) - 1] = '\0';  // 清除行末的换行符 '\n'
+        (*zppRes)[strlen(*zppRes) - 1] = ' ';  // 清除行末的换行符 '\n'
 
         zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
         if (0 == zpRetIf[0]->cnt) {
@@ -122,6 +144,11 @@ zparse_conf_INOTIFY(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 			strcat(zpObjIf->path, zpRetIf[3]->p_rets[0]); // 被监控对象绝对路径
 		}
 
+		zCheck_Negative_Exit( // 检测监控目标的路径合法性
+				zFd = open(zpObjIf->path, O_RDONLY)
+				);
+		close(zFd);
+
 		zpObjIf->RepoId = zRepoId;  // 所属版本库ID
 		zMem_Alloc(zpObjIf->zpRegexPattern, char, 1 + strlen(zpRetIf[4]->p_rets[0]));
 		strcpy(zpObjIf->zpRegexPattern, zpRetIf[4]->p_rets[0]); // 正则字符串
@@ -151,6 +178,7 @@ zparse_conf_INOTIFY(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // 读取主配置文件
 void
 zparse_conf_and_add_top_watch(const char *zpConfPath) {
+// TEST: PASS
     zPCREInitInfo *zpInitIf[2];
     zPCRERetInfo *zpRetIf[2];
 
@@ -164,7 +192,7 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
     zpInitIf[1] = zpcre_init("(?<=^\\[)\\S+(?=\\]\\s*($|#))");  // 匹配区块标题：[REPO] 或 [INOTIFY]
 
     for (_i zLineNum = 1; NULL != (zpRes = zget_one_line_from_FILE(zpFile)); zLineNum++) {
-        zpRes[strlen(zpRes) - 1] = '\0';  // 清除行末的换行符 '\n'
+        zpRes[strlen(zpRes) - 1] = ' ';  // 清除行末的换行符 '\n'
 
         zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);  // 若是空白行或注释行，跳过
         if (0 == zpRetIf[0]->cnt) {
@@ -175,6 +203,7 @@ zparse_conf_and_add_top_watch(const char *zpConfPath) {
 		}
 
 		setjmp(zJmpEnv);  // 解析函数据行完毕后，跳转到此处
+		if (NULL == zpRes) { return; }
         zpRetIf[1] = zpcre_match(zpInitIf[1], zpRes, 0); // 匹配区块标题，根据标题名称调用对应的解析函数
         if (0 == zpRetIf[1]->cnt) {  // 若在区块标题之前检测到其它语句，报错后退出
             zPrint_Time();
@@ -231,19 +260,4 @@ zconfig_file_monitor(const char *zpConfPath) {
             }
         }
     }
-}
-
-void
-ztest_func(void *_) {
-	printf("Success!\n");
-}
-
-_i
-main(void) {
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-	zthread_poll_init();
-    zCallBackList[0] = ztest_func;
-	zparse_conf_and_add_top_watch("/tmp/sample.conf");
-    zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生
-	sleep(90);
 }
