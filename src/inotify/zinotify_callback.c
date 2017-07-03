@@ -196,11 +196,13 @@ zupdate_ipv4_db_hash(_i zRepoId) {
 
         zpTmpIf = zpppDpResHash[zRepoId][j % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
-            zpTmpIf->p_next = NULL;
             zpppDpResHash[zRepoId][j % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
+			zpppDpResHash[zRepoId][j % zDeployHashSiz]->p_next = NULL;
         }
         else {
-            while (NULL != zpTmpIf->p_next) { zpTmpIf = zpTmpIf->p_next; }  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+            while (NULL != zpTmpIf->p_next) {  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+				zpTmpIf = zpTmpIf->p_next;
+			}
             zMem_Alloc(zpTmpIf->p_next, zDeployResInfo, 1);
             zpTmpIf->p_next->p_next = NULL;
             zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
@@ -217,7 +219,7 @@ zupdate_ipv4_db_all(void *zpIf) {
     FILE *zpFileHandler = NULL;
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
-    _us zRepoId = *((_us *)zpIf);
+    _i zRepoId = *((_i *)zpIf);
     _i zFd[3] = {0};
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));

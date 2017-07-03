@@ -14,7 +14,7 @@ mkdir -p ../bin
 rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
-	clang -O2 \
+	clang -g -O2 \
 		-Wall \
 		-Wextra \
 		-std=c99 \
@@ -43,4 +43,4 @@ done
 
 cd $zCurDir
 killall git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf >> ../log/log 2>&1 
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000 #>> ../log/log 2>&1 

@@ -152,7 +152,7 @@ main(_i zArgc, char **zppArgv) {
     zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Cuh:p:f:"));) {
+    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CUh:p:f:"));) {
         switch (zOpt) {
         case 'C':  // 启动客户端功能
             zActionType = 1; break;
@@ -160,7 +160,7 @@ main(_i zArgc, char **zppArgv) {
             zNetServIf.p_host= optarg; break;
         case 'p':
             zNetServIf.p_port = optarg; break;
-        case 'u':
+        case 'U':
             zNetServIf.zServType = UDP;
         case 'f':
             if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {  // 若指定的主配置文件不存在或不是普通文件，则报错退出
@@ -184,7 +184,7 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     _i zFd[2] = {0}, zRet = 0;
@@ -223,8 +223,6 @@ zReLoad:;
     zMem_Alloc(zpTotalHost, _i, zRepoNum );
     // 即时存储已返回布署成功信息的主机总数
     zMem_Alloc(zpReplyCnt, _i, zRepoNum );
-    // 索引每个代码库绝对路径名称
-    zMem_Alloc(zppRepoPathList, char *, zRepoNum);
     // 索引每个代码库的读写锁
     zMem_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
 
@@ -238,14 +236,22 @@ zReLoad:;
         zFd[0] = open(zppRepoPathList[i], O_RDONLY);
         zCheck_Negative_Exit(zFd[0]);
 
+		#define zCheck_Dir_Status_Exit(zRet) do {\
+			if (-1 == (zRet) && errno != EEXIST) {\
+		            zPrint_Err(errno, NULL, "Can't create directory!");\
+		            exit(1);\
+			}\
+		} while(0)
+
         // 如果 .git_shadow 路径不存在，创建之，并从远程拉取该代码库的客户端ipv4列表
-        if (-1 != mkdirat(zFd[0], ".git_shadow", 0700)) {
-            // 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
-            zCheck_Negative_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
-            zCheck_Negative_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
-        }
-        else if(errno != EEXIST) {
-            zPrint_Err(errno, NULL, "Can't create DIR: .git_shadow !");
+        // 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
+		zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
+
+        // 为每个代码库生成一把读写锁，锁属性设置写者优先
+        if (0 != (zRet =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
+            zPrint_Err(zRet, NULL, "Init deploy lock failed!");
             exit(1);
         }
 
@@ -260,15 +266,9 @@ zReLoad:;
         zCheck_Negative_Exit(zpLogFd[1][i]);
         // 打开sig日志文件
         zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
-        zCheck_Negative_Exit(zpLogFd[1][i]);
+        zCheck_Negative_Exit(zpLogFd[2][i]);
 
         close(zFd[0]);  // zFd[0] 用完关闭
-
-        // 为每个代码库生成一把读写锁，锁属性设置写者优先
-        if (0 != (zRet =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
-            zPrint_Err(zRet, NULL, "Init deploy lock failed!");
-            exit(1);
-        }
 
         // 更新zpppDpResHash 与 **zppDpResList，每个代码库对应一个布署状态数据及与之配套的链式HASH
         zupdate_ipv4_db_hash(i);
@@ -276,7 +276,7 @@ zReLoad:;
 
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
-    zconfig_file_monitor(zppArgv[2]);  // 监控自身主配置文件的内容变动
+    zconfig_file_monitor(zpConfFilePath);  // 监控自身主配置文件的内容变动
 
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
 
