@@ -255,7 +255,7 @@ char *
 zget_one_line_from_FILE(FILE *zpFile) {
 // TEST: PASS
     static char zBuf[zCommonBufSiz];
-	_i zLastIndex = -1;
+    _i zLastIndex = -1;
     char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
     if (NULL == zpRes) {
@@ -265,9 +265,9 @@ zget_one_line_from_FILE(FILE *zpFile) {
         return NULL;
     }
 
-	zLastIndex = strlen(zBuf) - 1;
-	while ('\n' == zBuf[zLastIndex]) { zLastIndex--; }
-	zBuf[zLastIndex + 1] = '\0';  // 清理行尾的所有换行符
+    zLastIndex = strlen(zBuf) - 1;
+    while ('\n' == zBuf[zLastIndex]) { zLastIndex--; }
+    zBuf[zLastIndex + 1] = '\0';  // 清理行尾的所有换行符
 
     return zBuf;
 }

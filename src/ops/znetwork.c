@@ -34,7 +34,7 @@ zlist_diff_files(_i zSd){
     if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
-		return;
+        return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
@@ -50,7 +50,7 @@ zprint_diff_contents(_i zSd){
     if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zFileDiffInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
-		return;
+        return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
@@ -71,7 +71,7 @@ zlist_log(_i zSd, _i zMark) {
     if (zBytes(8) > zrecv_nohang(zSd, &zIf, zSizeOf(zDeployLogInfo), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
-		return;
+        return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
@@ -162,7 +162,7 @@ zdeploy(_i zSd,  _i zMark) {
     if (zBytes(8) > zrecv_nohang(zSd, &zDiffIf, zSizeOf(zDiffIf), NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
-		return;
+        return;
     }
 
     if (zDiffIf.CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zDiffIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
@@ -290,8 +290,8 @@ zconfirm_deploy_state(_i zSd, _i zMark) {
     }
     zPrint_Err(0, NULL, "Unknown client reply!!!");
 
-	// 若是与ECS建立的连接，则关闭；若是与前端的连接，则保持
-	if (0 == zMark) { shutdown(zSd, SHUT_RDWR); }
+    // 若是与ECS建立的连接，则关闭；若是与前端的连接，则保持
+    if (0 == zMark) { shutdown(zSd, SHUT_RDWR); }
 }
 
 // 接收新的ipv4列表，写入txt文件，然后向发送者返回32位的MD5校验值

@@ -20,10 +20,10 @@ zgenerate_cache(_i zRepoId) {
     char *zpRes[2] = {NULL};  // 存储从命令行返回的原始文本信息
     char zShellBuf[2][zCommonBufSiz];  // 存储命令行字符串
 
-	sprintf(zShellBuf[0], "cd %s"
-			"&& git diff --name-only HEAD CURRENT | wc -l"
-			"&& git diff --name-only HEAD CURRENT"
-			"&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
+    sprintf(zShellBuf[0], "cd %s"
+            "&& git diff --name-only HEAD CURRENT | wc -l"
+            "&& git diff --name-only HEAD CURRENT"
+            "&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
     zpShellRetHandler[0] = popen(zShellBuf[0], "r");  // 第一行返回的是文件总数
     zCheck_Null_Return(zpShellRetHandler, NULL);
 
@@ -52,9 +52,9 @@ zgenerate_cache(_i zRepoId) {
             zpShellRetHandler[1] = popen(zShellBuf[1], "r");
             zCheck_Null_Return(zpShellRetHandler, NULL);
 
-			zCheck_Null_Exit(
-					zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
-					);
+            zCheck_Null_Exit(
+                    zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
+                    );
             zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
 
             for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
@@ -200,12 +200,12 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         zpTmpIf = zpppDpResHash[zRepoId][j % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
             zpppDpResHash[zRepoId][j % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
-			zpppDpResHash[zRepoId][j % zDeployHashSiz]->p_next = NULL;
+            zpppDpResHash[zRepoId][j % zDeployHashSiz]->p_next = NULL;
         }
         else {
             while (NULL != zpTmpIf->p_next) {  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
-				zpTmpIf = zpTmpIf->p_next;
-			}
+                zpTmpIf = zpTmpIf->p_next;
+            }
             zMem_Alloc(zpTmpIf->p_next, zDeployResInfo, 1);
             zpTmpIf->p_next->p_next = NULL;
             zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
@@ -223,7 +223,7 @@ zupdate_ipv4_db_all(void *zpIf) {
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
     _i zFd[3] = {0};
-	_i zRepoId = *((_i *)zpIf);
+    _i zRepoId = *((_i *)zpIf);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 

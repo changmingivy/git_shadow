@@ -237,17 +237,17 @@ zReLoad:;
         zFd[0] = open(zppRepoPathList[i], O_RDONLY);
         zCheck_Negative_Exit(zFd[0]);
 
-		#define zCheck_Dir_Status_Exit(zRet) do {\
-			if (-1 == (zRet) && errno != EEXIST) {\
-		            zPrint_Err(errno, NULL, "Can't create directory!");\
-		            exit(1);\
-			}\
-		} while(0)
+        #define zCheck_Dir_Status_Exit(zRet) do {\
+            if (-1 == (zRet) && errno != EEXIST) {\
+                    zPrint_Err(errno, NULL, "Can't create directory!");\
+                    exit(1);\
+            }\
+        } while(0)
 
         // 如果 .git_shadow 路径不存在，创建之，并从远程拉取该代码库的客户端ipv4列表
         // 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
-		zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow", 0700));
-		zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
 
@@ -272,9 +272,9 @@ zReLoad:;
         zupdate_ipv4_db_all(&i);
         zppCacheVecIf[i] = zgenerate_cache(i);
 
-		for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
-			printf("%zd\n", zppCacheVecIf[i]->iov_len);
-		}
+        for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
+            printf("%zd\n", zppCacheVecIf[i]->iov_len);
+        }
     }
 
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 主线程等待事件发生
