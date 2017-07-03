@@ -49,23 +49,23 @@ typedef struct {
 } zObjInfo;
 //----------------------------------
 typedef struct {
-    _ui CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
-    _us RepoId;  // 索引每个代码库路径
-    _us FileIndex;  // 缓存中每个文件路径的索引
+    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
+    _i RepoId;  // 索引每个代码库路径
+    _i FileIndex;  // 缓存中每个文件路径的索引
 
     struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
-    _ui VecSiz;  // 对应于文件差异内容的总行数
+    _i VecSiz;  // 对应于文件差异内容的总行数
 
-    _ui PathLen;  // 文件路径长度，提代给前端使用
+    _i PathLen;  // 文件路径长度，提代给前端使用
     char path[];  // 相对于代码库的路径
 } zFileDiffInfo;
 
 typedef struct {  // 布署日志信息的数据结构
-    _ui index;  // 索引每条记录在日志文件中的位置
-    _us RepoId;  // 标识所属的代码库
-    _us len;  // 路径名称长度，可能为“ALL”，代表整体部署某次commit的全部文件
-    _ul offset;  // 指明在data日志文件中的SEEK偏移量
-    _ul TimeStamp;  // 时间戳
+    _i index;  // 索引每条记录在日志文件中的位置
+    _i RepoId;  // 标识所属的代码库
+    _l offset;  // 指明在data日志文件中的SEEK偏移量
+    _l TimeStamp;  // 时间戳
+    _i PathLen;  // 路径名称长度，可能为“ALL”，代表整体部署某次commit的全部文件
     char path[];  // 相对于代码库的路径
 } zDeployLogInfo;
 

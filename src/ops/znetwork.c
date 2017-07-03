@@ -92,7 +92,7 @@ zlist_log(_i zSd, _i zMark) {
         madvise(zpMetaLogIf, zStatBufIf.st_size, MADV_WILLNEED);  // 提示内核大量预读
 
         zpTmpIf = zpMetaLogIf + zStatBufIf.st_size / zSizeOf(zDeployLogInfo) - 1;
-        _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->len;  // 根据meta日志属性确认data日志偏移量
+        _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->PathLen;  // 根据meta日志属性确认data日志偏移量
         char *zpDataLog = (char *)mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zIf.RepoId], 0);  // 将data日志mmap至内存
         zCheck_Null_Return(zpDataLog,);
         madvise(zpDataLog, zDataLogSiz, MADV_WILLNEED);  // 提示内核大量预读
@@ -104,7 +104,7 @@ zlist_log(_i zSd, _i zMark) {
             }
             else {
                 zVec[i].iov_base = zpDataLog + (zpMetaLogIf + i / 2)->offset;
-                zVec[i].iov_len = (zpMetaLogIf + i / 2)->len;
+                zVec[i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
             }
         }
         zsendmsg(zSd, zVec, zVecSiz, 0, NULL);    // 发送结果
@@ -136,7 +136,7 @@ zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
     zDeployIf.index += 1;  // 布署索引偏移量增加1(即：顺序记录布署批次ID)，用于从sig日志文件中快整定位对应的commit签名
     zDeployIf.offset += zPathLen;  // data日志中对应的文件路径名称位置偏移量
     zDeployIf.TimeStamp = time(NULL);  // 日志时间戳(1900至今的秒数)
-    zDeployIf.len = zPathLen;  // 本次布署的文件路径名称长度
+    zDeployIf.PathLen= zPathLen;  // 本次布署的文件路径名称长度
 
     // 其本信息写入.git_shadow/log/meta
     if (zSizeOf(zDeployLogInfo) != write(zpLogFd[0][zRepoId], &zDeployIf, zSizeOf(zDeployLogInfo))) {
@@ -221,11 +221,11 @@ zrevoke_from_log(_i zSd, _i zMark){
         zsendto(zSd, "!", zBytes(2), NULL);  //  若数据异常，要求前端重发报文
     }
 
-    char zPathBuf[zLogIf.len];  // 存放待撤销的目标文件路径
+    char zPathBuf[zLogIf.PathLen];  // 存放待撤销的目标文件路径
     char zCommitSigBuf[41];  // 存放40位的git commit签名
     zCommitSigBuf[40] = '\0';
 
-    zCheck_Negative_Return(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.len, zLogIf.offset),);
+    zCheck_Negative_Return(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.PathLen, zLogIf.offset),);
     zCheck_Negative_Return(pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index),);
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
@@ -239,7 +239,7 @@ zrevoke_from_log(_i zSd, _i zMark){
     else {
         sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -r -i %s -P %s %s", zCommitSigBuf, zppRepoPathList[zLogIf.RepoId], zPathBuf);
         zpLogContents = zPathBuf;
-        zLogSiz = zLogIf.len;
+        zLogSiz = zLogIf.PathLen;
     }
 
     pthread_rwlock_wrlock(&(zpRWLock[zLogIf.RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
