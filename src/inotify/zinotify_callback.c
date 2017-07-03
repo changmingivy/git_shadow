@@ -5,8 +5,11 @@
 /****************
  * UPDATE CACHE *
  ****************/
+/*
+ * 生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
+ */
 struct iovec *
-zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
+zgenerate_cache(_i zRepoId) {
     _i zNewVersion = (_i)time(NULL);  // 以时间戳充当缓存版本号
 
     struct iovec *zpNewCacheVec[2] = {NULL};  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
@@ -15,11 +18,13 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
     _i zDiffFilesNum = 0;  // 差异文件总数
 
     char *zpRes[2] = {NULL};  // 存储从命令行返回的原始文本信息
-    char zShellBuf[zCommonBufSiz];  // 存储命令行字符串
+    char zShellBuf[2][zCommonBufSiz];  // 存储命令行字符串
 
-    zpShellRetHandler[0] = popen("git diff --name-only HEAD CURRENT | wc -l "
-            "&& git diff --name-only HEAD CURRENT "
-            "&& git log --format=%H -n 1 CURRENT", "r");  // 第一行返回的是文件总数
+	sprintf(zShellBuf[0], "cd %s"
+			"&& git diff --name-only HEAD CURRENT | wc -l"
+			"&& git diff --name-only HEAD CURRENT"
+			"&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
+    zpShellRetHandler[0] = popen(zShellBuf[0], "r");  // 第一行返回的是文件总数
     zCheck_Null_Return(zpShellRetHandler, NULL);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
@@ -43,8 +48,8 @@ zgenerate_cache(_i zRepoId) { // 生成缓存：差异文件列表、每个文�
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->FileIndex = i;
             strcpy(((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->path, zpRes[0]);
 
-            sprintf(zShellBuf, "git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zpRes[0], zpRes[0]);
-            zpShellRetHandler[1] = popen(zShellBuf, "r");
+            sprintf(zShellBuf[1], "git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zpRes[0], zpRes[0]);
+            zpShellRetHandler[1] = popen(zShellBuf[1], "r");
             zCheck_Null_Return(zpShellRetHandler, NULL);
 
             zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
@@ -119,9 +124,11 @@ zupdate_cache(void *zpIf) {
     }
 }
 
-// 将文本格式的ipv4地址转换成二进制无符号整型
+/*
+ * 将文本格式的ipv4地址转换成二进制无符号整型
+ */
 _ui
-zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
+zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
     char zAddrBuf[INET_ADDRSTRLEN];
     strcpy(zAddrBuf, zpStrAddr);
     _ui zValidLen = (strlen(zAddrBuf) - 3);
@@ -134,7 +141,9 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {;
     return (_ui)strtol(zAddrBuf, NULL, 10);
 }
 
-// 客户端更新自身ipv4数据库文件
+/*
+ * 客户端更新自身ipv4数据库文件
+ */
 void
 zupdate_ipv4_db_self(_i zBaseFd) {
     char *zpBuf = NULL;
@@ -156,7 +165,9 @@ zupdate_ipv4_db_self(_i zBaseFd) {
     close(zFd);
 }
 
-// 更新ipv4 地址缓存
+/*
+ * 更新ipv4 地址缓存
+ */
 void
 zupdate_ipv4_db_hash(_i zRepoId) {
     _i zFd[2] = {0};
@@ -198,7 +209,9 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     close(zFd[1]);
 }
 
-// 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新，更新全员ip数据库
+/*
+ * 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新，更新全员ip数据库
+ */
 void
 zupdate_ipv4_db_all(void *zpIf) {
     FILE *zpFileHandler = NULL;

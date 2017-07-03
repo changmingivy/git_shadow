@@ -138,13 +138,12 @@ _ui *zpPreLoadLogVecSiz;
 #include "ops/zthread_pool.c"
 #include "inotify/zinotify_callback.c"
 #include "inotify/zinotify.c"  // 监控代码库文件变动
-//#include "ops/zinit_from_conf.c"  // 读取主配置文件
+#include "ops/zinit_from_conf.c"  // 读取主配置文件
 #include "ops/znetwork.c"  // 对外提供网络服务
 
 /***************************
  * +++___ main 函数 ___+++ *
  ***************************/
-/*
 _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
@@ -286,4 +285,3 @@ zReLoad:;
     if (0 == zPid) { goto zReLoad; }
     else { exit(0); }
 }
-*/
