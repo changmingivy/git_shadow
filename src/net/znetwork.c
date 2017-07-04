@@ -37,9 +37,9 @@ zlist_diff_files(_i zSd){
         return;
     }
 
-    pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
+    pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
-    pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
+    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
 //  shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
 }
 
@@ -54,13 +54,13 @@ zprint_diff_contents(_i zSd){
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
-    if (zIf.CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zIf.RepoId]->iov_base))->CacheVersion) {
+    if (zIf.CacheVersion == ( (zFileDiffInfo *) (zppCacheVecIf[zIf.RepoId]->iov_base))->CacheVersion ) {
         zsendmsg(zSd, zIf.p_DiffContent, zIf.VecSiz, 0, NULL);  // 直接从缓存中提取
     }
     else {
         zsendto(zSd, "!", zBytes(2), NULL);  //  若缓存版本不一致，要求前端重发报文
     }
-    pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
+    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
 //  shutdown(zSd, SHUT_RDWR);
 }
 
@@ -74,7 +74,7 @@ zlist_log(_i zSd, _i zMark) {
         return;
     }
 
-    pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
+    pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
     _i zVecSiz;
     if ( 0 == zMark ){    // 默认直接直接回复预存的最近zPreLoadLogSiz次记录
         zsendmsg(zSd, zppPreLoadLogVecIf[zIf.RepoId], zpPreLoadLogVecSiz[zIf.RepoId], 0, NULL);
@@ -87,13 +87,13 @@ zlist_log(_i zSd, _i zMark) {
         zVecSiz = 2 * zStatBufIf.st_size / zSizeOf(zDeployLogInfo);  // 确定存储缓存区的大小
         struct iovec zVec[zVecSiz];
 
-        zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zStatBufIf.st_size, PROT_READ, MAP_PRIVATE, zpLogFd[0][zIf.RepoId], 0);  // 将meta日志mmap至内存
+        zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zStatBufIf.st_size, PROT_READ, MAP_PRIVATE, zpLogFd[0][zIf.RepoId], 0);  // 将meta日志mmap至内存
         zCheck_Null_Return(zpMetaLogIf,);
         madvise(zpMetaLogIf, zStatBufIf.st_size, MADV_WILLNEED);  // 提示内核大量预读
 
         zpTmpIf = zpMetaLogIf + zStatBufIf.st_size / zSizeOf(zDeployLogInfo) - 1;
         _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->PathLen;  // 根据meta日志属性确认data日志偏移量
-        char *zpDataLog = (char *)mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zIf.RepoId], 0);  // 将data日志mmap至内存
+        char *zpDataLog = (char *) mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zIf.RepoId], 0);  // 将data日志mmap至内存
         zCheck_Null_Return(zpDataLog,);
         madvise(zpDataLog, zDataLogSiz, MADV_WILLNEED);  // 提示内核大量预读
 
@@ -119,7 +119,7 @@ void
 zmilli_sleep(_i zMilliSec) {  // 毫秒级sleep
     static struct timespec zNanoSecIf = { .tv_sec = 0, };
     zNanoSecIf.tv_nsec  = zMilliSec * 1000000;
-    nanosleep(&zNanoSecIf, NULL);
+    nanosleep( &zNanoSecIf, NULL );
 }
 
 // 记录布署或撤销的日志
@@ -127,10 +127,12 @@ void
 zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
     // write to .git_shadow/log/meta
     struct stat zStatBufIf;
-    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf),);  // 获取当前日志文件属性
+    zCheck_Negative_Return( fstat(zpLogFd[0][zRepoId], &zStatBufIf), );  // 获取当前日志文件属性
 
     zDeployLogInfo zDeployIf;
-    zCheck_Negative_Return(pread(zpLogFd[0][zRepoId], &zDeployIf, zSizeOf(zDeployLogInfo), zStatBufIf.st_size - zSizeOf(zDeployLogInfo)),);  // 读出前一个记录的信息
+    zCheck_Negative_Return(
+			pread(zpLogFd[0][zRepoId], &zDeployIf, zSizeOf(zDeployLogInfo), zStatBufIf.st_size - zSizeOf(zDeployLogInfo)),
+			);  // 读出前一个记录的信息
 
     zDeployIf.RepoId = zRepoId;  // 代码库ID相同
     zDeployIf.index += 1;  // 布署索引偏移量增加1(即：顺序记录布署批次ID)，用于从sig日志文件中快整定位对应的commit签名
@@ -165,7 +167,7 @@ zdeploy(_i zSd,  _i zMark) {
         return;
     }
 
-    if (zDiffIf.CacheVersion == ((zFileDiffInfo *)(zppCacheVecIf[zDiffIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
+    if (zDiffIf.CacheVersion == ((zFileDiffInfo *) (zppCacheVecIf[zDiffIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
         char zShellBuf[4096];  // 存放SHELL命令字符串
         char *zpLogContents;   // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
         _i zLogSiz;
@@ -180,7 +182,7 @@ zdeploy(_i zSd,  _i zMark) {
             zLogSiz = zDiffIf.PathLen;
         }
 
-        pthread_rwlock_wrlock(&(zpRWLock[zDiffIf.RepoId]));  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+        pthread_rwlock_wrlock( &(zpRWLock[zDiffIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
         system(zShellBuf);
 
         _ui zSendBuf[zpTotalHost[zDiffIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
@@ -225,8 +227,12 @@ zrevoke_from_log(_i zSd, _i zMark){
     char zCommitSigBuf[41];  // 存放40位的git commit签名
     zCommitSigBuf[40] = '\0';
 
-    zCheck_Negative_Return(pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.PathLen, zLogIf.offset),);
-    zCheck_Negative_Return(pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index),);
+    zCheck_Negative_Return(
+			pread(zpLogFd[1][zLogIf.RepoId], &zPathBuf, zLogIf.PathLen, zLogIf.offset),
+			);
+    zCheck_Negative_Return(
+			pread(zpLogFd[2][zLogIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zLogIf.index),
+			);
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char *zpLogContents;  // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
@@ -242,7 +248,7 @@ zrevoke_from_log(_i zSd, _i zMark){
         zLogSiz = zLogIf.PathLen;
     }
 
-    pthread_rwlock_wrlock(&(zpRWLock[zLogIf.RepoId]));  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+    pthread_rwlock_wrlock( &(zpRWLock[zLogIf.RepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
     system(zShellBuf);
 
     _ui zSendBuf[zpTotalHost[zLogIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
@@ -266,7 +272,7 @@ zrevoke_from_log(_i zSd, _i zMark){
         zppDpResList[zLogIf.RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0
     }
 
-    pthread_rwlock_unlock(&(zpRWLock[zLogIf.RepoId]));
+    pthread_rwlock_unlock( &(zpRWLock[zLogIf.RepoId]) );
 //  shutdown(zSd, SHUT_RDWR);
 }
 
@@ -391,11 +397,13 @@ zstart_server(void *zpIf) {
 
     zEv.events = EPOLLIN;
     zEv.data.fd = zMajorSd;
-    zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
+    zCheck_Negative_Return(
+			epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),
+			);
 
     for (;;) {
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
-        zCheck_Negative_Return(zEvNum,);
+        zCheck_Negative_Return( zEvNum, );
 
         for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
@@ -404,7 +412,9 @@ zstart_server(void *zpIf) {
 
                zEv.events = EPOLLIN | EPOLLET;  // 新创建的socket以边缘触发模式监控
                zEv.data.fd = zConnSd;
-               zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
+               zCheck_Negative_Return(
+					   epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),
+					   );
             }
             else {
                 zAdd_To_Thread_Pool(zdo_serv, &(zEvents[i].data.fd));
@@ -429,7 +439,9 @@ zclient_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Return(zFd,);
 
     zDeployLogInfo zDpLogIf;
-    zCheck_Negative_Return(read(zFd, &zDpLogIf, zSizeOf(zDeployLogInfo)),);
+    zCheck_Negative_Return(
+			read(zFd, &zDpLogIf, zSizeOf(zDeployLogInfo)),
+			);
     zDpResIf.RepoId = zDpLogIf.RepoId;  // 标识版本库ID
     close(zFd);
 
