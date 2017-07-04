@@ -4,12 +4,94 @@
 
 //jmp_buf zJmpEnv;
 
-/*************************
- * DEAL WITH CONFIG FILE *
- *************************/
+/**************************************
+ * DEAL WITH CONFIG FILE AND INIT ENV *
+ **************************************/
+void
+zinit_env(void) {
+    _i zFd[2] = {0}, zRet = 0;
+
+    zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
+    if (0 > zRet) {
+        zPrint_Err(zRet, NULL, "rwlock set attr failed!");
+        exit(1);
+    }
+
+    // 每个代码库近期布署日志信息的缓存
+    zMem_Alloc(zppPreLoadLogVecIf, struct iovec *, zRepoNum);
+    zMem_Alloc(zpPreLoadLogVecSiz, _ui, zRepoNum);
+
+    // 保存各个代码库的CURRENT标签所对应的SHA1 sig
+    zMem_Alloc(zppCurTagSig, char *, zRepoNum);
+    // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
+    zMem_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
+    zMem_Alloc(zpCacheVecSiz, _i, zRepoNum);
+    // 每个代码库对应meta、data、sig三个日志文件
+    zMem_Alloc(zpLogFd[0], _i, zRepoNum);
+    zMem_Alloc(zpLogFd[1], _i, zRepoNum);
+    zMem_Alloc(zpLogFd[2], _i, zRepoNum);
+    // 存储每个代码库对应的主机总数
+    zMem_Alloc(zpTotalHost, _i, zRepoNum );
+    // 即时存储已返回布署成功信息的主机总数
+    zMem_Alloc(zpReplyCnt, _i, zRepoNum );
+    // 索引每个代码库的读写锁
+    zMem_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
+
+    // 每个代码库对应一个线性数组，用于接收每个ECS返回的确认信息
+    // 同时基于这个线性数组建立一个HASH索引，以提高写入时的定位速度
+    zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
+    zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+
+    for (_i i = 0; i < zRepoNum; i++) {
+        // 打开代码库顶层目录，生成目录fd供接下来的openat使用
+        zFd[0] = open(zppRepoPathList[i], O_RDONLY);
+        zCheck_Negative_Exit(zFd[0]);
+
+        #define zCheck_Dir_Status_Exit(zRet) do {\
+            if (-1 == (zRet) && errno != EEXIST) {\
+                    zPrint_Err(errno, NULL, "Can't create directory!");\
+                    exit(1);\
+            }\
+        } while(0)
+
+        // 如果 .git_shadow 路径不存在，创建之，并从远程拉取该代码库的客户端ipv4列表
+        // 需要--主动--从远程拉取该代码库的客户端ipv4列表 ???
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/info", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log", 0700));
+        zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
+
+        // 为每个代码库生成一把读写锁，锁属性设置写者优先
+        if (0 != (zRet =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
+            zPrint_Err(zRet, NULL, "Init deploy lock failed!");
+            exit(1);
+        }
+
+        // 打开meta日志文件
+        zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
+        zCheck_Negative_Exit(zpLogFd[0][i]);
+        // 打开data日志文件
+        zpLogFd[1][i] = openat(zFd[0], zDataLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
+        zCheck_Negative_Exit(zpLogFd[1][i]);
+        // 打开sig日志文件
+        zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
+        zCheck_Negative_Exit(zpLogFd[2][i]);
+
+        close(zFd[0]);  // zFd[0] 用完关闭
+
+        zupdate_ipv4_db_all(&i);
+        zppCacheVecIf[i] = zgenerate_cache(i);
+
+        for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
+            printf("%zd\n", zppCacheVecIf[i]->iov_len);
+        }
+    }
+
+}
+
 // 取 [REPO] 区域配置条目
 void
-zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
+zparse_REPO_and_alloc_resource(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
     _i zRepoId, zFd;
     zPCREInitInfo *zpInitIf[5];
@@ -71,6 +153,8 @@ zparse_conf_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 
         zpcre_free_tmpsource(zpRetIf[3]);
         zpcre_free_tmpsource(zpRetIf[4]);
+
+		zinit_env();  // 代码库信息读取完毕后，初始化运行环境
     }
 
 zMark:
@@ -87,7 +171,7 @@ zMark:
 
 // 取 [INOTIFY] 区域配置条目
 void
-zparse_conf_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
+zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
     zObjInfo *zpObjIf;
     _i zRepoId, zFd;
@@ -186,7 +270,7 @@ zMark:
 
 // 读取主配置文件
 void
-zparse_conf_and_add_top_watch(const char *zpConfPath) {
+zparse_conf_and_init_env(const char *zpConfPath) {
 // TEST: PASS
     zPCREInitInfo *zpInitIf[2];
     zPCRERetInfo *zpRetIf[2];
@@ -219,11 +303,11 @@ zMark:  // 解析函数据行完毕后，跳转到此处
             exit(1);
         } else {
             if (0 == strcmp("REPO", zpRetIf[1]->p_rets[0])) {
-                zparse_conf_REPO(zpFile, &zpRes, &zLineNum);
+                zparse_REPO_and_alloc_resource(zpFile, &zpRes, &zLineNum);
                 zpcre_free_tmpsource(zpRetIf[1]);
                 goto zMark;
             } else if (0 == strcmp("INOTIFY", zpRetIf[1]->p_rets[0])) {
-                zparse_conf_INOTIFY_and_add_watch(zpFile, &zpRes, &zLineNum);
+                zparse_INOTIFY_and_add_watch(zpFile, &zpRes, &zLineNum);
                 zpcre_free_tmpsource(zpRetIf[1]);
                 goto zMark;
             } else {  // 若检测到无效区块标题，报错后退出
