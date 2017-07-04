@@ -61,7 +61,7 @@ zrevoke() {
 		shift 1
 	fi
 
-	if [[ '' == "$zCommitId" ]]; then
+	if [[ '' == ${zCommitId} ]]; then
 		return -1
 	fi
 
@@ -71,12 +71,12 @@ zrevoke() {
 	git branch --force "$zBranchId"
 
 	if [[ 0 -eq $# ]]; then  # If no file name given, meaning revoke all
-		git reset --hard "$zCommitId"
+		git reset --hard ${zCommitId}
 		if [[ 0 -ne $? ]]; then
-			git checkout "$zCommitId"
+			git checkout ${zCommitId}
 		fi
 	else
-		git reset "$zCommitId" -- $@
+		git reset ${zCommitId} -- $@
 	fi
 
 	if [[ 0 -ne $? ]]; then
@@ -84,7 +84,7 @@ zrevoke() {
 		return -1
 	fi
 
-	git commit -m "files below have been revoked to "$zCommitId":\n$*"
+	git commit -m "files below have been revoked to ${zCommitId}:\n$*"
 	git stash
 	git stash clear
 	git tag -d CURRENT
@@ -122,9 +122,9 @@ if [[ $zActionType -eq $zDeployOne ]]; then
 elif [[ $zActionType -eq $zDeployAll ]]; then
 	zdeploy $zCodePath
 elif [[ $zActionType -eq $zRevokeOne ]]; then
-	zrevoke "$zCommitId" $@
+	zrevoke ${zCommitId} $@
 elif [[ $zActionType -eq $zRevokeAll ]]; then
-	zrevoke "$zCommitId"
+	zrevoke ${zCommitId}
 else
 	printf "\033[31;01mUnknown request!\033[00m\n" 1>&2
 fi
