@@ -33,11 +33,13 @@
 #define zMaxRepoNum 1024
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
-#define zPreLoadLogSiz 16  // 预缓存日志数量
+#define zPreLoadLogSiz 64  // 预缓存日志数量
 
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
 #include "pcre2/zpcre.c"
+
+#define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
 
 /****************
  * 数据结构定义 *
@@ -54,27 +56,31 @@ typedef struct {
 } zObjInfo;
 //----------------------------------
 typedef struct {
-    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
-    _i RepoId;  // 索引每个代码库路径
-    _i FileIndex;  // 缓存中每个文件路径的索引
+    char zHint[4];   // 用于块充提示类信息，如：提示从何处开始读取需要的数据
+    _ui RepoId;  // 索引每个代码库路径
+    _ui FileIndex;  // 缓存中每个文件路径的索引
+    _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
     struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
-    _i VecSiz;  // 对应于文件差异内容的总行数
+    _ui VecSiz;  // 对应于文件差异内容的总行数
 
-    _i PathLen;  // 文件路径长度，提代给前端使用
+    _i PathLen;  // 文件路径长度，提供给前端使用
     char path[];  // 相对于代码库的路径
 } zFileDiffInfo;
 
 typedef struct {  // 布署日志信息的数据结构
-    _i index;  // 索引每条记录在日志文件中的位置
-    _i RepoId;  // 标识所属的代码库
-    _l offset;  // 指明在data日志文件中的SEEK偏移量
-    _l TimeStamp;  // 时间戳
-    _i PathLen;  // 路径名称长度，可能为“ALL”，代表整体部署某次commit的全部文件
+    char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
+    _ui RepoId;  // 标识所属的代码库
+    _ui index;  // 索引每条记录在日志文件中的位置
+    _ul offset;  // 指明在data日志文件中的SEEK偏移量
+
+    _l TimeStamp;  // 时间戳，提供给前端使用
+    _i PathLen;  // 路径名称长度，可能为“ALL”，代表整体部署某次commit的全部文件，提供给前端使用
     char path[];  // 相对于代码库的路径
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
+    char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _us RepoId;  // 所属代码库
     _us DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0

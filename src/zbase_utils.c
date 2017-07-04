@@ -131,9 +131,9 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 }
 
 _i
-zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0, zpAddr, INET_ADDRSTRLEN);
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
     zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
@@ -157,21 +157,19 @@ zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
 }
 
 _i
-zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlag, struct sockaddr *zpAddr) {
 // TEST: PASS
-    _i zFlags = MSG_WAITALL;
-    socklen_t zAddrLen = 0;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
+    socklen_t zAddrLen;
+    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zMSG_WAITALL | zFlags, zpAddr, &zAddrLen);
     zCheck_Negative_Return(zRecvSiz, -1);
     return zRecvSiz;
 }
 
 _i
-zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr) {
+zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
-    _i zFlags = MSG_DONTWAIT;
-    socklen_t zAddrLen = 0;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zFlags, zpAddr, &zAddrLen);
+    socklen_t zAddrLen;
+    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
     zCheck_Negative_Return(zRecvSiz, -1);
     return zRecvSiz;
 }
