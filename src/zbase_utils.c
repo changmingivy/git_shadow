@@ -1,5 +1,5 @@
 #ifndef _Z
-    #include "../zmain.c"
+    #include "zmain.c"
 #endif
 
 /*
@@ -157,10 +157,10 @@ zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zp
 }
 
 _i
-zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlag, struct sockaddr *zpAddr) {
+zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
     socklen_t zAddrLen;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, zMSG_WAITALL | zFlags, zpAddr, &zAddrLen);
+    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr, &zAddrLen);
     zCheck_Negative_Return(zRecvSiz, -1);
     return zRecvSiz;
 }
