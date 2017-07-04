@@ -7,7 +7,9 @@
 # $@(after shift):files to deploy
 zdeploy() {
 	local zCodePath=$1
-    shift 1
+	if [[ 0 < $# ]]; then
+		shift 1
+	fi
 
 	local zEcsList=`cat $zCodePath/.git_shadow/major_list`
 
@@ -47,8 +49,6 @@ zdeploy() {
 
 	git tag -d CURRENT
 	git tag CURRENT
-
-	return $zPrevCommitId
 }
 
 # FUNCTION: undo deploy
@@ -57,20 +57,26 @@ zdeploy() {
 # $@(after shift):the file to deploy
 zrevoke() {
 	local zCommitId=$1
-    shift 1
+	if [[ 0 < $# ]]; then
+		shift 1
+	fi
 
-	if [[ '' == $zCommitId ]]; then return -1; fi
+	if [[ '' == "$zCommitId" ]]; then
+		return -1
+	fi
 
+	cd $zCodePath
+	
 	zBranchId=$(git log CURRENT -n 1 --format=%H)
-	git branch "$zBranchId"
+	git branch --force "$zBranchId"
 
-	if [[ 0 -eq $# ]];then  # If no file name given, meaning revoke all
-		git reset --hard zCommitId
+	if [[ 0 -eq $# ]]; then  # If no file name given, meaning revoke all
+		git reset --hard "$zCommitId"
 		if [[ 0 -ne $? ]]; then
 			git checkout "$zCommitId"
 		fi
 	else
-		git reset zCommitId -- $@
+		git reset "$zCommitId" -- $@
 	fi
 
 	if [[ 0 -ne $? ]]; then
@@ -78,14 +84,12 @@ zrevoke() {
 		return -1
 	fi
 
-	git commit -m "files below have been revoked to $zCommitId:\n$*"
+	git commit -m "files below have been revoked to "$zCommitId":\n$*"
 	git stash
 	git stash clear
 	git tag -d CURRENT
 	git tag CURRENT
-	git branch -m -f master
-
-	return $zBranchId
+	git branch -M master
 }
 
 #######################################################
@@ -98,12 +102,12 @@ zComment=
 zCodePath=
 zCommitId=
 zActionType=
-while getopts DRt:P:i: zOption
+while getopts dDrRP:i: zOption
 do
     case $zOption in
 		d) zActionType=zDeployOne;;
 		D) zActionType=zDeployAll;;
-		l) zActionType=zRevokeOne;;
+		r) zActionType=zRevokeOne;;
 		R) zActionType=zRevokeAll;;
 		P) zCodePath="$OPTARG";;  # code path
 		i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
@@ -118,9 +122,9 @@ if [[ $zActionType -eq $zDeployOne ]]; then
 elif [[ $zActionType -eq $zDeployAll ]]; then
 	zdeploy $zCodePath
 elif [[ $zActionType -eq $zRevokeOne ]]; then
-	zrevoke $zCommitId $@
+	zrevoke "$zCommitId" $@
 elif [[ $zActionType -eq $zRevokeAll ]]; then
-	zrevoke $zCommitId
+	zrevoke "$zCommitId"
 else
 	printf "\033[31;01mUnknown request!\033[00m\n" 1>&2
 fi
