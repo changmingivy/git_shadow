@@ -114,31 +114,36 @@ zDeployResInfo ***zpppDpResHash, **zppDpResList;  // 每个代码库对应一个
 struct iovec **zppPreLoadLogVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
 _i *zpPreLoadLogVecSiz;
 
+// 此函数仅用作测试
 void
 ztest_print(void) {
-//    printf("RepoNum: %d\n", zRepoNum);
-//    for (_i i = 0; i < zRepoNum; i++) {
-//        printf("RepoPath: %s\n", zppRepoPathList[i]);
-//    }
-//
-//    printf("zInotifyFD: %d\n", zInotifyFD);
-//    for (_i i = 0; i < zWatchHashSiz; i++) {
-//        if (NULL != zpObjHash[i]) {
-//            printf("OBJPath: %s\n", zpObjHash[i]->path);
-//            printf("zpRegexPattern: %s\n", zpObjHash[i]->zpRegexPattern);
-//            printf("UpperWid: %d\n", zpObjHash[i]->UpperWid);
-//            printf("RecursiveMark: %d\n", zpObjHash[i]->RecursiveMark);
-//            printf("CallBack: %p\n", zpObjHash[i]->CallBack);
-//        }
-//    }
+    printf("RepoNum: %d\n", zRepoNum);
+    for (_i i = 0; i < zRepoNum; i++) {
+        printf("RepoPath: %s\n", zppRepoPathList[i]);
+    }
+
+    printf("zInotifyFD: %d\n", zInotifyFD);
+    for (_i i = 0; i < zWatchHashSiz; i++) {
+        if (NULL != zpObjHash[i]) {
+            printf("OBJPath: %s\n", zpObjHash[i]->path);
+            printf("zpRegexPattern: %s\n", zpObjHash[i]->zpRegexPattern);
+            printf("UpperWid: %d\n", zpObjHash[i]->UpperWid);
+            printf("RecursiveMark: %d\n", zpObjHash[i]->RecursiveMark);
+            printf("CallBack: %p\n", zpObjHash[i]->CallBack);
+        }
+    }
 
     for (_i i = 0; i < zRepoNum; i++) {
-        printf("zppCurTagSig: %s\n", zppCurTagSig[i]);
+        printf("zppCurTagSig: ");
+        for (_i z = 0; z < 40; z++) {
+            printf("%c", zppCurTagSig[i][z]);
+        }
+        printf("\n");
         printf("CacheVecSiz: %d\n", zpCacheVecSiz[i]);
         printf("zPreLoadLogSiz: %d\n", zpPreLoadLogVecSiz[i]);
 
         for (_i j = 0; j < zpCacheVecSiz[i]; j++) {
-            printf("CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", zppCacheVecIf[i][j].iov_base,zppCacheVecIf[i][j].iov_len);
+            printf("CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->path, zppCacheVecIf[i][j].iov_len);
         }
 
         for (_i j = 0; j < zpPreLoadLogVecSiz[i]; j++) {
@@ -266,7 +271,7 @@ zReLoad:;
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
 
-    ztest_print();
+//    ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
 

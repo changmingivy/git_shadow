@@ -15,10 +15,12 @@ zgenerate_cache(_i zRepoId) {
     struct iovec *zpNewCacheVec[2] = {NULL};  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
 
     FILE *zpShellRetHandler[2] = {NULL};  // 执行SHELL命令，读取此句柄获取返回信息
-    _i zDiffFilesNum = 0, zLen = 0;  // 差异文件总数
+    _i zDiffFileNum = 0, zDiffLineNum = 0, zLen = 0;  // 差异文件总数
 
     char *zpRes[2] = {NULL};  // 存储从命令行返回的原始文本信息
     char zShellBuf[2][zCommonBufSiz] = {{'\0'}, {'\0'}};  // 存储命令行字符串
+
+    zFileDiffInfo *zpIf;
 
     // 必须在shell命令中切换到正确的工作路径
     sprintf(zShellBuf[0], "cd %s "
@@ -33,25 +35,23 @@ zgenerate_cache(_i zRepoId) {
         return NULL;  // 命令没有返回结果，代表没有差异文件，理论上不存在此种情况
     }
     else {
-        if (0 == (zDiffFilesNum = atoi(zpRes[0]))) {
+        if (0 == (zDiffFileNum = strtol(zpRes[0], NULL, 10))) {
             return NULL;  // 同上，用于防止意外原因扰乱缓存数据
         }
-        zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFilesNum);   // 为存储文件路径列表的iovec[0]分配空间
-        zpCacheVecSiz[zRepoId] = zDiffFilesNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
+        zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFileNum);   // 为存储文件路径列表的iovec[0]分配空间
+        zpCacheVecSiz[zRepoId] = zDiffFileNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
 
-        for (_i i = 0; i < zDiffFilesNum; i++) {
+        for (_i i = 0; i < zDiffFileNum; i++) {
             zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
             zLen = 1 + strlen(zpRes[0]) + sizeof(zFileDiffInfo);
 
-            zCheck_Null_Return(
-                    zpNewCacheVec[0][i].iov_base = malloc(zLen),
-                    NULL);
+            zCheck_Null_Exit(zpIf = malloc(zLen));
+            zpIf->CacheVersion = zNewVersion;
+            zpIf->RepoId= zRepoId;
+            zpIf->FileIndex = i;
+            strcpy(zpIf->path, zpRes[0]);
 
-            ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->CacheVersion = zNewVersion;
-            ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->RepoId= zRepoId;
-            ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->FileIndex = i;
-            strcpy(((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->path, zpRes[0]);
-
+            zpNewCacheVec[0][i].iov_base = zpIf;
             zpNewCacheVec[0][i].iov_len = zLen;
 
             // 必须在shell命令中切换到正确的工作路径
@@ -62,12 +62,17 @@ zgenerate_cache(_i zRepoId) {
             zCheck_Null_Exit(
                     zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
                     );
-            zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
+            zDiffLineNum = strtol(zpRes[1], NULL, 10);
+
+            zpIf->VecSiz = zDiffLineNum;
+
+            zMem_Alloc(zpNewCacheVec[1], struct iovec, zDiffLineNum);  // 为每个文件的详细差异内容分配iovec[1]分配空间
 
             for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
                 zLen = 1 + strlen(zpRes[1]);
                 zMem_Alloc(zpNewCacheVec[1][j].iov_base, char, zLen);
-                strcpy(((char *)(zpNewCacheVec[1][j].iov_base)), zpRes[1]);
+                strcpy(zpNewCacheVec[1][j].iov_base, zpRes[1]);
+
                 zpNewCacheVec[1][j].iov_len = zLen;
             }
             pclose(zpShellRetHandler[1]);
@@ -159,10 +164,10 @@ zupdate_cache(void *zpIf) {
  */
 _ui
 zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
-	struct in_addr zIpv4Addr;
-	zCheck_Negative_Exit(
-			inet_pton(AF_INET, zpStrAddr, &zIpv4Addr)
-			);
+    struct in_addr zIpv4Addr;
+    zCheck_Negative_Exit(
+            inet_pton(AF_INET, zpStrAddr, &zIpv4Addr)
+            );
     return zIpv4Addr.s_addr;
 }
 

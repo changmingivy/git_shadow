@@ -117,11 +117,10 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         if (0 == zpRetIf[1]->cnt) {
             zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
             if (0 == zpRetIf[2]->cnt) {  // 若检测到格式有误的语句，报错后退出
-                zpcre_free_tmpsource(zpRetIf[1]);
-                zpcre_free_tmpsource(zpRetIf[2]);
-
                 zPrint_Time();
                 fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
+                zpcre_free_tmpsource(zpRetIf[1]);
+                zpcre_free_tmpsource(zpRetIf[2]);
                 exit(1);
             } else {
                 zpcre_free_tmpsource(zpRetIf[1]);
@@ -129,8 +128,8 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
                 goto zMark;
             }
         } else {
-			zpcre_free_tmpsource(zpRetIf[1]);
-		}
+            zpcre_free_tmpsource(zpRetIf[1]);
+        }
 
         zRealRepoNum++;
 
@@ -196,10 +195,10 @@ zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
             zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
             if (0 == zpRetIf[2]->cnt) {
-                zpcre_free_tmpsource(zpRetIf[1]);
-                zpcre_free_tmpsource(zpRetIf[2]);
                 zPrint_Time();
                 fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
+                zpcre_free_tmpsource(zpRetIf[1]);
+                zpcre_free_tmpsource(zpRetIf[2]);
                 exit(1);
             } else {
                 zpcre_free_tmpsource(zpRetIf[1]);
