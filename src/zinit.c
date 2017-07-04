@@ -81,17 +81,12 @@ zinit_env(void) {
 
         zupdate_ipv4_db_all(&i);
         zppCacheVecIf[i] = zgenerate_cache(i);
-
-        for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
-            printf("%ld\n", zppCacheVecIf[i][z].iov_len);
-        }
     }
-
 }
 
 // 取 [REPO] 区域配置条目
 void
-zparse_REPO_and_alloc_resource(FILE *zpFile, char **zppRes, _i *zpLineNum) {
+zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
     _i zRepoId, zFd;
     zPCREInitInfo *zpInitIf[5];
@@ -119,23 +114,23 @@ zparse_REPO_and_alloc_resource(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         if (strlen(*zppRes) == 0) { continue; }
 
         zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
-        if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
+        if (0 == zpRetIf[1]->cnt) {
             zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
-            if (0 == zpRetIf[2]->cnt) {
+            if (0 == zpRetIf[2]->cnt) {  // 若检测到格式有误的语句，报错后退出
                 zpcre_free_tmpsource(zpRetIf[1]);
                 zpcre_free_tmpsource(zpRetIf[2]);
+
                 zPrint_Time();
                 fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
                 exit(1);
-            }
-            else {
+            } else {
                 zpcre_free_tmpsource(zpRetIf[1]);
                 zpcre_free_tmpsource(zpRetIf[2]);
                 goto zMark;
             }
         } else {
-            zpcre_free_tmpsource(zpRetIf[1]);
-        }
+			zpcre_free_tmpsource(zpRetIf[1]);
+		}
 
         zRealRepoNum++;
 
@@ -165,8 +160,6 @@ zMark:
     zRepoNum = zRealRepoNum;
     zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));  // 缩减到实际所需空间
     zCheck_Null_Exit(zppRepoPathList);
-
-    zinit_env();  // 代码库信息读取完毕后，初始化运行环境
 }
 
 // 取 [INOTIFY] 区域配置条目
@@ -208,8 +201,7 @@ zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
                 zPrint_Time();
                 fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
                 exit(1);
-            }
-            else {
+            } else {
                 zpcre_free_tmpsource(zpRetIf[1]);
                 zpcre_free_tmpsource(zpRetIf[2]);
                 goto zMark;
@@ -268,7 +260,7 @@ zMark:
     zpcre_free_metasource(zpInitIf[7]);
 }
 
-// 读取主配置文件
+// 读取主配置文件(正则取词有问题!!! 暂不影响功能，后续排查)
 void
 zparse_conf_and_init_env(const char *zpConfPath) {
 // TEST: PASS
@@ -303,10 +295,11 @@ zMark:  // 解析函数据行完毕后，跳转到此处
             exit(1);
         } else {
             if (0 == strcmp("REPO", zpRetIf[1]->p_rets[0])) {
-                zparse_REPO_and_alloc_resource(zpFile, &zpRes, &zLineNum);
+                zparse_REPO(zpFile, &zpRes, &zLineNum);
                 zpcre_free_tmpsource(zpRetIf[1]);
                 goto zMark;
             } else if (0 == strcmp("INOTIFY", zpRetIf[1]->p_rets[0])) {
+                zinit_env();  // 代码库信息读取完毕后，初始化git_shadow整体运行环境
                 zparse_INOTIFY_and_add_watch(zpFile, &zpRes, &zLineNum);
                 zpcre_free_tmpsource(zpRetIf[1]);
                 goto zMark;

@@ -155,20 +155,15 @@ zupdate_cache(void *zpIf) {
 }
 
 /*
- * 将文本格式的ipv4地址转换成二进制无符号整型
+ * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)
  */
 _ui
 zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
-    char zAddrBuf[INET_ADDRSTRLEN];
-    strcpy(zAddrBuf, zpStrAddr);
-    _ui zValidLen = (strlen(zAddrBuf) - 3);
-    _ui i, j;
-    for (i =0, j = 0; j < zValidLen; i++, j++) {
-        while ('.' == zAddrBuf[i]) { i++; }
-        zAddrBuf[j] = zAddrBuf[i];
-    }
-    zAddrBuf[j] = '\0';
-    return (_ui)strtol(zAddrBuf, NULL, 10);
+	struct in_addr zIpv4Addr;
+	zCheck_Negative_Exit(
+			inet_pton(AF_INET, zpStrAddr, &zIpv4Addr)
+			);
+    return zIpv4Addr.s_addr;
 }
 
 /*

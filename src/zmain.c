@@ -5,6 +5,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 
 #include <pthread.h>
@@ -265,7 +266,7 @@ zReLoad:;
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
 
-//    ztest_print();
+    ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
 
