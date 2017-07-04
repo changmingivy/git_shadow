@@ -1,5 +1,5 @@
 #ifndef _Z
-    #include "../zmain.c"
+    #include "zmain.c"
 #endif
 
 //jmp_buf zJmpEnv;
@@ -18,29 +18,29 @@ zinit_env(void) {
     }
 
     // 每个代码库近期布署日志信息的缓存
-    zMem_Alloc(zppPreLoadLogVecIf, struct iovec *, zRepoNum);
-    zMem_Alloc(zpPreLoadLogVecSiz, _ui, zRepoNum);
+    zMem_C_Alloc(zppPreLoadLogVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zpPreLoadLogVecSiz, _i, zRepoNum);
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
-    zMem_Alloc(zppCurTagSig, char *, zRepoNum);
+    zMem_C_Alloc(zppCurTagSig, char *, zRepoNum);
     // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
-    zMem_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
-    zMem_Alloc(zpCacheVecSiz, _i, zRepoNum);
+    zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
     // 每个代码库对应meta、data、sig三个日志文件
-    zMem_Alloc(zpLogFd[0], _i, zRepoNum);
-    zMem_Alloc(zpLogFd[1], _i, zRepoNum);
-    zMem_Alloc(zpLogFd[2], _i, zRepoNum);
+    zMem_C_Alloc(zpLogFd[0], _i, zRepoNum);
+    zMem_C_Alloc(zpLogFd[1], _i, zRepoNum);
+    zMem_C_Alloc(zpLogFd[2], _i, zRepoNum);
     // 存储每个代码库对应的主机总数
-    zMem_Alloc(zpTotalHost, _i, zRepoNum );
+    zMem_C_Alloc(zpTotalHost, _i, zRepoNum );
     // 即时存储已返回布署成功信息的主机总数
-    zMem_Alloc(zpReplyCnt, _i, zRepoNum );
+    zMem_C_Alloc(zpReplyCnt, _i, zRepoNum );
     // 索引每个代码库的读写锁
-    zMem_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
+    zMem_C_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
 
     // 每个代码库对应一个线性数组，用于接收每个ECS返回的确认信息
     // 同时基于这个线性数组建立一个HASH索引，以提高写入时的定位速度
-    zMem_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
-    zMem_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+    zMem_C_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
+    zMem_C_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
 
     for (_i i = 0; i < zRepoNum; i++) {
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
@@ -83,7 +83,7 @@ zinit_env(void) {
         zppCacheVecIf[i] = zgenerate_cache(i);
 
         for (_i z = 0; z < zpCacheVecSiz[i]; z++) {
-            printf("%zd\n", zppCacheVecIf[i]->iov_len);
+            printf("%ld\n", zppCacheVecIf[i][z].iov_len);
         }
     }
 
@@ -153,8 +153,6 @@ zparse_REPO_and_alloc_resource(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 
         zpcre_free_tmpsource(zpRetIf[3]);
         zpcre_free_tmpsource(zpRetIf[4]);
-
-		zinit_env();  // 代码库信息读取完毕后，初始化运行环境
     }
 
 zMark:
@@ -167,6 +165,8 @@ zMark:
     zRepoNum = zRealRepoNum;
     zppRepoPathList = realloc(zppRepoPathList, zRepoNum * sizeof(char *));  // 缩减到实际所需空间
     zCheck_Null_Exit(zppRepoPathList);
+
+    zinit_env();  // 代码库信息读取完毕后，初始化运行环境
 }
 
 // 取 [INOTIFY] 区域配置条目

@@ -15,20 +15,21 @@ zgenerate_cache(_i zRepoId) {
     struct iovec *zpNewCacheVec[2] = {NULL};  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
 
     FILE *zpShellRetHandler[2] = {NULL};  // 执行SHELL命令，读取此句柄获取返回信息
-    _i zDiffFilesNum = 0;  // 差异文件总数
+    _i zDiffFilesNum = 0, zLen = 0;  // 差异文件总数
 
     char *zpRes[2] = {NULL};  // 存储从命令行返回的原始文本信息
-    char zShellBuf[2][zCommonBufSiz];  // 存储命令行字符串
+    char zShellBuf[2][zCommonBufSiz] = {{'\0'}, {'\0'}};  // 存储命令行字符串
 
-    sprintf(zShellBuf[0], "cd %s"
-            "&& git diff --name-only HEAD CURRENT | wc -l"
-            "&& git diff --name-only HEAD CURRENT"
+    // 必须在shell命令中切换到正确的工作路径
+    sprintf(zShellBuf[0], "cd %s "
+            "&& git diff --name-only HEAD CURRENT | wc -l "
+            "&& git diff --name-only HEAD CURRENT "
             "&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
-    zpShellRetHandler[0] = popen(zShellBuf[0], "r");  // 第一行返回的是文件总数
+    zpShellRetHandler[0] = popen(zShellBuf[0], "r");
     zCheck_Null_Return(zpShellRetHandler, NULL);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
-    if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {
+    if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
         return NULL;  // 命令没有返回结果，代表没有差异文件，理论上不存在此种情况
     }
     else {
@@ -38,17 +39,23 @@ zgenerate_cache(_i zRepoId) {
         zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFilesNum);   // 为存储文件路径列表的iovec[0]分配空间
         zpCacheVecSiz[zRepoId] = zDiffFilesNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
 
-        for (_i i = 0; i < zDiffFilesNum - 1; i++) {
+        for (_i i = 0; i < zDiffFilesNum; i++) {
             zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
+            zLen = 1 + strlen(zpRes[0]) + sizeof(zFileDiffInfo);
 
-            zCheck_Null_Return(zpNewCacheVec[0][i].iov_base = malloc(1 + strlen(zpRes[0]) + zSizeOf(zFileDiffInfo)), NULL);
+            zCheck_Null_Return(
+                    zpNewCacheVec[0][i].iov_base = malloc(zLen),
+                    NULL);
 
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->CacheVersion = zNewVersion;
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->RepoId= zRepoId;
             ((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->FileIndex = i;
             strcpy(((zFileDiffInfo *)(zpNewCacheVec[0][i].iov_base))->path, zpRes[0]);
 
-            sprintf(zShellBuf[1], "git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zpRes[0], zpRes[0]);
+            zpNewCacheVec[0][i].iov_len = zLen;
+
+            // 必须在shell命令中切换到正确的工作路径
+            sprintf(zShellBuf[1], "cd %s && git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zppRepoPathList[zRepoId], zpRes[0], zpRes[0]);
             zpShellRetHandler[1] = popen(zShellBuf[1], "r");
             zCheck_Null_Return(zpShellRetHandler, NULL);
 
@@ -58,46 +65,65 @@ zgenerate_cache(_i zRepoId) {
             zMem_Alloc(zpNewCacheVec[1], struct iovec, atoi(zpRes[1]));  // 为每个文件的详细差异内容分配iovec[1]分配空间
 
             for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
-                zMem_Alloc(zpNewCacheVec[j]->iov_base, char, 1 + strlen(zpRes[1]));
+                zLen = 1 + strlen(zpRes[1]);
+                zMem_Alloc(zpNewCacheVec[1][j].iov_base, char, zLen);
                 strcpy(((char *)(zpNewCacheVec[1][j].iov_base)), zpRes[1]);
+                zpNewCacheVec[1][j].iov_len = zLen;
             }
             pclose(zpShellRetHandler[1]);
         }
 
-        // 以下四行更新所属代码库的CURRENT tag SHA1 sig值
+        /* 以下四行更新所属代码库的CURRENT tag SHA1 sig值 */
         char *zpBuf = zget_one_line_from_FILE(zpShellRetHandler[0]);  // 读取最后一行：CURRENT标签的SHA1 sig值
         zMem_Alloc(zppCurTagSig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
         strncpy(zppCurTagSig[zRepoId], zpBuf, 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
         pclose(zpShellRetHandler[0]);
     }
 
-    // 以下部分更新日志缓存
+    /* 以下部分更新日志缓存 */
     zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
     struct stat zStatBufIf;
+    size_t zRealLogNum, zDataLogCacheSiz;
+    char *zpDataLogCache;
 
-    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
-    zpPreLoadLogVecSiz[zRepoId] = (zStatBufIf.st_size / zSizeOf(zDeployLogInfo)) > zPreLoadLogSiz ? zPreLoadLogSiz : (zStatBufIf.st_size / zSizeOf(zDeployLogInfo));  // 计算需要缓存的实际日志数量
+    zCheck_Negative_Return(
+            fstat(zpLogFd[0][zRepoId], &zStatBufIf),  // 获取当前日志文件属性
+            NULL);
+    if (0 == (zRealLogNum = zStatBufIf.st_size / sizeof(zDeployLogInfo))) {
+        goto zMark;
+    }
+
+    zpPreLoadLogVecSiz[zRepoId] = zRealLogNum > zPreLoadLogSiz ? zPreLoadLogSiz : zRealLogNum;  // 计算需要缓存的实际日志数量
     zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
 
-    zpMetaLogIf = (zDeployLogInfo *)mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));  // 将meta日志mmap至内存
+    zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));  // 将meta日志mmap至内存
     zCheck_Null_Return(zpMetaLogIf, NULL);
 
+    zCheck_Negative_Return(
+            fstat(zpLogFd[1][zRepoId], &zStatBufIf),  // 获取当前日志文件属性
+            NULL);
     zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
-    _ul zDataLogSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
-    char *zpDataLog = mmap(NULL, zDataLogSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset);  // 将data日志mmap至内存
-    zCheck_Null_Return(zpDataLog, NULL);
+    if (zStatBufIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
+        zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
+        exit(1);
+    }
 
-    for (_ui i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
+    zDataLogCacheSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
+    zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset);  // 将data日志mmap至内存
+    zCheck_Null_Return(zpDataLogCache, NULL);
+
+    for (_i i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
         if (0 == i % 2) {
             zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = zSizeOf(zDeployLogInfo);
+            zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
         }
         else {
-            zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLog + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
+            zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLogCache + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
             zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
         }
     }
 
+zMark:
     pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
     return zpNewCacheVec[0];
 }
@@ -111,8 +137,7 @@ zupdate_cache(void *zpIf) {
     }
     else {
           // 若新缓存正常返回，释放掉老缓存的内存空间
-        _ui i;
-        for (i = 0; i < zpOldCacheIf->iov_len; i++) {
+        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) {
             for (_i j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
                 free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
             }
@@ -120,10 +145,12 @@ zupdate_cache(void *zpIf) {
             free(zpOldCacheIf[i].iov_base);
         }
         free(zpOldCacheIf);
-        // 如下部分用于销毁旧的布署日志缓存
+    }
+
+    if (NULL != zppPreLoadLogVecIf[zRepoId]) { // 如下部分用于销毁旧的布署日志缓存
         zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
-        munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * zSizeOf(zDeployLogInfo));
-        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen- zpTmpIf->offset);
+        munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));
+        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen - zpTmpIf->offset);
     }
 }
 
