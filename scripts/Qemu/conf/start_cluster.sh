@@ -47,8 +47,8 @@ esac
 
 zISO="${zOS}.iso"
 zBaseImg="${zOS}_base.img"
-zCpuNum="1"
-zMem="512"
+zCpuNum="4"
+zMem="496M"
 zDiskSiz="20G"
 zHostNatIf="wlp1s0"
 zHostIP="10.30.2.126"

@@ -48,4 +48,4 @@ printf "#!/bin/sh \n\
 		fi \n\
 	done" > $zCodePath/hooks/post-receive
 
-chmod u+x $zGitServPath/hooks/post-receive
+chmod u+x $zCodePath/hooks/post-receive
