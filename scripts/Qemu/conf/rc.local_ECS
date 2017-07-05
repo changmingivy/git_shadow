@@ -1,0 +1,17 @@
+#!/bin/sh
+
+zIf="eth0"
+zHostId=`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`
+hostname "CentOS_$zHostId"
+
+zIP="172.16.0.$zHostId/16"
+zRoute="172.16.0.1"
+
+ip addr flush dev $zIf
+ip route flush dev $zIf
+
+ip link set $zIf up
+ip addr add $zIP dev $zIf
+ip route replace default via $zRoute dev $zIf
+
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
