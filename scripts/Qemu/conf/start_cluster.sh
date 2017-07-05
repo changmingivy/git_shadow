@@ -5,10 +5,12 @@
 # 2、配置好每个OS的基础镜像，置于"../images"路径下，命名格式:FreeBSD_base.img
 # 
 
+zMaxVmNum="80"
+
 if [[ $1 == '' ]]; then
 	zVmNum=1
 	printf "\033[31;01m\$VmNum is not specified, defaults to 1\n\033[00m"
-elif [[ $1 =~ [0-9][0-9] ]]; then
+elif [[ $1 =~ [0-9][0-9]? ]]; then
 	zVmNum=$1
 else
 	printf "\033[31;01m\$1 is not a number!!!\n\033[00m"
@@ -46,14 +48,11 @@ esac
 zISO="${zOS}.iso"
 zBaseImg="${zOS}_base.img"
 zCpuNum="1"
-zMem="1G"
-zMaxMem="2G"
+zMem="512"
 zDiskSiz="20G"
 zHostNatIf="wlp1s0"
 zHostIP="10.30.2.126"
 zBridgeIf=br0
-
-zMaxVmNum="80"
 
 modprobe tun
 modprobe vhost
@@ -75,9 +74,9 @@ zvm_func() {
 	-enable-kvm \
 	-machine q35,accel=kvm -device intel-iommu \
 	-cpu host -smp $zCpuNum,sockets=$zCpuNum,cores=1,threads=1 \
-	-m $zMem,slots=4,maxmem=$zMaxMem \
+	-m $zMem \
 	-netdev tap,ifname=${zOS}_$1,script=tap.sh,downscript=no,vhost=on,id=vmNic_${zOS}_$1 -device virtio-net-pci,mac=00:e0:4c:49:$1:${zVersion},netdev=vmNic_${zOS}_$1 \
-	-drive file=../images/$zImgName,if=none,cache=writeback,media=disk,id=vmDisk_${zOS}_$1 -device virtio-blk-pci,drive=vmDisk_${zOS}_$1 \
+	-drive file=$zImgPath,if=none,cache=writeback,media=disk,id=vmDisk_${zOS}_$1 -device virtio-blk-pci,drive=vmDisk_${zOS}_$1 \
 	-drive file=../ISOs/$zISO,readonly=on,media=cdrom \
 	-boot order=cd \
 	-name vm${zOS}_$1 \
@@ -88,22 +87,22 @@ zvm_func() {
 
 zops_func() {
 	eval zMark=$(($1 + $zAddrPos))
-	local zImgName=${zOS}_${zMark}.img
+	zImgPath=/tmp/images/${zOS}_${zMark}.img
 	local zBaseImgName=${zOS}_base.img
 	local zVncID=$zMark
 
 	if [[ 0 -eq $(ls ../images | grep -c $zBaseImgName) ]];then
-		zImgName=$zBaseImgName
-		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on ../images/$zImgName'
+		zImgPath=../images/$zBaseImgName
+		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on $zImgPath'
 	else
 		mkdir -p /tmp/images
-		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=../images/$zBaseImg /tmp/images/$zImgName'
+		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=`dirname $PWD`/images/$zBaseImg $zImgPath'
 	fi
 
-	if [[ 0 -eq $(ls ../images | grep -c $zImgName) ]];then
+	if [[ 0 -eq $(ls ../images | grep -c $zImgPath) ]];then
 		eval $zCommand
 		if [[ 0 -ne $? ]];then
-			printf "\033[31;01mCan't create $zImgName!!!\n\033[00m"
+			printf "\033[31;01mCan't create $zImgPath!!!\n\033[00m"
 			exit
 		fi
 	fi
@@ -113,5 +112,6 @@ zops_func() {
 
 for ((i=0; i<$zVmNum; i++))
 do
+	rm /tmp/images/CentOS_$(($i + $zAddrPos)).img
 	zops_func $i
 done

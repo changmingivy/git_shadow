@@ -1,6 +1,6 @@
 #!/bin/sh
 
-zIf="eth0"
+zIf=`ip link | grep -oP 'eth\d+'`
 zHostId=`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`
 hostname "CentOS_$zHostId"
 
