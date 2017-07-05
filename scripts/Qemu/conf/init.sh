@@ -11,39 +11,38 @@ zCpuNum="1"
 zMem="1G"
 zMaxMem="2G"
 zDiskSiz="20G"
-zMaxVmNum="20"
 zHostNatIf="wlp1s0"
 zHostIP="10.30.2.126"
 
-if [[ 0 -eq `cat /proc/sys/net/ipv4/ip_forward` ]]; then
-	modprobe tun
-	modprobe vhost
-	modprobe vhost_net
+zMaxVmNum="80"
 
-	echo 1 > /proc/sys/net/ipv4/ip_forward
+modprobe tun
+modprobe vhost
+modprobe vhost_net
 
-	iptables -t nat -F POSTROUTING
-	iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-source $zHostIP
-fi
+echo 1 > /proc/sys/net/ipv4/ip_forward
 
-if [[ $1 == '' ]];then
+iptables -t nat -F POSTROUTING
+iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-source $zHostIP
+
+if [[ $1 == '' ]]; then
 	zVmNum=1
 	printf "\033[31;01m\$VmNum is not specified, defaults to 1\n\033[00m"
-elif [[ $1 =~ [0-9][0-9] ]];then
+elif [[ $1 =~ [0-9][0-9] ]]; then
 	zVmNum=$1
 else
 	printf "\033[31;01m\$1 is not a number!!!\n\033[00m"
 	exit
 fi
 
-if [[ $2 == '' ]];then
+if [[ $2 == '' ]]; then
 	zOS=CentOS
 	printf "\033[31;01mOS is not specified, defaults to \"CentOS-6.9\"\n\033[00m"
 else
 	zOS=$2
 fi
 
-if [[ $1 -gt $zMaxVmNum ]];then
+if [[ $1 -gt $zMaxVmNum ]]; then
 	printf "\033[31;01mvmNum > ${zMaxVmNum}!!!\n\033[00m"
 	exit
 fi
@@ -90,7 +89,8 @@ zops_func() {
 		zImgName=$zBaseImgName
 		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on ../images/$zImgName'
 	else
-		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=../images/$zBaseImg ../images/$zImgName'
+		mkdir -p /tmp/images
+		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=../images/$zBaseImg /tmp/images/$zImgName'
 	fi
 
 	if [[ 0 -eq $(ls ../images | grep -c $zImgName) ]];then
