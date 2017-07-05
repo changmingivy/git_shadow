@@ -6,28 +6,19 @@
 # $2:code repo path
 # $@(after shift):files to deploy
 zdeploy() {
-	local zCodePath=$1
-	if [[ 0 < $# ]]; then
-		shift 1
-	fi
+	if [[ '' == $zCodePath ]]; then zCodePath="."; fi
 
-	local zEcsList=`cat $zCodePath/.git_shadow/major_list`
-
-	if [[ '' == $zCodePath ]]; then 
-		return -1
-	fi
-
+	local zEcsList=`cat $zCodePath/.git_shadow/client_ip_major.txt`
 	cd $zCodePath
 
 	if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
-		git add -A .
+		git add --all .
 	else
-		for zFile in $@
-		do
+		for zFile in $@; do
 			git add $zFile
 		done
 	fi
-	git commit -m "${zCodePath}: `date -Is`"  # Maybe reveive contents from frontend?
+	git commit -m "[DEPLOY] ${zCodePath}: `date -Is`"  # Maybe reveive contents from frontend?
 
 	local i=0
 	local j=0
@@ -35,6 +26,7 @@ zdeploy() {
 	do
 		let i++
 		git push --force git@${zEcs}:${zCodePath}/.git master:server
+
 		if [[ $? -ne 0 ]]; then let j++; fi
 	done
 
@@ -45,8 +37,6 @@ zdeploy() {
 		return -1
 	fi
 
-	zPrevCommitId=$(git log --format=%H -n 1)
-
 	git tag -d CURRENT
 	git tag CURRENT
 }
@@ -56,15 +46,10 @@ zdeploy() {
 # $1: specify where to fallback (git commit SHA1 id)
 # $@(after shift):the file to deploy
 zrevoke() {
-	local zCommitId=$1
-	if [[ 0 < $# ]]; then
-		shift 1
-	fi
+	if [[ '' == ${zCommitId} ]]; then return -1; fi
+	if [[ '' == $zCodePath ]]; then zCodePath="."; fi
 
-	if [[ '' == ${zCommitId} ]]; then
-		return -1
-	fi
-
+	local zEcsList=`cat $zCodePath/.git_shadow/client_ip_major.txt`
 	cd $zCodePath
 	
 	zBranchId=$(git log CURRENT -n 1 --format=%H)
@@ -84,9 +69,25 @@ zrevoke() {
 		return -1
 	fi
 
-	git commit -m "files below have been revoked to ${zCommitId}:\n$*"
-	git stash
-	git stash clear
+	git commit -m "[REVOKE] ${zCodePath}: `date -Is`"
+
+	local i=0
+	local j=0
+	for zEcs in $zEcsList
+	do
+		let i++
+		git push --force git@${zEcs}:${zCodePath}/.git master:server
+
+		if [[ $? -ne 0 ]]; then let j++; fi
+	done
+
+	if [[ $i -eq $j ]]; then
+		git reset --hard CURRENT
+		git stash
+		git stash clear
+		return -1
+	fi
+
 	git tag -d CURRENT
 	git tag CURRENT
 	git branch -M master
@@ -118,13 +119,13 @@ done
 shift $[$OPTIND - 1]
 
 if [[ $zActionType -eq $zDeployOne ]]; then
-	zdeploy $zCodePath $@
+	zdeploy $@
 elif [[ $zActionType -eq $zDeployAll ]]; then
-	zdeploy $zCodePath
+	zdeploy
 elif [[ $zActionType -eq $zRevokeOne ]]; then
-	zrevoke ${zCommitId} $@
+	zrevoke $@
 elif [[ $zActionType -eq $zRevokeAll ]]; then
-	zrevoke ${zCommitId}
+	zrevoke
 else
 	printf "\033[31;01mUnknown request!\033[00m\n" 1>&2
 fi
