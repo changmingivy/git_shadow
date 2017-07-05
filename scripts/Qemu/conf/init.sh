@@ -5,26 +5,6 @@
 # 2、配置好每个OS的基础镜像，置于"../images"路径下，命名格式:FreeBSD_base.img
 # 
 
-zISO="${zOS}.iso"
-zBaseImg="${zOS}_base.img"
-zCpuNum="1"
-zMem="1G"
-zMaxMem="2G"
-zDiskSiz="20G"
-zHostNatIf="wlp1s0"
-zHostIP="10.30.2.126"
-
-zMaxVmNum="80"
-
-modprobe tun
-modprobe vhost
-modprobe vhost_net
-
-echo 1 > /proc/sys/net/ipv4/ip_forward
-
-iptables -t nat -F POSTROUTING
-iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-source $zHostIP
-
 if [[ $1 == '' ]]; then
 	zVmNum=1
 	printf "\033[31;01m\$VmNum is not specified, defaults to 1\n\033[00m"
@@ -63,6 +43,33 @@ case $zOS in
 		;;
 esac
 
+zISO="${zOS}.iso"
+zBaseImg="${zOS}_base.img"
+zCpuNum="1"
+zMem="1G"
+zMaxMem="2G"
+zDiskSiz="20G"
+zHostNatIf="wlp1s0"
+zHostIP="10.30.2.126"
+zBridgeIf=br0
+
+zMaxVmNum="80"
+
+modprobe tun
+modprobe vhost
+modprobe vhost_net
+
+if [[ 0 -eq `ip link show $zBridgeIf | wc -l` ]]; then
+	ip link add $zBridgeIf type bridge
+	ip link set $zBridgeIf up
+	ip addr add "172.16.0.1/16" dev $zBridgeIf
+fi
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+iptables -t nat -F POSTROUTING
+iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-source $zHostIP
+
 zvm_func() {
 	qemu-system-x86_64 \
 	-enable-kvm \
@@ -81,7 +88,7 @@ zvm_func() {
 
 zops_func() {
 	eval zMark=$(($1 + $zAddrPos))
-	local zImgName=${zOS}_$x.img
+	local zImgName=${zOS}_${zMark}.img
 	local zBaseImgName=${zOS}_base.img
 	local zVncID=$zMark
 
