@@ -34,7 +34,7 @@ fi
 for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
 	if [[ 1 -eq `ls -d $zDir 2>/dev/null | wc -l` ]]; then
 		cd $zDir
-		git init . >/dev/null 2>&1
+		git init . #>/dev/null 2>&1
 		git config user.name "git_shadow"
 		git config user.email $PWD
 		rm -rf $zDir/.git/index.lock
@@ -43,4 +43,4 @@ done
 
 cd $zCurDir
 killall git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.10.20.141 -p 20000 | tee >> ../log/log 2>&1 
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000 | tee >> ../log/log 2>&1 

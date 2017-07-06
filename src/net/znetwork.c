@@ -165,7 +165,7 @@ zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
 void
 zdeploy(_i zSd,  _i zMark) {
     zFileDiffInfo zDiffIf;
-	zDiffIf.zHint[0] = sizeof(zFileDiffInfo) - sizeof(_i);
+    zDiffIf.zHint[0] = sizeof(zFileDiffInfo) - sizeof(_i);
 
     if (zBytes(20) > zrecv_nohang(zSd, &zDiffIf, sizeof(zDiffIf), 0, NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
@@ -226,8 +226,8 @@ zdeploy(_i zSd,  _i zMark) {
 void
 zrevoke_from_log(_i zSd, _i zMark){
     zDeployLogInfo zLogIf;
-	zLogIf.zHint[0] = sizeof(zDeployLogInfo) - sizeof(_i);
-	zLogIf.zHint[1] = sizeof(zDeployLogInfo) - sizeof(_i) -sizeof(_l);
+    zLogIf.zHint[0] = sizeof(zDeployLogInfo) - sizeof(_i);
+    zLogIf.zHint[1] = sizeof(zDeployLogInfo) - sizeof(_i) -sizeof(_l);
 
     if (zBytes(20) > zrecv_nohang(zSd, &zLogIf, sizeof(zLogIf), 0, NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");

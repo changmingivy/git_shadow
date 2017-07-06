@@ -272,12 +272,12 @@ zupdate_ipv4_db_all(void *zpIf) {
             zpcre_free_tmpsource(zpPCREResIf);
             zPrint_Time();
             fprintf(stderr, "\033[31;01m[%s]-[Line %d]: Invalid entry!\033[00m\n", zAllIpPath, i);
-            continue;
+            exit(1);
         }
         zpcre_free_tmpsource(zpPCREResIf);
 
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
-        if (zSizeOf(_ui) != write(zFd[2], &zIpv4Addr, zSizeOf(_ui))) {
+        if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
             zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
             exit(1);
         }

@@ -1,31 +1,34 @@
 #!/usr/bin/env bash
 zProjName=$1
-zSvnServPath=~svn/svn_$zProjName  #Subversion repo to receive code from remote developers
-zSyncPath=~git/sync_$zProjName  #Sync snv repo to git repo
-zDeployPath=~git/$zProjName #Used to deploy code! --CORE--
+zSvnServPath=/home/svn/svn_$zProjName  #Subversion repo to receive code from remote developers
+zSyncPath=/home/git/sync_$zProjName  #Sync snv repo to git repo
+zDeployPath=/home/git/$zProjName #Used to deploy code! --CORE--
 zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
 yes|yum install subversion git
-cp -r ../demo/$ProjName ~git/
+rm -rf /home/git/$zProjName
+cp -r ../demo/$zProjName /home/git/
 
 #Init Subversion Server
 useradd -m svn -s $(which sh)
+rm -rf $zSvnServPath
 mkdir -p $zSvnServPath
 svnadmin create $zSvnServPath
 perl -p -i.bak -e 's/^#\s*anon-access\s*=.*$/anon-access = write/' $zSvnServPath/conf/svnserve.conf
 svnserve --listen-port=$2 -d -r $zSvnServPath
 
 #Init svn repo
-svn co svn://127.0.0.1/ $zSyncPath
+svn co svn://127.0.0.1:$2/ $zSyncPath
 svn propset svn:ignore '.git
 .gitignore' $zSyncPath
 
 #Init Sync Git Env
 useradd -m git -s $(which sh)
-su git -c "yes|ssh-keygen -t rsa -P '' -f ~git/.ssh/id_rsa"
+su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 
 git init $zSyncPath
 
+rm -rf $zSyncPath
 mkdir -p $zSyncPath/.git_shadow
 touch $zSshKeyPath
 chmod 0600 $zSshKeyPath
@@ -33,14 +36,19 @@ cd $zSyncPath
 git init .
 git config --global user.email "git_shadow@yixia.com"
 git config --global user.name "git_shadow"
+touch README
 git add --all .
-git commit -m "init"
+git commit -m "INIT"
 git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
 
 #Init Deploy Git Env
 mkdir -p $zDeployPath
 cd $zDeployPath
 git init .
+touch README
+git add --all .
+git commit -m "INIT"
+git tag CURRENT
 git branch server  #Act as Git server
 
 # Config svn hooks，锁机制需要替换
