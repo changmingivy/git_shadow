@@ -40,7 +40,7 @@ zlist_diff_files(_i zSd){
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
-//  shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
+    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
 }
 
 // 打印当前版本缓存与CURRENT标签之间的指定文件的内容差异
@@ -65,7 +65,7 @@ zprint_diff_contents(_i zSd){
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若缓存版本不一致，要求前端重发报文
     }
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
-//  shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 // 列出最近zPreLoadLogSiz次或全部历史布署日志
@@ -116,7 +116,7 @@ zlist_log(_i zSd, _i zMark) {
         munmap(zpDataLog, zDataLogSiz);
     }
     pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
-//  shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 void
@@ -219,7 +219,7 @@ zdeploy(_i zSd,  _i zMark) {
     else {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
     }
-//  shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 // 依据布署日志，撤销指定文件或整次提交
@@ -289,7 +289,7 @@ zrevoke_from_log(_i zSd, _i zMark){
     }
 
     pthread_rwlock_unlock( &(zpRWLock[zLogIf.RepoId]) );
-//  shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 // 接收并更新对应的布署状态确认信息
@@ -299,6 +299,7 @@ zconfirm_deploy_state(_i zSd, _i zMark) {
     if (zBytes(20) > zrecv_nohang(zSd, &zDpResIf, sizeof(zDeployResInfo), 0, NULL)) {
         zPrint_Err(0, NULL, "Reply to frontend failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        return;
     }
 
     zDeployResInfo *zpTmp = zpppDpResHash[zDpResIf.RepoId][zDpResIf.ClientAddr % zDeployHashSiz];  // HASH定位
@@ -343,7 +344,7 @@ zupdate_ipv4_db_txt(_i zSd, _i zRepoId, _i zMark) {
     if (zBytes(32) != zsendto(zSd, zgenerate_file_sig_md5(zPathBuf), zBytes(32), 0, NULL)) {
         zPrint_Err(0, NULL, "Reply to frontend failed!");
     }
-//  shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 // 路由函数
@@ -355,6 +356,7 @@ zdo_serv(void *zpSd) {
     if (zBytes(4) > zrecv_nohang(zSd, zReqBuf, zBytes(4), MSG_PEEK, NULL)) { // 接收前端指令信息，读出指令但不真正取走数据
         zPrint_Err(0, NULL, "recv ERROR!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        return;
     }
 
     switch (zReqBuf[0]) {
