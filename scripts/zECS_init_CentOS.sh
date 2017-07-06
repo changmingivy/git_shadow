@@ -6,7 +6,7 @@ zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all
 zSshKeyPath=$zCodePath/.git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
 yes|yum install git
-cp -r ../demo/$ProjName ~git/
+cp -rf ../demo/$zProjName ~git/
 
 #Init git env
 useradd -m git -s `which sh`

@@ -1,4 +1,5 @@
 #!/bin/sh
+touch /var/lock/subsys/local
 
 zIf=`ip link | grep -oP 'eth\d+'`
 zHostId=`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`
@@ -15,3 +16,11 @@ ip addr add $zIP dev $zIf
 ip route replace default via $zRoute dev $zIf
 
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
+if [[ 0 -eq `cd ~git && ls -d yizhibo | wc -l` ]]; then
+	sh ~git/zX/scripts/zECS_init_CentOS.sh yizhibo
+fi
+
+if [[ 0 -eq `cd ~git && ls -d miaopai | wc -l` ]]; then
+	sh ~git/zX/scripts/zECS_init_CentOS.sh miaopai
+fi

@@ -145,7 +145,7 @@ _i *zpPreLoadLogVecSiz;
 #include "inotify/zinotify.c"  // 监控代码库文件变动
 #include "zinit.c"  // 读取主配置文件
 #include "net/znetwork.c"  // 对外提供网络服务
-#include "ztest.c"
+//#include "ztest.c"
 
 /***************************
  * +++___ main 函数 ___+++ *

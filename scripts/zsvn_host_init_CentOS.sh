@@ -6,6 +6,8 @@ zDeployPath=~git/$zProjName #Used to deploy code! --CORE--
 zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
 yes|yum install subversion git
+cp -r ../demo/$ProjName ~git/
+
 #Init Subversion Server
 useradd -m svn -s $(which sh)
 mkdir -p $zSvnServPath
