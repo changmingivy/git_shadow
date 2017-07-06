@@ -205,11 +205,11 @@ zclose_fds(pid_t zPid) {
 void
 zdaemonize(const char *zpWorkDir) {
 // TEST: PASS
-    struct sigaction zSigActionIf;
-    zSigActionIf.sa_handler = SIG_IGN;
-    sigemptyset(&zSigActionIf.sa_mask);
-    zSigActionIf.sa_flags = 0;
-    sigaction(SIGHUP | SIGPIPE, &zSigActionIf, NULL);
+//    struct sigaction zSigActionIf;
+//    zSigActionIf.sa_handler = SIG_IGN;
+//    sigemptyset(&zSigActionIf.sa_mask);
+//    zSigActionIf.sa_flags = 0;
+//    sigaction(SIGHUP, &zSigActionIf, NULL);
 
     umask(0);
     zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);

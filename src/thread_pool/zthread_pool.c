@@ -36,6 +36,7 @@ typedef struct zThreadJobInfo {
 zThreadJobInfo zThreadPoll[zThreadPollSiz];
 _i zIndex[zThreadPollSiz];
 _i zJobQueue = -1;
+sigset_t zThreadSigSet;
 
 pthread_mutex_t zThreadPollMutexLock[3] = {PTHREAD_MUTEX_INITIALIZER};
 pthread_cond_t zThreadPoolCond[3] = {PTHREAD_COND_INITIALIZER};
@@ -44,6 +45,8 @@ void *
 zthread_func(void *zpIndex) {
 //TEST: PASS
     zCheck_Pthread_Func_Return(pthread_detach(pthread_self()), NULL);
+    zCheck_Pthread_Func_Return(pthread_sigmask(SIG_BLOCK, &zThreadSigSet, NULL), NULL);
+
     _i i = *((_i *)zpIndex);
 
 zMark:;
@@ -77,6 +80,7 @@ zMark:;
 void
 zthread_poll_init(void) {
 //TEST: PASS
+    sigfillset(&zThreadSigSet);
     for (_i i = 0; i < zThreadPollSiz; i++) {
         zIndex[i] = i;
         zThreadPoll[i].MarkStart= 0;

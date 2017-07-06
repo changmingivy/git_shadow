@@ -30,7 +30,7 @@
 // 列出差异文件路径名称列表
 void
 zlist_diff_files(_i zSd) {
-	zFileDiffInfo zIf = { .RepoId = -1, };
+    zFileDiffInfo zIf = { .RepoId = -1, };
 
     if (zBytes(8) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
@@ -38,12 +38,12 @@ zlist_diff_files(_i zSd) {
         return;
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
-	pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) ),
+    pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
 
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
@@ -61,10 +61,10 @@ zprint_diff_contents(_i zSd) {
         return;
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
     if (zIf.CacheVersion == ( (zFileDiffInfo *) (zppCacheVecIf[zIf.RepoId][0].iov_base))->CacheVersion ) {
@@ -91,10 +91,10 @@ zlist_log(_i zSd, _i zMark) {
         return;
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
     _i zVecSiz;
@@ -191,10 +191,10 @@ zdeploy(_i zSd,  _i zMark) {
         return;
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
     if (zIf.CacheVersion == ((zFileDiffInfo *) (zppCacheVecIf[zIf.RepoId]->iov_base))->CacheVersion) {  // 确认缓存版本是否一致
         char zShellBuf[4096];  // 存放SHELL命令字符串
@@ -257,10 +257,10 @@ zrevoke_from_log(_i zSd, _i zMark){
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
     if (zIf.index >= zPreLoadLogSiz) {
         zsendto(zSd, "-1", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
@@ -330,10 +330,10 @@ zconfirm_deploy_state(_i zSd, _i zMark) {
         return;
     }
 
-	if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-		zPrint_Err(0, NULL, "Invalid Repo ID !");
+    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
-	}
+    }
 
     zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz];  // HASH定位
     while (zpTmp != NULL) {  // 遍历
