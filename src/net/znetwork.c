@@ -29,9 +29,9 @@
 
 // 列出差异文件路径名称列表
 void
-zlist_diff_files(_i zSd){
+zlist_diff_files(_i zSd) {
     zFileDiffInfo zIf;
-    if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
+    if (zBytes(8) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         return;
@@ -45,7 +45,7 @@ zlist_diff_files(_i zSd){
 
 // 打印当前版本缓存与CURRENT标签之间的指定文件的内容差异
 void
-zprint_diff_contents(_i zSd){
+zprint_diff_contents(_i zSd) {
     zFileDiffInfo zIf;
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
         zPrint_Err(0, NULL, "Recv data failed!");

@@ -14,10 +14,10 @@ mkdir -p ../bin
 rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
-	cc  -O2 \
+	clang  -O2 \
 		-Wall \
 		-Wextra \
-		-std=c99 \
+		-std=c11 \
 		-I../inc \
 		-lpthread \
 		-lpcre2-8 \
@@ -31,16 +31,16 @@ if [[ 0 -eq `ls $HOME/.gitconfig 2>/dev/null | wc -l` ]]; then
 	git config --global user.email "_"
 fi
 
-for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
-	if [[ 1 -eq `ls -d $zDir 2>/dev/null | wc -l` ]]; then
-		cd $zDir
-		git init . #>/dev/null 2>&1
-		git config user.name "git_shadow"
-		git config user.email $PWD
-		rm -rf $zDir/.git/index.lock
-	fi
-done
+# for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
+# 	if [[ 1 -eq `ls -d $zDir 2>/dev/null | wc -l` ]]; then
+# 		cd $zDir
+# 		git init . #>/dev/null 2>&1
+# 		git config user.name "git_shadow"
+# 		git config user.email $PWD
+# 		rm -rf $zDir/.git/index.lock
+# 	fi
+# done
 
 cd $zCurDir
 killall git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000 | tee >> ../log/log 2>&1 
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000 >> ../log/log 2>&1 
