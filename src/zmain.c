@@ -47,8 +47,8 @@
 typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
 //----------------------------------
 typedef struct {
-    _us RepoId;  // 每个代码库对应的索引
-    _us RecursiveMark;  // 是否递归标志
+    _s RepoId;  // 每个代码库对应的索引
+    _s RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
     char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
@@ -57,7 +57,7 @@ typedef struct {
 //----------------------------------
 typedef struct {
     char zHint[4];   // 用于块充提示类信息，如：提示从何处开始读取需要的数据
-    _ui RepoId;  // 索引每个代码库路径
+    _i RepoId;  // 索引每个代码库路径
     _ui FileIndex;  // 缓存中每个文件路径的索引
     _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
@@ -70,7 +70,7 @@ typedef struct {
 
 typedef struct {  // 布署日志信息的数据结构
     char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
-    _ui RepoId;  // 标识所属的代码库
+    _i RepoId;  // 标识所属的代码库
     _ui index;  // 索引每条记录在日志文件中的位置
     _l offset;  // 指明在data日志文件中的SEEK偏移量
 
@@ -82,8 +82,8 @@ typedef struct {  // 布署日志信息的数据结构
 typedef struct zDeployResInfo {
     char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _us RepoId;  // 所属代码库
-    _us DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
+    _s RepoId;  // 所属代码库
+    _s DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
     struct zDeployResInfo *p_next;
 } zDeployResInfo;
 

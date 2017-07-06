@@ -35,9 +35,9 @@
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
 #define zPreLoadLogSiz 64  // 预缓存日志数量
 
-#include "../inc/zutils.h"
-#include "zbase_utils.c"
-#include "pcre2/zpcre.c"
+#include "../../inc/zutils.h"
+#include "../zbase_utils.c"
+#include "../pcre2/zpcre.c"
 
 #define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
 
@@ -139,12 +139,12 @@ _i *zpPreLoadLogVecSiz;
 /**********
  * 子模块 *
  **********/
-#include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
-#include "thread_pool/zthread_pool.c"
-#include "inotify/zinotify_callback.c"
-#include "inotify/zinotify.c"  // 监控代码库文件变动
-#include "zinit.c"  // 读取主配置文件
-#include "net/znetwork.c"  // 对外提供网络服务
+#include "../md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
+#include "../thread_pool/zthread_pool.c"
+#include "../inotify/zinotify_callback.c"
+#include "../inotify/zinotify.c"  // 监控代码库文件变动
+#include "../zinit.c"  // 读取主配置文件
+//#include "../net/znetwork.c"  // 对外提供网络服务
 
 // 此函数仅用作测试
 void
@@ -215,3 +215,30 @@ ztest_print(void) {
     }
 }
 
+void
+zclient(char *zpX) {
+	char zBuf[4096];
+    _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    if (-1 == zSd) {
+        zPrint_Err(0, NULL, "Connect to server failed.");
+        exit(1);
+    }
+
+	zCheck_Negative_Return(
+			zsendto(zSd, zpX, strlen(zpX), 0, NULL),
+			);
+
+	zCheck_Negative_Return(
+			zrecv_all(zSd, zBuf, 4096, 0, NULL),
+			);
+
+	printf("%s\n", zBuf);
+    shutdown(zSd, SHUT_RDWR);
+}
+
+
+_i
+main(_i zArgc, char **zppArgv) {
+	printf("%d, %s\n", zArgc, zppArgv[1]);
+	zclient(zppArgv[1]);
+}
