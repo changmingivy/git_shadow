@@ -78,7 +78,16 @@ zvm_func() {
 }
 
 zops_func() {
-	eval zMark=$(($1 + $zAddrPos))
+	eval zX=$(($1 + $zAddrPos))
+
+	if [[ 10 -gt $zX ]]; then
+		zMark="0$zX"
+	else
+		zMark=$zX
+	fi
+
+	rm /tmp/images/CentOS_$zMark.img
+
 	zImgPath=/tmp/images/${zOS}_${zMark}.img
 	local zBaseImgName=${zOS}_base.img
 	local zVncID=$zMark
@@ -104,7 +113,6 @@ zops_func() {
 
 for ((i=0; i<$zVmNum; i++))
 do
-	rm /tmp/images/CentOS_$(($i + $zAddrPos)).img
 	zops_func $i
 	if [[ 3 -eq $(( i % 4)) ]]; then
 		sleep 2
