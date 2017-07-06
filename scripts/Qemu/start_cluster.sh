@@ -5,7 +5,7 @@
 # 2、配置好每个OS的基础镜像，置于"../images"路径下，命名格式:FreeBSD_base.img
 # 
 
-zMaxVmNum="80"
+zMaxVmNum="96"
 
 if [[ $1 == '' ]]; then
 	zVmNum=1
@@ -30,13 +30,9 @@ if [[ $1 -gt $zMaxVmNum ]]; then
 fi
 
 case $zOS in
-	FreeBSD)
-		zVersion=11
-		zAddrPos=02
-		;;
 	CentOS)
 		zVersion=06
-		zAddrPos=10
+		zAddrPos=01
 		;;
 	*)
 		printf "\033[31;01mUnknown OS name!!!\n\033[00m"
@@ -47,8 +43,8 @@ esac
 
 zISO="${zOS}.iso"
 zBaseImg="${zOS}_base.img"
-zCpuNum="4"
-zMem="496M"
+zCpuNum="2"
+zMem="256M"
 zDiskSiz="20G"
 zHostNatIf="wlp1s0"
 zHostIP="10.30.2.126"
@@ -58,11 +54,9 @@ modprobe tun
 modprobe vhost
 modprobe vhost_net
 
-if [[ 0 -eq `ip link show $zBridgeIf | wc -l` ]]; then
-	ip link add $zBridgeIf type bridge
-	ip link set $zBridgeIf up
-	ip addr add "172.16.0.1/16" dev $zBridgeIf
-fi
+ip link add $zBridgeIf type bridge 2>/dev/null
+ip link set $zBridgeIf up
+ip addr add "172.16.254.254/16" dev $zBridgeIf
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
@@ -77,10 +71,8 @@ zvm_func() {
 	-m $zMem \
 	-netdev tap,ifname=${zOS}_$1,script=tap.sh,downscript=no,vhost=on,id=vmNic_${zOS}_$1 -device virtio-net-pci,mac=00:e0:4c:49:$1:${zVersion},netdev=vmNic_${zOS}_$1 \
 	-drive file=$zImgPath,if=none,cache=writeback,media=disk,id=vmDisk_${zOS}_$1 -device virtio-blk-pci,drive=vmDisk_${zOS}_$1 \
-	-drive file=../ISOs/$zISO,readonly=on,media=cdrom \
 	-boot order=cd \
 	-name vm${zOS}_$1 \
-	-monitor tcp:$zHostIP:$(($1 * 1000)),server,nowait \
 	-vnc :$2 \
 	-daemonize
 }
@@ -91,15 +83,15 @@ zops_func() {
 	local zBaseImgName=${zOS}_base.img
 	local zVncID=$zMark
 
-	if [[ 0 -eq $(ls ../images | grep -c $zBaseImgName) ]];then
-		zImgPath=../images/$zBaseImgName
+	if [[ 0 -eq $(ls /home/images | grep -c $zBaseImgName) ]];then
+		zImgPath=/home/images/$zBaseImgName
 		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on $zImgPath'
 	else
 		mkdir -p /tmp/images
-		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=`dirname $PWD`/images/$zBaseImg $zImgPath'
+		zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=/home/images/$zBaseImg $zImgPath'
 	fi
 
-	if [[ 0 -eq $(ls ../images | grep -c $zImgPath) ]];then
+	if [[ 0 -eq $(ls /home/images | grep -c $zImgPath) ]];then
 		eval $zCommand
 		if [[ 0 -ne $? ]];then
 			printf "\033[31;01mCan't create $zImgPath!!!\n\033[00m"
@@ -114,4 +106,10 @@ for ((i=0; i<$zVmNum; i++))
 do
 	rm /tmp/images/CentOS_$(($i + $zAddrPos)).img
 	zops_func $i
+	if [[ 3 -eq $(( i % 4)) ]]; then
+		sleep 2
+	fi
 done
+
+#-drive file=/home/ISOs/$zISO,readonly=on,media=cdrom \
+#-monitor tcp:$zHostIP:$(($1 * 1000)),server,nowait \

@@ -5,7 +5,7 @@ zHostId=`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`
 hostname "CentOS_$zHostId"
 
 zIP="172.16.0.$zHostId/16"
-zRoute="172.16.0.1"
+zRoute="172.16.254.254"
 
 ip addr flush dev $zIf
 ip route flush dev $zIf

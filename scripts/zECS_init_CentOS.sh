@@ -1,10 +1,12 @@
 #!/usr/bin/env sh
-zCodePath=~git/miaopai
+zProjName=$1
+zCodePath=~git/$zProjName
 zEcsAddrListPath=$zCodePath/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
 zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
 zSshKeyPath=$zCodePath/.git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
 yes|yum install git
+cp -r ../demo/$ProjName ~git/
 
 #Init git env
 useradd -m git -s `which sh`
@@ -17,6 +19,7 @@ mkdir -p $zCodePath/.git_shadow
 touch $zSshKeyPath
 chmod 0600 $zSshKeyPath
 cd $zCodePath
+git init .
 git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
 git add --all .
@@ -29,9 +32,9 @@ git branch server # 创建server分支
 printf "\
 #!/bin/sh \n\
 git pull --force $zCodePath/.git server:client \n\
-$zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000 \n\
+$zCodePath/.git_shadow/bin/git_shadow -C -h 10.10.20.141 -p 20000 \n\
 
-cp -up $zCodePath/.git_shadow/authorized_keys ~git/.ssh/ \n\
+cp -up $zSshKeyPath ~git/.ssh/ \n\
 
 for zAddr in \$(ip addr | grep -oP \'(\\d+\\.){3}\\d+(?=/\\d+)\' | grep -v \'^127.0.0\') \n\
 do \n\

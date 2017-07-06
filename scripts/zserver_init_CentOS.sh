@@ -43,4 +43,4 @@ done
 
 cd $zCurDir
 killall git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 127.0.0.1 -p 20000 #>> ../log/log 2>&1 
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.10.20.141 -p 20000 >> ../log/log 2>&1 
