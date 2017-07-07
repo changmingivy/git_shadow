@@ -33,21 +33,24 @@ zlist_diff_files(_i zSd) {
     zFileDiffInfo zIf = { .RepoId = -1, };
 
     if (zBytes(8) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
-        zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Recv data failed!");
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }
 
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
-
+    if (NULL == zppCacheVecIf[zIf.RepoId]) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        return;
+    }
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
-
     shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
 }
 
@@ -56,25 +59,29 @@ void
 zprint_diff_contents(_i zSd) {
     zFileDiffInfo zIf = { .RepoId = -1, };
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
-        zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Recv data failed!");
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
+    if (NULL == zppCacheVecIf[zIf.RepoId]) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        return;
+    }
     if (zIf.CacheVersion == ( (zFileDiffInfo *) (zppCacheVecIf[zIf.RepoId][0].iov_base))->CacheVersion ) {
         zsendmsg(zSd,
                 zTypeConvert(zppCacheVecIf[zIf.RepoId][zIf.FileIndex].iov_base, zFileDiffInfo *)->p_DiffContent,
                 zTypeConvert(zppCacheVecIf[zIf.RepoId][zIf.FileIndex].iov_base, zFileDiffInfo *)->VecSiz,
                 0,
                 NULL);  // 直接从缓存中提取
-    }
-    else {
+    } else {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若缓存版本不一致，要求前端重发报文
     }
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
@@ -86,17 +93,22 @@ void
 zlist_log(_i zSd, _i zMark) {
     zDeployLogInfo zIf = { .RepoId = -1, };
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zDeployLogInfo), 0, NULL)) {
-        zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Recv data failed!");
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }
 
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
+    if (NULL == zppPreLoadLogVecIf[zIf.RepoId]) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        return;
+    }
     _i zVecSiz;
     if ( 0 == zMark ){    // 默认直接直接回复预存的最近zPreLoadLogSiz次记录
         zsendmsg(zSd, zppPreLoadLogVecIf[zIf.RepoId], zpPreLoadLogVecSiz[zIf.RepoId], 0, NULL);
@@ -186,12 +198,13 @@ zdeploy(_i zSd,  _i zMark) {
     zIf.zHint[0] = sizeof(zFileDiffInfo) - sizeof(_i);
 
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zIf), 0, NULL)) {
-        zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Recv data failed!");
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }
@@ -253,11 +266,12 @@ zrevoke_from_log(_i zSd, _i zMark){
     zIf.zHint[1] = sizeof(zDeployLogInfo) - sizeof(_i) -sizeof(_l);
 
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zIf), 0, NULL)) {
-        zPrint_Err(0, NULL, "Recv data failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Recv data failed!");
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }
@@ -325,12 +339,13 @@ void
 zconfirm_deploy_state(_i zSd, _i zMark) {
     zDeployResInfo zIf = { .RepoId = -1, };
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zDeployResInfo), 0, NULL)) {
-        zPrint_Err(0, NULL, "Reply to frontend failed!");
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
+        zPrint_Err(0, NULL, "Reply to frontend failed!");
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
+        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         return;
     }

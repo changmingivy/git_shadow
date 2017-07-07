@@ -32,11 +32,11 @@ zgenerate_cache(_i zRepoId) {
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
-        return NULL;  // 命令没有返回结果，代表没有差异文件，理论上不存在此种情况
+        return NULL;
     }
     else {
         if (0 == (zDiffFileNum = strtol(zpRes[0], NULL, 10))) {
-            return NULL;  // 同上，用于防止意外原因扰乱缓存数据
+            return NULL;
         }
         zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFileNum);   // 为存储文件路径列表的iovec[0]分配空间
         zpCacheVecSiz[zRepoId] = zDiffFileNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
@@ -80,6 +80,8 @@ zgenerate_cache(_i zRepoId) {
 
         /* 以下四行更新所属代码库的CURRENT tag SHA1 sig值 */
         char *zpBuf = zget_one_line_from_FILE(zpShellRetHandler[0]);  // 读取最后一行：CURRENT标签的SHA1 sig值
+        zCheck_Null_Exit(zpBuf);
+
         zMem_Alloc(zppCurTagSig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
         strncpy(zppCurTagSig[zRepoId], zpBuf, 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
         pclose(zpShellRetHandler[0]);
@@ -137,12 +139,9 @@ void
 zupdate_cache(void *zpIf) {
     _i zRepoId = *((_i *)zpIf);
     struct iovec *zpOldCacheIf = zppCacheVecIf[zRepoId];
-    if (NULL == (zppCacheVecIf[zRepoId] = zgenerate_cache(zRepoId))) {
-        zppCacheVecIf[zRepoId] = zpOldCacheIf;  // 若新缓存返回状态不正常，回退到上一版缓存状态
-    }
-    else {
-          // 若新缓存正常返回，释放掉老缓存的内存空间
-        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) {
+    zppCacheVecIf[zRepoId] = zgenerate_cache(zRepoId);
+    if (NULL != zpOldCacheIf) {
+        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) { // 释放掉老缓存的内存空间
             for (_i j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
                 free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
             }

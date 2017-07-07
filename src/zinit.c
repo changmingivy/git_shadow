@@ -79,8 +79,8 @@ zinit_env(void) {
 
         close(zFd[0]);  // zFd[0] 用完关闭
 
+        zupdate_cache(&i);
         zupdate_ipv4_db_all(&i);
-        zppCacheVecIf[i] = zgenerate_cache(i);
     }
 }
 

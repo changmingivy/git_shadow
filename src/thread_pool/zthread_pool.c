@@ -45,11 +45,11 @@ void *
 zthread_func(void *zpIndex) {
 //TEST: PASS
     zCheck_Pthread_Func_Return(
-			pthread_detach(pthread_self()),
-			NULL);
+            pthread_detach(pthread_self()),
+            NULL);
     zCheck_Pthread_Func_Return(
-			pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL),
-			NULL);
+            pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL),
+            NULL);
 
     _i i = *((_i *)zpIndex);
 zMark:;

@@ -47,7 +47,7 @@
 typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
 //----------------------------------
 typedef struct {
-    _us RepoId;  // 每个代码库对应的索引
+    _s RepoId;  // 每个代码库对应的索引
     _us RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
     char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
@@ -57,7 +57,7 @@ typedef struct {
 //----------------------------------
 typedef struct {
     char zHint[4];   // 用于块充提示类信息，如：提示从何处开始读取需要的数据
-    _ui RepoId;  // 索引每个代码库路径
+    _i RepoId;  // 索引每个代码库路径
     _ui FileIndex;  // 缓存中每个文件路径的索引
     _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
@@ -70,7 +70,7 @@ typedef struct {
 
 typedef struct {  // 布署日志信息的数据结构
     char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
-    _ui RepoId;  // 标识所属的代码库
+    _i RepoId;  // 标识所属的代码库
     _ui index;  // 索引每条记录在日志文件中的位置
     _l offset;  // 指明在data日志文件中的SEEK偏移量
 
@@ -82,7 +82,7 @@ typedef struct {  // 布署日志信息的数据结构
 typedef struct zDeployResInfo {
     char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _us RepoId;  // 所属代码库
+    _s RepoId;  // 所属代码库
     _us DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
     struct zDeployResInfo *p_next;
 } zDeployResInfo;
@@ -146,99 +146,40 @@ _i *zpPreLoadLogVecSiz;
 #include "../zinit.c"  // 读取主配置文件
 #include "../net/znetwork.c"  // 对外提供网络服务
 
-// 此函数仅用作测试
-void
-ztest_print(void) {
-    printf("RepoNum: %d\n", zRepoNum);
-    for (_i i = 0; i < zRepoNum; i++) {
-        printf("RepoPath: %s\n", zppRepoPathList[i]);
-    }
-
-    printf("zInotifyFD: %d\n", zInotifyFD);
-    for (_i i = 0; i < zWatchHashSiz; i++) {
-        if (NULL != zpObjHash[i]) {
-            printf("OBJPath: %s\n", zpObjHash[i]->path);
-            printf("zpRegexPattern: %s\n", zpObjHash[i]->zpRegexPattern);
-            printf("UpperWid: %d\n", zpObjHash[i]->UpperWid);
-            printf("RecursiveMark: %d\n", zpObjHash[i]->RecursiveMark);
-            printf("CallBack: %p\n", zpObjHash[i]->CallBack);
-        }
-    }
-
-    for (_i i = 0; i < zRepoNum; i++) {
-        printf("zppCurTagSig: ");
-        for (_i z = 0; z < 40; z++) {
-            printf("%c", zppCurTagSig[i][z]);
-        }
-        printf("\n");
-        printf("CacheVecSiz: %d\n", zpCacheVecSiz[i]);
-        printf("zPreLoadLogSiz: %d\n", zpPreLoadLogVecSiz[i]);
-
-        for (_i j = 0; j < zpCacheVecSiz[i]; j++) {
-            printf("CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->path, zppCacheVecIf[i][j].iov_len);
-        }
-
-        for (_i j = 0; j < zpPreLoadLogVecSiz[i]; j++) {
-            printf("PreloadLog: %s, PreloadLogLen: %zd\n", zppPreLoadLogVecIf[i][j].iov_base,zppPreLoadLogVecIf[i][j].iov_len);
-        }
-    }
-
-    for (_i i = 0; i < zRepoNum; i++) {
-        printf("LogFd-meta: %d\n", zpLogFd[0][i]);
-        printf("LogFd-data: %d\n", zpLogFd[1][i]);
-        printf("LogFd-sig: %d\n", zpLogFd[2][i]);
-    }
-
-    for (_i i = 0; i < zRepoNum; i++) {
-        printf("Totalhost: %d\n", zpTotalHost[i]);
-        printf("zpReplyCnt: %d\n", zpReplyCnt[i]);
-        for (_i j = 0; j < zpTotalHost[i]; j++) {
-            printf("ClientAddr: %d\n", zppDpResList[i][j].ClientAddr);
-            printf("RepoId: %d\n", zppDpResList[i][j].RepoId);
-            printf("DeployState: %d\n", zppDpResList[i][j].DeployState);
-            printf("next: %p\n", zppDpResList[i][j].p_next);
-        }
-
-        for (_i k = 0; k < zDeployHashSiz; k++) {
-            if (NULL == zpppDpResHash[i][k]) {continue;}
-            else {
-                do {
-                    printf("HashClientAddr: %d\n", zpppDpResHash[i][k]->ClientAddr);
-                    printf("hashRepoId: %d\n", zpppDpResHash[i][k]->RepoId);
-                    printf("hashDeployState: %d\n", zpppDpResHash[i][k]->DeployState);
-                    printf("hashnext: %p\n", zpppDpResHash[i][k]->p_next);
-
-                    zpppDpResHash[i][k] = zpppDpResHash[i][k]->p_next;
-                } while(NULL != zpppDpResHash[i][k]);
-            }
-        }
-    }
-}
-
 void
 zclient(char *zpX) {
-	char zBuf[4096];
-    _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    char zBuf[4096] = {'\0'};
+    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
     if (-1 == zSd) {
         zPrint_Err(0, NULL, "Connect to server failed.");
         exit(1);
     }
 
-	zCheck_Negative_Return(
-			zsendto(zSd, zpX, strlen(zpX), 0, NULL),
-			);
+    char zTestBuf[128] = {'\0'};
+    _i *zpZ =  (_i *)(zTestBuf + 4);
+    zTestBuf[0] = 'z';
+    *zpZ = 0;
+    zCheck_Negative_Return(
+            //zsendto(zSd, zpX, strlen(zpX), 0, NULL),
+            zsendto(zSd, zTestBuf, 128, 0, NULL),
+            );
+    fprintf(stderr, "[Sent]:\n->");
+    for (_i i = 0; i < 128; i++) {
+        fprintf(stderr, "%c", zTestBuf[i]);
+    }
+    fprintf(stderr, "<-\n");
 
-	zCheck_Negative_Return(
-			zrecv_all(zSd, zBuf, 4096, 0, NULL),
-			);
+    zrecv_nohang(zSd, zBuf, 4096, 0, NULL),
+    fprintf(stderr, "[Received]:\n=>");
+    for (_i i = 0; i < 128; i++) {
+        fprintf(stderr, "%c", zBuf[i]);
+    }
+    fprintf(stderr, "<=\n");
 
-	printf("%s\n", zBuf);
     shutdown(zSd, SHUT_RDWR);
 }
 
-
 _i
 main(_i zArgc, char **zppArgv) {
-	printf("%d, %s\n", zArgc, zppArgv[1]);
-	zclient(zppArgv[1]);
+    zclient(zppArgv[1]);
 }
