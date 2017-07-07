@@ -7,11 +7,11 @@ zSshKeyPath=$zCodePath/.git_shadow/info/authorized_keys  #store Control Host and
 zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 
 yes|yum install git
-cp -rf ../demo/$zProjName /home/git/
 
 #Init git env
-useradd -m git -s `which sh`
+useradd -m -s `which sh` git
 su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
+cp -rf ../demo/$zProjName /home/git/
 
 mkdir -p $zCodePath
 git init $zCodePath
