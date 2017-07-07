@@ -35,9 +35,9 @@
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
 #define zPreLoadLogSiz 64  // 预缓存日志数量
 
-#include "../inc/zutils.h"
-#include "zbase_utils.c"
-#include "pcre2/zpcre.c"
+#include "../../inc/zutils.h"
+#include "../zbase_utils.c"
+#include "../pcre2/zpcre.c"
 
 #define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
 
@@ -139,12 +139,12 @@ _i *zpPreLoadLogVecSiz;
 /**********
  * 子模块 *
  **********/
-#include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
-#include "thread_pool/zthread_pool.c"
-#include "inotify/zinotify_callback.c"
-#include "inotify/zinotify.c"  // 监控代码库文件变动
-#include "zinit.c"  // 读取主配置文件
-#include "net/znetwork.c"  // 对外提供网络服务
+#include "../md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
+#include "../thread_pool/zthread_pool.c"
+#include "../inotify/zinotify_callback.c"
+#include "../inotify/zinotify.c"  // 监控代码库文件变动
+#include "../zinit.c"  // 读取主配置文件
+#include "../net/znetwork.c"  // 对外提供网络服务
 
 // 此函数仅用作测试
 void
