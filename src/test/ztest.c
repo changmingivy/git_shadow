@@ -215,3 +215,30 @@ ztest_print(void) {
     }
 }
 
+void
+zclient(char *zpX) {
+	char zBuf[4096];
+    _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    if (-1 == zSd) {
+        zPrint_Err(0, NULL, "Connect to server failed.");
+        exit(1);
+    }
+
+	zCheck_Negative_Return(
+			zsendto(zSd, zpX, strlen(zpX), 0, NULL),
+			);
+
+	zCheck_Negative_Return(
+			zrecv_all(zSd, zBuf, 4096, 0, NULL),
+			);
+
+	printf("%s\n", zBuf);
+    shutdown(zSd, SHUT_RDWR);
+}
+
+
+_i
+main(_i zArgc, char **zppArgv) {
+	printf("%d, %s\n", zArgc, zppArgv[1]);
+	zclient(zppArgv[1]);
+}

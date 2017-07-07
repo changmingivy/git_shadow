@@ -81,6 +81,9 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     _i zSd = socket(AF_INET, zSockType, 0);
     zCheck_Negative_Return(zSd, -1);
 
+	zCheck_Negative_Exit(
+			setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, "1", INET_ADDRSTRLEN)
+			);
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
     zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
 
@@ -202,9 +205,11 @@ zclose_fds(pid_t zPid) {
 void
 zdaemonize(const char *zpWorkDir) {
 // TEST: PASS
-    _i zFD;
-
-    signal(SIGHUP, SIG_IGN);
+//    struct sigaction zSigActionIf;
+//    zSigActionIf.sa_handler = SIG_IGN;
+//    sigemptyset(&zSigActionIf.sa_mask);
+//    zSigActionIf.sa_flags = 0;
+//    sigaction(SIGHUP, &zSigActionIf, NULL);
 
     umask(0);
     zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
@@ -222,7 +227,7 @@ zdaemonize(const char *zpWorkDir) {
 
     zclose_fds(getpid());
 
-    zFD = open("/dev/null", O_RDWR);
+    _i zFD = open("/dev/null", O_RDWR);
     dup2(zFD, 1);
 //  dup2(zFD, 2);
 }
