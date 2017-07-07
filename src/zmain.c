@@ -203,16 +203,10 @@ zReLoad:;
     zCallBackList[0] = zupdate_cache;
     zCallBackList[1] = zupdate_ipv4_db_all;
 
-    // 解析主配置文件，并将有效条目添加到监控队列
-    zparse_conf_and_init_env(zpConfFilePath);
-
+    zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
-
-//    ztest_print();
-
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
-
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
 
     pid_t zPid = fork(); // 之后父进程退出，子进程按新的主配置文件内容重新初始化
