@@ -1,17 +1,17 @@
 #!/usr/bin/env sh
 zProjName=$1
-zCodePath=~git/$zProjName
+zCodePath=/home/git/$zProjName
 zEcsAddrListPath=$zCodePath/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
 zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
 zSshKeyPath=$zCodePath/.git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 
 yes|yum install git
-cp -rf ../demo/$zProjName ~git/
+cp -rf ../demo/$zProjName /home/git/
 
 #Init git env
 useradd -m git -s `which sh`
-su git -c "yes|ssh-keygen -t rsa -P '' -f ~git/.ssh/id_rsa"
+su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 
 mkdir -p $zCodePath
 git init $zCodePath
@@ -35,9 +35,9 @@ printf "\
 git pull --force $zCodePath/.git server:client \n\
 $zCodePath/.git_shadow/bin/git_shadow -C -h 10.10.20.141 -p 20000 \n\
 
-cp -up $zSshKeyPath ~git/.ssh/ \n\
+cp -up $zSshKeyPath /home/git/.ssh/ \n\
 chmod 0600 $zSshKeyPath
-cp -up $zSshKnownHostPath ~git/.ssh/ \n\
+cp -up $zSshKnownHostPath /home/git/.ssh/ \n\
 chmod 0600 $zSshKnownHostPath
 
 for zAddr in \$(ip addr | grep -oP \'(\\d+\\.){3}\\d+(?=/\\d+)\' | grep -v \'^127.0.0\') \n\
@@ -54,4 +54,4 @@ done \n\
 " > $zCodePath/.git/hooks/post-receive
 
 chmod u+x $zCodePath/.git/hooks/post-receive
-chown -R git:git ~git
+chown -R git:git /home/git
