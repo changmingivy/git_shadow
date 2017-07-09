@@ -149,7 +149,7 @@ _i *zpPreLoadLogVecSiz;
 void
 zclient(char *zpX) {
     char zBuf[4096] = {'\0'};
-    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
     if (-1 == zSd) {
         zPrint_Err(0, NULL, "Connect to server failed.");
         exit(1);
@@ -157,7 +157,7 @@ zclient(char *zpX) {
 
     char zTestBuf[128] = {'\0'};
     _i *zpZ =  (_i *)(zTestBuf + 4);
-    zTestBuf[0] = 'z';
+    zTestBuf[0] = 'p';
     *zpZ = 0;
     zCheck_Negative_Return(
             //zsendto(zSd, zpX, strlen(zpX), 0, NULL),
