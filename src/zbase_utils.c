@@ -212,6 +212,7 @@ zdaemonize(const char *zpWorkDir) {
 //  sigemptyset(&zSigActionIf.sa_mask);
 //  zSigActionIf.sa_flags = 0;
 //  sigaction(SIGHUP, &zSigActionIf, NULL);
+//  sigaction(SIGPIPE, &zSigActionIf, NULL);
     sigset_t zSigToBlock;
     sigfillset(&zSigToBlock);
     pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL);

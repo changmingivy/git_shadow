@@ -191,7 +191,7 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     zInotifyFD = inotify_init();  // 生成inotify master fd
@@ -209,7 +209,7 @@ zReLoad:;
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
 
-    ztest_print();
+//    ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
