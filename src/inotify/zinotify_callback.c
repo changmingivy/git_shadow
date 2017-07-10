@@ -303,6 +303,12 @@ void
 zcommon_func(void *zpIf) {
 	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
 	char zShellBuf[zCommonBufSiz];
-	sprintf(zShellBuf, "%s/.git_shadow/scripts/zinotify_action.sh %d %s", zppRepoPathList[zpObjIf->RepoId], zpObjIf->RepoId, zppRepoPathList[zpObjIf->RepoId]);
+
+	sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify %d %s %s",
+			zppRepoPathList[zpObjIf->RepoId], 
+			zpObjIf->RepoId, 
+			zppRepoPathList[zpObjIf->RepoId], 
+			zpObjHash[zpObjIf->UpperWid]->path);
+
 	system(zShellBuf);
 }

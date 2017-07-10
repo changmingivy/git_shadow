@@ -1,0 +1,19 @@
+#!/bin/sh
+zDeployPath=$2
+zSyncPath=`dirname zDeployPath`/sync_`basename zDeployPath`
+
+zObjPath0="/home/git/miaopai/.git_shadow/info/client_ip_all.txt"
+zObjPath1="/home/git/miaopai/.git/logs"
+
+if [[ $3 == zObjPath0 ]]; then
+    cd $zSyncPath
+    svn update
+    git add --all .
+    git commit -m "[REPO $1]:$2"
+    git push --force $zDeployPath/.git sync_git:server
+elif [[ $3 == zObjPath1 ]]; then
+    cd $zDeployPath
+    git pull --force ./.git server:master
+else
+    printf "Unknown event...\n"
+fi

@@ -51,21 +51,21 @@ zInitEnv() {
     #printf "#!/bin/sh\n>/dev/null">$zSvnServPath/hooks/pre-commit
     #chmod u+x $zSvnServPath/hooks/pre-commit
 
-    printf "#!/bin/sh \n\
-        cd $zSyncPath \n\
-        svn update \n\
-        git add --all . \n\
-        git commit -m \"\$1:\$2\" \n\
-        git push --force $zDeployPath/.git sync_git:server \n\
-        ">$zSvnServPath/hooks/post-commit
-    chmod a+x $zSvnServPath/hooks/post-commit
-
-    # Config Sync git hooks，锁机制需要替换
-    printf "#!/bin/sh \n\
-        cd $zDeployPath \n\
-        git pull --force ./.git server:master \n\
-        ">$zDeployPath/.git/hooks/post-receive
-    chmod a+x $zDeployPath/.git/hooks/post-receive
+#    printf "#!/bin/sh \n\
+#        cd $zSyncPath \n\
+#        svn update \n\
+#        git add --all . \n\
+#        git commit -m \"\$1:\$2\" \n\
+#        git push --force $zDeployPath/.git sync_git:server \n\
+#        ">$zSvnServPath/hooks/post-commit
+#    chmod a+x $zSvnServPath/hooks/post-commit
+#
+#    # Config Sync git hooks，锁机制需要替换
+#    printf "#!/bin/sh \n\
+#        cd $zDeployPath \n\
+#        git pull --force ./.git server:master \n\
+#        ">$zDeployPath/.git/hooks/post-receive
+#    chmod a+x $zDeployPath/.git/hooks/post-receive
 
     # Config Deploy git hooks，锁机制需要替换
     #printf "#!/bin/sh\n">$zSyncPath/.git/hooks/pre-commit
