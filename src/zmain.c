@@ -200,8 +200,9 @@ zReLoad:;
     zthread_poll_init();  // 初始化线程池
 
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zupdate_cache;
-    zCallBackList[1] = zupdate_ipv4_db_all;
+	zCallBackList[0] = zcommon_func;
+    zCallBackList[1] = zupdate_cache;
+    zCallBackList[2] = zupdate_ipv4_db_all;
 
     zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
 

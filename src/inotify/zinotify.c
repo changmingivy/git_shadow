@@ -123,7 +123,7 @@ zinotify_wait(void *_) {
             }
 
             if (NULL != zpObjHash[zpEv->wd]->CallBack) {
-                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, NULL);
+                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
             }
         }
     }

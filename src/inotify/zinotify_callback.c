@@ -292,3 +292,17 @@ zupdate_ipv4_db_all(void *zpIf) {
 
     pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 }
+
+/*
+ * 通用函数，调用外部程序或脚本文件执行相应的动作
+ * 传入参数：
+ * $1：代码库ID
+ * $2：代码库绝对路径
+ */
+void
+zcommon_func(void *zpIf) {
+	zObjInfo *zpObjIf = (zObjInfo *) zpIf;
+	char zShellBuf[zCommonBufSiz];
+	sprintf(zShellBuf, "%s/.git_shadow/scripts/zinotify_action.sh %d %s", zppRepoPathList[zpObjIf->RepoId], zpObjIf->RepoId, zppRepoPathList[zpObjIf->RepoId]);
+	system(zShellBuf);
+}
