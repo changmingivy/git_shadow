@@ -8,7 +8,7 @@
 zdeploy() {
     if [[ '' == $zCodePath ]]; then zCodePath="."; fi
 
-    local zEcsList=`cat $zCodePath/.git_shadow/client_ip_major.txt`
+    local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
     if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
@@ -25,7 +25,7 @@ zdeploy() {
     for zEcs in $zEcsList
     do
         let i++
-        git push --force git@${zEcs}:${zCodePath}/.git master:server
+        git push --force git@${zEcs}:${zCodePath}/.git master:server &
 
         if [[ $? -ne 0 ]]; then let j++; fi
     done
@@ -49,7 +49,7 @@ zrevoke() {
     if [[ '' == ${zCommitId} ]]; then return -1; fi
     if [[ '' == $zCodePath ]]; then zCodePath="."; fi
 
-    local zEcsList=`cat $zCodePath/.git_shadow/client_ip_major.txt`
+    local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
     zBranchId=$(git log CURRENT -n 1 --format=%H)
@@ -76,7 +76,7 @@ zrevoke() {
     for zEcs in $zEcsList
     do
         let i++
-        git push --force git@${zEcs}:${zCodePath}/.git master:server
+        git push --force git@${zEcs}:${zCodePath}/.git master:server &
 
         if [[ $? -ne 0 ]]; then let j++; fi
     done
@@ -127,5 +127,5 @@ elif [[ $zActionType -eq $zRevokeOne ]]; then
 elif [[ $zActionType -eq $zRevokeAll ]]; then
     zrevoke
 else
-    printf "\033[31;01mUnknown request!\033[00m\n" 1>&2
+    printf "\033[31;01Deploy: unknown request!\033[00m\n" 1>&2
 fi

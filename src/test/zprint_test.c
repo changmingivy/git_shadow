@@ -19,10 +19,10 @@ ztest_print(void) {
     }
 
     for (_i i = 0; i < zRepoNum; i++) {
-		if (NULL == zppCurTagSig[i]) {
-			printf("NULL sig\n");
-			goto zMark;
-		}
+        if (NULL == zppCurTagSig[i]) {
+            printf("NULL sig\n");
+            goto zMark;
+        }
         printf("zppCurTagSig: ");
         for (_i z = 0; z < 40; z++) {
             printf("%c", zppCurTagSig[i][z]);

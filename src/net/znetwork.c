@@ -155,9 +155,13 @@ zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
     zCheck_Negative_Return( fstat(zpLogFd[0][zRepoId], &zStatBufIf), );  // 获取当前日志文件属性
 
     zDeployLogInfo zDeployIf;
-    zCheck_Negative_Return(
-            pread(zpLogFd[0][zRepoId], &zDeployIf, sizeof(zDeployLogInfo), zStatBufIf.st_size - sizeof(zDeployLogInfo)),
-            );  // 读出前一个记录的信息
+    if (0 == zStatBufIf.st_size) {
+        zDeployIf.index = 0;
+    } else {
+        zCheck_Negative_Return(
+                pread(zpLogFd[0][zRepoId], &zDeployIf, sizeof(zDeployLogInfo), zStatBufIf.st_size - sizeof(zDeployLogInfo)),
+                );  // 读出前一个记录的信息
+    }
 
     zDeployIf.RepoId = zRepoId;  // 代码库ID相同
     zDeployIf.index += 1;  // 布署索引偏移量增加1(即：顺序记录布署批次ID)，用于从sig日志文件中快整定位对应的commit签名
@@ -217,7 +221,7 @@ zdeploy(_i zSd,  _i zMark) {
         }
 
         pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
-        system(zShellBuf);
+        zAdd_To_Thread_Pool(zthread_system, zShellBuf);
 
         _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
         _i i;
@@ -295,7 +299,7 @@ zrevoke_from_log(_i zSd, _i zMark){
     }
 
     pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
-    system(zShellBuf);
+    zAdd_To_Thread_Pool(zthread_system, zShellBuf);
 
     _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
     _i i;

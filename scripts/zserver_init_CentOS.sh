@@ -14,7 +14,7 @@ mkdir -p ../bin
 rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
-    clang -g \
+    clang -O2 \
         -Wall \
         -Wextra \
         -std=c11 \
@@ -26,10 +26,10 @@ if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
         ../src/zmain.c
 fi
 
-if [[ 0 -eq `ls $HOME/.gitconfig 2>/dev/null | wc -l` ]]; then
-    git config --global user.name "_"
-    git config --global user.email "_"
-fi
+# if [[ 0 -eq `ls $HOME/.gitconfig 2>/dev/null | wc -l` ]]; then
+#     git config --global user.name "_"
+#     git config --global user.email "_"
+# fi
 
 # for zDir in `grep -oP '(?<=\s)/[/|\w]+' ../conf/sample.conf`; do
 #     if [[ 1 -eq `ls -d $zDir 2>/dev/null | wc -l` ]]; then

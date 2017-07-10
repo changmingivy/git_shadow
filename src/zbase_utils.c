@@ -81,7 +81,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     _i zSd = socket(AF_INET, zSockType, 0);
     zCheck_Negative_Return(zSd, -1);
 
-	_i zReuseMark = 1;
+    _i zReuseMark = 1;
     zCheck_Negative_Exit(
             //setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, &zReuseMark, sizeof(_i))  // 不等待，直接重用地址
             setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i))  // 重用地址与端口
@@ -280,7 +280,15 @@ zget_one_line_from_FILE(FILE *zpFile) {
 void
 zsleep(_d zSecs) {
     struct timespec zNanoSecIf;
-	zNanoSecIf.tv_sec = (_i) zSecs;
+    zNanoSecIf.tv_sec = (_i) zSecs;
     zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
     nanosleep( &zNanoSecIf, NULL );
+}
+
+/*
+ * 用于在单独线程中执行外部命令
+ */
+void
+zthread_system(void *zpArgv) {
+    system((char *) zpArgv);
 }

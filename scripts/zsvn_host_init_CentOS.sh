@@ -72,7 +72,7 @@ zInitEnv() {
     #chmod u+x $zSyncPath/.git/hooks/pre-commit
 }
 
-killall svnserve 
+killall svnserve
 rm -rf /home/git/*
 zInitEnv miaopai 50000
 yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa
