@@ -147,13 +147,6 @@ zlist_log(_i zSd, _i zMark) {
     shutdown(zSd, SHUT_RDWR);
 }
 
-void
-zmilli_sleep(_i zMilliSec) {  // 毫秒级sleep
-    static struct timespec zNanoSecIf = { .tv_sec = 0, };
-    zNanoSecIf.tv_nsec  = zMilliSec * 1000000;
-    nanosleep( &zNanoSecIf, NULL );
-}
-
 // 记录布署或撤销的日志
 void
 zwrite_log(_i zRepoId, char *zpPathName, _i zPathLen) {
@@ -229,7 +222,7 @@ zdeploy(_i zSd,  _i zMark) {
         _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
         _i i;
         do {
-            zmilli_sleep(2000);  // 每隔0.2秒向前端返回一次结果
+            zsleep(0.2);  // 每隔0.2秒向前端返回一次结果
 
             for (i = 0; i < zpTotalHost[zIf.RepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
                 if (0 == zppDpResList[zIf.RepoId][i].DeployState) {
@@ -307,7 +300,7 @@ zrevoke_from_log(_i zSd, _i zMark){
     _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
     _i i;
     do {
-        zmilli_sleep(2000);  // 每0.2秒统计一次结果，并发往前端
+        zsleep(0.2);  // 每0.2秒统计一次结果，并发往前端
 
         for (i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
             if (0 == zppDpResList[zIf.RepoId][i].DeployState) {

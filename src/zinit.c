@@ -17,7 +17,7 @@ zdeploy_init(_i zRepoId) {
 
         _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
         do {
-            zmilli_sleep(2000);  // 每隔2秒收集一次结果
+            zsleep(0.2);  // 每隔2秒收集一次结果
 
 			fprintf(stderr, "Waiting list:\n");
             for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {  // 登记尚未确认状态的客户端ip列表

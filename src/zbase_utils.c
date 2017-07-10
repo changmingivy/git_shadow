@@ -273,3 +273,14 @@ zget_one_line_from_FILE(FILE *zpFile) {
     zpRes[strlen(zBuf) -1] = '\0';
     return zpRes;
 }
+
+/*
+ * 纳秒级sleep，小数点形式赋值
+ */
+void
+zsleep(_d zSecs) {
+    struct timespec zNanoSecIf;
+	zNanoSecIf.tv_sec = (_i) zSecs;
+    zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
+    nanosleep( &zNanoSecIf, NULL );
+}
