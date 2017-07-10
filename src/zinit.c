@@ -8,6 +8,39 @@
  * DEAL WITH CONFIG FILE AND INIT ENV *
  **************************************/
 void
+zdeploy_init(_i zRepoId) {
+        char zShellBuf[4096];  // 存放SHELL命令字符串
+        sprintf(zShellBuf, "cd %s && ~git/.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zRepoId]);
+
+        pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+        system(zShellBuf);
+
+        _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+        do {
+            zmilli_sleep(2000);  // 每隔2秒收集一次结果
+
+			fprintf(stderr, "Waiting list:\n");
+            for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
+                if (0 == zppDpResList[zRepoId][i].DeployState) {
+                    zSendBuf[i] = zppDpResList[zRepoId][i].ClientAddr;
+					fprintf(stderr, "%d\n", zSendBuf[i]);
+                }
+            }
+
+        } while (zpReplyCnt[zRepoId] < zpTotalHost[zRepoId]);  // 等待所有client端确认状态
+		fprintf(stderr, "DEPLOY SUCCESS !\n");
+        zpReplyCnt[zRepoId] = 0;
+
+        zwrite_log(zRepoId, "ALL", zBytes(4));  // 将本次布署信息写入日志
+
+        for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {
+            zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
+        }
+
+        pthread_rwlock_unlock(&(zpRWLock[zRepoId]));  // 释放锁
+}
+
+void
 zinit_env(void) {
     _i zFd[2] = {0}, zRet = 0;
 
@@ -81,6 +114,10 @@ zinit_env(void) {
 
         zupdate_cache(&i);
         zupdate_ipv4_db_all(&i);
+
+		for (_i i = 0; i < zRepoNum; i++) {
+			zdeploy_init(i);  // 将创世版(初版)代码布署到目标机器
+		}
     }
 }
 

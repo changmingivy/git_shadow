@@ -81,8 +81,10 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     _i zSd = socket(AF_INET, zSockType, 0);
     zCheck_Negative_Return(zSd, -1);
 
+	_i zReuseMark = 1;
     zCheck_Negative_Exit(
-            setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, "1", INET_ADDRSTRLEN)
+            //setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, &zReuseMark, sizeof(_i))  // 不等待，直接重用地址
+            setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i))  // 重用地址与端口
             );
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
     zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);

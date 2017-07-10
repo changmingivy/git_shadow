@@ -112,8 +112,7 @@ zlist_log(_i zSd, _i zMark) {
     _i zVecSiz;
     if ( 0 == zMark ){    // 默认直接直接回复预存的最近zPreLoadLogSiz次记录
         zsendmsg(zSd, zppPreLoadLogVecIf[zIf.RepoId], zpPreLoadLogVecSiz[zIf.RepoId], 0, NULL);
-    }
-    else {  // 若前端请求列出所有历史记录，从日志文件中读取
+    } else {  // 若前端请求列出所有历史记录，从日志文件中读取
         struct stat zStatBufIf;
         zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
         zCheck_Negative_Return(fstat(zpLogFd[0][zIf.RepoId], &(zStatBufIf)),);  // 获取日志属性
@@ -135,8 +134,7 @@ zlist_log(_i zSd, _i zMark) {
             if (0 == i % 2) {
                 zVec[i].iov_base = zpMetaLogIf + i / 2;
                 zVec[i].iov_len = sizeof(zDeployLogInfo);
-            }
-            else {
+            } else {
                 zVec[i].iov_base = zpDataLog + (zpMetaLogIf + i / 2)->offset;
                 zVec[i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
             }
@@ -217,8 +215,7 @@ zdeploy(_i zSd,  _i zMark) {
             sprintf(zShellBuf, "cd %s && ~git/.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zIf.RepoId]);
             zpLogContents = "ALL";
             zLogSiz = zBytes(4);
-        }
-        else {
+        } else {
             sprintf(zShellBuf, "cd %s && ~git/.git_shadow/scripts/zdeploy.sh -d %s",
                     zppRepoPathList[zIf.RepoId],
                     zTypeConvert(zppCacheVecIf[zIf.RepoId][zIf.FileIndex].iov_base, zFileDiffInfo *)->path);
@@ -251,8 +248,7 @@ zdeploy(_i zSd,  _i zMark) {
         }
 
         pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));  // 释放锁
-    }
-    else {
+    } else {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
     }
     shutdown(zSd, SHUT_RDWR);
@@ -299,8 +295,7 @@ zrevoke_from_log(_i zSd, _i zMark){
         sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -R -i %s -P %s", zCommitSigBuf, zppRepoPathList[zIf.RepoId]);
         zpLogContents = "ALL";
         zLogSiz = zBytes(4);
-    }
-    else {
+    } else {
         sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -r -i %s -P %s %s", zCommitSigBuf, zppRepoPathList[zIf.RepoId], zPathBuf);
         zpLogContents = zPathBuf;
         zLogSiz = zTypeConvert(zppCacheVecIf[zIf.RepoId]->iov_base, zDeployLogInfo*)->PathLen;
@@ -481,8 +476,7 @@ zstart_server(void *zpIf) {
                zCheck_Negative_Return(
                        epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),
                        );
-            }
-            else {
+            } else {
                zAdd_To_Thread_Pool(zdo_serv, &(zEvents[i].data.fd));
             }
         }

@@ -63,10 +63,10 @@ zgenerate_cache(_i zRepoId) {
                     zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
                     );
             zDiffLineNum = strtol(zpRes[1], NULL, 10);
-
-            zpIf->VecSiz = zDiffLineNum;
+            zpIf->VecSiz = zDiffLineNum;  // 填充文件内容差别行数
 
             zMem_Alloc(zpNewCacheVec[1], struct iovec, zDiffLineNum);  // 为每个文件的详细差异内容分配iovec[1]分配空间
+			zpIf->p_DiffContent = zpNewCacheVec[1];  // 填充文件内容差别详情
 
             for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
                 zLen = 1 + strlen(zpRes[1]);

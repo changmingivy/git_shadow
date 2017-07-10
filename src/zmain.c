@@ -102,7 +102,7 @@ char **zppRepoPathList;  // 每个代码库的绝对路径
 _i zInotifyFD;   // inotify 主描述符
 zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
-zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
+zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
 char **zppCurTagSig;  // 每个代码库当前的CURRENT标签的SHA1 sig
 _i *zpLogFd[3];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
@@ -117,7 +117,7 @@ _i *zpTotalHost;  // 存储每个代码库后端的主机总数
 _i *zpReplyCnt;  // 即时统计每个代码库已返回布署状态的主机总数，当其值与zpTotalHost相等时，即表达布署成功
 zDeployResInfo ***zpppDpResHash, **zppDpResList;  // 每个代码库对应一个布署状态数据及与之配套的链式HASH
 
-struct iovec **zppPreLoadLogVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
+struct iovec **zppPreLoadLogVecIf = {NULL};  // 以iovec形式缓存的每个代码库最近布署日志信息
 _i *zpPreLoadLogVecSiz;
 
 #define UDP 0
