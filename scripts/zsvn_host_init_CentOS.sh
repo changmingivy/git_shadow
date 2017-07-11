@@ -51,7 +51,7 @@ zInitEnv() {
 killall svnserve
 rm -rf /home/git/*
 zInitEnv miaopai 50000
-yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa
+#yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa
 
 mkdir -p /tmp/miaopai
 cd /tmp/miaopai
