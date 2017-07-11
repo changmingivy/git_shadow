@@ -14,11 +14,9 @@ zdeploy() {
     if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
         git add --all .
     else
-        for zFile in $@; do
-            git add $zFile
-        done
+        git add $@
     fi
-    git commit -m "[DEPLOY] ${zCodePath}: `date -Is`"  # Maybe reveive contents from frontend?
+    git commit -m "[DEPLOY]: ${zCodePath}"  # Maybe reveive contents from frontend?
 
     local i=0
     local j=0
