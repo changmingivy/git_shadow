@@ -8,6 +8,7 @@ zInitEnv() {
     zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
     cp -r ../demo/$zProjName /home/git/
+    cp -r ../demo/${zProjName}_shadow /home/git
 
     #Init Subversion Server
     rm -rf $zSvnServPath
@@ -46,6 +47,23 @@ zInitEnv() {
     git commit -m "INIT"
     git tag CURRENT
     git branch server  #Act as Git server
+
+    printf "#!/usr/bin/env sh \n\
+    cd $zSyncPath \n\
+    svn update \n\
+    git add --all . \n\
+    git commit -m \"[REPO \$1]:\$2\" \n\
+    git push --force $zDeployPath/.git sync_git:server" > $zSvnServPath/hooks/post-commit
+
+    chmod 0777 $zSvnServPath/hooks/post-commit
+
+    printf "#!/usr/bin/env sh \n\
+    cd $zDeployPath \n\
+    rm -f .git_shadow \n\
+    git pull --force $zDeployPath/.git server:master \n\
+    ln -sv /home/git/$zProjName_shadow .git_shadow" > $zDeployPath/.git/hooks/post-receive
+
+    chmod 0777 $zDeployPath/.git/hooks/post-receive
 }
 
 killall svnserve
