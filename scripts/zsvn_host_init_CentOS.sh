@@ -8,7 +8,7 @@ zInitEnv() {
     zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
     cp -r ../demo/$zProjName /home/git/
-    cp -r ../demo/${zProjName}_shadow /home/git
+    cp -r ../demo/${zProjName}_shadow /home/git/
 
     #Init Subversion Server
     rm -rf $zSvnServPath
@@ -17,8 +17,8 @@ zInitEnv() {
     perl -p -i.bak -e 's/^#\s*anon-access\s*=.*$/anon-access = write/' $zSvnServPath/conf/svnserve.conf
     svnserve --listen-port=$2 -d -r $zSvnServPath
 
-    #Init svn repo
-    svn co svn://10.30.2.126:$2/ $zSyncPath
+   #Init svn repo
+    svn co svn://127.0.0.1:$2/ $zSyncPath
     svn propset svn:ignore '.git
     .gitignore' $zSyncPath
 
@@ -48,20 +48,26 @@ zInitEnv() {
     git tag CURRENT
     git branch server  #Act as Git server
 
-    printf "#!/usr/bin/env sh \n\
-    cd $zSyncPath \n\
-    svn update \n\
-    git add --all . \n\
-    git commit -m \"[REPO \$1]:[VERSION \$2]\" \n\
-    git push --force $zDeployPath/.git sync_git:server" > $zSvnServPath/hooks/post-commit
+    printf "#!/bin/sh 
+export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+export HOME=\"/home/git\" &&
+
+cd $zSyncPath &&
+svn update &&
+git add --all . &&
+git commit -m \"Repository: \$1\\nReversion: \$2\" &&
+git push --force ${zDeployPath}/.git sync_git:server" > $zSvnServPath/hooks/post-commit
 
     chmod 0777 $zSvnServPath/hooks/post-commit
 
-    printf "#!/usr/bin/env sh \n\
-    cd $zDeployPath \n\
-    rm -f .git_shadow \n\
-    git pull --force $zDeployPath/.git server:master \n\
-    ln -sv /home/git/$zProjName_shadow .git_shadow" > $zDeployPath/.git/hooks/post-receive
+    printf "#!/bin/sh 
+export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+export HOME=\"/home/git\" &&
+
+cd $zDeployPath &&
+git pull --force ${zDeployPath}/.git server:master &&
+rm -f .git_shadow &&
+ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow" > $zDeployPath/.git/hooks/post-receive
 
     chmod 0777 $zDeployPath/.git/hooks/post-receive
 }
@@ -71,10 +77,10 @@ rm -rf /home/git/*
 zInitEnv miaopai 50000
 #yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa
 
+rm -rf /tmp/miaopai
 mkdir -p /tmp/miaopai
 cd /tmp/miaopai
-rm -rf .svn
-svn co svn://10.30.2.126:50000
+svn co svn://127.0.0.1:50000
 cp /etc/* ./ 2>/dev/null
 svn add *
 svn commit -m "etc files"
