@@ -6,7 +6,7 @@
 # $2:code repo path
 # $@(after shift):files to deploy
 zdeploy() {
-    if [[ '' == $zCodePath ]]; then zCodePath="."; fi
+    if [[ '' == $zCodePath ]]; then zCodePath=`pwd`; fi
 
     local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath

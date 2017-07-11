@@ -36,9 +36,9 @@ git pull --force $zCodePath/.git server:client \n\
 $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000 \n\
 
 cp -up $zSshKeyPath /home/git/.ssh/ \n\
-chmod 0600 $zSshKeyPath
+chmod 0600 $zSshKeyPath \n\
 cp -up $zSshKnownHostPath /home/git/.ssh/ \n\
-chmod 0600 $zSshKnownHostPath
+chmod 0600 $zSshKnownHostPath \n\
 
 for zAddr in \$(ip addr | grep -oP \'(\\d+\\.){3}\\d+(?=/\\d+)\' | grep -v \'^127.0.0\') \n\
 do \n\
@@ -46,7 +46,7 @@ do \n\
         zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \') \n\
         for zEcsAddr in \$zEcsAddrList \n\
         do \n\
-            git push --force git@\${zEcsAddr}:${zCodePath}/.git server:client &\n\
+            git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &\n\
         done \n\
         break \n\
     fi \n\
