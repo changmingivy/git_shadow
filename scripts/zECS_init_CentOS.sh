@@ -12,7 +12,7 @@ zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 #useradd -m -s `which sh` git
 #su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 \rm -rf /home/git/$zProjName
-\cp -rf ../demo/$zProjName /home/git/
+\cp -rf ../demo/${zProjName}_shadow /home/git/
 
 mkdir -p $zCodePath
 git init $zCodePath
