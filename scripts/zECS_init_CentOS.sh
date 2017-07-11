@@ -6,11 +6,11 @@ zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all
 zSshKeyPath=$zCodePath/.git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 
-yes|yum install git
+#yes|yum install git
 
 #Init git env
-useradd -m -s `which sh` git
-su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
+#useradd -m -s `which sh` git
+#su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 cp -rf ../demo/$zProjName /home/git/
 
 mkdir -p $zCodePath
@@ -33,7 +33,7 @@ git branch server # 创建server分支
 printf "\
 #!/bin/sh \n\
 git pull --force $zCodePath/.git server:client \n\
-$zCodePath/.git_shadow/bin/git_shadow -C -h 10.10.20.141 -p 20000 \n\
+$zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000 \n\
 
 cp -up $zSshKeyPath /home/git/.ssh/ \n\
 chmod 0600 $zSshKeyPath

@@ -291,8 +291,8 @@ zsleep(_d zSecs) {
  */
 void
 zthread_system(void *zpArgv) {
-	struct passwd *zpPwd = getpwnam("git");
-	zCheck_Null_Exit(zpPwd);
-	zCheck_Negative_Exit( seteuid(zpPwd->pw_uid) );
+    struct passwd *zpPwd = getpwnam("git");
+    zCheck_Null_Exit(zpPwd);
+    zCheck_Negative_Exit( seteuid(zpPwd->pw_uid) );
     system((char *) zpArgv);
 }
