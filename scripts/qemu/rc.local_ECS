@@ -2,7 +2,7 @@
 touch /var/lock/subsys/local
 
 zIf=`ip link | grep -oP 'eth\d+'`
-zHostId=`ip link show $zIf | grep -oP '\w{2}(?=:\w{2}\s+brd)'`
+zHostId=`ip link show $zIf | grep -oP '[1-9][0-9]?(?=:\w{2}\s+brd)'`
 hostname "CentOS_$zHostId"
 
 zIP="172.16.0.$zHostId/16"
