@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-zProjName=$1
+zProjName="miaopai"
 zCodePath=/home/git/$zProjName
 zEcsAddrListPath=$zCodePath/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
 zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
