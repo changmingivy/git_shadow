@@ -52,7 +52,7 @@ zInitEnv() {
     cd $zSyncPath \n\
     svn update \n\
     git add --all . \n\
-    git commit -m \"[REPO \$1]:\$2\" \n\
+    git commit -m \"[REPO \$1]:[VERSION \$2]\" \n\
     git push --force $zDeployPath/.git sync_git:server" > $zSvnServPath/hooks/post-commit
 
     chmod 0777 $zSvnServPath/hooks/post-commit
@@ -79,14 +79,5 @@ cp /etc/* ./ 2>/dev/null
 svn add *
 svn commit -m "etc files"
 svn up
-
-cd $zSyncPath
-svn update
-git add --all .
-git commit -m \"\$1:\$2\"
-git push --force $zDeployPath/.git sync_git:server
-
-cd $zDeployPath \n\
-git pull --force ./.git server:master
 
 #zInitEnv yizhibo 60000
