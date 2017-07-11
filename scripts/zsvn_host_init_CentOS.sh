@@ -18,7 +18,7 @@ zInitEnv() {
     svnserve --listen-port=$2 -d -r $zSvnServPath
 
    #Init svn repo
-    svn co svn://127.0.0.1:$2/ $zSyncPath
+    svn co svn://10.30.2.126:$2/ $zSyncPath
     svn propset svn:ignore '.git
     .gitignore' $zSyncPath
 
@@ -80,7 +80,7 @@ zInitEnv miaopai 50000
 rm -rf /tmp/miaopai
 mkdir -p /tmp/miaopai
 cd /tmp/miaopai
-svn co svn://127.0.0.1:50000
+svn co svn://10.30.2.126:50000
 cp /etc/* ./ 2>/dev/null
 svn add *
 svn commit -m "etc files"
