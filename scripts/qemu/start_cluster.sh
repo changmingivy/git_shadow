@@ -44,10 +44,10 @@ esac
 zISO="${zOS}.iso"
 zBaseImg="${zOS}_base.img"
 zCpuNum="2"
-zMem="256M"
+zMem="512M"
 zDiskSiz="20G"
-zHostNatIf="wlp1s0"
-zHostIP="10.30.2.126"
+zHostNatIf="eno1"
+zHostIP="10.10.50.67"
 zBridgeIf=br0
 
 modprobe tun
