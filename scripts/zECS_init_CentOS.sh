@@ -13,9 +13,8 @@ zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 #su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 \rm -rf $zCodePath
 \cp -rf ../demo/$zProjName $zCodePath
-
-mkdir -p $zCodePath/.git_shadow
 \cp -rf ../demo/${zProjName}_shadow $zCodePath/.git_shadow
+mkdir -p $zCodePath/.git_shadow/{info, log, scripts}
 touch $zSshKeyPath
 chmod 0600 $zSshKeyPath
 
@@ -23,6 +22,7 @@ cd $zCodePath
 git init .
 git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
+touch README
 git add --all .
 git commit -m "INIT"
 git branch -m master client # 将master分支名称更改为client
