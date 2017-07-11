@@ -209,11 +209,11 @@ zdeploy(_i zSd,  _i zMark) {
         char *zpLogContents;   // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
         _i zLogSiz;
         if (1 == zMark) {
-            sprintf(zShellBuf, "cd %s && ~git/.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zIf.RepoId]);
+            sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zIf.RepoId]);
             zpLogContents = "ALL";
             zLogSiz = zBytes(4);
         } else {
-            sprintf(zShellBuf, "cd %s && ~git/.git_shadow/scripts/zdeploy.sh -d %s",
+            sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -d %s",
                     zppRepoPathList[zIf.RepoId],
                     zTypeConvert(zppCacheVecIf[zIf.RepoId][zIf.FileIndex].iov_base, zFileDiffInfo *)->path);
             zpLogContents = zTypeConvert(zppCacheVecIf[zIf.RepoId][zIf.FileIndex].iov_base, zFileDiffInfo *)->path;
@@ -289,11 +289,11 @@ zrevoke_from_log(_i zSd, _i zMark){
     char *zpLogContents;  // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
     _i zLogSiz;
     if (1 == zMark) {
-        sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -R -i %s -P %s", zCommitSigBuf, zppRepoPathList[zIf.RepoId]);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -R -i %s", zppRepoPathList[zIf.RepoId], zCommitSigBuf);
         zpLogContents = "ALL";
         zLogSiz = zBytes(4);
     } else {
-        sprintf(zShellBuf, "~git/.git_shadow/scripts/zdeploy.sh -r -i %s -P %s %s", zCommitSigBuf, zppRepoPathList[zIf.RepoId], zPathBuf);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -r -i %s %s", zppRepoPathList[zIf.RepoId], zCommitSigBuf, zPathBuf);
         zpLogContents = zPathBuf;
         zLogSiz = zTypeConvert(zppCacheVecIf[zIf.RepoId]->iov_base, zDeployLogInfo*)->PathLen;
     }

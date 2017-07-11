@@ -17,7 +17,7 @@ zInitEnv() {
     svnserve --listen-port=$2 -d -r $zSvnServPath
 
     #Init svn repo
-    svn co svn://127.0.0.1:$2/ $zSyncPath
+    svn co svn://10.30.2.126:$2/ $zSyncPath
     svn propset svn:ignore '.git
     .gitignore' $zSyncPath
 
@@ -46,30 +46,6 @@ zInitEnv() {
     git commit -m "INIT"
     git tag CURRENT
     git branch server  #Act as Git server
-
-    # Config svn hooks，锁机制需要替换
-    #printf "#!/bin/sh\n>/dev/null">$zSvnServPath/hooks/pre-commit
-    #chmod u+x $zSvnServPath/hooks/pre-commit
-
-#    printf "#!/bin/sh \n\
-#        cd $zSyncPath \n\
-#        svn update \n\
-#        git add --all . \n\
-#        git commit -m \"\$1:\$2\" \n\
-#        git push --force $zDeployPath/.git sync_git:server \n\
-#        ">$zSvnServPath/hooks/post-commit
-#    chmod a+x $zSvnServPath/hooks/post-commit
-#
-#    # Config Sync git hooks，锁机制需要替换
-#    printf "#!/bin/sh \n\
-#        cd $zDeployPath \n\
-#        git pull --force ./.git server:master \n\
-#        ">$zDeployPath/.git/hooks/post-receive
-#    chmod a+x $zDeployPath/.git/hooks/post-receive
-
-    # Config Deploy git hooks，锁机制需要替换
-    #printf "#!/bin/sh\n">$zSyncPath/.git/hooks/pre-commit
-    #chmod u+x $zSyncPath/.git/hooks/pre-commit
 }
 
 killall svnserve
@@ -80,10 +56,19 @@ yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa
 mkdir -p /tmp/miaopai
 cd /tmp/miaopai
 rm -rf .svn
-svn co svn://127.0.0.1:50000
+svn co svn://10.30.2.126:50000
 cp /etc/* ./ 2>/dev/null
 svn add *
 svn commit -m "etc files"
 svn up
+
+cd $zSyncPath
+svn update
+git add --all .
+git commit -m \"\$1:\$2\"
+git push --force $zDeployPath/.git sync_git:server
+
+cd $zDeployPath \n\
+git pull --force ./.git server:master
 
 #zInitEnv yizhibo 60000

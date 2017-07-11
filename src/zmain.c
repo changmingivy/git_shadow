@@ -19,6 +19,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
+#include <pwd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
