@@ -34,8 +34,6 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 export HOME=/home/git
 alias git=git --git-dir=$zCodePath/.git
 
-git stash &&
-git stash clear &
 git checkout -b TMP &&
 git branch -D client &&
 git branch -m client &&
