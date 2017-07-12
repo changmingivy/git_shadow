@@ -11,8 +11,8 @@ zdeploy() {
     local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
-	zCommitContent=`git log CURRENT -n 1 | tail -n 2`
-	git reset CURRENT
+	zCommitContent=`git log CURRENT -n 1 | tail -n 1`
+	git reset CURRENT  # 将 master 分支提交状态回退到 CURRENT 分支状态，即上一次布署的状态
 
     if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
         git add --all .
