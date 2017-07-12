@@ -11,12 +11,15 @@ zdeploy() {
     local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
+	zCommitContent=`git log CURRENT -n 1 | tail -n 2`
+	git reset CURRENT
+
     if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
         git add --all .
     else
         git add $@
     fi
-    git commit -m "[DEPLOY]: ${zCodePath}"  # Maybe reveive contents from frontend?
+    git commit -m "[DEPLOY]:\n${zCommitContent}"  # Maybe reveive contents from frontend?
 
     local i=0
     local j=0
@@ -29,14 +32,15 @@ zdeploy() {
     done
 
     if [[ $i -eq $j ]]; then
-        git reset --hard CURRENT
-        git stash
-        git stash clear
+        git stash &&
+        git stash clear &
+        git reset --hard CURRENT &&
+        git pull --force ${zCodePath}/.git server:master
         return -1
     fi
 
-    git tag -d CURRENT
-    git tag CURRENT
+    git branch -D CURRENT
+    git branch CURRENT
 }
 
 # FUNCTION: undo deploy

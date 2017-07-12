@@ -24,7 +24,7 @@ zgenerate_cache(_i zRepoId) {
 
     // 必须在shell命令中切换到正确的工作路径
     sprintf(zShellBuf[0], "cd %s "
-            "&& git diff --name-only HEAD CURRENT | wc -l "
+            "&& git diff --name-only HEAD CURRENT | wc -l "  // CURRENT 分支
             "&& git diff --name-only HEAD CURRENT "
             "&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
     zpShellRetHandler[0] = popen(zShellBuf[0], "r");

@@ -33,8 +33,17 @@ printf "#!/bin/sh
 export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
 export HOME=\"/home/git\" &&
 
+git stash &&
+git stash clear &
 git pull --force $zCodePath/.git server:client &&
-#$zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000 &&
+
+(
+    $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+    while [[ 0 -ne \$? ]]
+    do
+        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+    done
+) &
 
 chmod 0600 $zSshKeyPath &&
 cp -up $zSshKeyPath /home/git/.ssh/ &&

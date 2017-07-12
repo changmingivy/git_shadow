@@ -45,7 +45,7 @@ zInitEnv() {
     touch README
     git add --all .
     git commit -m "INIT"
-    git tag CURRENT
+    git branch CURRENT
     git branch server  #Act as Git server
 
     printf "#!/bin/sh 
@@ -65,8 +65,9 @@ export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
 export HOME=\"/home/git\" &&
 
 cd $zDeployPath &&
+rm -rf .git_shadow
 git pull --force ${zDeployPath}/.git server:master &&
-rm -f .git_shadow &&
+rm -rf .git_shadow
 ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow" > $zDeployPath/.git/hooks/post-receive
 
     chmod 0777 $zDeployPath/.git/hooks/post-receive
