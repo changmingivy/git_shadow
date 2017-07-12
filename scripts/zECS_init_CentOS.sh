@@ -36,7 +36,8 @@ alias git=git --git-dir=$zCodePath/.git
 
 git stash &&
 git stash clear &
-git pull --force $zCodePath/.git server:client &&
+git checkout -b TMP &&
+git branch -M client &&
 
 (
     killall git_shadow
