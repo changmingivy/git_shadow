@@ -30,8 +30,9 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH\" &&
 export HOME=\"/home/git\" &&
+alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
 git stash &&
 git stash clear &
