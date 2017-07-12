@@ -63,7 +63,7 @@ do
         break
     fi
 done
-" > $zCodePath/.git/hooks/post-receive
+" > $zCodePath/.git/hooks/post-update
 
-chmod u+x $zCodePath/.git/hooks/post-receive
+chmod u+x $zCodePath/.git/hooks/post-update
 chown -R git:git /home/git
