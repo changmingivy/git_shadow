@@ -11,8 +11,8 @@ zdeploy() {
     local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
-	zCommitContent=`git log CURRENT -n 1 | tail -n 1`
-	git reset CURRENT  # 将 master 分支提交状态回退到 CURRENT 分支状态，即上一次布署的状态
+    zCommitContent=`git log -n 1 | tail -n 1`
+    git reset CURRENT  # 将 master 分支提交状态回退到 CURRENT 分支状态，即上一次布署的状态
 
     if [[ 0 -eq $# ]];then  # If no file name given, meaning deploy all
         git add --all .
@@ -32,9 +32,9 @@ zdeploy() {
     done
 
     if [[ $i -eq $j ]]; then
+        git reset --hard CURRENT &&
         git stash &&
         git stash clear &
-        git reset --hard CURRENT &&
         git pull --force ${zCodePath}/.git server:master
         return -1
     fi
@@ -49,20 +49,21 @@ zdeploy() {
 # $@(after shift):the file to deploy
 zrevoke() {
     if [[ '' == ${zCommitId} ]]; then return -1; fi
-    if [[ '' == $zCodePath ]]; then zCodePath="."; fi
+    if [[ '' == $zCodePath ]]; then zCodePath=`pwd`; fi
 
     local zEcsList=`cat $zCodePath/.git_shadow/info/client_ip_major.txt`
     cd $zCodePath
 
-    zBranchId=$(git log CURRENT -n 1 --format=%H)
+    zBranchId=$(git log CURRENT -n 1 --format=%H) # 取 CURRENT 分支的 SHA1 sig
     git branch --force "$zBranchId"
 
     if [[ 0 -eq $# ]]; then  # If no file name given, meaning revoke all
-        git reset --hard ${zCommitId}
+        git checkout ${zCommitId}
         if [[ 0 -ne $? ]]; then
-            git checkout ${zCommitId}
+            git reset ${zCommitId}
         fi
     else
+        git checkout ${zCommitId}
         git reset ${zCommitId} -- $@
     fi
 
@@ -71,7 +72,8 @@ zrevoke() {
         return -1
     fi
 
-    git commit -m "[REVOKE] ${zCodePath}: `date -Is`"
+    zCommitContent=`git log CURRENT -n 1 | tail -n 1`
+    git commit -m "[REVOKE]:\n${zCommitContent}"
 
     local i=0
     local j=0
@@ -90,9 +92,9 @@ zrevoke() {
         return -1
     fi
 
-    git tag -d CURRENT
-    git tag CURRENT
-    git branch -M master
+    git branch -D CURRENT
+    git branch CURRENT
+    git branch -M master # 将当前所在分支名称强制修改为 master
 }
 
 #######################################################

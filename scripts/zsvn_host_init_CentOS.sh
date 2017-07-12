@@ -7,7 +7,7 @@ zInitEnv() {
     zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
 	rm -rf /home/git/*
-    cp -r ../demo/${zProjName}_shadow /home/git/
+    cp -rp ../demo/${zProjName}_shadow /home/git/
 
     #Init Subversion Server
     mkdir $zSvnServPath
@@ -22,9 +22,6 @@ zInitEnv() {
 
     #Init Sync Git Env
     ln -sv /home/git/${zProjName}_shadow $zSyncPath/.git_shadow
-    touch $zSshKeyPath
-    chmod 0600 $zSshKeyPath
-
     cd $zSyncPath
     git init .
     echo ".svn" > .gitignore
