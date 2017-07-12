@@ -3,8 +3,8 @@ zProjName="miaopai"
 zCodePath=/home/git/$zProjName
 zEcsAddrListPath=$zCodePath/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
 zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
-zSshKeyPath=${zCodePath}_git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
-zSshKnownHostPath=${zCodePath}_git_shadow/info/known_hosts
+zSshKeyPath=${zCodePath}_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
+zSshKnownHostPath=${zCodePath}_shadow/info/known_hosts
 
 #yes|yum install git
 
