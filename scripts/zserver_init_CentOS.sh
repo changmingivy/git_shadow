@@ -17,7 +17,7 @@ if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
     clang -O2 \
         -Wall \
         -Wextra \
-        -std=c11 \
+        -std=c99 \
         -I../inc \
         -lpthread \
         -lpcre2-8 \
