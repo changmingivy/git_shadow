@@ -14,8 +14,7 @@ zSshKnownHostPath=${zCodePath}/.git_shadow/info/known_hosts
 \rm -rf $zCodePath
 mkdir $zCodePath
 \cp -rf ../demo/${zProjName}_shadow /home/git/
-touch $zSshKeyPath
-chmod 0600 $zSshKeyPath
+ln -sv ${zCodePath}_shadow $zCodePath/.git_shadow
 
 cd $zCodePath
 git init .
@@ -50,10 +49,9 @@ printf "#!/bin/sh
 
     zReply &  # background
 
-    chmod 0600 $zSshKeyPath &&
     cp -up $zSshKeyPath /home/git/.ssh/ &&
-    chmod 0600 $zSshKnownHostPath &&
     cp -up $zSshKnownHostPath /home/git/.ssh/ &&
+    chmod -R 0700 /home/git/.ssh/ &&
 
     for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$')
     do
