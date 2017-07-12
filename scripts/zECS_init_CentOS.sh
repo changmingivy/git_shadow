@@ -32,13 +32,14 @@ git branch server # 创建server分支
 printf "#!/bin/sh
 export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH\" &&
 export HOME=\"/home/git\" &&
-alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
+alias git=\"git --git-dir=$zCodePath/.git\" &&
 
 git stash &&
 git stash clear &
 git pull --force $zCodePath/.git server:client &&
 
 (
+    killall git_shadow
     $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
     while [[ 0 -ne \$? ]]
     do
