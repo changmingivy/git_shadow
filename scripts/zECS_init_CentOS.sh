@@ -29,31 +29,29 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-    zReply() {
-        /usr/bin/killall git_shadow
-        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-        i=0
-        while [[ 0 -ne \$? && 3 -gt \$i ]]; do
-            sleep 1
-            $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-            let i++
-        done
-    }
-
     export HOME=/home/git &&
-    alias git=\"/usr/bin/git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
+    alias git=\"eval \$(/usr/bin/which git) --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
     git checkout server &&
     git checkout -b TMP &&
     git branch -M client &&
 
-    zReply &  # background
+(
+    eval \$(/usr/bin/which killall) git_shadow
+    $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+    i=0
+    while [[ 0 -ne \$? && 3 -gt \$i ]]; do
+        sleep 1
+        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+        let i++
+    done
+) &
 
     cp -up $zSshKeyPath /home/git/.ssh/ &&
     cp -up $zSshKnownHostPath /home/git/.ssh/ &&
     chmod -R 0700 /home/git/.ssh/ &&
 
-    for zAddr in \$(/sbin/ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
+    for zAddr in \$(eval \$(/usr/bin/which ifconfig) | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
             for zEcsAddr in \$zEcsAddrList; do
