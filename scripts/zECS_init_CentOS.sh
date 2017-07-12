@@ -33,8 +33,7 @@ printf "#!/bin/sh
         /usr/bin/killall git_shadow
         $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
         i=0
-        while [[ 0 -ne \$? && 3 -gt $i]]
-        do
+        while [[ 0 -ne \$? && 3 -gt \$i ]]; do
             sleep 1
             $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
             let i++
@@ -54,12 +53,10 @@ printf "#!/bin/sh
     cp -up $zSshKnownHostPath /home/git/.ssh/ &&
     chmod -R 0700 /home/git/.ssh/ &&
 
-    for zAddr in \$(/sbin/ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$')
-    do
+    for zAddr in \$(/sbin/ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
-            for zEcsAddr in \$zEcsAddrList
-            do
+            for zEcsAddr in \$zEcsAddrList; do
                 git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
             done
             break
