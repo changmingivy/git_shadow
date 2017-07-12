@@ -30,40 +30,42 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
-export HOME=/home/git
-alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\"
-
-git checkout server &&
-git checkout -b TMP &&
-git branch -M client &&
-
-(
-    killall git_shadow
-    $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-    while [[ 0 -ne \$? ]]
-    do
-        sleep 1
+    zReply() {
+        killall git_shadow
         $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-    done
-) &
-
-chmod 0600 $zSshKeyPath &&
-cp -up $zSshKeyPath /home/git/.ssh/ &&
-chmod 0600 $zSshKnownHostPath &&
-cp -up $zSshKnownHostPath /home/git/.ssh/ &&
-
-for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$')
-do
-    if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
-        zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
-        for zEcsAddr in \$zEcsAddrList
+        while [[ 0 -ne \$? ]]
         do
-            git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
+            sleep 1
+            $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
         done
-        break
-    fi
-done
+    }
+
+    export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+    export HOME=/home/git
+    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\"
+
+    git checkout server &&
+    git checkout -b TMP &&
+    git branch -M client &&
+
+    zReply &
+
+    chmod 0600 $zSshKeyPath &&
+    cp -up $zSshKeyPath /home/git/.ssh/ &&
+    chmod 0600 $zSshKnownHostPath &&
+    cp -up $zSshKnownHostPath /home/git/.ssh/ &&
+
+    for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$')
+    do
+        if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
+            zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
+            for zEcsAddr in \$zEcsAddrList
+            do
+                git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
+            done
+            break
+        fi
+    done
 " > $zCodePath/.git/hooks/post-update
 
 chmod u+x $zCodePath/.git/hooks/post-update
