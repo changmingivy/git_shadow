@@ -53,7 +53,7 @@ cp -up $zSshKeyPath /home/git/.ssh/ &&
 chmod 0600 $zSshKnownHostPath &&
 cp -up $zSshKnownHostPath /home/git/.ssh/ &&
 
-for zAddr in \$(ip addr | grep -oP \'(\\d+\\.){3}\\d+(?=/\\d+)\' | grep -v \'^127.0.0\')
+for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$')
 do
     if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
         zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')

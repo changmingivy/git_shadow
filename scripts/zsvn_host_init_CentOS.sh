@@ -52,7 +52,7 @@ zInitEnv() {
          svn update &&
 
          git add --all . &&
-         git commit -m \"[Repository]:\$1 [Reversion]:\$2\" &&
+         git commit -m \"{REPO => \$1} {REV => \$2}\" &&
          git push --force ${zDeployPath}/.git sync_git:server
     " > $zSvnServPath/hooks/post-commit
 
