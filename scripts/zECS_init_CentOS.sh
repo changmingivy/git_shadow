@@ -32,7 +32,7 @@ git branch server # 创建server分支
 printf "#!/bin/sh
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 export HOME=/home/git
-alias git=git --git-dir=$zCodePath/.git
+alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\"
 
 git checkout -b TMP &&
 git branch -D client &&
