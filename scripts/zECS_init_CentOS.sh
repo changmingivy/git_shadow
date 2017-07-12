@@ -37,7 +37,8 @@ alias git=git --git-dir=$zCodePath/.git
 git stash &&
 git stash clear &
 git checkout -b TMP &&
-git branch -M client &&
+git branch -D client &&
+git branch -m client &&
 
 (
     killall git_shadow
