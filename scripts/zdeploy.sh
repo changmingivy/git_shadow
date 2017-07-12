@@ -49,15 +49,15 @@ do
         R) zActionType=zRevokeAll;;
         P) zCodePath="$OPTARG";;  # code path
         i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
-        ?) return -1;;
+        ?) exit 1;;
     esac
 done
 shift $[$OPTIND - 1]
 
-if [[ '' == $zCodePath ]]; thenzCodePath=`pwd`; fi
+if [[ '' == $zCodePath ]]; then zCodePath=`pwd`; fi
 
 cd $zCodePath
-local zEcsList=`cat ./.git_shadow/info/client_ip_major.txt`
+zEcsList=`cat ./.git_shadow/info/client_ip_major.txt`
 
 if [[ $zActionType -eq $zDeployOne ]]; then zdeploy $@
 elif [[ $zActionType -eq $zDeployAll ]]; then zdeploy
@@ -68,8 +68,8 @@ fi
 
 if [[ 0 -ne $? ]]; then exit 1; fi
 
-local i=0
-local j=0
+i=0
+j=0
 for zEcs in $zEcsList
 do
     let i++
@@ -83,7 +83,7 @@ if [[ $i -eq $j ]]; then
     git stash
     git stash clear
     git pull --force ${zCodePath}/.git server:master
-    return -1
+    exit 1
 fi
 
 zCurSig=$(git log CURRENT -n 1 --format=%H) # 取 CURRENT 分支的 SHA1 sig

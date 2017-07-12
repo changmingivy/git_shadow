@@ -43,7 +43,7 @@ zInitEnv() {
     git branch CURRENT
     git branch server  #Act as Git server
 
-    printf "#!/bin/sh 
+    printf "#!/bin/sh
          export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
          export HOME=\"/home/git\" &&
 
@@ -58,7 +58,7 @@ zInitEnv() {
 
     chmod 0555 $zSvnServPath/hooks/post-commit
 
-    printf "#!/bin/sh 
+    printf "#!/bin/sh
         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
 
         cd $zDeployPath &&
