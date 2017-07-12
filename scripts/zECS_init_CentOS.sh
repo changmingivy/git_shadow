@@ -41,6 +41,7 @@ git pull --force $zCodePath/.git server:client &&
     $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
     while [[ 0 -ne \$? ]]
     do
+        sleep 1
         $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
     done
 ) &
