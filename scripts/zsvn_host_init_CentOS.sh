@@ -6,7 +6,7 @@ zInitEnv() {
     zDeployPath=/home/git/$zProjName #Used to deploy code! --CORE--
     zSshKeyPath=$zSyncPath/.git_shadow/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 
-	rm -rf /home/git/*
+    rm -rf /home/git/*
     cp -rp ../demo/${zProjName}_shadow /home/git/
 
     #Init Subversion Server
@@ -48,7 +48,9 @@ zInitEnv() {
          export HOME=\"/home/git\" &&
 
          cd $zSyncPath &&
+         svn cleanup &&
          svn update &&
+
          git add --all . &&
          git commit -m \"[Repository]:\$1 [Reversion]:\$2\" &&
          git push --force ${zDeployPath}/.git sync_git:server
@@ -63,7 +65,7 @@ zInitEnv() {
         rm -rf .git_shadow &&
         git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
-	" > $zDeployPath/.git/hooks/post-update
+    " > $zDeployPath/.git/hooks/post-update
 
     chmod 0555 $zDeployPath/.git/hooks/post-update
 }

@@ -19,7 +19,7 @@ zdeploy() {
     else
         git add $@
     fi
-    git commit -m "[DEPLOY]:\n${zCommitContent}"  # Maybe reveive contents from frontend?
+    git commit -m "[DEPLOY]:=>${zCommitContent}"  # Maybe reveive contents from frontend?
 
     local i=0
     local j=0
@@ -73,7 +73,7 @@ zrevoke() {
     fi
 
     zCommitContent=`git log CURRENT -n 1 | tail -n 1`
-    git commit -m "[REVOKE]:\n${zCommitContent}"
+    git commit -m "[REVOKE]=>${zCommitContent}"
 
     local i=0
     local j=0
