@@ -33,7 +33,7 @@ printf "#!/bin/sh
         /usr/bin/killall git_shadow
         $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
         i=0
-        while [[ 0 -ne \$? && 3 -gt i]]
+        while [[ 0 -ne \$? && 3 -gt $i]]
         do
             sleep 1
             $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
