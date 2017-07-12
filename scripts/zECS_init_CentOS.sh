@@ -13,7 +13,7 @@ zSshKnownHostPath=$zCodePath/.git_shadow/info/known_hosts
 #su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 \rm -rf $zCodePath
 mkdir $zCodePath
-\cp -rf ../demo/${zProjName}_shadow $zCodePath/.git_shadow
+\cp -rf ../demo/${zProjName}_shadow /home/git/
 touch $zSshKeyPath
 chmod 0600 $zSshKeyPath
 
@@ -30,13 +30,25 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-    export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
-    export HOME=/home/git
-    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\"
+    zReply() {
+        killall git_shadow
+        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+        while [[ 0 -ne \$? ]]
+        do
+            sleep 1
+            $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+        done
+    }
+
+    export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin &&
+    export HOME=/home/git &&
+    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
     git checkout server &&
     git checkout -b TMP &&
     git branch -M client &&
+
+    zReply &  # background
 
     chmod 0600 $zSshKeyPath &&
     cp -up $zSshKeyPath /home/git/.ssh/ &&
@@ -54,18 +66,6 @@ printf "#!/bin/sh
             break
         fi
     done
-
-    zReply() {
-        killall git_shadow
-        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-        while [[ 0 -ne \$? ]]
-        do
-            sleep 1
-            $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
-        done
-    }
-
-    zReply &
 " > $zCodePath/.git/hooks/post-update
 
 chmod u+x $zCodePath/.git/hooks/post-update
