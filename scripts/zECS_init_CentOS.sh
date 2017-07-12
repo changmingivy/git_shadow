@@ -23,16 +23,16 @@ git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
 touch README
 git add --all .
-git commit -m "__INIT__"
+git commit -m "__ECS_init__"
 git branch -m master client # 将master分支名称更改为client
 git branch server # 创建server分支
 
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:$PATH\" &&
-export HOME=\"/home/git\" &&
-alias git=\"git --git-dir=$zCodePath/.git\" &&
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+export HOME=/home/git
+alias git=\'git --git-dir=$zCodePath/.git\'
 
 git stash &&
 git stash clear &
