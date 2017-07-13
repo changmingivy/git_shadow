@@ -29,14 +29,14 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-    export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+    export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
     alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
     git checkout server &&
     git checkout -b TMP &&
-    git branch -D client &&
-    git branch -m client &&
+    git branch -M client &&
+    git reset --hard HEAD && # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
 
 (
     killall git_shadow
