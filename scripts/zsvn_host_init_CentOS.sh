@@ -60,6 +60,7 @@ zInitEnv() {
 
     printf "#!/bin/sh
         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+        export GIT_DIR=\"%zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
 
         cd $zDeployPath &&
 

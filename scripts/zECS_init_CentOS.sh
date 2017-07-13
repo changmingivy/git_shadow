@@ -36,9 +36,9 @@ git branch server # 创建server分支
 printf "#!/bin/sh
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
-    #alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
+    export GIT_DIR=\"%zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
+    #unset \$(git rev-parse --local-env-vars)  # 将 git hook 特定的环境变量值全部置为空
 
-    unset \$(git rev-parse --local-env-vars)
     cd $zCodePath &&  # 必须首先切换路径，否则 reset 不会执行
 
     git checkout server &&
