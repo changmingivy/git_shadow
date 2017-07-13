@@ -62,7 +62,7 @@ printf "#!/bin/sh
             break
         fi
     done
-" > $zCodePath/.git/hooks/post-update
+" > $zCodePath/.git/hooks/post-receive
 
-chmod u+x $zCodePath/.git/hooks/post-update
+chmod u+x $zCodePath/.git/hooks/post-receive
 chown -R git:git /home/git
