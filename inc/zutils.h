@@ -169,9 +169,9 @@ zregister_calloc(const int zCnt, const size_t zSiz) {
 } while(0)
 
 /*
- * 信号处理
+ * 信号处理，屏蔽除SIGKILL与SIGSTOP之外的所有信号，合试30种
  */
-_i zSigSet[30] = {
+_i zSigSet[] = {
     SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
     SIGIOT, SIGBUS, SIGFPE, SIGUSR1, SIGSEGV, SIGUSR2,
     SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCHLD, SIGCONT,
@@ -185,7 +185,7 @@ _i zSigSet[30] = {
     sigfillset(&zSigActionIf.sa_mask);\
     zSigActionIf.sa_flags = 0;\
 \
-    for (_i i = 0; i < 30; i++) {\
+    for (_i i = 0; i < sizeof(zSigSet); i++) {\
         sigaction(zSigSet[i], &zSigActionIf, NULL);\
     }\
 } while(0)\
