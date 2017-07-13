@@ -15,7 +15,6 @@ zSshKnownHostPath=${zCodePath}/.git_shadow/info/known_hosts
 mkdir $zCodePath
 \cp -rf ../demo/${zProjName}_shadow /home/git/
 ln -sv ${zCodePath}_shadow $zCodePath/.git_shadow
-cc -O2 -std=c99 -I../inc -lpthread -lpcre2-8 -D_XOPEN_SOURCE=700 -o ../bin/git_shadow ../src/zmain.c
 
 cd $zCodePath
 git init .
