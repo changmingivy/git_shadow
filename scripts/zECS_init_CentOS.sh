@@ -18,15 +18,9 @@ ln -sv ${zCodePath}_shadow $zCodePath/.git_shadow
 
 cd $zCodePath
 
-cd .git_shadow
-cc -O2 -std=c99\
-	-I./inc\
-	-lpthread\
-	-lpcre2-8\
-	-D_XOPEN_SOURCE=700\
-	-o ./bin/git_shadow\
-	./src/zmain.c
-cd ..
+cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
+	-o ./.git_shadow/bin/git_shadow\
+	./.git_shadow/src/zmain.c
 
 git init .
 git config --global user.email "ECS@aliyun.com"
@@ -44,7 +38,7 @@ printf "#!/bin/sh
 
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
-    alias git=\"git --git-dir=$zCodePath/.git\" &&
+    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
     git checkout server &&
     git checkout -b TMP &&
