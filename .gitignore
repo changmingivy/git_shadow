@@ -1,9 +1,9 @@
 log/log
 a.out
+git_shadow
 Trash/
 ISOs/
 images/
-bin/
 
 # Prerequisites
 *.d
