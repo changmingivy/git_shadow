@@ -36,8 +36,9 @@ git branch server # 创建server分支
 printf "#!/bin/sh
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
-    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
+    #alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
+    unset \$(git rev-parse --local-env-vars)
     cd $zCodePath &&  # 必须首先切换路径，否则 reset 不会执行
 
     git checkout server &&
@@ -60,7 +61,7 @@ printf "#!/bin/sh
     cp -up $zSshKnownHostPath /home/git/.ssh/ &&
     chmod -R 0700 /home/git/.ssh/ &&
 
-	for zAddr in \$(eval \$(which ifconfig) | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
+	for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
             for zEcsAddr in \$zEcsAddrList; do
