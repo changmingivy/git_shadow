@@ -8,6 +8,7 @@ zInitEnv() {
 
     rm -rf /home/git/*
     cp -rp ../demo/${zProjName}_shadow /home/git/
+    ln -sv /home/git/${zProjName}_shadow $zDeployPath/.git_shadow
 
     #Init Subversion Server
     mkdir $zSvnServPath
@@ -21,7 +22,6 @@ zInitEnv() {
     .gitignore' $zSyncPath
 
     #Init Sync Git Env
-    ln -sv /home/git/${zProjName}_shadow $zSyncPath/.git_shadow
     cd $zSyncPath
     git init .
     echo ".svn" > .gitignore
@@ -44,8 +44,8 @@ zInitEnv() {
     git branch server  #Act as Git server
 
     printf "#!/bin/sh
-         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
-         export HOME=\"/home/git\" &&
+         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\"
+         export HOME=\"/home/git\"  # git commit 需要据此搜索git config参数
 
          cd $zSyncPath &&
          svn cleanup &&
@@ -54,12 +54,12 @@ zInitEnv() {
          git add --all . &&
          git commit -m \"{REPO => \$1} {REV => \$2}\" &&
          git push --force ${zDeployPath}/.git sync_git:server
-    " > $zSvnServPath/hooks/post-commit
+		 " > $zSvnServPath/hooks/post-commit
 
     chmod 0555 $zSvnServPath/hooks/post-commit
 
     printf "#!/bin/sh
-        export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
+        export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\"
         export GIT_DIR=\"%zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
 
         cd $zDeployPath &&
@@ -67,7 +67,7 @@ zInitEnv() {
         rm -rf .git_shadow &&
         git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
-    " > $zDeployPath/.git/hooks/post-update
+		" > $zDeployPath/.git/hooks/post-update
 
     chmod 0555 $zDeployPath/.git/hooks/post-update
 }

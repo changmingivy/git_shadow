@@ -195,20 +195,19 @@ main(_i zArgc, char **zppArgv) {
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-    zCheck_Negative_Exit(zInotifyFD);
-
-    zthread_poll_init();  // 初始化线程池
-
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
     zCallBackList[0] = zcommon_func;
     zCallBackList[1] = zupdate_cache;
     zCallBackList[2] = zupdate_ipv4_db_all;
 
+    zthread_poll_init();  // 初始化线程池
+
+    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
 
+    zInotifyFD = inotify_init();  // 生成inotify master fd
+    zCheck_Negative_Exit(zInotifyFD);
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
-    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 启动网络服务
 
 //    ztest_print();
 

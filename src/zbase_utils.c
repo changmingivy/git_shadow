@@ -207,15 +207,11 @@ zclose_fds(pid_t zPid) {
 void
 zdaemonize(const char *zpWorkDir) {
 // TEST: PASS
-//  struct sigaction zSigActionIf;
-//  zSigActionIf.sa_handler = SIG_IGN;
-//  sigemptyset(&zSigActionIf.sa_mask);
-//  zSigActionIf.sa_flags = 0;
-//  sigaction(SIGHUP, &zSigActionIf, NULL);
-//  sigaction(SIGPIPE, &zSigActionIf, NULL);
-    sigset_t zSigToBlock;
-    sigfillset(&zSigToBlock);
-    pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL);
+    zIgnoreAllSignal();
+
+//  sigset_t zSigToBlock;
+//  sigfillset(&zSigToBlock);
+//  pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL);
 
     umask(0);
     zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
