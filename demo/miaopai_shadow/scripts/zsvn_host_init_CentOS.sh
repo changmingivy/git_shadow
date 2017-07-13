@@ -62,6 +62,7 @@ zInitEnv() {
         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\" &&
 
         cd $zDeployPath &&
+
         rm -rf .git_shadow &&
         git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow

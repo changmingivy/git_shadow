@@ -17,6 +17,17 @@ mkdir $zCodePath
 ln -sv ${zCodePath}_shadow $zCodePath/.git_shadow
 
 cd $zCodePath
+
+cd .git_shadow
+cc -O2 -std=c99\
+	-I./inc\
+	-lpthread\
+	-lpcre2-8\
+	-D_XOPEN_SOURCE=700\
+	-o ./bin/git_shadow\
+	./src/zmain.c
+cd ..
+
 git init .
 git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
@@ -29,7 +40,7 @@ git branch server # 创建server分支
 # config git hook
 # 拉取server分支分代码到client分支；通知中控机已收到代码；判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
 printf "#!/bin/sh
-    cd $zCodePath  # 必须首先切换路径，否则 reset 不会执行
+    cd $zCodePath &&  # 必须首先切换路径，否则 reset 不会执行
 
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
@@ -37,7 +48,7 @@ printf "#!/bin/sh
 
     git checkout server &&
     git checkout -b TMP &&
-    git reset -q --hard && # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
+    git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
     git branch -M client &&
 
 (
