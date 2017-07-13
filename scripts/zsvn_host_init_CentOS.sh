@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# 说明：
+#     此脚本接受两个参数，$1 用于指定本机启动 svn 服务所用的ip地址；$2 用于指定中控机的 ip 地址，使用 SSH 协议
+#
+
 zInitEnv() {
     zProjName="miaopai"
     zSvnServPath=/home/git/svn_$zProjName  #Subversion repo to receive code from remote developers

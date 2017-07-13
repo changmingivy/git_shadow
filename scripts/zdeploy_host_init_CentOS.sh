@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# 说明：
+#     此脚本接受一个参数，用于指定 svn 服务器的 ip 地址，端口固定为 50000
+#
+
 zInitEnv() {
     zProjName="miaopai"
     zDeployPath=/home/git/$zProjName
