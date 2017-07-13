@@ -30,7 +30,7 @@ zrevoke() {
 
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    git commit -m "[REVOKE FROM]:${zCommitContent}"
+    git commit -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
 }
 
 #######################################################
@@ -65,8 +65,6 @@ elif [[ $zActionType -eq $zRevokeOne ]]; then zrevoke $@
 elif [[ $zActionType -eq $zRevokeAll ]]; then zrevoke
 else printf "\033[31;01Deploy: unknown request!\033[00m\n" 1>&2
 fi
-
-if [[ 0 -ne $? ]]; then exit 1; fi
 
 i=0
 j=0
