@@ -31,7 +31,7 @@ git branch server # 创建server分支
 printf "#!/bin/sh
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
-    #alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
+    alias git=\"git --git-dir=$zCodePath/.git --work-tree=$zCodePath\" &&
 
 	cd $zCodePath
 
