@@ -27,7 +27,7 @@ git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
 touch README
 git add --all .
-git commit -m "__ECS_init__"
+git commit --allow-empty --allow-empty-message -m "__ECS_init__"
 git branch -m master client # 将master分支名称更改为client
 git branch server # 创建server分支
 

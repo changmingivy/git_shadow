@@ -14,7 +14,7 @@ zdeploy() {
 
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    git commit -m "[DEPLOY FROM]:${zCommitContent}"  # Maybe reveive contents from frontend?
+    git commit --allow-empty --allow-empty-message -m "[DEPLOY FROM]:${zCommitContent}"  # Maybe reveive contents from frontend?
 }
 
 # $@(after shift):the file to deploy
@@ -30,7 +30,7 @@ zrevoke() {
 
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    git commit -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
+    git commit --allow-empty --allow-empty-message -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
 }
 
 #######################################################

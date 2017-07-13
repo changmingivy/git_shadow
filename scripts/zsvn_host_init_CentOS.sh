@@ -30,7 +30,7 @@ zInitEnv() {
 
     touch README
     git add --all .
-    git commit -m "__sync_init__"
+    git commit --allow-empty --allow-empty-message -m "__sync_init__"
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
 
     #Init Deploy Git Env
@@ -39,7 +39,7 @@ zInitEnv() {
     git init .
     touch README
     git add --all .
-    git commit -m "__deploy_init__"
+    git commit --allow-empty --allow-empty-message -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
 
@@ -52,7 +52,7 @@ zInitEnv() {
          svn update &&
 
          git add --all . &&
-         git commit -m \"{REPO => \$1} {REV => \$2}\" &&
+         git commit --allow-empty --allow-empty-message -m \"{REPO => \$1} {REV => \$2}\" &&
          git push --force ${zDeployPath}/.git sync_git:server
 		 " > $zSvnServPath/hooks/post-commit
 
