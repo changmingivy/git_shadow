@@ -35,8 +35,8 @@ printf "#!/bin/sh
 
     git checkout server &&
     git checkout -b TMP &&
+    git reset -q --hard && # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
     git branch -M client &&
-    git reset --hard HEAD && # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
 
 (
     killall git_shadow
