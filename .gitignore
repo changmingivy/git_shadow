@@ -3,6 +3,7 @@ a.out
 Trash/
 ISOs/
 images/
+bin/
 
 # Prerequisites
 *.d
