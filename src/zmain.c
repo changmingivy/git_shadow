@@ -202,14 +202,14 @@ zReLoad:;
 
     zthread_poll_init();  // 初始化线程池
 
-    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
-    zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
-
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
+
+    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
+    zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
 
-//    ztest_print();
+    ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd

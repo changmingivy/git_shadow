@@ -9,14 +9,14 @@
  **************************************/
 void
 zdeploy_init(_i zRepoId) {
+        _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
         char zShellBuf[4096];  // 存放SHELL命令字符串
         sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zRepoId]);
 
         pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
-        zAdd_To_Thread_Pool(zthread_system, zShellBuf);
+        if (0 != system(zShellBuf)) { goto zMark; }
 
-        _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
         do {
             zsleep(2);  // 每隔2秒收集一次结果
 
@@ -38,6 +38,7 @@ zdeploy_init(_i zRepoId) {
             zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
         }
 
+zMark:
         pthread_rwlock_unlock(&(zpRWLock[zRepoId]));  // 释放锁
 }
 

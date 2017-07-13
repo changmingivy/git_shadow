@@ -85,6 +85,5 @@ if [[ $i -eq $j ]]; then
 fi
 
 zCurSig=$(git log CURRENT -n 1 --format=%H) # 取 CURRENT 分支的 SHA1 sig
-git branch $zCurSig # 创建一个以 SHA1 sig 命名的分支
-git branch -D CURRENT
-git branch CURRENT
+git branch -f $zCurSig # 创建一个以 SHA1 sig 命名的分支
+git branch -f CURRENT

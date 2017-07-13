@@ -8,6 +8,7 @@ zInitEnv() {
 
     rm -rf /home/git/*
     cp -rp ../demo/${zProjName}_shadow /home/git/
+    mkdir $zDeployPath
     ln -sv /home/git/${zProjName}_shadow $zDeployPath/.git_shadow
 
     #Init Subversion Server
@@ -34,7 +35,6 @@ zInitEnv() {
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
 
     #Init Deploy Git Env
-    mkdir $zDeployPath
     cd $zDeployPath
     git init .
     touch README
