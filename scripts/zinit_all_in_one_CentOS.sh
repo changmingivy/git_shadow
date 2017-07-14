@@ -6,9 +6,8 @@ zInitEnv() {
     zDeployPath=/home/git/$zProjName #Used to deploy code! --CORE--
 
     rm -rf /home/git/*
-    cp -rp ../demo/${zProjName}_shadow /home/git/
     mkdir $zDeployPath
-    ln -sv /home/git/${zProjName}_shadow $zDeployPath/.git_shadow
+    cp -rp ../demo/${zProjName}_shadow $zDeployPath/.git_shadow
 
     #Init Subversion Server
     mkdir $zSvnServPath
@@ -63,9 +62,7 @@ zInitEnv() {
 
         cd $zDeployPath &&
 
-        rm -rf .git_shadow &&
-        git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
-        ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
+        git pull --force ./.git server:master &&
 		" > $zDeployPath/.git/hooks/post-receive
 
     chmod 0555 $zDeployPath/.git/hooks/post-receive
