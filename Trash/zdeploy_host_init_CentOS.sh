@@ -10,7 +10,7 @@ zInitEnv() {
 
     rm -rf /home/git/*
     mkdir $zDeployPath
-    cp -rp ../demo/${zProjName}_shadow $zDeployPath/.git_shadow
+    cp -rp ../demo/${zProjName}_shadow /home/git/
 
     #Init Deploy Git Env
     cd $zDeployPath
@@ -30,6 +30,7 @@ zInitEnv() {
         rm -f .git_shadow &&
 
         git pull --force ./.git server:master &&
+
         " > $zDeployPath/.git/hooks/post-receive
 
     chmod 0555 $zDeployPath/.git/hooks/post-receive

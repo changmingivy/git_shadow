@@ -50,11 +50,11 @@ printf "#!/bin/sh
 
 (
     killall git_shadow
-    /tmp/git_shadow -C -h 10.30.2.126 -p 20000
+    /tmp/git_shadow -C -h 127.0.0.1 -p 20000
     i=0
     while [[ 0 -ne \$? && 3 -gt \$i ]]; do
         sleep 1
-        /tmp/git_shadow -C -h 10.30.2.126 -p 20000
+        /tmp/git_shadow -C -h 127.0.0.1 -p 20000
         let i++
     done
 ) &

@@ -28,5 +28,5 @@ fi
 
 cd $zCurDir
 killall -9 git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000
+../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 127.0.0.1 -p 20000
 #2>>../log/log 1>&2

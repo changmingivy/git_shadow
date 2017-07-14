@@ -7,7 +7,7 @@ zInitEnv() {
 
     rm -rf /home/git/*
     mkdir $zDeployPath
-    cp -rp ../demo/${zProjName}_shadow $zDeployPath/.git_shadow
+    cp -rp ../demo/${zProjName}_shadow /home/git
 
     #Init Subversion Server
     mkdir $zSvnServPath
@@ -16,7 +16,7 @@ zInitEnv() {
     svnserve --listen-port=$2 -d -r $zSvnServPath
 
    #Init svn repo
-    svn co svn://10.30.2.126:$2/ $zSyncPath
+    svn co svn://127.0.0.1:$2/ $zSyncPath
     svn propset svn:ignore '.git' $zSyncPath
 
     #Init Sync Git Env
@@ -60,7 +60,8 @@ zInitEnv() {
 
         cd $zDeployPath &&
 
-        git pull --force ./.git server:master">$zDeployPath/.git/hooks/post-receive
+        git pull --force ./.git server:master">$zDeployPath/.git/hooks/post-receive &&
+        ln -sv ${zDeployPath}_shadow .git_shadow
 
     chmod 0555 $zDeployPath/.git/hooks/post-receive
 }
@@ -72,7 +73,7 @@ zInitEnv miaopai 50000
 rm -rf /tmp/miaopai
 mkdir /tmp/miaopai
 cd /tmp/miaopai
-svn co svn://10.30.2.126:50000
+svn co svn://127.0.0.1:50000
 cp /etc/* ./ 2>/dev/null
 svn add *
 svn commit -m "etc files"
