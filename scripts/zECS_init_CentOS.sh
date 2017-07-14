@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 zProjName="miaopai"
 zCodePath=/home/git/$zProjName
-zEcsAddrListPath=$zCodePath/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
-zEcsAddrMajorListPath=$zCodePath/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
+zEcsAddrListPath=${zCodePath}/.git_shadow/info/client_ip_all.txt #store all ECSs' private IPs
+zEcsAddrMajorListPath=${zCodePath}/.git_shadow/info/client_ip_major.txt #store all major ECSs' public IPs
 zSshKeyPath=${zCodePath}/.git_shadow/info/authorized_keys  #store Control Host and major ECSs' SSH pubkeys
 zSshKnownHostPath=${zCodePath}/.git_shadow/info/known_hosts
 
@@ -13,7 +13,7 @@ zSshKnownHostPath=${zCodePath}/.git_shadow/info/known_hosts
 #su git -c "yes|ssh-keygen -t rsa -P '' -f /home/git/.ssh/id_rsa"
 \rm -rf $zCodePath
 mkdir $zCodePath
-\cp -rf ../demo/${zProjName}_shadow $zCodePath/.git_shadow
+\cp -rf ../demo/${zProjName}_shadow ${zCodePath}/.git_shadow
 
 cp -up $zSshKeyPath /home/git/.ssh/ &&
 cp -up $zSshKnownHostPath /home/git/.ssh/ &&
@@ -38,7 +38,7 @@ git branch server # 创建server分支
 printf "#!/bin/sh
     export PATH=\"/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin\" &&
     export HOME=\"/home/git\" &&
-    export GIT_DIR=\"$zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
+    export GIT_DIR=\"${zCodePath}/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
     #unset \$(git rev-parse --local-env-vars)  # 将 git hook 特定的环境变量值全部置为空
 
     cd $zCodePath &&  # 必须首先切换路径，否则 reset 不会执行
@@ -72,7 +72,7 @@ printf "#!/bin/sh
             break
         fi
     done
-" > $zCodePath/.git/hooks/post-receive
+" > ${zCodePath}/.git/hooks/post-receive
 
-chmod u+x $zCodePath/.git/hooks/post-receive
+chmod u+x ${zCodePath}/.git/hooks/post-receive
 chown -R git:git /home/git

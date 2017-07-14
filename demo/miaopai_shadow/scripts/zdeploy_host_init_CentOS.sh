@@ -9,13 +9,15 @@ zInitEnv() {
     zDeployPath=/home/git/$zProjName
 
     rm -rf /home/git/*
-    cp -rp ../demo/${zProjName}_shadow /home/git/
     mkdir $zDeployPath
-    ln -sv /home/git/${zProjName}_shadow $zDeployPath/.git_shadow
+    cp -rp ../demo/${zProjName}_shadow $zDeployPath/.git_shadow
 
     #Init Deploy Git Env
     cd $zDeployPath
     git init .
+
+    printf ".svn\ngit_shadow" > .gitignore
+    git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
@@ -27,12 +29,10 @@ zInitEnv() {
         cd $zDeployPath &&
         rm -f .git_shadow &&
 
-        yes|git pull --force ./.git server:master &&
+        git pull --force ./.git server:master &&
+		" > $zDeployPath/.git/hooks/post-receive
 
-        ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
-		" > $zDeployPath/.git/hooks/post-update
-
-    chmod 0555 $zDeployPath/.git/hooks/post-update
+    chmod 0555 $zDeployPath/.git/hooks/post-receive
 }
 
 
