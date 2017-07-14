@@ -71,7 +71,7 @@ j=0
 for zEcs in $zEcsList
 do
     let i++
-    yes|git push --force git@${zEcs}:${zCodePath}/.git master:server &
+    git push --force git@${zEcs}:${zCodePath}/.git master:server &
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done
@@ -80,7 +80,7 @@ if [[ $i -eq $j ]]; then
     git reset --hard CURRENT
     git stash
     git stash clear
-    yes|git pull --force ${zCodePath}/.git server:master
+    git pull --force ${zCodePath}/.git server:master
     exit 1
 fi
 

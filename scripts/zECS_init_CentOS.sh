@@ -29,8 +29,6 @@ cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
 git init .
 git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
-touch README
-git add --all .
 git commit --allow-empty -m "__ECS_init__"
 git branch -m master client # 将master分支名称更改为client
 git branch server # 创建server分支
@@ -69,7 +67,7 @@ printf "#!/bin/sh
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
             for zEcsAddr in \$zEcsAddrList; do
-                yes|git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
+                git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
             done
             break
         fi

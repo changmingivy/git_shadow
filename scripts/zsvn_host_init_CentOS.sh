@@ -41,7 +41,7 @@ zInitEnv() {
 
          git add --all . &&
          git commit --allow-empty -m \"{REPO => \$1} {REV => \$2}\" &&
-         yes|git push --force git@"${3}":"${zDeployPath}"/.git sync_git:server
+         git push --force git@"${3}":"${zDeployPath}"/.git sync_git:server
 		 " > $zSvnServPath/hooks/post-commit
 
     chmod 0555 $zSvnServPath/hooks/post-commit
