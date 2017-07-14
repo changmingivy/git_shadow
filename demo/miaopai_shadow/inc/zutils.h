@@ -169,9 +169,9 @@ zregister_calloc(const int zCnt, const size_t zSiz) {
 } while(0)
 
 /*
- * 信号处理，屏蔽除SIGKILL与SIGSTOP之外的所有信号，合试30种
+ * 信号处理，屏蔽除SIGKILL与SIGSTOP之外的所有信号，合计 30 种
  */
-_i zSigSet[] = {
+_i zSigSet[30] = {
     SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
     SIGIOT, SIGBUS, SIGFPE, SIGUSR1, SIGSEGV, SIGUSR2,
     SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCHLD, SIGCONT,
@@ -185,7 +185,34 @@ _i zSigSet[] = {
     sigfillset(&zSigActionIf.sa_mask);\
     zSigActionIf.sa_flags = 0;\
 \
-    for (_i i = 0; i < sizeof(zSigSet); i++) {\
-        sigaction(zSigSet[i], &zSigActionIf, NULL);\
-    }\
-} while(0)\
+    sigaction(zSigSet[0], &zSigActionIf, NULL);\
+    sigaction(zSigSet[1], &zSigActionIf, NULL);\
+    sigaction(zSigSet[2], &zSigActionIf, NULL);\
+    sigaction(zSigSet[3], &zSigActionIf, NULL);\
+    sigaction(zSigSet[4], &zSigActionIf, NULL);\
+    sigaction(zSigSet[5], &zSigActionIf, NULL);\
+    sigaction(zSigSet[6], &zSigActionIf, NULL);\
+    sigaction(zSigSet[7], &zSigActionIf, NULL);\
+    sigaction(zSigSet[8], &zSigActionIf, NULL);\
+    sigaction(zSigSet[9], &zSigActionIf, NULL);\
+    sigaction(zSigSet[10], &zSigActionIf, NULL);\
+    sigaction(zSigSet[11], &zSigActionIf, NULL);\
+    sigaction(zSigSet[12], &zSigActionIf, NULL);\
+    sigaction(zSigSet[13], &zSigActionIf, NULL);\
+    sigaction(zSigSet[14], &zSigActionIf, NULL);\
+    sigaction(zSigSet[15], &zSigActionIf, NULL);\
+    sigaction(zSigSet[16], &zSigActionIf, NULL);\
+    sigaction(zSigSet[17], &zSigActionIf, NULL);\
+    sigaction(zSigSet[18], &zSigActionIf, NULL);\
+    sigaction(zSigSet[19], &zSigActionIf, NULL);\
+    sigaction(zSigSet[20], &zSigActionIf, NULL);\
+    sigaction(zSigSet[21], &zSigActionIf, NULL);\
+    sigaction(zSigSet[22], &zSigActionIf, NULL);\
+    sigaction(zSigSet[23], &zSigActionIf, NULL);\
+    sigaction(zSigSet[24], &zSigActionIf, NULL);\
+    sigaction(zSigSet[25], &zSigActionIf, NULL);\
+    sigaction(zSigSet[26], &zSigActionIf, NULL);\
+    sigaction(zSigSet[27], &zSigActionIf, NULL);\
+    sigaction(zSigSet[28], &zSigActionIf, NULL);\
+    sigaction(zSigSet[29], &zSigActionIf, NULL);\
+} while(0)
