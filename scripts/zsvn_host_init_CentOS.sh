@@ -26,7 +26,7 @@ zInitEnv() {
     git config --global user.email "_@yixia.com"
     git config --global user.name "_"
 
-    printf ".svn\n.git_shadow" > .gitignore
+    printf ".svn\ngit_shadow" > .gitignore
     git add --all .
     git commit --allow-empty -m "__sync_init__"
     git branch -M master sync_git

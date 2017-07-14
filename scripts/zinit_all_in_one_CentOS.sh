@@ -25,7 +25,7 @@ zInitEnv() {
     git config --global user.email git_shadow@yixia.com
     git config --global user.name git_shadow
 
-    printf ".svn\n.git_shadow" > .gitignore
+    printf ".svn\ngit_shadow" > .gitignore
     git add --all .
     git commit --allow-empty -m "__sync_init__"
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
@@ -34,7 +34,7 @@ zInitEnv() {
     cd $zDeployPath
     git init .
 
-    printf ".svn\n.git_shadow" > .gitignore
+    printf ".svn\ngit_shadow" > .gitignore
     git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
