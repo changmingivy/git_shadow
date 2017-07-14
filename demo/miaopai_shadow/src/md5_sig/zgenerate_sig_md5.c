@@ -193,8 +193,9 @@ MD5Update(MD5_CTX *context,_uc *input,_ui inputlen) {
         for(i = partlen;i+64 <= inputlen;i+=64)
             MD5Transform(context->state,&input[i]);
         index = 0;
+    } else {
+        i = 0;
     }
-    else { i = 0; }
     memcpy(&context->buffer[index],&input[i],inputlen-i);
 }
 

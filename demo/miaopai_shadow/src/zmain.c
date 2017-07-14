@@ -216,6 +216,9 @@ zReLoad:;
 
     pid_t zPid = fork(); // 之后父进程退出，子进程按新的主配置文件内容重新初始化
     zCheck_Negative_Exit(zPid);
-    if (0 == zPid) { goto zReLoad; }
-    else { exit(0); }
+    if (0 == zPid) {
+        goto zReLoad;
+    } else {
+        exit(0);
+    }
 }

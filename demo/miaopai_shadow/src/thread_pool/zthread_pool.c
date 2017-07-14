@@ -5,6 +5,7 @@
 #define zThreadPollSiz 16
 
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
+        zCheck_Null_Exit(zFunc);\
         pthread_mutex_lock(&(zThreadPollMutexLock[0]));\
         while (-1 == zJobQueue) {\
             pthread_cond_wait(&(zThreadPoolCond[0]), &(zThreadPollMutexLock[0]));\

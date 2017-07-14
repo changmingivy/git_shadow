@@ -253,7 +253,7 @@ zdeploy(_i zSd,  _i zMark) {
 
 // 依据布署日志，撤销指定文件或整次提交
 void
-zrevoke_from_log(_i zSd, _i zMark){
+zrevoke(_i zSd, _i zMark){
     zDeployLogInfo zIf = { .RepoId = -1, };
     zIf.zHint[0] = sizeof(zDeployLogInfo) - sizeof(_i);
     zIf.zHint[1] = sizeof(zDeployLogInfo) - sizeof(_i) -sizeof(_l);
@@ -419,10 +419,10 @@ zdo_serv(void *zpSd) {
             zdeploy(zSd, 1);
             break;
         case 'r':  // revoke:撤销单个文件的更改
-            zrevoke_from_log(zSd, 0);
+            zrevoke(zSd, 0);
             break;
         case 'R':  // REVOKE:撤销某次提交的全部更改
-            zrevoke_from_log(zSd, 1);
+            zrevoke(zSd, 1);
             break;
         case 'c':  // confirm:客户端回复的布署成功确认信息
             zconfirm_deploy_state(zSd, 0);
@@ -441,9 +441,22 @@ zdo_serv(void *zpSd) {
     }
 }
 
+zThreadPoolOps zNetServ[64] = {NULL};
+#define zGetCmdId(zCmd) ((zCmd) - 64)
+
 // 启动git_shadow服务器
 void
 zstart_server(void *zpIf) {
+    zNetServ[zGetCmdId('p')] = zlist_diff_files;
+    zNetServ[zGetCmdId('P')] = zprint_diff_contents;
+    zNetServ[zGetCmdId('l')] =zNetServ[zGetCmdId('L')] = zlist_log;
+    zNetServ[zGetCmdId('d')] = zNetServ[zGetCmdId('D')] = zdeploy;
+    zNetServ[zGetCmdId('r')] = zNetServ[zGetCmdId('R')] = zrevoke;
+    zNetServ[zGetCmdId('c')] = zNetServ[zGetCmdId('C')] = zconfirm_deploy_state;
+    zNetServ[zGetCmdId('u')] = zNetServ[zGetCmdId('U')] = zupdate_ipv4_db_txt;
+
+    _i zCmd = -1;
+
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
     struct epoll_event zEv, zEvents[zMaxEvents];
     _i zMajorSd, zConnSd, zEvNum, zEpollSd;
@@ -474,7 +487,8 @@ zstart_server(void *zpIf) {
                        epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),
                        );
             } else {
-               zAdd_To_Thread_Pool(zdo_serv, &(zEvents[i].data.fd));
+               zrecv_nohang(zEvents[i].data.fd, &zCmd, zBytes(1), MSG_PEEK, NULL);
+               zAdd_To_Thread_Pool(zNetServ[zGetCmdId(zCmd)], &(zEvents[i].data.fd));
             }
         }
     }

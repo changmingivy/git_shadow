@@ -24,8 +24,7 @@ zstr_to_base64(const char *zpOrig) {
         if (3 == (i % 4)) {
             zRightOffset[i] = 0;
             zLeftOffset[i] = 0;
-        }
-        else {
+        } else {
             zRightOffset[i] = zpOrig[j]>>(2 * ((j % 3) + 1));
             zLeftOffset[i] = zpOrig[j]<<(2 * (2 - (j % 3)));
             j++;
@@ -246,8 +245,7 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 
     if (0 == zPid) {
         execvp(zpCommand, zppArgv);
-    }
-    else {
+    } else {
         waitpid(zPid, NULL, 0);
     }
 }

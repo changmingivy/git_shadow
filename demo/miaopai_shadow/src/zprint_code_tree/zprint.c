@@ -83,8 +83,7 @@ zprint_out(zInboundInfo **zppInboundIf, const _i zLen) {
         for (_ui j = 2; j <= zppInboundIf[i]->vOffSet; j++) {
             if (0 < zCheck_Bit(zppInboundIf[i]->EndMarkAllPrev, j)) {
                 printf("    ");
-            }
-            else {
+            } else {
                 printf("\342\224\202   "); // print: '│'
             }
         }
@@ -92,8 +91,7 @@ zprint_out(zInboundInfo **zppInboundIf, const _i zLen) {
         if (0 < i) {
             if (1 == zppInboundIf[i]->MarkEnd) {
                 printf("\342\224\224\342\224\200\342\224\200 "); // print: '└── '
-            }
-            else {
+            } else {
                 printf("\342\224\234\342\224\200\342\224\200 "); // print: '├──  '
             }
         }
