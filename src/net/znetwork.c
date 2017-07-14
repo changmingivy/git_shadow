@@ -10,8 +10,7 @@
  * git_shadow充当TCP服务器角色，接收前端请求与后端主机信息反馈，尽可能使用缓存响应各类请求
  *
  * 对接规则：
- *         执行动作代号(1byte)＋信息正文
- *         [OpsMark(l/d/D/R)]+[struct zFileDiffInfo]
+ *         [OpsMark(l/d/D/R)000]+[meta]+[data]
  *
  * 代号含义:
  *         p:显示差异文件路径名称列表
@@ -22,7 +21,10 @@
  *         L:打印所有历史布署日志
  *         r:撤销某次提交的单个文件的更改，只来自前端
  *         R:撤销某次提交的所有更改，只来自前端
- *         c:状态确认，前端或后端主机均可返回
+ *         c:状态确认，后端主机返回
+ *         C:状态确认，前端返回
+ *         u:更新major ECS列表
+ *         U:更新all ECS列表
  */
 
 // 列出差异文件路径名称列表
@@ -59,6 +61,7 @@ void
 zprint_diff_contents(void *zpIf) {
     _i zSd = *((_i *)zpIf);
     zFileDiffInfo zIf = { .RepoId = -1, };
+
     if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
@@ -95,7 +98,8 @@ zlist_log(void *zpIf) {
     _i zSd = *((_i *)zpIf);
     zDeployLogInfo zIf = { .RepoId = -1, };
 
-    if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zDeployLogInfo), 0, NULL)) {
+    _i zLen = zSizeOf(zIf) - zSizeOf(zIf.PathLen) -zSizeOf(zIf.TimeStamp);
+    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
         return;
@@ -113,7 +117,7 @@ zlist_log(void *zpIf) {
         return;
     }
     _i zVecSiz;
-    if ( 0 == zMark ){    // 默认直接直接回复预存的最近zPreLoadLogSiz次记录
+    if ( 'l' == zIf.hints[0]){    // 默认直接直接回复预存的最近zPreLoadLogSiz次记录
         zsendmsg(zSd, zppPreLoadLogVecIf[zIf.RepoId], zpPreLoadLogVecSiz[zIf.RepoId], 0, NULL);
     } else {  // 若前端请求列出所有历史记录，从日志文件中读取
         struct stat zStatBufIf;
@@ -198,10 +202,12 @@ void
 zdeploy(void *zpIf) {
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char *zpLogContents;   // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
-    _i zSd = *((_i *)zpIf), zLogSiz;
+    _i zSd = *((_i *)zpIf);
+    _i zLogSiz;
     zFileDiffInfo zIf = { .RepoId = -1, };
 
-    if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zIf), 0, NULL)) {
+    _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
+    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
         return;
@@ -263,10 +269,12 @@ void
 zrevoke(void *zpIf){
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char *zpLogContents;  // 布署日志备注信息，默认是文件路径，若是整次提交，标记字符串"ALL"
-    _i zSd = *((_i *)zpIf), zLogSiz;
+    _i zSd = *((_i *)zpIf);
+    _i zLogSiz;
     zDeployLogInfo zIf = { .RepoId = -1, };
 
-    if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zIf), 0, NULL)) {
+    _i zLen = zSizeOf(zIf) - zSizeOf(zIf.PathLen) -zSizeOf(zIf.TimeStamp);
+    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
     }
