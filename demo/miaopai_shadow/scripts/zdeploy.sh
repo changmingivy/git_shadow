@@ -14,7 +14,7 @@ zdeploy() {
 
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    git commit -m "[DEPLOY FROM]:${zCommitContent}"  # Maybe reveive contents from frontend?
+    git commit --allow-empty -m "[DEPLOY FROM]:${zCommitContent}"  # Maybe reveive contents from frontend?
 }
 
 # $@(after shift):the file to deploy
@@ -30,7 +30,7 @@ zrevoke() {
 
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    git commit -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
+    git commit --allow-empty -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
 }
 
 #######################################################
@@ -71,7 +71,7 @@ j=0
 for zEcs in $zEcsList
 do
     let i++
-    git push --force git@${zEcs}:${zCodePath}/.git master:server &
+    yes|git push --force git@${zEcs}:${zCodePath}/.git master:server &
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done
@@ -80,11 +80,10 @@ if [[ $i -eq $j ]]; then
     git reset --hard CURRENT
     git stash
     git stash clear
-    git pull --force ${zCodePath}/.git server:master
+    yes|git pull --force ${zCodePath}/.git server:master
     exit 1
 fi
 
 zCurSig=$(git log CURRENT -n 1 --format=%H) # 取 CURRENT 分支的 SHA1 sig
-git branch $zCurSig # 创建一个以 SHA1 sig 命名的分支
-git branch -D CURRENT
-git branch CURRENT
+git branch -f $zCurSig # 创建一个以 SHA1 sig 命名的分支
+git branch -f CURRENT
