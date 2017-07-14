@@ -5,6 +5,7 @@
 /****************
  * UPDATE CACHE *
  ****************/
+
 /*
  * 生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
  */
@@ -45,6 +46,8 @@ zgenerate_cache(_i zRepoId) {
             zLen = 1 + strlen(zpRes[0]) + sizeof(zFileDiffInfo);
 
             zCheck_Null_Exit(zpIf = malloc(zLen));
+            zpIf->hints[0] = sizeof(zFileDiffInfo) - sizeof(zpIf->PathLen);
+            zpIf->hints[3] = sizeof(zFileDiffInfo) - sizeof(zpIf->PathLen) - sizeof(zpIf->p_DiffContent) - sizeof(zpIf->VecSiz);
             zpIf->CacheVersion = zNewVersion;
             zpIf->RepoId= zRepoId;
             zpIf->FileIndex = i;
@@ -212,6 +215,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     zMem_Alloc(zppDpResList[zRepoId], zDeployResInfo, zpTotalHost[zRepoId]);  // 分配数组空间，用于顺序读取
     zMem_C_Alloc(zpppDpResHash[zRepoId], zDeployResInfo *, zDeployHashSiz);  // 对应的 HASH 索引,用于快速定位写入
     for (_i j = 0; j < zpTotalHost[zRepoId]; j++) {
+        (zppDpResList[zRepoId][j].hints)[3] = sizeof(zDeployResInfo) - sizeof(zppDpResList[zRepoId][j].DeployState) - sizeof(zppDpResList[zRepoId][j].p_next);  // hints[3] 用于提示前端回发多少字节的数据
         zppDpResList[zRepoId][j].RepoId = zRepoId;  // 写入代码库索引值
         zppDpResList[zRepoId][j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
 

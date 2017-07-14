@@ -57,7 +57,7 @@ typedef struct {
 } zObjInfo;
 //----------------------------------
 typedef struct {
-    char zHint[4];   // 用于块充提示类信息，如：提示从何处开始读取需要的数据
+    char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 索引每个代码库路径
     _ui FileIndex;  // 缓存中每个文件路径的索引
     _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
@@ -70,9 +70,9 @@ typedef struct {
 } zFileDiffInfo;
 
 typedef struct {  // 布署日志信息的数据结构
-    char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
+    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 标识所属的代码库
-    _ui index;  // 索引每条记录在日志文件中的位置
+    _ui index;  // 标记是第几条记录(不是数据长度)
     _l offset;  // 指明在data日志文件中的SEEK偏移量
 
     _l TimeStamp;  // 时间戳，提供给前端使用
@@ -81,10 +81,10 @@ typedef struct {  // 布署日志信息的数据结构
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
-    char zHint[4];  // 用于块充提示类信息，如：提示从何处开始读取需要的数据
+    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _s RepoId;  // 所属代码库
-    _s DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
+    _i RepoId;  // 所属代码库
+    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
     struct zDeployResInfo *p_next;
 } zDeployResInfo;
 

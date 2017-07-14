@@ -185,7 +185,7 @@ _i zSigSet[] = {
     sigfillset(&zSigActionIf.sa_mask);\
     zSigActionIf.sa_flags = 0;\
 \
-    for (_i i = 0; i < sizeof(zSigSet); i++) {\
+    for (_i i = 0; i < zSizeOf(zSigSet); i++) {\
         sigaction(zSigSet[i], &zSigActionIf, NULL);\
     }\
 } while(0)\
