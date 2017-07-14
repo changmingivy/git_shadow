@@ -59,16 +59,16 @@ zInitEnv() {
 
     printf "#!/bin/sh
         export PATH=\"/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin\"
-        export GIT_DIR=\"%zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
+        export GIT_DIR=\"$zCodePath/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
 
         cd $zDeployPath &&
 
         rm -rf .git_shadow &&
         git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
-		" > $zDeployPath/.git/hooks/post-update
+		" > $zDeployPath/.git/hooks/post-receive
 
-    chmod 0555 $zDeployPath/.git/hooks/post-update
+    chmod 0555 $zDeployPath/.git/hooks/post-receive
 }
 
 killall svnserve
