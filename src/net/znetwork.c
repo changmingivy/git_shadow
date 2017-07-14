@@ -2,6 +2,8 @@
     #include "../zmain.c"
 #endif
 
+#define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
+
 /****************
  * 模块整体信息 *
  ****************/
@@ -532,3 +534,5 @@ zclient_reply(char *zpHost, char *zpPort) {
     close(zFd);
     shutdown(zSd, SHUT_RDWR);
 }
+
+#undef zTypeConvert
