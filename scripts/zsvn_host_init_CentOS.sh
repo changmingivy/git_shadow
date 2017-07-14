@@ -20,14 +20,14 @@ zInitEnv() {
     #Init Sync Repo
     cd $zSyncPath
     svn co svn://$1:$2/ .
-    svn propset svn:ignore '.git
-    .gitignore' $zSyncPath
+    svn propset svn:ignore '.git' $zSyncPath
 
     git init .  # 此处 git 的作用是将 svn 库转同步到 git 库
-    echo ".svn" > .gitignore
     git config --global user.email "_@yixia.com"
     git config --global user.name "_"
 
+    printf ".svn\n.git_shadow" > .gitignore
+    git add --all .
     git commit --allow-empty -m "__sync_init__"
     git branch -M master sync_git
 

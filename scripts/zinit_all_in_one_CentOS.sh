@@ -17,17 +17,15 @@ zInitEnv() {
 
    #Init svn repo
     svn co svn://10.30.2.126:$2/ $zSyncPath
-    svn propset svn:ignore '.git
-    .gitignore' $zSyncPath
+    svn propset svn:ignore '.git' $zSyncPath
 
     #Init Sync Git Env
     cd $zSyncPath
     git init .
-    echo ".svn" > .gitignore
     git config --global user.email git_shadow@yixia.com
     git config --global user.name git_shadow
 
-    touch README
+    printf ".svn\n.git_shadow" > .gitignore
     git add --all .
     git commit --allow-empty -m "__sync_init__"
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
@@ -35,7 +33,8 @@ zInitEnv() {
     #Init Deploy Git Env
     cd $zDeployPath
     git init .
-    touch README
+
+    printf ".svn\n.git_shadow" > .gitignore
     git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
