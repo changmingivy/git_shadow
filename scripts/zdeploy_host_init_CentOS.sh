@@ -27,7 +27,7 @@ zInitEnv() {
         cd $zDeployPath &&
         rm -f .git_shadow &&
 
-        git pull --force ./.git server:master &&
+        yes|git pull --force ./.git server:master &&
 
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
 		" > $zDeployPath/.git/hooks/post-update

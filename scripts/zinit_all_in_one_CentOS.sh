@@ -52,7 +52,7 @@ zInitEnv() {
 
          git add --all . &&
          git commit --allow-empty -m \"{REPO => \$1} {REV => \$2}\" &&
-         git push --force ${zDeployPath}/.git sync_git:server
+         yes|git push --force ${zDeployPath}/.git sync_git:server
 		 " > $zSvnServPath/hooks/post-commit
 
     chmod 0555 $zSvnServPath/hooks/post-commit
@@ -64,7 +64,7 @@ zInitEnv() {
         cd $zDeployPath &&
 
         rm -rf .git_shadow &&
-        git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
+        yes|git --git-dir=$zDeployPath/.git pull --force ./.git server:master &&
         ln -sv /home/git/${zProjName}_shadow ${zDeployPath}/.git_shadow
 		" > $zDeployPath/.git/hooks/post-update
 

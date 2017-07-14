@@ -69,7 +69,7 @@ printf "#!/bin/sh
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
             for zEcsAddr in \$zEcsAddrList; do
-                git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
+                yes|git push --force git@\${zEcsAddr}:${zCodePath}/.git client:server &
             done
             break
         fi
