@@ -16,6 +16,10 @@ mkdir $zCodePath
 \cp -rf ../demo/${zProjName}_shadow /home/git/
 ln -sv ${zCodePath}_shadow $zCodePath/.git_shadow
 
+cp -up $zSshKeyPath /home/git/.ssh/ &&
+cp -up $zSshKnownHostPath /home/git/.ssh/ &&
+chmod -R 0700 /home/git/.ssh/ &&
+
 cd $zCodePath
 
 cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
