@@ -33,8 +33,7 @@ zgenerate_cache(_i zRepoId) {
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
         return NULL;
-    }
-    else {
+    } else {
         if (0 == (zDiffFileNum = strtol(zpRes[0], NULL, 10))) {
             return NULL;
         }
@@ -123,8 +122,7 @@ zgenerate_cache(_i zRepoId) {
         if (0 == i % 2) {
             zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
             zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
-        }
-        else {
+        } else {
             zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLogCache + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
             zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
         }
@@ -227,8 +225,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         if (NULL == zpTmpIf) {
             zpppDpResHash[zRepoId][j % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
             zpppDpResHash[zRepoId][j % zDeployHashSiz]->p_next = NULL;
-        }
-        else {
+        } else {
             while (NULL != zpTmpIf->p_next) {  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
                 zpTmpIf = zpTmpIf->p_next;
             }

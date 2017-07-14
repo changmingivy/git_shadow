@@ -73,12 +73,17 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
         if (zRetCnt < 0) {
         //zRetCnt == 0 means space is not enough, you need check it
         //when use pcre2_match_data_create instead of the one whih suffix '_pattern'
-            if (zRetCnt == PCRE2_ERROR_NOMATCH) { break; }
-            else { zpcre_get_err(zRetCnt); }
+            if (zRetCnt == PCRE2_ERROR_NOMATCH) {
+				break;
+			} else {
+				zpcre_get_err(zRetCnt);
+			}
         }
 
         zpRetVector = pcre2_get_ovector_pointer(zpPCREInitIf->p_MatchData);
-        if (zpRetVector[0] == zpRetVector[1] || strlen((char *)zSubject) < zpRetVector[1]) { break; }
+        if (zpRetVector[0] == zpRetVector[1] || strlen((char *)zSubject) < zpRetVector[1]) {
+			break;
+		}
 
         PCRE2_SPTR zSubStringStart = zSubject + zpRetVector[0];
         size_t zSubStringLen = zpRetVector[1] - zpRetVector[0];  // Maybe add 1?
