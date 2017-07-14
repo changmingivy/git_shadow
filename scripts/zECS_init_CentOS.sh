@@ -28,6 +28,7 @@ cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
 git init .
 git config --global user.email "ECS@aliyun.com"
 git config --global user.name "ECS"
+git add --all .
 git commit --allow-empty -m "__ECS_init__"
 git branch -m master client # 将master分支名称更改为client
 git branch server # 创建server分支

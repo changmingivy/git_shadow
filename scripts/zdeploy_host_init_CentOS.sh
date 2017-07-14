@@ -15,6 +15,7 @@ zInitEnv() {
     #Init Deploy Git Env
     cd $zDeployPath
     git init .
+    git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
