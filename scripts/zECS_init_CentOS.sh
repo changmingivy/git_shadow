@@ -22,7 +22,7 @@ chmod -R 0700 /home/git/.ssh/ &&
 cd $zCodePath
 
 cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
-	-o ./.git_shadow/bin/git_shadow\
+	-o /tmp/git_shadow\
 	./.git_shadow/src/zmain.c
 
 git init .
@@ -50,11 +50,11 @@ printf "#!/bin/sh
 
 (
     killall git_shadow
-    $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+    /tmp/git_shadow -C -h 10.30.2.126 -p 20000
     i=0
     while [[ 0 -ne \$? && 3 -gt \$i ]]; do
         sleep 1
-        $zCodePath/.git_shadow/bin/git_shadow -C -h 10.30.2.126 -p 20000
+        /tmp/git_shadow -C -h 10.30.2.126 -p 20000
         let i++
     done
 ) &
