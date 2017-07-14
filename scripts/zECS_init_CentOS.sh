@@ -22,8 +22,8 @@ chmod -R 0700 /home/git/.ssh/ &&
 cd $zCodePath
 
 cc -O2 -std=c99 -I./.git_shadow/inc -lpthread -lpcre2-8\
-	-o /tmp/git_shadow\
-	./.git_shadow/src/zmain.c
+    -o /tmp/git_shadow\
+    ./.git_shadow/src/zmain.c
 
 git init .
 git config --global user.email "ECS@aliyun.com"
@@ -63,7 +63,7 @@ printf "#!/bin/sh
     cp -up $zSshKnownHostPath /home/git/.ssh/ &&
     chmod -R 0700 /home/git/.ssh/ &&
 
-	for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
+    for zAddr in \$(ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(127|0|255)\\.|\\.255$'); do
         if [[ 0 -lt \$(cat $zEcsAddrMajorListPath | grep -c \$zAddr) ]]; then
             zEcsAddrList=\$(cat $zEcsAddrListPath | tr \'\\\n\' \' \')
             for zEcsAddr in \$zEcsAddrList; do

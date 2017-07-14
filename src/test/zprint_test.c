@@ -60,8 +60,8 @@ zMark:
 
         for (_i k = 0; k < zDeployHashSiz; k++) {
             if (NULL == zpppDpResHash[i][k]) {
-				continue;
-			} else {
+                continue;
+            } else {
                 do {
                     fprintf(stderr,"HashClientAddr: %d\n", zpppDpResHash[i][k]->ClientAddr);
                     fprintf(stderr,"hashRepoId: %d\n", zpppDpResHash[i][k]->RepoId);
