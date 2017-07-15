@@ -510,7 +510,7 @@ zclient_reply(char *zpHost, char *zpPort) {
     _i zFd, zSd, zResLen;
 
     // 读取版本库ID
-    zFd = open(zRepoIdPathTxt, O_RDONLY);
+    zFd = open(zRepoIdPath, O_RDONLY);
     zCheck_Negative_Return(zFd,);
     zCheck_Negative_Return(
             read(zFd, &(zDpResIf.RepoId), sizeof(_i)),
