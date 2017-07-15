@@ -44,8 +44,8 @@ zMark:
 
 void
 zinit_env(void) {
-    _i zFd[2];
     struct stat zStatIf;
+    _i zFd[2];
 
     zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
 
@@ -99,9 +99,7 @@ zinit_env(void) {
         // 打开meta日志文件
         zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
-        if (0 == zStatIf.st_size) {
-            zdeploy_init(i);  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
-        }
+        if (0 == zStatIf.st_size) { zdeploy_init(i); }  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
         // 打开data日志文件
         zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zDataLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         // 打开sig日志文件
