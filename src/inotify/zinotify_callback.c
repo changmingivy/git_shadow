@@ -13,23 +13,21 @@ struct iovec *
 zgenerate_cache(_i zRepoId) {
     _i zNewVersion = (_i)time(NULL);  // 以时间戳充当缓存版本号
 
-    struct iovec *zpNewCacheVec[2] = {NULL};  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
+    struct iovec *zpNewCacheVec[2];  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
 
-    FILE *zpShellRetHandler[2] = {NULL};  // 执行SHELL命令，读取此句柄获取返回信息
-    _i zDiffFileNum = 0, zDiffLineNum = 0, zLen = 0;  // 差异文件总数
+    FILE *zpShellRetHandler[2];  // 执行SHELL命令，读取此句柄获取返回信息
+    _i zDiffFileNum, zDiffLineNum, zLen;  // 差异文件总数
 
-    char *zpRes[2] = {NULL};  // 存储从命令行返回的原始文本信息
-    char zShellBuf[2][zCommonBufSiz] = {{'\0'}, {'\0'}};  // 存储命令行字符串
+    char *zpRes[2];  // 存储从命令行返回的原始文本信息
+    char zShellBuf[2][zCommonBufSiz];  // 存储命令行字符串
 
     zFileDiffInfo *zpIf;
 
     // 必须在shell命令中切换到正确的工作路径
     sprintf(zShellBuf[0], "cd %s "
             "&& git diff --name-only HEAD CURRENT | wc -l "  // CURRENT 分支
-            "&& git diff --name-only HEAD CURRENT "
-            "&& git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
-    zpShellRetHandler[0] = popen(zShellBuf[0], "r");
-    zCheck_Null_Return(zpShellRetHandler, NULL);
+            "&& git diff --name-only HEAD CURRENT ", zppRepoPathList[zRepoId]);
+    zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
@@ -58,8 +56,7 @@ zgenerate_cache(_i zRepoId) {
 
             // 必须在shell命令中切换到正确的工作路径
             sprintf(zShellBuf[1], "cd %s && git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zppRepoPathList[zRepoId], zpRes[0], zpRes[0]);
-            zpShellRetHandler[1] = popen(zShellBuf[1], "r");
-            zCheck_Null_Return(zpShellRetHandler, NULL);
+            zCheck_Null_Exit(zpShellRetHandler[1] = popen(zShellBuf[1], "r"));
 
             zCheck_Null_Exit(zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1]));  // 读出差异行总数
             zDiffLineNum = strtol(zpRes[1], NULL, 10);
@@ -78,42 +75,41 @@ zgenerate_cache(_i zRepoId) {
             pclose(zpShellRetHandler[1]);
         }
 
-        /* 以下四行更新所属代码库的CURRENT tag SHA1 sig值 */
-        char *zpBuf = zget_one_line_from_FILE(zpShellRetHandler[0]);  // 读取最后一行：CURRENT标签的SHA1 sig值
-        zCheck_Null_Exit(zpBuf);
+        /* 以下部分更新所属代码库的CURRENT tag SHA1 sig值，复用变量：zpRes[0] 与 zpShellRetHandler[0] */
+        sprintf(zShellBuf[0], "cd %s && git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
+        zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
+        zCheck_Null_Exit(zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]));  // 读取最后一行：CURRENT标签的SHA1 sig值
 
         zMem_Alloc(zppCurTagSig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
-        strncpy(zppCurTagSig[zRepoId], zpBuf, 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
+        strncpy(zppCurTagSig[zRepoId], zpRes[0], 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
         pclose(zpShellRetHandler[0]);
     }
 
     /* 以下部分更新日志缓存 */
     zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
-    struct stat zStatBufIf;
+    struct stat zStatIf;
     size_t zRealLogNum, zDataLogCacheSiz;
     char *zpDataLogCache;
 
-    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
-    if (0 == (zRealLogNum = zStatBufIf.st_size / sizeof(zDeployLogInfo))) {
+    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatIf));  // 获取当前日志文件属性
+    if (0 == (zRealLogNum = zStatIf.st_size / sizeof(zDeployLogInfo))) {
         goto zMark;
     }
 
     zpPreLoadLogVecSiz[zRepoId] = zRealLogNum > zPreLoadLogSiz ? zPreLoadLogSiz : zRealLogNum;  // 计算需要缓存的实际日志数量
     zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
 
-    zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));  // 将meta日志mmap至内存
-    zCheck_Null_Return(zpMetaLogIf, NULL);
+    zCheck_Null_Exit(zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo)));  // 将meta日志mmap至内存
 
-    zCheck_Negative_Return( fstat(zpLogFd[1][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
+    zCheck_Negative_Exit(fstat(zpLogFd[1][zRepoId], &zStatIf));  // 获取当前日志文件属性
     zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
-    if (zStatBufIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
+    if (zStatIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
         zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
         exit(1);
     }
 
     zDataLogCacheSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
-    zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset);  // 将data日志mmap至内存
-    zCheck_Null_Return(zpDataLogCache, NULL);
+    zCheck_Null_Exit(zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset));  // 将data日志mmap至内存
 
     for (_i i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
         if (0 == i % 2) {
@@ -168,13 +164,14 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
  */
 void
 zupdate_ipv4_db_self(_i zBaseFd) {
-    char *zpBuf = NULL;
-    _ui zIpv4Addr = 0;
-    _i zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Return(zFd,);
+    _i zFd;
+    _ui zIpv4Addr;
+    char *zpBuf;
+    FILE *zpFileHandler;
 
-    FILE *zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r");
-    zCheck_Null_Return(zpFileHandler,);
+    zCheck_Negative_Exit(zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
+
+    zCheck_Null_Exit(zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r"));
     while (NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler))) {
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpBuf);
         if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
@@ -197,10 +194,10 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     zDeployResInfo *zpTmpIf;
 
     zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Return(zFd[0],);
+    zCheck_Negative_Exit(zFd[0]);
     // 打开客户端ip地址数据库文件
     zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY);
-    zCheck_Negative_Return(fstat(zFd[1], &zStatIf),);
+    zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
     close(zFd[0]);
 
     zpTotalHost[zRepoId] = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
@@ -247,15 +244,15 @@ zupdate_ipv4_db_all(void *zpIf) {
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 
     zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Return(zFd[0],);
+    zCheck_Negative_Exit(zFd[0]);
 
     zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY);
-    zCheck_Negative_Return(zFd[1],);
+    zCheck_Negative_Exit(zFd[1]);
     zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Return(zFd[2],);
+    zCheck_Negative_Exit(zFd[2]);
 
     zpFileHandler = fdopen(zFd[1], "r");
-    zCheck_Null_Return(zpFileHandler,);
+    zCheck_Null_Exit(zpFileHandler);
     zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
     zPCRERetInfo *zpPCREResIf;
     for (_i i = 1; NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler)); i++) {
