@@ -101,7 +101,11 @@ zinit_env(void) {
         // 打开meta日志文件
         zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
-        if (0 == zStatIf.st_size) { zdeploy_init(i); }  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+
+        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+            zdeploy_init(i);
+        }
+
         // 打开data日志文件
         zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zDataLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         // 打开sig日志文件
