@@ -509,14 +509,12 @@ zclient_reply(char *zpHost, char *zpPort) {
     zDeployResInfo zDpResIf = {.hints = {'c',}};  // confirm:标识这是一条状态确认信息
     _i zFd, zSd, zResLen;
 
-    zFd = open(zMetaLogPath, O_RDONLY);
+    // 读取版本库ID
+    zFd = open(zRepoIdPathTxt, O_RDONLY);
     zCheck_Negative_Return(zFd,);
-
-    zDeployLogInfo zDpLogIf;
     zCheck_Negative_Return(
-            read(zFd, &zDpLogIf, sizeof(zDeployLogInfo)),
+            read(zFd, &(zDpResIf.RepoId), sizeof(_i)),
             );
-    zDpResIf.RepoId = zDpLogIf.RepoId;  // 标识版本库ID
     close(zFd);
 
     zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端

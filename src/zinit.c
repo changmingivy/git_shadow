@@ -127,7 +127,7 @@ zinit_env(void) {
 void
 zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
-    _i zRepoId, zFd;
+    _i zRepoId, zFd[2];
     zPCREInitInfo *zpInitIf[5];
     zPCRERetInfo *zpRetIf[5];
 
@@ -176,9 +176,17 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         zpRetIf[4] = zpcre_match(zpInitIf[4], *zppRes, 0);
 
         zCheck_Negative_Exit( // 检测代码库路径合法性
-                zFd = open(zpRetIf[4]->p_rets[0], O_RDONLY | O_DIRECTORY)
+                zFd[0] = open(zpRetIf[4]->p_rets[0], O_RDONLY | O_DIRECTORY)
                 );
-        close(zFd);
+        zCheck_Negative_Exit( // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
+                zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600)
+                );
+        if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
+            zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
+            exit(1);
+        }
+        close(zFd[1]);
+        close(zFd[0]);
 
         zRepoId = atoi(zpRetIf[3]->p_rets[0]);
         zMem_Alloc(zppRepoPathList[zRepoId], char, 1 + strlen(zpRetIf[4]->p_rets[0]));
