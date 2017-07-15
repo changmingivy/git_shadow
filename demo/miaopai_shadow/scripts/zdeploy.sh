@@ -57,7 +57,7 @@ shift $[$OPTIND - 1]
 if [[ '' == $zCodePath ]]; then zCodePath=`pwd`; fi
 
 cd $zCodePath
-zEcsList=`cat ./.git_shadow/info/client_ip_major.txt`
+zEcsList=`cat ${zCodePath}/.git_shadow/info/client_ip_major.txt`
 
 if [[ $zActionType -eq $zDeployOne ]]; then zdeploy $@
 elif [[ $zActionType -eq $zDeployAll ]]; then zdeploy

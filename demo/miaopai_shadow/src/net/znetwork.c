@@ -2,6 +2,8 @@
     #include "../zmain.c"
 #endif
 
+#define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
+
 /****************
  * 模块整体信息 *
  ****************/
@@ -233,21 +235,22 @@ zdeploy(void *zpIf) {
         }
 
         pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
-        zAdd_To_Thread_Pool(zthread_system, zShellBuf);
-
         _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
-        _i zX = 0;
+        _i zUnReplyCnt = 0;
+
+        if (0 != system(zShellBuf)) { goto zMark; }
+
         do {
             zsleep(0.2);  // 每隔0.2秒向前端返回一次结果
 
             for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
                 if (0 == zppDpResList[zIf.RepoId][i].DeployState) {
-                    zSendBuf[zX] = zppDpResList[zIf.RepoId][i].ClientAddr;
-                    zX++;
+                    zSendBuf[zUnReplyCnt] = zppDpResList[zIf.RepoId][i].ClientAddr;
+                    zUnReplyCnt++;
                 }
             }
 
-            zsendto(zSd, zSendBuf, zX * sizeof(zSendBuf[0]), 0, NULL);
+            zsendto(zSd, zSendBuf, zUnReplyCnt * sizeof(zSendBuf[0]), 0, NULL);
         } while (zpReplyCnt[zIf.RepoId] < zpTotalHost[zIf.RepoId]);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
         zpReplyCnt[zIf.RepoId] = 0;
 
@@ -261,6 +264,8 @@ zdeploy(void *zpIf) {
     } else {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
     }
+
+zMark:
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -312,21 +317,22 @@ zrevoke(void *zpIf){
     }
 
     pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
-    zAdd_To_Thread_Pool(zthread_system, zShellBuf);
-
     _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
-    _i zX = 0;
+    _i zUnReplyCnt = 0;
+
+    if (0 != system(zShellBuf)) { goto zMark; }
+
     do {
         zsleep(0.2);  // 每0.2秒统计一次结果，并发往前端
 
         for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
             if (0 == zppDpResList[zIf.RepoId][i].DeployState) {
-                zSendBuf[zX] = zppDpResList[zIf.RepoId][i].ClientAddr;
-                zX++;
+                zSendBuf[zUnReplyCnt] = zppDpResList[zIf.RepoId][i].ClientAddr;
+                zUnReplyCnt++;
             }
         }
 
-        zsendto(zSd, zSendBuf, zX * sizeof(zSendBuf[0]), 0, NULL);  // 向前端发送当前未成功的列表
+        zsendto(zSd, zSendBuf, zUnReplyCnt * sizeof(zSendBuf[0]), 0, NULL);  // 向前端发送当前未成功的列表
     } while (zpReplyCnt[zIf.RepoId] < zpTotalHost[zIf.RepoId]);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
     zpReplyCnt[zIf.RepoId] = 0;
 
@@ -337,6 +343,8 @@ zrevoke(void *zpIf){
     }
 
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
+
+zMark:
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -532,3 +540,5 @@ zclient_reply(char *zpHost, char *zpPort) {
     close(zFd);
     shutdown(zSd, SHUT_RDWR);
 }
+
+#undef zTypeConvert

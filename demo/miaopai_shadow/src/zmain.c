@@ -8,18 +8,18 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <pthread.h>
-#include <sys/mman.h>
-#include <setjmp.h>
-#include <sys/inotify.h>
-#include <sys/epoll.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
 #include <pwd.h>
+
+#include <pthread.h>
+#include <sys/mman.h>
+
+#include <sys/inotify.h>
+#include <sys/epoll.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,8 +39,6 @@
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
 #include "pcre2/zpcre.c"
-
-#define zTypeConvert(zSrcObj, zTypeTo) ((zTypeTo)(zSrcObj))
 
 /****************
  * 数据结构定义 *

@@ -284,9 +284,8 @@ zsleep(_d zSecs) {
  * 用于在单独线程中执行外部命令
  */
 void
-zthread_system(void *zpArgv) {
-    struct passwd *zpPwd = getpwnam("git");
-    zCheck_Null_Exit(zpPwd);
-    zCheck_Negative_Exit( seteuid(zpPwd->pw_uid) );
-    system((char *) zpArgv);
+zthread_system(void *zpCmd) {
+    if (0 != system((char *) zpCmd)) {
+        zPrint_Err(0, NULL, "[system]: shell command failed!");
+    }
 }
