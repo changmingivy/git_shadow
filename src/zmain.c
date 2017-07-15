@@ -103,7 +103,7 @@ zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
-char **zppCurTagSig;  // 每个代码库当前的CURRENT标签的SHA1 sig
+char **zppCURRENTsig;  // 每个代码库当前的CURRENT标签的SHA1 sig
 _i *zpLogFd[3];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
 
 pthread_rwlock_t *zpRWLock;  // 每个代码库对应一把读写锁

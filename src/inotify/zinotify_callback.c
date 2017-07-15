@@ -74,14 +74,15 @@ zgenerate_cache(_i zRepoId) {
             }
             pclose(zpShellRetHandler[1]);
         }
+        pclose(zpShellRetHandler[0]);
 
         /* 以下部分更新所属代码库的CURRENT tag SHA1 sig值，复用变量：zpRes[0] 与 zpShellRetHandler[0] */
         sprintf(zShellBuf[0], "cd %s && git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
         zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
-        zCheck_Null_Exit(zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]));  // 读取最后一行：CURRENT标签的SHA1 sig值
+        zCheck_Null_Exit(zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]));  // 读取CURRENT分支的SHA1 sig值
 
-        zMem_Alloc(zppCurTagSig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
-        strncpy(zppCurTagSig[zRepoId], zpRes[0], 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
+        zMem_Alloc(zppCURRENTsig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
+        strncpy(zppCURRENTsig[zRepoId], zpRes[0], 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
         pclose(zpShellRetHandler[0]);
     }
 
