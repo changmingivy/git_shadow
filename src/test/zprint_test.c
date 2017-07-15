@@ -19,13 +19,13 @@ ztest_print(void) {
     }
 
     for (_i i = 0; i < zRepoNum; i++) {
-        if (NULL == zppCurTagSig[i]) {
+        if (NULL == zppCURRENTsig[i]) {
             fprintf(stderr,"NULL sig\n");
             goto zMark;
         }
-        fprintf(stderr,"zppCurTagSig: ");
+        fprintf(stderr,"zppCURRENTsig: ");
         for (_i z = 0; z < 40; z++) {
-            fprintf(stderr,"%c", zppCurTagSig[i][z]);
+            fprintf(stderr,"%c", zppCURRENTsig[i][z]);
         }
         fprintf(stderr,"\n");
 

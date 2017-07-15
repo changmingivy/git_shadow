@@ -54,7 +54,7 @@ zinit_env(void) {
     zMem_C_Alloc(zpPreLoadLogVecSiz, _i, zRepoNum);
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
-    zMem_C_Alloc(zppCurTagSig, char *, zRepoNum);
+    zMem_C_Alloc(zppCURRENTsig, char *, zRepoNum);
     // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
     zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);

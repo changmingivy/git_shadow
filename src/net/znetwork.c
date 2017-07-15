@@ -191,7 +191,7 @@ zwrite_log(_i zRepoId, char *zpLogContents, _i zLogSiz) {
         exit(1);
     }
     // 将本次布署之前的CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
-    if ( 40 != write(zpLogFd[2][zRepoId], zppCurTagSig[zRepoId], 40)) {
+    if ( 40 != write(zpLogFd[2][zRepoId], zppCURRENTsig[zRepoId], 40)) {
         zPrint_Err(0, NULL, "Can't write to log.sig!");
         exit(1);
     }
