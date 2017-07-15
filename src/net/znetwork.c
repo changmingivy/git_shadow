@@ -254,6 +254,9 @@ zdeploy(void *zpIf) {
 
         zwrite_log(zIf.RepoId, zpLogContents, zLogSiz);  // 将本次布署信息写入日志
 
+        zupdate_sig_cache(&(zIf.RepoId));  // 同步更新 sig 缓存
+        zupdate_log_cache(&(zIf.RepoId));  // 同步更新 log 缓存
+
         for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
             zppDpResList[zIf.RepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
         }
@@ -331,6 +334,9 @@ zrevoke(void *zpIf){
     zpReplyCnt[zIf.RepoId] = 0;
 
     zwrite_log(zIf.RepoId, zpLogContents, zLogSiz);  // 撤销完成，写入日志
+
+    zupdate_sig_cache(&(zIf.RepoId));  // 同步更新 sig 缓存
+    zupdate_log_cache(&(zIf.RepoId));  // 同步更新 log 缓存
 
     for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
         zppDpResList[zIf.RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0

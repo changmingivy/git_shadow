@@ -5,14 +5,97 @@
 /****************
  * UPDATE CACHE *
  ****************/
+// 此部分的多个函数用于生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
 
-/*
- * 生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
- */
-struct iovec *
-zgenerate_cache(_i zRepoId) {
+void
+zupdate_sig_cache(void *zpRepoId) {
+    _i zRepoId = *((_i *)zpRepoId);
+    char zShellBuf[zCommonBufSiz], *zpRes;
+    FILE *zpShellRetHandler;
+
+    /* 以下部分更新所属代码库的CURRENT SHA1 sig值 */
+    sprintf(zShellBuf, "cd %s && git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
+    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zCheck_Null_Exit(zpRes = zget_one_line_from_FILE(zpShellRetHandler));  // 读取CURRENT分支的SHA1 sig值
+
+    if (40 > strlen(zpRes)) {
+        zPrint_Err(0, NULL, "Invalid CURRENT sig!!!");
+        exit(1);
+    }
+
+    if (NULL != zppCURRENTsig[zRepoId]) { free(zppCURRENTsig[zRepoId]); }
+
+    zMem_Alloc(zppCURRENTsig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
+    strncpy(zppCURRENTsig[zRepoId], zpRes, 40);  // 更新对应代码库的最新CURRENT 分支SHA1 sig
+    pclose(zpShellRetHandler);
+}
+
+void
+zupdate_log_cache(void *zpRepoId) {
+    _i zRepoId = *((_i *)zpRepoId);
+
+    if (NULL != zppPreLoadLogVecIf[zRepoId]) { // 首先销毁旧的布署日志缓存
+        zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
+        munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));
+        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen - zpTmpIf->offset);
+    }
+
+    /* 以下部分更新日志缓存 */
+    zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
+    struct stat zStatIf;
+    size_t zRealLogNum, zDataLogCacheSiz;
+    char *zpDataLogCache;
+
+    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatIf));  // 获取当前日志文件属性
+
+    if (0 == (zRealLogNum = zStatIf.st_size / sizeof(zDeployLogInfo))) {
+        return; // 如果日志为空，则不必再运行后续的步骤，直接返回
+    }
+
+    zpPreLoadLogVecSiz[zRepoId] = zRealLogNum > zPreLoadLogSiz ? zPreLoadLogSiz : zRealLogNum;  // 计算需要缓存的实际日志数量
+    zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
+
+    zCheck_Null_Exit(zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo)));  // 将meta日志mmap至内存
+
+    zCheck_Negative_Exit(fstat(zpLogFd[1][zRepoId], &zStatIf));  // 获取当前日志文件属性
+    zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
+    if (zStatIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
+        zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
+        exit(1);
+    }
+
+    zDataLogCacheSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
+    zCheck_Null_Exit(zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset));  // 将data日志mmap至内存
+
+    for (_i i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
+        if (0 == i % 2) {
+            zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
+            zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
+        } else {
+            zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLogCache + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
+            zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
+        }
+    }
+}
+
+void
+zupdate_diff_cache(void *zpRepoId) {
+    _i zRepoId = *((_i *)zpRepoId);
+
+    // 首先释放掉老缓存的内存空间
+    if (NULL != zppCacheVecIf[zRepoId]) {
+        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) {
+            for (_i j = 0; j < ((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->VecSiz; j++) {
+                free((((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->p_DiffContent[j]).iov_base);
+            }
+            free(((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->p_DiffContent);
+            free(zppCacheVecIf[zRepoId][i].iov_base);
+        }
+        free(zppCacheVecIf[zRepoId]);
+    }
+
+    // 如下开始创建新的缓存
     _i zNewVersion = (_i)time(NULL);  // 以时间戳充当缓存版本号
-
     struct iovec *zpNewCacheVec[2];  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
 
     FILE *zpShellRetHandler[2];  // 执行SHELL命令，读取此句柄获取返回信息
@@ -24,18 +107,19 @@ zgenerate_cache(_i zRepoId) {
     zFileDiffInfo *zpIf;
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf[0], "cd %s "
-            "&& git diff --name-only HEAD CURRENT | wc -l "  // CURRENT 分支
-            "&& git diff --name-only HEAD CURRENT ", zppRepoPathList[zRepoId]);
+    sprintf(zShellBuf[0], "cd %s && git diff --name-only HEAD CURRENT | wc -l && git diff --name-only HEAD CURRENT ", zppRepoPathList[zRepoId]);
     zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
 
-    pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));  // 更新缓存前阻塞相同代码库的其它相关的写操作：布署、撤销等
+    /* 以下部分更新差异文件列表及详情缓存 */
     if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
-        return NULL;
+        pclose(zpShellRetHandler[0]);
+        return;
     } else {
         if (0 == (zDiffFileNum = strtol(zpRes[0], NULL, 10))) {
-            return NULL;
+            pclose(zpShellRetHandler[0]);
+            return;
         }
+
         zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFileNum);   // 为存储文件路径列表的iovec[0]分配空间
         zpCacheVecSiz[zRepoId] = zDiffFileNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
 
@@ -75,79 +159,9 @@ zgenerate_cache(_i zRepoId) {
             pclose(zpShellRetHandler[1]);
         }
         pclose(zpShellRetHandler[0]);
-
-        /* 以下部分更新所属代码库的CURRENT tag SHA1 sig值，复用变量：zpRes[0] 与 zpShellRetHandler[0] */
-        sprintf(zShellBuf[0], "cd %s && git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
-        zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
-        zCheck_Null_Exit(zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]));  // 读取CURRENT分支的SHA1 sig值
-
-        zMem_Alloc(zppCURRENTsig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
-        strncpy(zppCURRENTsig[zRepoId], zpRes[0], 40);  // 更新对应代码库的最新CURRENT tag SHA1 sig
-        pclose(zpShellRetHandler[0]);
     }
 
-    /* 以下部分更新日志缓存 */
-    zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
-    struct stat zStatIf;
-    size_t zRealLogNum, zDataLogCacheSiz;
-    char *zpDataLogCache;
-
-    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatIf));  // 获取当前日志文件属性
-    if (0 == (zRealLogNum = zStatIf.st_size / sizeof(zDeployLogInfo))) {
-        goto zMark;
-    }
-
-    zpPreLoadLogVecSiz[zRepoId] = zRealLogNum > zPreLoadLogSiz ? zPreLoadLogSiz : zRealLogNum;  // 计算需要缓存的实际日志数量
-    zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
-
-    zCheck_Null_Exit(zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo)));  // 将meta日志mmap至内存
-
-    zCheck_Negative_Exit(fstat(zpLogFd[1][zRepoId], &zStatIf));  // 获取当前日志文件属性
-    zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
-    if (zStatIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
-        zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
-        exit(1);
-    }
-
-    zDataLogCacheSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
-    zCheck_Null_Exit(zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset));  // 将data日志mmap至内存
-
-    for (_i i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
-        if (0 == i % 2) {
-            zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
-        } else {
-            zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLogCache + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
-        }
-    }
-
-zMark:
-    pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
-    return zpNewCacheVec[0];
-}
-
-void
-zupdate_cache(void *zpIf) {
-    _i zRepoId = *((_i *)zpIf);
-    struct iovec *zpOldCacheIf = zppCacheVecIf[zRepoId];
-    zppCacheVecIf[zRepoId] = zgenerate_cache(zRepoId);
-    if (NULL != zpOldCacheIf) {
-        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) { // 释放掉老缓存的内存空间
-            for (_i j = 0; j < ((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->VecSiz; j++) {
-                free((((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent[j]).iov_base);
-            }
-            free(((zFileDiffInfo *)(zpOldCacheIf[i].iov_base))->p_DiffContent);
-            free(zpOldCacheIf[i].iov_base);
-        }
-        free(zpOldCacheIf);
-    }
-
-    if (NULL != zppPreLoadLogVecIf[zRepoId]) { // 如下部分用于销毁旧的布署日志缓存
-        zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
-        munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));
-        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen - zpTmpIf->offset);
-    }
+    zppCacheVecIf[zRepoId] = zpNewCacheVec[0]; // 更新全局变量
 }
 
 /*

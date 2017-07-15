@@ -196,7 +196,7 @@ main(_i zArgc, char **zppArgv) {
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
     zCallBackList[0] = zcommon_func;
-    zCallBackList[1] = zupdate_cache;
+    zCallBackList[1] = zupdate_diff_cache;
     zCallBackList[2] = zupdate_ipv4_db_all;
 
     zthread_poll_init();  // 初始化线程池
