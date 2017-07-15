@@ -314,6 +314,7 @@ zrevoke(void *zpIf){
     }
 
     pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+
     _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
     _i zUnReplyCnt = 0;
 

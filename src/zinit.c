@@ -75,6 +75,8 @@ zinit_env(void) {
     zMem_C_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
 
     for (_i i = 0; i < zRepoNum; i++) {
+        //if (NULL == zppRepoPathList[i]) { continue; }
+
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
         zFd[0] = open(zppRepoPathList[i], O_RDONLY);
         zCheck_Negative_Exit(zFd[0]);
@@ -107,7 +109,12 @@ zinit_env(void) {
 
         close(zFd[0]);  // zFd[0] 用完关闭
 
-        zupdate_cache(&i);
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );  // 这两个缓存函数内部不进行加解锁操作，须调用方加解锁
+        zupdate_sig_cache(&i);
+        zupdate_log_cache(&i);
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+
+        zupdate_diff_cache(&i);
         zupdate_ipv4_db_all(&i);
     }
 }

@@ -82,6 +82,8 @@ void
 zupdate_diff_cache(void *zpRepoId) {
     _i zRepoId = *((_i *)zpRepoId);
 
+    pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+
     // 首先释放掉老缓存的内存空间
     if (NULL != zppCacheVecIf[zRepoId]) {
         for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) {
@@ -162,6 +164,8 @@ zupdate_diff_cache(void *zpRepoId) {
     }
 
     zppCacheVecIf[zRepoId] = zpNewCacheVec[0]; // 更新全局变量
+
+    pthread_rwlock_unlock( &(zpRWLock[zRepoId]) );
 }
 
 /*
