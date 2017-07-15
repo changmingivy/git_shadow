@@ -311,5 +311,7 @@ zcommon_func(void *zpIf) {
             zppRepoPathList[zpObjIf->RepoId],
             zpObjHash[zpObjIf->UpperWid]->path);
 
-    system(zShellBuf);
+    if (0 != system(zShellBuf)) {
+        zPrint_Err(0, NULL, "[system]: shell command failed!");
+    }
 }
