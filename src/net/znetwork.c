@@ -161,15 +161,13 @@ void
 zwrite_log(_i zRepoId, char *zpLogContents, _i zLogSiz) {
     // write to .git_shadow/log/meta
     struct stat zStatBufIf;
-    zCheck_Negative_Return( fstat(zpLogFd[0][zRepoId], &zStatBufIf), );  // 获取当前日志文件属性
+    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf),);  // 获取当前日志文件属性
 
     zDeployLogInfo zIf;
     if (0 == zStatBufIf.st_size) {
         zIf.index = 0;
     } else {
-        zCheck_Negative_Return(
-                pread(zpLogFd[0][zRepoId], &zIf, sizeof(zDeployLogInfo), zStatBufIf.st_size - sizeof(zDeployLogInfo)),
-                );  // 读出前一个记录的信息
+        zCheck_Negative_Return(pread(zpLogFd[0][zRepoId], &zIf, sizeof(zDeployLogInfo), zStatBufIf.st_size - sizeof(zDeployLogInfo)),);  // 读出前一个记录的信息
     }
 
     zIf.hints[0] = sizeof(zIf) - sizeof(zIf.PathLen);
@@ -299,12 +297,8 @@ zrevoke(void *zpIf){
     char zCommitSigBuf[41];  // 存放40位的git commit签名
     zCommitSigBuf[40] = '\0';
 
-    zCheck_Negative_Return(
-            pread(zpLogFd[1][zIf.RepoId], &zPathBuf, zTypeConvert(zppPreLoadLogVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo *)->PathLen, zTypeConvert(zppPreLoadLogVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo *)->offset),
-            );
-    zCheck_Negative_Return(
-            pread(zpLogFd[2][zIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zIf.index),
-            );
+    zCheck_Negative_Return(pread(zpLogFd[1][zIf.RepoId], &zPathBuf, zTypeConvert(zppPreLoadLogVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo *)->PathLen, zTypeConvert(zppPreLoadLogVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo *)->offset),);
+    zCheck_Negative_Return(pread(zpLogFd[2][zIf.RepoId], &zCommitSigBuf, zBytes(40), zBytes(40) * zIf.index),);
 
     if ('R' == zIf.hints[0]) {
         sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -R -i %s", zppRepoPathList[zIf.RepoId], zCommitSigBuf);
@@ -472,14 +466,12 @@ zstart_server(void *zpIf) {
 
     zEv.events = EPOLLIN;
     zEv.data.fd = zMajorSd;
-    zCheck_Negative_Return(
-            epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),
-            );
+    zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
     // 如下部分启动 epoll 监听服务
     for (;;) {
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
-        zCheck_Negative_Return( zEvNum, );
+        zCheck_Negative_Return(zEvNum,);
 
         for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
@@ -488,9 +480,7 @@ zstart_server(void *zpIf) {
 
                zEv.events = EPOLLIN | EPOLLET;  // 新创建的socket以边缘触发模式监控
                zEv.data.fd = zConnSd;
-               zCheck_Negative_Return(
-                       epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),
-                       );
+               zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
                zrecv_nohang(zEvents[i].data.fd, &zCmd, zBytes(1), MSG_PEEK, NULL);
                if (NULL != zNetServ[zGetCmdId(zCmd)]) {
@@ -512,9 +502,7 @@ zclient_reply(char *zpHost, char *zpPort) {
     // 读取版本库ID
     zFd = open(zRepoIdPath, O_RDONLY);
     zCheck_Negative_Return(zFd,);
-    zCheck_Negative_Return(
-            read(zFd, &(zDpResIf.RepoId), sizeof(_i)),
-            );
+    zCheck_Negative_Return(read(zFd, &(zDpResIf.RepoId), sizeof(_i)),);
     close(zFd);
 
     zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端

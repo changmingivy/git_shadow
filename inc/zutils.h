@@ -119,6 +119,14 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
     }\
 } while(0)
 
+#define zCheck_Pthread_Func_Exit(zRet) do{\
+    _i zX = (zRet);\
+    if (0 != zX) {\
+        zPrint_Err(zRet, #zRet " != 0", "");\
+        exit(1);\
+    }\
+} while(0)
+
 #define zLog_Err(zMSG) do{\
     syslog(LOG_ERR|LOG_PID|LOG_CONS, "%s", zMSG);\
 } while(0)

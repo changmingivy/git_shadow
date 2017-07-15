@@ -61,9 +61,7 @@ zgenerate_cache(_i zRepoId) {
             zpShellRetHandler[1] = popen(zShellBuf[1], "r");
             zCheck_Null_Return(zpShellRetHandler, NULL);
 
-            zCheck_Null_Exit(
-                    zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])  // 读出差异行总数
-                    );
+            zCheck_Null_Exit(zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1]));  // 读出差异行总数
             zDiffLineNum = strtol(zpRes[1], NULL, 10);
             zpIf->VecSiz = zDiffLineNum;  // 填充文件内容差别行数
 
@@ -95,9 +93,7 @@ zgenerate_cache(_i zRepoId) {
     size_t zRealLogNum, zDataLogCacheSiz;
     char *zpDataLogCache;
 
-    zCheck_Negative_Return(
-            fstat(zpLogFd[0][zRepoId], &zStatBufIf),  // 获取当前日志文件属性
-            NULL);
+    zCheck_Negative_Return(fstat(zpLogFd[0][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
     if (0 == (zRealLogNum = zStatBufIf.st_size / sizeof(zDeployLogInfo))) {
         goto zMark;
     }
@@ -108,9 +104,7 @@ zgenerate_cache(_i zRepoId) {
     zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatBufIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));  // 将meta日志mmap至内存
     zCheck_Null_Return(zpMetaLogIf, NULL);
 
-    zCheck_Negative_Return(
-            fstat(zpLogFd[1][zRepoId], &zStatBufIf),  // 获取当前日志文件属性
-            NULL);
+    zCheck_Negative_Return( fstat(zpLogFd[1][zRepoId], &zStatBufIf), NULL);  // 获取当前日志文件属性
     zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
     if (zStatBufIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
         zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
@@ -165,9 +159,7 @@ zupdate_cache(void *zpIf) {
 _ui
 zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
     struct in_addr zIpv4Addr;
-    zCheck_Negative_Exit(
-            inet_pton(AF_INET, zpStrAddr, &zIpv4Addr)
-            );
+    zCheck_Negative_Exit(inet_pton(AF_INET, zpStrAddr, &zIpv4Addr));
     return zIpv4Addr.s_addr;
 }
 
