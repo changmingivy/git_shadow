@@ -173,11 +173,13 @@ zlist_log(void *zpIf) {
 
 // 记录布署或撤销的日志
 void
-zwrite_log(_i zRepoId) {
+zwrite_log_and_update_cache(_i zRepoId) {
     struct stat zStatIf[2];
     char zShellBuf[zCommonBufSiz], *zpBuf;
     FILE *zpFile;
     _i zLogSiz;
+
+    zupdate_sig_cache(&zRepoId);  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
 
     sprintf(zShellBuf, "cd %s && git log CURRENT -1 --name-only --format=", zppRepoPathList[zRepoId]);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
@@ -217,6 +219,8 @@ zwrite_log(_i zRepoId) {
         zPrint_Err(0, NULL, "Can't write to log.sig!");
         exit(1);
     }
+
+    zupdate_log_cache(&zRepoId);  // 更新 log 缓存
 }
 
 // 执行布署，目前仅支持单文件布署与全部布署两种模式（文件多选布署待实现）
@@ -266,9 +270,7 @@ zdeploy(void *zpIf) {
         } while (zpReplyCnt[zIf.RepoId] < zpTotalHost[zIf.RepoId]);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
         zpReplyCnt[zIf.RepoId] = 0;
 
-        zupdate_sig_cache(&(zIf.RepoId));  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
-        zwrite_log(zIf.RepoId);  // 将本次布署信息写入日志
-        zupdate_log_cache(&(zIf.RepoId));  // 更新 log 缓存
+        zwrite_log_and_update_cache(zIf.RepoId);  // 将本次布署信息写入日志
 
         for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
             zppDpResList[zIf.RepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
@@ -350,9 +352,7 @@ zrevoke(void *zpIf) {
     } while (zpReplyCnt[zIf.RepoId] < zpTotalHost[zIf.RepoId]);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
     zpReplyCnt[zIf.RepoId] = 0;
 
-    zupdate_sig_cache(&(zIf.RepoId));  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
-    zwrite_log(zIf.RepoId);  // 将本次布署信息写入日志
-    zupdate_log_cache(&(zIf.RepoId));  // 更新 log 缓存
+    zwrite_log_and_update_cache(zIf.RepoId);  // 将本次布署信息写入日志
 
     for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {
         zppDpResList[zIf.RepoId][i].DeployState = 0;  // 将本项目各主机状态重置为0
