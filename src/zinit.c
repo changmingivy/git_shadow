@@ -32,7 +32,7 @@ zdeploy_init(_i zRepoId) {
         fprintf(stderr, "DEPLOY SUCCESS !\n");
         zpReplyCnt[zRepoId] = 0;
 
-        zwrite_log(zRepoId, "ALL", zBytes(4));  // 将本次布署信息写入日志
+        zwrite_log(zRepoId);  // 将本次布署信息写入日志
 
         for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {
             zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
@@ -61,7 +61,6 @@ zinit_env(void) {
     // 每个代码库对应meta、data、sig三个日志文件
     zMem_C_Alloc(zpLogFd[0], _i, zRepoNum);
     zMem_C_Alloc(zpLogFd[1], _i, zRepoNum);
-    zMem_C_Alloc(zpLogFd[2], _i, zRepoNum);
     // 存储每个代码库对应的主机总数
     zMem_C_Alloc(zpTotalHost, _i, zRepoNum );
     // 即时存储已返回布署成功信息的主机总数
@@ -106,10 +105,8 @@ zinit_env(void) {
             zdeploy_init(i);
         }
 
-        // 打开data日志文件
-        zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zDataLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         // 打开sig日志文件
-        zCheck_Negative_Exit(zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
+        zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
 
         close(zFd[0]);  // zFd[0] 用完关闭
 

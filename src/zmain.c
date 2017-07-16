@@ -71,10 +71,9 @@ typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 标识所属的代码库
     _ui index;  // 标记是第几条记录(不是数据长度)
-    _l offset;  // 指明在data日志文件中的SEEK偏移量
 
     _l TimeStamp;  // 时间戳，提供给前端使用
-    _i PathLen;  // 路径名称长度，可能为“ALL”，代表整体部署某次commit的全部文件，提供给前端使用
+    _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
     char path[];  // 相对于代码库的路径
 } zDeployLogInfo;
 
@@ -104,7 +103,7 @@ zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 zThreadPoolOps zCallBackList[16] = {NULL};  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
 char **zppCURRENTsig;  // 每个代码库当前的CURRENT标签的SHA1 sig
-_i *zpLogFd[3];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
+_i *zpLogFd[2];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
 
 pthread_rwlock_t *zpRWLock;  // 每个代码库对应一把读写锁
 pthread_rwlockattr_t zRWLockAttr;
@@ -133,7 +132,7 @@ _i *zpPreLoadLogVecSiz;
 #define zRepoIdPath ".git_shadow/info/repo_id"
 
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
-#define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
+//#define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
 #define zSigLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
 
 /**********

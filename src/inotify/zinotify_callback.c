@@ -18,27 +18,22 @@ zupdate_sig_cache(void *zpRepoId) {
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     zCheck_Null_Exit(zpRes = zget_one_line_from_FILE(zpShellRetHandler));  // 读取CURRENT分支的SHA1 sig值
 
-    if (40 > strlen(zpRes)) {
+    if (zBytes(40) > strlen(zpRes)) {
         zPrint_Err(0, NULL, "Invalid CURRENT sig!!!");
         exit(1);
     }
 
-    if (NULL != zppCURRENTsig[zRepoId]) { free(zppCURRENTsig[zRepoId]); }
+    if (NULL == zppCURRENTsig[zRepoId]) {
+        zMem_Alloc(zppCURRENTsig[zRepoId], char, zBytes(41));  // 含 '\0'
+    }
 
-    zMem_Alloc(zppCURRENTsig[zRepoId], char, 40);  // 存入前40位，丢弃最后的'\0'
-    strncpy(zppCURRENTsig[zRepoId], zpRes, 40);  // 更新对应代码库的最新CURRENT 分支SHA1 sig
+    strncpy(zppCURRENTsig[zRepoId], zpRes, zBytes(41));  // 更新对应代码库的最新CURRENT 分支SHA1 sig
     pclose(zpShellRetHandler);
 }
 
 void
 zupdate_log_cache(void *zpRepoId) {
     _i zRepoId = *((_i *)zpRepoId);
-
-    if (NULL != zppPreLoadLogVecIf[zRepoId]) { // 首先销毁旧的布署日志缓存
-        zDeployLogInfo *zpTmpIf = (zDeployLogInfo *)(zppPreLoadLogVecIf[zRepoId]->iov_base);
-        munmap(zppPreLoadLogVecIf[zRepoId]->iov_base, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo));
-        munmap(zppPreLoadLogVecIf[zRepoId + 1], (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->offset + (zpTmpIf + zpPreLoadLogVecSiz[zRepoId])->PathLen - zpTmpIf->offset);
-    }
 
     /* 以下部分更新日志缓存 */
     zDeployLogInfo *zpMetaLogIf, *zpTmpIf;

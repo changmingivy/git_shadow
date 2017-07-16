@@ -258,8 +258,11 @@ zget_one_line_from_FILE(FILE *zpFile) {
     char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
     if (NULL == zpRes) {
-        if(0 == feof(zpFile)) { zCheck_Null_Exit(zpRes); }
-        return NULL;
+        if(0 == feof(zpFile)) {
+            zCheck_Null_Exit(zpRes);
+        } else {
+            return NULL;
+        }
     }
 
     zpRes[strlen(zBuf) -1] = '\0';

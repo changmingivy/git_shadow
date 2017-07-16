@@ -88,7 +88,7 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 } while(0)
 
 #define zCheck_Null_Exit(zRes) do{\
-    void *zpMiddleTmpPoint = zRes;\
+    void *zpMiddleTmpPoint = (zRes);\
     if (NULL == (zpMiddleTmpPoint)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
         exit(1);\
