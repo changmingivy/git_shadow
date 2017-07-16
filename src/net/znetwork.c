@@ -127,7 +127,7 @@ zlist_log(void *zpIf) {
     } else {  // 若前端请求列出所有历史记录，从日志文件中读取
         zDeployLogInfo *zpMetaLogIf;
         char *zpDpSig, *zpPathBuf, zShellBuf[zCommonBufSiz], *zpLineContent;
-        struct stat zStatIf[0];
+        struct stat zStatIf[2];
         FILE *zpFile;
         size_t zWrOffSet = 0;
 
@@ -162,7 +162,9 @@ zlist_log(void *zpIf) {
             }
         }
         zsendmsg(zSd, zVec, zVecSiz, 0, NULL);    // 发送结果
+
         munmap(zpMetaLogIf, zStatIf[0].st_size);
+        munmap(zpMetaLogIf, zStatIf[1].st_size);
     }
 
     pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));
