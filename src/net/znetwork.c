@@ -539,7 +539,7 @@ zclient_reply(char *zpHost, char *zpPort) {
     while (0 != (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
         zCheck_Negative_Return(zResLen,);
         zDpResIf.ClientAddr = zIpv4Bin;  // 标识本机身份：ipv4地址
-        if ((zBytes(4) + sizeof(zDeployLogInfo)) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo), 0, NULL)) {
+        if (sizeof(zDeployLogInfo) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo), 0, NULL)) {
             zPrint_Err(0, NULL, "Reply to server failed.");
         }
     }
