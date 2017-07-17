@@ -212,7 +212,7 @@ zwrite_log_and_update_cache(_i zRepoId) {
         exit(1);
     }
     // 将本次布署之前的CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
-    if ( zBytes(41) != write(zpLogFd[2][zRepoId], zppCURRENTsig[zRepoId], zBytes(41))) {
+    if ( zBytes(41) != write(zpLogFd[1][zRepoId], zppCURRENTsig[zRepoId], zBytes(41))) {
         zCheck_Negative_Exit(ftruncate(zpLogFd[0][zRepoId], zStatIf[0].st_size));
         zCheck_Negative_Exit(ftruncate(zpLogFd[1][zRepoId], zStatIf[1].st_size));  // 保证两个日志文件的原子性同步
         zPrint_Err(0, NULL, "Can't write to log.sig!");
@@ -522,8 +522,8 @@ zclient_reply(char *zpHost, char *zpPort) {
 
     // 读取版本库ID
     zFd = open(zRepoIdPath, O_RDONLY);
-    zCheck_Negative_Return(zFd,);
-    zCheck_Negative_Return(read(zFd, &(zDpResIf.RepoId), sizeof(_i)),);
+    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Exit(read(zFd, &(zDpResIf.RepoId), sizeof(_i)));
     close(zFd);
 
     zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
@@ -539,7 +539,7 @@ zclient_reply(char *zpHost, char *zpPort) {
     while (0 != (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
         zCheck_Negative_Return(zResLen,);
         zDpResIf.ClientAddr = zIpv4Bin;  // 标识本机身份：ipv4地址
-        if ((zBytes(4) + sizeof(zDeployLogInfo)) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo), 0, NULL)) {
+        if ((sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next)) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next), 0, NULL)) {
             zPrint_Err(0, NULL, "Reply to server failed.");
         }
     }

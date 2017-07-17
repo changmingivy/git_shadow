@@ -14,7 +14,7 @@ mkdir -p ../bin
 rm -rf ../bin/git_shadow
 
 if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
-    clang -O2 \
+    cc -O2 \
         -Wall \
         -Wextra \
         -std=c99 \
@@ -24,6 +24,8 @@ if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
         -D_XOPEN_SOURCE=700 \
         -o ../bin/git_shadow \
         ../src/zmain.c
+
+	strip ../bin/git_shadow
 fi
 
 cd $zCurDir

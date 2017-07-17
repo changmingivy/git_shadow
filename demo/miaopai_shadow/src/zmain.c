@@ -34,7 +34,7 @@
 #define zMaxRepoNum 1024
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
-#define zLogCacheSiz 1024  // 预缓存日志数量
+#define zLogCacheSiz 24  // 预缓存日志数量
 
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
@@ -196,9 +196,9 @@ main(_i zArgc, char **zppArgv) {
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zcommon_func;
-    zCallBackList[1] = zupdate_diff_cache;
-    zCallBackList[2] = zupdate_ipv4_db_all;
+    zCallBackList[0] = zthread_common_func;
+    zCallBackList[1] = zthread_update_diff_cache;
+    zCallBackList[2] = zthread_update_ipv4_db_all;
 
     zthread_poll_init();  // 初始化线程池
 

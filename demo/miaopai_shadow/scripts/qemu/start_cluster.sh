@@ -114,7 +114,7 @@ zops_func() {
 for ((i=0; i<$zVmNum; i++))
 do
     zops_func $i
-    if [[ 3 -eq $(( i % 4)) ]]; then
+    if [[ 7 -eq $(( i % 8)) ]]; then
         sleep 2
     fi
 done

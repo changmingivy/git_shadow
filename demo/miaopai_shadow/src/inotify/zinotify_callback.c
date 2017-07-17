@@ -69,14 +69,16 @@ zupdate_log_cache(void *zpDeployLogIf) {
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_base = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_base;
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_len = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_len;
 
-        j = (j == 0) ? (zpCacheVecSiz[zpLogIf->RepoId] - 1) : --j;
+        if (0 == j) {
+            j = zpCacheVecSiz[zpLogIf->RepoId] - 1;
+        } else {
+            j--;
+        }
     }
 }
 
 void
-zupdate_diff_cache(void *zpRepoId) {
-    _i zRepoId = *((_i *)zpRepoId);
-
+zupdate_diff_cache(_i zRepoId) {
     pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
     // 首先释放掉老缓存的内存空间
@@ -161,6 +163,12 @@ zupdate_diff_cache(void *zpRepoId) {
     zppCacheVecIf[zRepoId] = zpNewCacheVec[0]; // 更新全局变量
 
     pthread_rwlock_unlock( &(zpRWLock[zRepoId]) );
+}
+
+void
+zthread_update_diff_cache(void *zpIf) {
+    _i zRepoId = ((zObjInfo *)zpIf)->RepoId;
+    zupdate_diff_cache(zRepoId);
 }
 
 /*
@@ -248,12 +256,11 @@ zupdate_ipv4_db_hash(_i zRepoId) {
  * 监控到ip数据文本文件变动，触发此函数执行二进制ip数据库更新，更新全员ip数据库
  */
 void
-zupdate_ipv4_db_all(void *zpIf) {
+zupdate_ipv4_db_all(_i zRepoId) {
     FILE *zpFileHandler = NULL;
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
     _i zFd[3] = {0};
-    _i zRepoId = *((_i *)zpIf);
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 
@@ -297,6 +304,11 @@ zupdate_ipv4_db_all(void *zpIf) {
     pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
 }
 
+void
+zthread_update_ipv4_db_all(void *zpIf) {
+    _i zRepoId = *((_i *)zpIf);
+    zupdate_ipv4_db_all(zRepoId);
+}
 /*
  * 通用函数，调用外部程序或脚本文件执行相应的动作
  * 传入参数：
@@ -304,7 +316,7 @@ zupdate_ipv4_db_all(void *zpIf) {
  * $2：代码库绝对路径
  */
 void
-zcommon_func(void *zpIf) {
+zthread_common_func(void *zpIf) {
     zObjInfo *zpObjIf = (zObjInfo *) zpIf;
     char zShellBuf[zCommonBufSiz];
 
