@@ -34,8 +34,9 @@ void
 zlist_diff_files(void *zpIf) {
     _i zSd = *((_i *)zpIf);
     zFileDiffInfo zIf = { .RepoId = -1, };
+    _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
 
-    if (zBytes(8) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
+    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
         return;
@@ -63,8 +64,9 @@ void
 zprint_diff_contents(void *zpIf) {
     _i zSd = *((_i *)zpIf);
     zFileDiffInfo zIf = { .RepoId = -1, };
+    _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
 
-    if (zBytes(20) > zrecv_nohang(zSd, &zIf, sizeof(zFileDiffInfo), 0, NULL)) {
+    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Recv data failed!");
         return;
@@ -473,7 +475,7 @@ zstart_server(void *zpIf) {
     zNetServ[zGetCmdId('c')] = zNetServ[zGetCmdId('C')] = zconfirm_deploy_state;
     zNetServ[zGetCmdId('u')] = zNetServ[zGetCmdId('U')] = zupdate_ipv4_db_txt;
 
-    _i zCmd = -1;  // 用于存放前端发送的操作指令
+    _c zCmd = -1;  // 用于存放前端发送的操作指令
 
     // 如下部分配置 epoll 环境
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
