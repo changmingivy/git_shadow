@@ -504,9 +504,10 @@ zstart_server(void *zpIf) {
                zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
                zrecv_nohang(zEvents[i].data.fd, &zCmd, zBytes(1), MSG_PEEK, NULL);
-               if (NULL != zNetServ[zGetCmdId(zCmd)]) {
-                   zAdd_To_Thread_Pool(zNetServ[zGetCmdId(zCmd)], &(zEvents[i].data.fd));
-               }
+                   zAdd_To_Thread_Pool(zNetServ[zGetCmdId('p')], &(zEvents[i].data.fd));
+//               if (NULL != zNetServ[zGetCmdId(zCmd)]) {
+//                   zAdd_To_Thread_Pool(zNetServ[zGetCmdId(zCmd)], &(zEvents[i].data.fd));
+//               }
             }
         }
     }
