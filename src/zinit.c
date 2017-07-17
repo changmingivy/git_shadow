@@ -95,7 +95,7 @@ zinit_env(void) {
 
         pthread_rwlock_wrlock( &(zpRWLock[i]) );
         for (_i j = zLogToCacheSiz; j > 0; j--) {
-            pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo));
+            zCheck_Negative_Exit(pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo)));
             zupdate_log_cache(&zDpLogIf);
         }
         pthread_rwlock_unlock( &(zpRWLock[i]) );
