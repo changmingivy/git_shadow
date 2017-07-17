@@ -475,8 +475,6 @@ zstart_server(void *zpIf) {
     zNetServ[zGetCmdId('c')] = zNetServ[zGetCmdId('C')] = zconfirm_deploy_state;
     zNetServ[zGetCmdId('u')] = zNetServ[zGetCmdId('U')] = zupdate_ipv4_db_txt;
 
-    _c zCmd = -1;  // 用于存放前端发送的操作指令
-
     // 如下部分配置 epoll 环境
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
     struct epoll_event zEv, zEvents[zMaxEvents];
@@ -492,11 +490,11 @@ zstart_server(void *zpIf) {
     zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
     // 如下部分启动 epoll 监听服务
-    for (;;) {
+    for (_c zCmd = 0;;) {  // zCmd: 用于存放前端发送的操作指令
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
         zCheck_Negative_Return(zEvNum,);
 
-        for (_i i = 0; i < zEvNum; i++) {
+        for (_i i = 0; i < zEvNum; i++, zCmd = 0) {
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
                zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0);
                zCheck_Negative_Return(zConnSd,);
