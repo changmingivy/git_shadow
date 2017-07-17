@@ -32,7 +32,7 @@ zdeploy_init(_i zRepoId) {
         fprintf(stderr, "DEPLOY SUCCESS !\n");
         zpReplyCnt[zRepoId] = 0;
 
-        zwrite_log(zRepoId, "ALL", zBytes(4));  // 将本次布署信息写入日志
+        zwrite_log_and_update_cache(zRepoId);  // 将本次布署信息写入日志
 
         for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {
             zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
@@ -44,27 +44,16 @@ zMark:
 
 void
 zinit_env(void) {
-    _i zFd[2] = {0}, zRet = 0;
+    struct stat zStatIf;
+    size_t zLogToCacheSiz;
+    zDeployLogInfo zDpLogIf;
+    _i zFd[2];
 
-    zRet = pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
-    if (0 > zRet) {
-        zPrint_Err(zRet, NULL, "rwlock set attr failed!");
-        exit(1);
-    }
+    zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
 
-    // 每个代码库近期布署日志信息的缓存
-    zMem_C_Alloc(zppPreLoadLogVecIf, struct iovec *, zRepoNum);
-    zMem_C_Alloc(zpPreLoadLogVecSiz, _i, zRepoNum);
-
-    // 保存各个代码库的CURRENT标签所对应的SHA1 sig
-    zMem_C_Alloc(zppCurTagSig, char *, zRepoNum);
-    // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
-    zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
-    zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
     // 每个代码库对应meta、data、sig三个日志文件
     zMem_C_Alloc(zpLogFd[0], _i, zRepoNum);
     zMem_C_Alloc(zpLogFd[1], _i, zRepoNum);
-    zMem_C_Alloc(zpLogFd[2], _i, zRepoNum);
     // 存储每个代码库对应的主机总数
     zMem_C_Alloc(zpTotalHost, _i, zRepoNum );
     // 即时存储已返回布署成功信息的主机总数
@@ -72,10 +61,55 @@ zinit_env(void) {
     // 索引每个代码库的读写锁
     zMem_C_Alloc(zpRWLock, pthread_rwlock_t, zRepoNum);
 
+    // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
+    zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
+    for (_i i = 0; i < zRepoNum; i++) {
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );
+        zupdate_diff_cache(&i);  // 更新 zppCacheVecIf
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+    }
+
+    // 保存各个代码库的CURRENT标签所对应的SHA1 sig
+    zMem_C_Alloc(zppCURRENTsig, char *, zRepoNum);
+    for (_i i = 0; i < zRepoNum; i++) {
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );
+        zupdate_sig_cache(&i);
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+    }
+
+    // 每个代码库近期布署日志信息的缓存
+    zMem_C_Alloc(zppLogCacheVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zppSortedLogCacheVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zpLogCacheVecSiz, _i, zRepoNum);
+    zMem_C_Alloc(zpLogCacheQueueHeadIndex, _i, zRepoNum);
+    for (_i i = 0; i < zRepoNum; i++) {
+        zMem_C_Alloc(zppLogCacheVecIf[i], struct iovec, zLogCacheSiz);
+        zMem_C_Alloc(zppSortedLogCacheVecIf[i], struct iovec, zLogCacheSiz);
+        zpLogCacheVecSiz[i] = zLogCacheSiz;
+
+        zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));  // 获取当前日志文件属性
+        if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
+            zLogToCacheSiz = zLogCacheSiz;
+        }
+
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );
+        for (_i j = zLogToCacheSiz; j > 0; j--) {
+            pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo));
+            zupdate_log_cache(&zDpLogIf);
+        }
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+    }
+
     // 每个代码库对应一个线性数组，用于接收每个ECS返回的确认信息
     // 同时基于这个线性数组建立一个HASH索引，以提高写入时的定位速度
     zMem_C_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
     zMem_C_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
+    for (_i i = 0; i < zRepoNum; i++) {
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );
+        zupdate_ipv4_db_all(&i);  // 更新 zpppDpResHash 与 zppDpResList
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+    }
 
     for (_i i = 0; i < zRepoNum; i++) {
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
@@ -97,29 +131,18 @@ zinit_env(void) {
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
 
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
-        if (0 != (zRet =pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr))) {
-            zPrint_Err(zRet, NULL, "Init deploy lock failed!");
-            exit(1);
-        }
+        zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr));
 
         // 打开meta日志文件
-        zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
-        zCheck_Negative_Exit(zpLogFd[0][i]);
-        // 打开data日志文件
-        zpLogFd[1][i] = openat(zFd[0], zDataLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
-        zCheck_Negative_Exit(zpLogFd[1][i]);
+        zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
+        zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
+
+        if (0 == zStatIf.st_size) { zdeploy_init(i); }  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+
         // 打开sig日志文件
-        zpLogFd[2][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600);
-        zCheck_Negative_Exit(zpLogFd[2][i]);
+        zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
 
-        close(zFd[0]);  // zFd[0] 用完关闭
-
-        zupdate_cache(&i);
-        zupdate_ipv4_db_all(&i);
-
-        for (_i i = 0; i < zRepoNum; i++) {
-            zdeploy_init(i);  // 将创世版(初版)代码布署到目标机器
-        }
+        close(zFd[0]);
     }
 }
 
@@ -127,7 +150,7 @@ zinit_env(void) {
 void
 zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
-    _i zRepoId, zFd;
+    _i zRepoId, zFd[2];
     zPCREInitInfo *zpInitIf[5];
     zPCRERetInfo *zpRetIf[5];
 
@@ -175,10 +198,14 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         zpRetIf[3] = zpcre_match(zpInitIf[3], *zppRes, 0);
         zpRetIf[4] = zpcre_match(zpInitIf[4], *zppRes, 0);
 
-        zCheck_Negative_Exit( // 检测代码库路径合法性
-                zFd = open(zpRetIf[4]->p_rets[0], O_RDONLY | O_DIRECTORY)
-                );
-        close(zFd);
+        zCheck_Negative_Exit(zFd[0] = open(zpRetIf[4]->p_rets[0], O_RDONLY | O_DIRECTORY)); // 检测代码库路径合法性
+        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600)); // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
+        if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
+            zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
+            exit(1);
+        }
+        close(zFd[1]);
+        close(zFd[0]);
 
         zRepoId = atoi(zpRetIf[3]->p_rets[0]);
         zMem_Alloc(zppRepoPathList[zRepoId], char, 1 + strlen(zpRetIf[4]->p_rets[0]));
@@ -267,9 +294,7 @@ zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
             strcat(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
         }
 
-        zCheck_Negative_Exit( // 检测被监控目标的路径合法性
-                zFd = open(zpObjIf->path, O_RDONLY)
-                );
+        zCheck_Negative_Exit(zFd = open(zpObjIf->path, O_RDONLY));  // 检测被监控目标的路径合法性
         close(zFd);
 
         zpObjIf->RepoId = zRepoId;  // 所属版本库ID
@@ -356,13 +381,7 @@ void
 zconfig_file_monitor(const char *zpConfPath) {
 // TEST: PASS
     _i zConfFD = inotify_init();
-    zCheck_Negative_Return(
-            inotify_add_watch(
-                zConfFD,
-                zpConfPath,
-                IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF
-                ),
-            );
+    zCheck_Negative_Return(inotify_add_watch(zConfFD, zpConfPath, IN_MODIFY | IN_DELETE_SELF | IN_MOVE_SELF),);
 
     char zBuf[zCommonBufSiz]
         __attribute__ ((aligned(__alignof__(struct inotify_event))));

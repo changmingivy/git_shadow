@@ -44,12 +44,8 @@ pthread_cond_t zThreadPoolCond[3] = {PTHREAD_COND_INITIALIZER};
 void *
 zthread_func(void *zpIndex) {
 //TEST: PASS
-    zCheck_Pthread_Func_Return(
-            pthread_detach(pthread_self()),
-            NULL);
-//  zCheck_Pthread_Func_Return(
-//          pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL),
-//          NULL);
+    zCheck_Pthread_Func_Return(pthread_detach(pthread_self()), NULL);
+//  zCheck_Pthread_Func_Return(pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL), NULL);
 
     _i i = *((_i *)zpIndex);
 zMark:;

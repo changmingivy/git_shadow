@@ -19,26 +19,26 @@ ztest_print(void) {
     }
 
     for (_i i = 0; i < zRepoNum; i++) {
-        if (NULL == zppCurTagSig[i]) {
+        if (NULL == zppCURRENTsig[i]) {
             fprintf(stderr,"NULL sig\n");
             goto zMark;
         }
-        fprintf(stderr,"zppCurTagSig: ");
+        fprintf(stderr,"zppCURRENTsig: ");
         for (_i z = 0; z < 40; z++) {
-            fprintf(stderr,"%c", zppCurTagSig[i][z]);
+            fprintf(stderr,"%c", zppCURRENTsig[i][z]);
         }
         fprintf(stderr,"\n");
 
 zMark:
         fprintf(stderr,"CacheVecSiz: %d\n", zpCacheVecSiz[i]);
-        fprintf(stderr,"zPreLoadLogSiz: %d\n", zpPreLoadLogVecSiz[i]);
+        fprintf(stderr,"zLogCacheSiz: %d\n", zpLogCacheVecSiz[i]);
 
         for (_i j = 0; j < zpCacheVecSiz[i]; j++) {
             fprintf(stderr,"CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->path, zppCacheVecIf[i][j].iov_len);
         }
 
-        for (_i j = 0; j < zpPreLoadLogVecSiz[i]; j++) {
-            fprintf(stderr,"PreloadLog: %s, PreloadLogLen: %zd\n", zppPreLoadLogVecIf[i][j].iov_base,zppPreLoadLogVecIf[i][j].iov_len);
+        for (_i j = 0; j < zpLogCacheVecSiz[i]; j++) {
+            fprintf(stderr,"PreloadLog: %s, PreloadLogLen: %zd\n", zppLogCacheVecIf[i][j].iov_base,zppLogCacheVecIf[i][j].iov_len);
         }
     }
 

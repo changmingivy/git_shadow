@@ -81,10 +81,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     zCheck_Negative_Return(zSd, -1);
 
     _i zReuseMark = 1;
-    zCheck_Negative_Exit(
-            //setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, &zReuseMark, sizeof(_i))  // 不等待，直接重用地址
-            setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i))  // 重用地址与端口
-            );
+    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
     zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
 
@@ -261,8 +258,11 @@ zget_one_line_from_FILE(FILE *zpFile) {
     char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
 
     if (NULL == zpRes) {
-        if(0 == feof(zpFile)) { zCheck_Null_Exit(zpRes); }
-        return NULL;
+        if(0 == feof(zpFile)) {
+            zCheck_Null_Exit(zpRes);
+        } else {
+            return NULL;
+        }
     }
 
     zpRes[strlen(zBuf) -1] = '\0';
