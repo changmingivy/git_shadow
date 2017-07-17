@@ -65,9 +65,7 @@ zinit_env(void) {
     zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
     for (_i i = 0; i < zRepoNum; i++) {
-        pthread_rwlock_wrlock( &(zpRWLock[i]) );
-        zupdate_diff_cache(&i);  // 更新 zppCacheVecIf
-        pthread_rwlock_unlock( &(zpRWLock[i]) );
+        zupdate_diff_cache(&i);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
     }
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
@@ -106,9 +104,7 @@ zinit_env(void) {
     zMem_C_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
     zMem_C_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
     for (_i i = 0; i < zRepoNum; i++) {
-        pthread_rwlock_wrlock( &(zpRWLock[i]) );
-        zupdate_ipv4_db_all(&i);  // 更新 zpppDpResHash 与 zppDpResList
-        pthread_rwlock_unlock( &(zpRWLock[i]) );
+        zupdate_ipv4_db_all(&i);  // 更新 zpppDpResHash 与 zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
     }
 
     for (_i i = 0; i < zRepoNum; i++) {
