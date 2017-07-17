@@ -32,45 +32,37 @@ zupdate_sig_cache(void *zpRepoId) {
 }
 
 void
-zupdate_log_cache(void *zpRepoId) {
-    _i zRepoId = *((_i *)zpRepoId);
+zupdate_log_cache(void *zpDeployLogIf) {
+    if (NULL == zpDeployLogIf) { return; }  // robustness
 
-    /* 以下部分更新日志缓存 */
-    zDeployLogInfo *zpMetaLogIf, *zpTmpIf;
-    struct stat zStatIf;
-    size_t zRealLogNum, zDataLogCacheSiz;
-    char *zpDataLogCache;
+    zDeployLogInfo *zpLogIf = (zDeployLogInfo *)zpDeployLogIf;
+    size_t zRealLen = sizeof(zDeployLogInfo) + zBytes(zpLogIf->PathLen);
+    zDeployLogInfo *zpLogCacheIf = malloc(zRealLen);
 
-    zCheck_Negative_Exit(fstat(zpLogFd[0][zRepoId], &zStatIf));  // 获取当前日志文件属性
+    char zCommitSig[zBytes(41)], zShellBuf[zCommonBufSiz], *zpLineContent;
+    FILE *zpFile;
 
-    if (0 == (zRealLogNum = zStatIf.st_size / sizeof(zDeployLogInfo))) {
-        return; // 如果日志为空，则不必再运行后续的步骤，直接返回
+    zCheck_Negative_Exit(pread(zpLogFd[1][zpLogIf->RepoId], zCommitSig, zBytes(41), zBytes(41) * zpLogIf->index));
+
+    sprintf(zShellBuf, "cd %s && git log %s --name-only --format=", zppRepoPathList[zpLogIf->RepoId], zCommitSig);
+    zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
+    for (size_t zWrOffSet = 0; NULL != (zpLineContent = zget_one_line_from_FILE(zpFile));) {
+        zWrOffSet += 1 + strlen(zpLineContent);
+        strcpy(zpLogCacheIf->path + zWrOffSet, zpLineContent);
     }
 
-    zpPreLoadLogVecSiz[zRepoId] = zRealLogNum > zPreLoadLogSiz ? zPreLoadLogSiz : zRealLogNum;  // 计算需要缓存的实际日志数量
-    zMem_Alloc(zppPreLoadLogVecIf[zRepoId], struct iovec, zpPreLoadLogVecSiz[zRepoId]);  // 根据计算出的数量分配相应的内存
-
-    zCheck_Null_Exit(zpMetaLogIf = (zDeployLogInfo *) mmap(NULL, zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo), PROT_READ, MAP_PRIVATE, zpLogFd[0][zRepoId], zStatIf.st_size - zpPreLoadLogVecSiz[zRepoId] * sizeof(zDeployLogInfo)));  // 将meta日志mmap至内存
-
-    zCheck_Negative_Exit(fstat(zpLogFd[1][zRepoId], &zStatIf));  // 获取当前日志文件属性
-    zpTmpIf = zpMetaLogIf + zpPreLoadLogVecSiz[zRepoId] - 1;
-    if (zStatIf.st_size != zpTmpIf->offset + zpTmpIf->PathLen) {
-        zPrint_Err(0, NULL, "布署日志异常：data实际长度与meta标注的不一致！");
-        exit(1);
+    if (zpLogCacheQueueHeadIndex[zpLogIf->RepoId] == zLogCacheSiz - 1) {
+        zpLogCacheQueueHeadIndex[zpLogIf->RepoId] = 0;
+    } else {
+        zpLogCacheQueueHeadIndex[zpLogIf->RepoId]++;
     }
 
-    zDataLogCacheSiz = zpTmpIf->offset + zpTmpIf->PathLen- zpMetaLogIf->offset;  // 根据meta日志属性确认data日志偏移量
-    zCheck_Null_Exit(zpDataLogCache = mmap(NULL, zDataLogCacheSiz, PROT_READ, MAP_PRIVATE, zpLogFd[1][zRepoId], zpMetaLogIf->offset));  // 将data日志mmap至内存
-
-    for (_i i = 0; i < 2 * zpPreLoadLogVecSiz[zRepoId]; i++) {  // 拼装日志信息
-        if (0 == i % 2) {
-            zppPreLoadLogVecIf[zRepoId][i].iov_base =  zpMetaLogIf + i / 2;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = sizeof(zDeployLogInfo);
-        } else {
-            zppPreLoadLogVecIf[zRepoId][i].iov_base = zpDataLogCache + (zpMetaLogIf + i / 2)->offset - zpMetaLogIf->offset;
-            zppPreLoadLogVecIf[zRepoId][i].iov_len = (zpMetaLogIf + i / 2)->PathLen;
-        }
-    }
+    struct iovec *zpVecQueueHead = &zppLogCacheVecIf[zpLogIf->RepoId][ zpLogCacheQueueHeadIndex[zpLogIf->RepoId] ];
+    if (NULL != zpVecQueueHead->iov_base) {
+        free(zpVecQueueHead->iov_base);
+    };
+    zpVecQueueHead->iov_base = zpLogCacheIf;
+    zpVecQueueHead->iov_len = zRealLen;
 }
 
 void
