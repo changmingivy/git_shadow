@@ -44,7 +44,7 @@ zMark:
 
     for (_i i = 0; i < zRepoNum; i++) {
         fprintf(stderr,"LogFd-meta: %d\n", zpLogFd[0][i]);
-        fprintf(stderr,"LogFd-data: %d\n", zpLogFd[1][i]);
+        fprintf(stderr,"LogFd-sig: %d\n", zpLogFd[1][i]);
     }
 
     for (_i i = 0; i < zRepoNum; i++) {

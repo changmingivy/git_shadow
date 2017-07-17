@@ -65,7 +65,7 @@ zinit_env(void) {
     zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
     for (_i i = 0; i < zRepoNum; i++) {
-        zupdate_diff_cache(&i);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
+        zupdate_diff_cache(zpObjHash[i]);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
     }
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
@@ -133,7 +133,9 @@ zinit_env(void) {
         zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
 
-        if (0 == zStatIf.st_size) { zdeploy_init(i); }  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+//        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+//			zdeploy_init(i);
+//		}
 
         // 打开sig日志文件
         zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));

@@ -78,8 +78,8 @@ zupdate_log_cache(void *zpDeployLogIf) {
 }
 
 void
-zupdate_diff_cache(void *zpRepoId) {
-    _i zRepoId = *((_i *)zpRepoId);
+zupdate_diff_cache(void *zpObjIf) {
+    _i zRepoId = ((zObjInfo *)zpObjIf)->RepoId;
 
     pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
