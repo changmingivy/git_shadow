@@ -212,7 +212,7 @@ zwrite_log_and_update_cache(_i zRepoId) {
         exit(1);
     }
     // 将本次布署之前的CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
-    if ( zBytes(41) != write(zpLogFd[2][zRepoId], zppCURRENTsig[zRepoId], zBytes(41))) {
+    if ( zBytes(41) != write(zpLogFd[1][zRepoId], zppCURRENTsig[zRepoId], zBytes(41))) {
         zCheck_Negative_Exit(ftruncate(zpLogFd[0][zRepoId], zStatIf[0].st_size));
         zCheck_Negative_Exit(ftruncate(zpLogFd[1][zRepoId], zStatIf[1].st_size));  // 保证两个日志文件的原子性同步
         zPrint_Err(0, NULL, "Can't write to log.sig!");

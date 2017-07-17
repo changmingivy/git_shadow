@@ -69,7 +69,11 @@ zupdate_log_cache(void *zpDeployLogIf) {
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_base = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_base;
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_len = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_len;
 
-        j = (j == 0) ? (zpCacheVecSiz[zpLogIf->RepoId] - 1) : --j;
+        if (0 == j) {
+            j = zpCacheVecSiz[zpLogIf->RepoId] - 1;
+        } else {
+            j--;
+        }
     }
 }
 
