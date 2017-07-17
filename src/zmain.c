@@ -192,13 +192,13 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zcommon_func;
-    zCallBackList[1] = zupdate_diff_cache;
-    zCallBackList[2] = zupdate_ipv4_db_all;
+    zCallBackList[0] = zthread_common_func;
+    zCallBackList[1] = zthread_update_diff_cache;
+    zCallBackList[2] = zthread_update_ipv4_db_all;
 
     zthread_poll_init();  // 初始化线程池
 
