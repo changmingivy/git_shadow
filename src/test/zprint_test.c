@@ -38,7 +38,7 @@ zMark:
         }
 
         for (_i j = 0; j < zpLogCacheVecSiz[i]; j++) {
-            fprintf(stderr,"PreloadLog: %s, PreloadLogLen: %zd\n", zppLogCacheVecIf[i][j].iov_base,zppLogCacheVecIf[i][j].iov_len);
+            fprintf(stderr,"PreloadLog: %s, PreloadLogLen: %zd\n", (char *)zppLogCacheVecIf[i][j].iov_base, zppLogCacheVecIf[i][j].iov_len);
         }
     }
 
