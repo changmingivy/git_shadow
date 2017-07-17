@@ -205,7 +205,7 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
         close(zFd[1]);
         close(zFd[0]);
 
-        zRepoId = atoi(zpRetIf[3]->p_rets[0]);
+        zRepoId = strtol(zpRetIf[3]->p_rets[0], NULL, 10);
         zMem_Alloc(zppRepoPathList[zRepoId], char, 1 + strlen(zpRetIf[4]->p_rets[0]));
         strcpy(zppRepoPathList[zRepoId], zpRetIf[4]->p_rets[0]);
 

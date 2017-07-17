@@ -61,7 +61,7 @@ zInitEnv() {
         cd $zDeployPath &&
 
         git pull --force ./.git server:master">$zDeployPath/.git/hooks/post-receive &&
-        ln -sv ${zDeployPath}_shadow .git_shadow
+        cp -rf ${zDeployPath}_shadow ./.git_shadow
 
     chmod 0555 $zDeployPath/.git/hooks/post-receive
 }

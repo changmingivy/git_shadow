@@ -193,7 +193,7 @@ zclose_fds(pid_t zPid) {
     _i zFD;
     DIR *zpDir = opendir(zPath);
     while (NULL != (zpDirIf = readdir(zpDir))) {
-        zFD = atoi(zpDirIf->d_name);
+        zFD = strtol(zpDirIf->d_name, NULL, 10);
         if (2 != zFD) { close(zFD); }
     }
     closedir(zpDir);

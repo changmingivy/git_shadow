@@ -522,8 +522,8 @@ zclient_reply(char *zpHost, char *zpPort) {
 
     // 读取版本库ID
     zFd = open(zRepoIdPath, O_RDONLY);
-    zCheck_Negative_Return(zFd,);
-    zCheck_Negative_Return(read(zFd, &(zDpResIf.RepoId), sizeof(_i)),);
+    zCheck_Negative_Exit(zFd);
+    zCheck_Negative_Exit(read(zFd, &(zDpResIf.RepoId), sizeof(_i)));
     close(zFd);
 
     zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
