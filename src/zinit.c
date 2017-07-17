@@ -44,9 +44,10 @@ zMark:
 
 void
 zinit_env(void) {
+    zObjInfo zObjIf;
+    zDeployLogInfo zDpLogIf;
     struct stat zStatIf;
     size_t zLogToCacheSiz;
-    zDeployLogInfo zDpLogIf;
     _i zFd[2];
 
     zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
@@ -65,7 +66,8 @@ zinit_env(void) {
     zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
     for (_i i = 0; i < zRepoNum; i++) {
-        zupdate_diff_cache(zpObjHash[i]);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
+        zObjIf.RepoId = i;
+        zupdate_diff_cache(&zObjIf);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
     }
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
@@ -134,8 +136,8 @@ zinit_env(void) {
         zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
 
 //        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
-//			zdeploy_init(i);
-//		}
+//            zdeploy_init(i);
+//        }
 
         // 打开sig日志文件
         zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
