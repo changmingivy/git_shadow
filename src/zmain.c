@@ -116,6 +116,7 @@ _i *zpReplyCnt;  // 即时统计每个代码库已返回布署状态的主机总
 zDeployResInfo ***zpppDpResHash, **zppDpResList;  // 每个代码库对应一个布署状态数据及与之配套的链式HASH
 
 struct iovec **zppLogCacheVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
+struct iovec **zppSortedLogCacheVecIf;  // 按时间戳降序排列后的结果，这是向前端发送的最终结果
 _i *zpLogCacheVecSiz;
 _i *zpLogCacheQueueHeadIndex;
 

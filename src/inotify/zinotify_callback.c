@@ -63,6 +63,14 @@ zupdate_log_cache(void *zpDeployLogIf) {
     };
     zpVecQueueHead->iov_base = zpLogCacheIf;
     zpVecQueueHead->iov_len = zRealLen;
+
+    // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
+    for (_i i = 0, j = zpLogCacheQueueHeadIndex[zpLogIf->RepoId]; i < zpCacheVecSiz[zpLogIf->RepoId]; i++) {
+        zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_base = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_base;
+        zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_len = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_len;
+
+        j = (j == 0) ? (zpCacheVecSiz[zpLogIf->RepoId] - 1) : --j;
+    }
 }
 
 void

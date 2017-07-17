@@ -123,7 +123,7 @@ zlist_log(void *zpIf) {
     }
 
     if ( 'l' == zIf.hints[0]){    // 默认直接直接回复预存的最近zLogCacheSiz次记录
-        zsendmsg(zSd, zppLogCacheVecIf[zIf.RepoId], zpLogCacheVecSiz[zIf.RepoId], 0, NULL);  // 前端需要按照日志时间戳进行排序
+        zsendmsg(zSd, zppSortedLogCacheVecIf[zIf.RepoId], zpLogCacheVecSiz[zIf.RepoId], 0, NULL);  // 按时间戳降序排列的缓存结果
     } else {  // 若前端请求列出所有历史记录，从日志文件中读取
         zDeployLogInfo *zpMetaLogIf;
         char *zpDpSig, *zpPathBuf, zShellBuf[zCommonBufSiz], *zpLineContent;

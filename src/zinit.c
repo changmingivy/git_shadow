@@ -45,8 +45,8 @@ zMark:
 void
 zinit_env(void) {
     struct stat zStatIf;
-	size_t zLogToCacheSiz;
-	zDeployLogInfo zDpLogIf;
+    size_t zLogToCacheSiz;
+    zDeployLogInfo zDpLogIf;
     _i zFd[2];
 
     zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
@@ -80,22 +80,24 @@ zinit_env(void) {
 
     // 每个代码库近期布署日志信息的缓存
     zMem_C_Alloc(zppLogCacheVecIf, struct iovec *, zRepoNum);
+    zMem_C_Alloc(zppSortedLogCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpLogCacheVecSiz, _i, zRepoNum);
     zMem_C_Alloc(zpLogCacheQueueHeadIndex, _i, zRepoNum);
     for (_i i = 0; i < zRepoNum; i++) {
         zMem_C_Alloc(zppLogCacheVecIf[i], struct iovec, zLogCacheSiz);
+        zMem_C_Alloc(zppSortedLogCacheVecIf[i], struct iovec, zLogCacheSiz);
         zpLogCacheVecSiz[i] = zLogCacheSiz;
 
-	    zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));  // 获取当前日志文件属性
-		if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
-			zLogToCacheSiz = zLogCacheSiz;
-		}
+        zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));  // 获取当前日志文件属性
+        if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
+            zLogToCacheSiz = zLogCacheSiz;
+        }
 
         pthread_rwlock_wrlock( &(zpRWLock[i]) );
-		for (_i j = zLogToCacheSiz; j > 0; j--) {
-			pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo));
+        for (_i j = zLogToCacheSiz; j > 0; j--) {
+            pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo));
             zupdate_log_cache(&zDpLogIf);
-		}
+        }
         pthread_rwlock_unlock( &(zpRWLock[i]) );
     }
 
