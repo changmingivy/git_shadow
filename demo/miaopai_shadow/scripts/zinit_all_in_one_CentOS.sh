@@ -79,4 +79,6 @@ svn add *
 svn commit -m "etc files"
 svn up
 
+chmod -R 0777 ~git
+chmod 0600 ~git/.ssh/id_rsa
 #zInitEnv yizhibo 60000

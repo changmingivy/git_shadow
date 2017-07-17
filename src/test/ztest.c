@@ -38,7 +38,6 @@
 
 #include "../../inc/zutils.h"
 #include "../zbase_utils.c"
-#include "../pcre2/zpcre.c"
 
 /****************
  * 数据结构定义 *
@@ -140,16 +139,6 @@ _i *zpLogCacheQueueHeadIndex;
 /**********
  * 子模块 *
  **********/
-#include "../thread_pool/zthread_pool.c"
-#include "../md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
-#include "../inotify/zinotify_callback.c"
-#include "../net/znetwork.c"  // 对外提供网络服务
-#include "../inotify/zinotify.c"  // 监控代码库文件变动
-#include "../zinit.c"  // 读取主配置文件
-//#include "test/zprint_test.c"
-//
-//
-//
 //
 //
 //
@@ -162,7 +151,7 @@ zclient(char *zpX) {
         exit(1);
     }
 
-    char zTestBuf[128] = {'\0'};
+    char zTestBuf[128] = {0};
     _i *zpZ =  (_i *)(zTestBuf + 4);
     zTestBuf[0] = 'p';
     *zpZ = 0;
@@ -179,7 +168,7 @@ zclient(char *zpX) {
     zrecv_all(zSd, zBuf, 4096, 0, NULL);
 
     fprintf(stderr, "[Received]:\n=>");
-    for (_i i = 0; i < 128; i++) {
+    for (_i i = 0; i < 4096; i++) {
         fprintf(stderr, "%c", zBuf[i]);
     }
     fprintf(stderr, "<=\n");
