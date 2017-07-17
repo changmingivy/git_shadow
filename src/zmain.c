@@ -34,7 +34,7 @@
 #define zMaxRepoNum 1024
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1024  // 布署状态HASH的大小
-#define zLogCacheSiz 1024  // 预缓存日志数量
+#define zLogCacheSiz 24  // 预缓存日志数量
 
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
