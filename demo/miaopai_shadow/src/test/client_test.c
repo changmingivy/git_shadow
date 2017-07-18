@@ -149,17 +149,23 @@ zclient(char *zpX) {
         zPrint_Err(0, NULL, "Connect to server failed.");
         exit(1);
     }
+zFileDiffInfo zIf;
 
     char zBuf[4096] = {'\0'};
     char zTestBuf[128] = {0};
-    zTestBuf[0] = 'c';
-    //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
-    zCheck_Negative_Exit(zsendto(zSd, zTestBuf, 128, 0, NULL));
+    zTestBuf[0] = 'D';
+    _l zV = 1500368758;
+    memcpy(&zTestBuf[zBytes(4) + sizeof(_i) + sizeof(_ui)], &zV, sizeof(_l));
 
+    zIf.hints[0] = 'D';
+    zIf.RepoId = 0;
+    zIf.CacheVersion = 1500370385;
+    //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
+    zCheck_Negative_Exit(zsendto(zSd, &zIf, zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz), 0, NULL));
     fprintf(stderr, "[Sent]:\n->");
-    for (_i i = 0; i < 128; i++) {
-        fprintf(stderr, "%c", zTestBuf[i]);
-    }
+    fprintf(stderr, "%c   ", zTestBuf[0]);
+    fprintf(stderr, "%d", *(_i *)(&zTestBuf[4]));
+    fprintf(stderr, "%ld", *(_l *)(&zTestBuf[12]));
     fprintf(stderr, "<-\n");
 
     _i zCnt = zrecv_nohang(zSd, zBuf, 4096, 0, NULL);

@@ -34,7 +34,7 @@ zMark:
         fprintf(stderr,"zLogCacheSiz: %d\n", zpLogCacheVecSiz[i]);
 
         for (_i j = 0; j < zpCacheVecSiz[i]; j++) {
-            fprintf(stderr,"CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->path, zppCacheVecIf[i][j].iov_len);
+            fprintf(stderr,"CacheVersion: %ld, CacheDiffFilePath: %s, CacheDiffFilePathLen: %zd\n", ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->CacheVersion, ((zFileDiffInfo *)zppCacheVecIf[i][j].iov_base)->path, zppCacheVecIf[i][j].iov_len);
         }
 
         for (_i j = 0; j < zpLogCacheVecSiz[i]; j++) {

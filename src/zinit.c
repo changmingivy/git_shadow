@@ -15,7 +15,10 @@ zdeploy_init(_i zRepoId) {
 
         pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
-        system(zShellBuf);
+        if (0 != system(zShellBuf)) {
+            zPrint_Err(0, NULL, "shell 布署命令出错!");
+        };
+
         do {
             zsleep(2);  // 每隔2秒收集一次结果
 
@@ -131,9 +134,9 @@ zinit_env(void) {
         zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
         zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
 
-        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
-            zdeploy_init(i);
-        }
+//        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
+//            zdeploy_init(i);
+//        }
 
         // 打开sig日志文件
         zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));

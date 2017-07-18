@@ -260,9 +260,7 @@ zdeploy(void *zpIf) {
         pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
         if (0 != system(zShellBuf)) {
-            pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
-            shutdown(zSd, SHUT_RDWR);
-            return;
+            zPrint_Err(0, NULL, "shell 布署命令出错!");
         }
 
         _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
@@ -381,6 +379,7 @@ zrevoke(void *zpIf) {
 // 接收并更新对应的布署状态确认信息
 void
 zconfirm_deploy_state(void *zpIf) {
+// TEST:PASS
     _i zSd = *((_i *)zpIf);
     zDeployResInfo zIf = { .RepoId = -1 };
 
@@ -397,7 +396,6 @@ zconfirm_deploy_state(void *zpIf) {
     }
 
     zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz];  // HASH 索引
-    fprintf(stderr, "REPO ID--%d RECV IP:%zd HASH IP:%zd\n", zIf.RepoId, zIf.ClientAddr, zpTmp->ClientAddr);
     while (zpTmp != NULL) {  // 遍历
         if (zpTmp->ClientAddr == zIf.ClientAddr) {
             zpTmp->DeployState = 1;

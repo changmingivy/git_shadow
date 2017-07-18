@@ -9,6 +9,7 @@
 
 void
 zupdate_sig_cache(void *zpRepoId) {
+// TEST:PASS
     _i zRepoId = *((_i *)zpRepoId);
     char zShellBuf[zCommonBufSiz], *zpRes;
     FILE *zpShellRetHandler;
@@ -75,10 +76,13 @@ zupdate_log_cache(void *zpDeployLogIf) {
             j--;
         }
     }
+
+    ztest_print();
 }
 
 void
 zupdate_diff_cache(_i zRepoId) {
+// TEST:PASS
     pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
     // 首先释放掉老缓存的内存空间
@@ -167,6 +171,7 @@ zupdate_diff_cache(_i zRepoId) {
 
 void
 zthread_update_diff_cache(void *zpIf) {
+// TEST:PASS
     _i zRepoId = ((zObjInfo *)zpIf)->RepoId;
     zupdate_diff_cache(zRepoId);
 }
@@ -176,6 +181,7 @@ zthread_update_diff_cache(void *zpIf) {
  */
 _ui
 zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
+// TEST:PASS
     struct in_addr zIpv4Addr;
     zCheck_Negative_Exit(inet_pton(AF_INET, zpStrAddr, &zIpv4Addr));
     return zIpv4Addr.s_addr;
@@ -186,6 +192,7 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
  */
 void
 zupdate_ipv4_db_self(_i zBaseFd) {
+// TEST:PASS
     _i zFd;
     _ui zIpv4Addr;
     char *zpBuf;
@@ -211,6 +218,7 @@ zupdate_ipv4_db_self(_i zBaseFd) {
  */
 void
 zupdate_ipv4_db_hash(_i zRepoId) {
+// TEST:PASS
     _i zFd[2] = {-9};
     struct stat zStatIf;
     zDeployResInfo *zpTmpIf;

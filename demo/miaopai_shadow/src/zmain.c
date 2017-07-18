@@ -205,8 +205,8 @@ zReLoad:;
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
-    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
+    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
 
     ztest_print();
@@ -216,9 +216,9 @@ zReLoad:;
 
     pid_t zPid = fork(); // 之后父进程退出，子进程按新的主配置文件内容重新初始化
     zCheck_Negative_Exit(zPid);
-    if (0 == zPid) {
-        goto zReLoad;
-    } else {
+    if (0 < zPid) {
         exit(0);
+    } else {
+        goto zReLoad;
     }
 }
