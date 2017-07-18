@@ -192,7 +192,8 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zIgnoreAllSignal();
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++

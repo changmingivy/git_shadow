@@ -135,44 +135,65 @@ _i *zpLogCacheQueueHeadIndex;
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
 //#define zDataLogPath ".git_shadow/log/deploy/data"  // 文件路径日志，需要通过meta日志提供的索引访问
 #define zSigLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
-
-/**********
- * 子模块 *
- **********/
-
-
-
+// 启动git_shadow服务器
 void
-zclient(char *zpX) {
-    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
-    if (-1 == zSd) {
-        zPrint_Err(0, NULL, "Connect to server failed.");
-        exit(1);
+zstart_server(void) {
+#define zMaxEvents 64
+    // 如下部分定义服务接口
+
+	char zBuf[4096];
+	_c zCmd = -1;
+
+    // 如下部分配置 epoll 环境
+    struct epoll_event zEv, zEvents[zMaxEvents];
+    _i zMajorSd, zConnSd, zEvNum, zEpollSd;
+
+    zMajorSd = zgenerate_serv_SD("127.0.0.1", "20000", 1);  // 返回的 socket 已经做完 bind 和 listen
+
+    zEpollSd = epoll_create1(0);
+    zCheck_Negative_Return(zEpollSd,);
+
+    zEv.events = EPOLLIN;
+    zEv.data.fd = zMajorSd;
+    zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
+
+	_i zCnt = 0;
+    // 如下部分启动 epoll 监听服务
+    for (;;) {
+        zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
+        zCheck_Negative_Return(zEvNum,);
+
+        for (_i i = 0; i < zEvNum; i++, zCnt =0) {
+		printf("Recv sd: %d\n", zEvents[i].data.fd);
+           if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
+               zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0);
+               zCheck_Negative_Return(zConnSd,);
+
+               zEv.events = EPOLLIN | EPOLLET;  // 新创建的socket以边缘触发模式监控
+               zEv.data.fd = zConnSd;
+               zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
+            } else {
+               zCnt = recv(zEvents[i].data.fd, zBuf, 4096, 0);
+			   if (0 == zCnt) { continue; }
+			   printf("RECV:%d:%s, EVNUM: %d\n", zCnt, zBuf, zEvNum);
+			   zsendto(zEvents[i].data.fd, zBuf, zCnt, 0, NULL);
+			   shutdown(zEvents[i].data.fd, SHUT_RDWR);
+            }
+		   memset(zBuf, 0, 4096);
+        }
     }
-
-    char zBuf[4096] = {'\0'};
-    char zTestBuf[128] = {0};
-    zTestBuf[0] = 'p';
-    zCheck_Negative_Exit(zsendto(zSd, zTestBuf, 128, 0, NULL));
-
-    fprintf(stderr, "[Sent]:\n->");
-    for (_i i = 0; i < 128; i++) {
-        fprintf(stderr, "%c", zTestBuf[i]);
-    }
-    fprintf(stderr, "<-\n");
-
-    _i zCnt = zrecv_nohang(zSd, zBuf, 4096, 0, NULL);
-
-    fprintf(stderr, "[Received]:\n=>");
-    for (_i i = 0; i < zCnt; i++) {
-        fprintf(stderr, "%c", zBuf[i]);
-    }
-    fprintf(stderr, "<=\n");
-
-    shutdown(zSd, SHUT_RDWR);
+#undef zMaxEvents
+#undef zGetCmdId
 }
 
-_i
-main(_i zArgc, char **zppArgv) {
-    zclient(zppArgv[1]);
+int
+main(void) {
+    struct sigaction zSigActionIf;
+    zSigActionIf.sa_handler = SIG_IGN;
+    sigfillset(&zSigActionIf.sa_mask);
+    zSigActionIf.sa_flags = 0;
+    sigaction(SIGPIPE, &zSigActionIf, NULL);
+
+	zstart_server();
+	return 0;
 }

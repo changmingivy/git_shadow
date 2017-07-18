@@ -37,14 +37,12 @@ zlist_diff_files(void *zpIf) {
     _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
 
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
-        zPrint_Err(0, NULL, "Recv data failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -52,14 +50,14 @@ zlist_diff_files(void *zpIf) {
 
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
     if (NULL == zppCacheVecIf[zIf.RepoId]) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     zsendmsg(zSd, zppCacheVecIf[zIf.RepoId], zpCacheVecSiz[zIf.RepoId], 0, NULL);  // 直接从缓存中提取
-    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
 
+    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
     shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
 }
 
@@ -71,14 +69,12 @@ zprint_diff_contents(void *zpIf) {
     _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
 
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
-        zPrint_Err(0, NULL, "Recv data failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -86,7 +82,7 @@ zprint_diff_contents(void *zpIf) {
 
     pthread_rwlock_rdlock(&(zpRWLock[zIf.RepoId]));
     if (NULL == zppCacheVecIf[zIf.RepoId]) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
         shutdown(zSd, SHUT_RDWR);
         return;
     }
@@ -97,10 +93,10 @@ zprint_diff_contents(void *zpIf) {
                 0,
                 NULL);  // 直接从缓存中提取
     } else {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若缓存版本不一致，要求前端重发报文
+        zsendto(zSd, "!", zBytes(1), 0, NULL);  //  若缓存版本不一致，要求前端重发报文
     }
-    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
 
+    pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -114,14 +110,12 @@ zlist_log(void *zpIf) {
     _i zLen = zSizeOf(zIf) - zSizeOf(zIf.PathLen) -zSizeOf(zIf.TimeStamp);
 
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
-        zPrint_Err(0, NULL, "Recv data failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若代码库ID异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -130,7 +124,7 @@ zlist_log(void *zpIf) {
     pthread_rwlock_rdlock( &(zpRWLock[zIf.RepoId]) );
 
     if (NULL == zppLogCacheVecIf[zIf.RepoId]) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);
+        pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
         shutdown(zSd, SHUT_RDWR);
         return;
     }
@@ -245,14 +239,12 @@ zdeploy(void *zpIf) {
 
     _i zLen = zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz);
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
-        zPrint_Err(0, NULL, "Recv data failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -267,6 +259,7 @@ zdeploy(void *zpIf) {
 
         pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
         if (0 != system(zShellBuf)) {
+            pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
             shutdown(zSd, SHUT_RDWR);
             return;
         }
@@ -295,7 +288,7 @@ zdeploy(void *zpIf) {
 
         pthread_rwlock_unlock(&(zpRWLock[zIf.RepoId]));  // 释放锁
     } else {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
+        zsendto(zSd, "!", zBytes(1), 0, NULL);  // 若缓存版本不一致，向前端发送“!”标识，要求重发报文
     }
 
     shutdown(zSd, SHUT_RDWR);
@@ -311,21 +304,19 @@ zrevoke(void *zpIf) {
 
     _i zLen = zSizeOf(zIf) - zSizeOf(zIf.PathLen) -zSizeOf(zIf.TimeStamp);
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，回发 "!"
-        zPrint_Err(0, NULL, "Recv data failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若代码库ID异常，回发 "!"
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (zIf.index >= zLogCacheSiz) {
-        zsendto(zSd, "-1", zBytes(2), 0, NULL);  //  若请求撤销的条目超出允许的范围，回发 "-1"
+        zPrint_Err(0, NULL, "请求撤销的文件索引超出缓存范围!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
@@ -339,8 +330,9 @@ zrevoke(void *zpIf) {
         _i zPathIdInCache;  // 用于接收某个文件路径名称在路径列表中的行号（从1开始）
 
         if (zSizeOf(_i) > zrecv_nohang(zSd, &zPathIdInCache, sizeof(_i), 0, NULL)) {
-            zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，回发 "!"
-            zPrint_Err(0, NULL, "Recv data failed!");
+            zPrint_Err(0, NULL, "接收到的数据不完整!");
+            shutdown(zSd, SHUT_RDWR);
+            return;
         }
 
         _i zOffSet = 0;
@@ -354,6 +346,7 @@ zrevoke(void *zpIf) {
     pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
     if (0 != system(zShellBuf)) {  // 执行外部 shell 命令
+        pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
         shutdown(zSd, SHUT_RDWR);
         return;
     }
@@ -392,14 +385,12 @@ zconfirm_deploy_state(void *zpIf) {
     zDeployResInfo zIf = { .RepoId = -1 };
 
     if ((zSizeOf(zIf) - zSizeOf(zIf.DeployState) - zSizeOf(zIf.p_next)) > zrecv_nohang(zSd, &zIf, sizeof(zDeployResInfo), 0, NULL)) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
-        zPrint_Err(0, NULL, "Reply to frontend failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -415,8 +406,8 @@ zconfirm_deploy_state(void *zpIf) {
         }
         zpTmp = zpTmp->p_next;
     }
-    zPrint_Err(0, NULL, "Recv unknown reply!!!");
 
+    zPrint_Err(0, NULL, "请求的操作无法识别!");
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -431,8 +422,7 @@ zupdate_ipv4_db_txt(void *zpIf) {
     _i zRepoId, zFd, zRecvSiz, zSd = * ((_i *) zpIf);
 
     if ((zBytes(36) + zSizeOf(_i)) > recv(zSd, zRecvBuf, (zBytes(36) + zSizeOf(_i)), 0)) { // 接收4字节提示信息＋4字节代码库ID＋32节字MD5 sig
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若数据长度不足，要求前端重发报文
-        zPrint_Err(0, NULL, "Recv failed!");
+        zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
     }
@@ -441,7 +431,6 @@ zupdate_ipv4_db_txt(void *zpIf) {
     zRepoId = (_i) zRecvBuf[zBytes(4)];
 
     if (0 > zRepoId || zRepoNum <= zRepoId) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若收到的代码库ID异常，要求前端重发报文
         zPrint_Err(0, NULL, "Invalid Repo ID !");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -478,8 +467,8 @@ zMarkWrite:
 
     // 检验文件新的 MD5 checksum
     if (0 != strcmp(zpSigMD5, zgenerate_file_sig_md5(zPathBuf))) {
-        zsendto(zSd, "!", zBytes(2), 0, NULL);  //  若MD5 sig 不符，要求前端重发报文
-        zPrint_Err(0, NULL, "Warning: MD5 sig Diff!");
+        zsendto(zSd, "!", zBytes(1), 0, NULL);  //  若MD5 sig 不符，要求前端重发报文
+        zPrint_Err(0, NULL, "ECS主机ip列表文件接收异常：MD5 检验失败!");
     }
 
     shutdown(zSd, SHUT_RDWR);
@@ -510,7 +499,7 @@ zstart_server(void *zpIf) {
     zEpollSd = epoll_create1(0);
     zCheck_Negative_Return(zEpollSd,);
 
-    zEv.events = EPOLLIN;
+    zEv.events = EPOLLIN | EPOLLET;
     zEv.data.fd = zMajorSd;
     zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
@@ -553,7 +542,7 @@ zclient_reply(char *zpHost, char *zpPort) {
 
     zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
     if (-1 == zSd) {
-        zPrint_Err(0, NULL, "Connect to server failed.");
+        zPrint_Err(0, NULL, "Connect to server failed!");
         exit(1);
     }
 
@@ -565,7 +554,7 @@ zclient_reply(char *zpHost, char *zpPort) {
         zCheck_Negative_Return(zResLen,);
         zDpResIf.ClientAddr = zIpv4Bin;  // 标识本机身份：ipv4地址
         if ((sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next)) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next), 0, NULL)) {
-            zPrint_Err(0, NULL, "Reply to server failed.");
+            zPrint_Err(0, NULL, "布署状态确认信息发送失败!");
         }
     }
 
