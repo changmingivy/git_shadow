@@ -142,11 +142,11 @@ _i *zpLogCacheQueueHeadIndex;
  **********/
 #include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "thread_pool/zthread_pool.c"
+#include "test/zprint_test.c"
 #include "inotify/zinotify_callback.c"
 #include "inotify/zinotify.c"  // 监控代码库文件变动
 #include "net/znetwork.c"  // 对外提供网络服务
 #include "zinit.c"  // 读取主配置文件
-#include "test/zprint_test.c"
 
 /***************************
  * +++___ main 函数 ___+++ *
@@ -192,8 +192,7 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-    zIgnoreAllSignal();
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++

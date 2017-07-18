@@ -258,6 +258,7 @@ zdeploy(void *zpIf) {
         }
 
         pthread_rwlock_wrlock( &(zpRWLock[zIf.RepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+
         if (0 != system(zShellBuf)) {
             pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
             shutdown(zSd, SHUT_RDWR);
@@ -374,7 +375,6 @@ zrevoke(void *zpIf) {
     }
 
     pthread_rwlock_unlock( &(zpRWLock[zIf.RepoId]) );
-
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -407,7 +407,6 @@ zconfirm_deploy_state(void *zpIf) {
         zpTmp = zpTmp->p_next;
     }
 
-    zPrint_Err(0, NULL, "请求的操作无法识别!");
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -518,6 +517,8 @@ zstart_server(void *zpIf) {
                zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
                if ((zBytes(1) == zrecv_nohang(zEvents[i].data.fd, &zCmd, zBytes(1), MSG_PEEK, NULL))
+                       && (64 > zGetCmdId(zCmd))
+                       && (0 <= zGetCmdId(zCmd))
                        && (NULL != zNetServ[zGetCmdId(zCmd)])) {
                    zAdd_To_Thread_Pool(zNetServ[zGetCmdId(zCmd)], &(zEvents[i].data.fd));
                }

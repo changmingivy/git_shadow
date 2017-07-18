@@ -177,14 +177,14 @@ zregister_calloc(const int zCnt, const size_t zSiz) {
 } while(0)
 
 /*
- * 信号处理，屏蔽除SIGKILL与SIGSTOP之外的所有信号，合计 30 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV 之外的所有信号，合计 29 种
  */
 _i zSigSet[30] = {
-    SIGHUP, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-    SIGIOT, SIGBUS, SIGFPE, SIGUSR1, SIGSEGV, SIGUSR2,
+    SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
+    SIGIOT, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
     SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCHLD, SIGCONT,
     SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGPOLL, SIGIO, SIGPWR, SIGSYS
+    SIGPROF, SIGWINCH, SIGPOLL, SIGIO, SIGPWR, SIGSEGV
 };
 
 #define zIgnoreAllSignal() do {\
@@ -222,5 +222,5 @@ _i zSigSet[30] = {
     sigaction(zSigSet[26], &zSigActionIf, NULL);\
     sigaction(zSigSet[27], &zSigActionIf, NULL);\
     sigaction(zSigSet[28], &zSigActionIf, NULL);\
-    sigaction(zSigSet[29], &zSigActionIf, NULL);\
 } while(0)
+

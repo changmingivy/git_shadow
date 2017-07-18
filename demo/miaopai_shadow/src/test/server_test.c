@@ -141,14 +141,13 @@ zstart_server(void) {
 #define zMaxEvents 64
     // 如下部分定义服务接口
 
-	char zBuf[4096];
-	_c zCmd = -1;
+    char zBuf[4096];
 
     // 如下部分配置 epoll 环境
     struct epoll_event zEv, zEvents[zMaxEvents];
     _i zMajorSd, zConnSd, zEvNum, zEpollSd;
 
-    zMajorSd = zgenerate_serv_SD("127.0.0.1", "20000", 1);  // 返回的 socket 已经做完 bind 和 listen
+    zMajorSd = zgenerate_serv_SD("10.30.2.126", "30000", 1);  // 返回的 socket 已经做完 bind 和 listen
 
     zEpollSd = epoll_create1(0);
     zCheck_Negative_Return(zEpollSd,);
@@ -157,14 +156,14 @@ zstart_server(void) {
     zEv.data.fd = zMajorSd;
     zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
-	_i zCnt = 0;
+    _i zCnt = 0;
     // 如下部分启动 epoll 监听服务
     for (;;) {
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
         zCheck_Negative_Return(zEvNum,);
 
         for (_i i = 0; i < zEvNum; i++, zCnt =0) {
-		printf("Recv sd: %d\n", zEvents[i].data.fd);
+        printf("Recv sd: %d\n", zEvents[i].data.fd);
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
                zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0);
                zCheck_Negative_Return(zConnSd,);
@@ -174,12 +173,12 @@ zstart_server(void) {
                zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
                zCnt = recv(zEvents[i].data.fd, zBuf, 4096, 0);
-			   if (0 == zCnt) { continue; }
-			   printf("RECV:%d:%s, EVNUM: %d\n", zCnt, zBuf, zEvNum);
-			   zsendto(zEvents[i].data.fd, zBuf, zCnt, 0, NULL);
-			   shutdown(zEvents[i].data.fd, SHUT_RDWR);
+               if (0 == zCnt) { continue; }
+               printf("RECV:%d:%s, EVNUM: %d\n", zCnt, zBuf, zEvNum);
+               zsendto(zEvents[i].data.fd, zBuf, zCnt, 0, NULL);
+               shutdown(zEvents[i].data.fd, SHUT_RDWR);
             }
-		   memset(zBuf, 0, 4096);
+           memset(zBuf, 0, 4096);
         }
     }
 #undef zMaxEvents
@@ -194,6 +193,6 @@ main(void) {
     zSigActionIf.sa_flags = 0;
     sigaction(SIGPIPE, &zSigActionIf, NULL);
 
-	zstart_server();
-	return 0;
+    zstart_server();
+    return 0;
 }

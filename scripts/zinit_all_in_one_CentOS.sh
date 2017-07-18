@@ -59,9 +59,8 @@ zInitEnv() {
         export GIT_DIR=\"${zDeployPath}/.git\" # 设定git hook 工作路径，默认为'.'，即hook文件所在路径，会带来异常
 
         cd $zDeployPath &&
-
-        git pull --force ./.git server:master">$zDeployPath/.git/hooks/post-receive &&
-        cp -rf ${zDeployPath}_shadow ./.git_shadow
+        git pull --force ./.git server:master &&
+        cp -rf ${zDeployPath}_shadow ./.git_shadow">$zDeployPath/.git/hooks/post-receive
 
     chmod 0555 $zDeployPath/.git/hooks/post-receive
 }

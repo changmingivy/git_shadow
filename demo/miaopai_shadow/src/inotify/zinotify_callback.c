@@ -169,6 +169,7 @@ void
 zthread_update_diff_cache(void *zpIf) {
     _i zRepoId = ((zObjInfo *)zpIf)->RepoId;
     zupdate_diff_cache(zRepoId);
+    ztest_print();
 }
 
 /*
