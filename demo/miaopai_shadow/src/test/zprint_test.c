@@ -64,6 +64,7 @@ zMark:
             } else {
                 zpTmp = zpppDpResHash[i][k];
                 do {
+                    fprintf(stderr, "HASH %%: %u===========\n", k);
                     fprintf(stderr,"HashClientAddr: %d\n", zpTmp->ClientAddr);
                     fprintf(stderr,"hashRepoId: %d\n", zpTmp->RepoId);
                     fprintf(stderr,"hashDeployState: %d\n", zpTmp->DeployState);

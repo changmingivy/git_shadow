@@ -237,6 +237,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         (zppDpResList[zRepoId][j].hints)[3] = sizeof(zDeployResInfo) - sizeof(zppDpResList[zRepoId][j].DeployState) - sizeof(zppDpResList[zRepoId][j].p_next);  // hints[3] 用于提示前端回发多少字节的数据
         zppDpResList[zRepoId][j].RepoId = zRepoId;  // 写入代码库索引值
         zppDpResList[zRepoId][j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+        zppDpResList[zRepoId][j].p_next = NULL;
 
         errno = 0;
         if (zSizeOf(_ui) != read(zFd[1], &(zppDpResList[zRepoId][j].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
@@ -244,19 +245,23 @@ zupdate_ipv4_db_hash(_i zRepoId) {
             exit(1);
         }
 
-        zpTmpIf = zpppDpResHash[zRepoId][j % zDeployHashSiz];  // HASH 定位
+        zpTmpIf = zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
             zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
-            zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz]->p_next = NULL;
         } else {
-            while (NULL != zpTmpIf->p_next) {  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+            do {
                 zpTmpIf = zpTmpIf->p_next;
-            }
-            zMem_Alloc(zpTmpIf->p_next, zDeployResInfo, 1);
-            zpTmpIf->p_next->p_next = NULL;
-            zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
+            } while (NULL != zpTmpIf); // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+
+            zpTmpIf = &(zppDpResList[zRepoId][j]);
         }
     }
+
+//    zpTmpIf = zpppDpResHash[zRepoId][172];
+//    while (NULL != zpTmpIf) {
+//        fprintf(stderr, "Mark non NULL node: IP: %u\n", zpTmpIf->ClientAddr);
+//        zpTmpIf = zpTmpIf->p_next;
+//    }
 
     close(zFd[1]);
 }

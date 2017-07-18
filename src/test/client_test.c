@@ -159,7 +159,7 @@ zFileDiffInfo zIf;
 
     zIf.hints[0] = 'D';
     zIf.RepoId = 0;
-    zIf.CacheVersion = 1500370385;
+    zIf.CacheVersion = 1500379781;
     //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
     zCheck_Negative_Exit(zsendto(zSd, &zIf, zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz), 0, NULL));
     fprintf(stderr, "[Sent]:\n->");

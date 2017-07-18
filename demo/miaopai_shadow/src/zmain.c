@@ -33,7 +33,7 @@
 #define zCommonBufSiz 4096
 #define zMaxRepoNum 1024
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1024  // 布署状态HASH的大小
+#define zDeployHashSiz 1024  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zLogCacheSiz 24  // 预缓存日志数量
 
 #include "../inc/zutils.h"

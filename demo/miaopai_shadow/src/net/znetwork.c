@@ -198,6 +198,8 @@ zwrite_log_and_update_cache(_i zRepoId) {
     zCheck_Negative_Return(fstat(zpLogFd[1][zRepoId], &(zStatIf[1])),);  // 获取当前sig日志文件属性
 
     zDeployLogInfo zIf;
+    memset(&zIf, 0, sizeof(zIf));
+
     if (0 == zStatIf[0].st_size) {
         zIf.index = 0;
     } else {
@@ -264,10 +266,10 @@ zdeploy(void *zpIf) {
         }
 
         _ui zSendBuf[zpTotalHost[zIf.RepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
-        _i zUnReplyCnt = 0;
         do {
             zsleep(0.2);  // 每隔0.2秒向前端返回一次结果
 
+            _i zUnReplyCnt = 0;  // 必须放在 do...while 循环内部
             for (_i i = 0; i < zpTotalHost[zIf.RepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
                 if (0 == zppDpResList[zIf.RepoId][i].DeployState) {
                     zSendBuf[zUnReplyCnt] = zppDpResList[zIf.RepoId][i].ClientAddr;
@@ -395,15 +397,14 @@ zconfirm_deploy_state(void *zpIf) {
         return;
     }
 
-    zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz];  // HASH 索引
-    while (zpTmp != NULL) {  // 遍历
+    // HASH 索引
+    for (zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz]; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
         if (zpTmp->ClientAddr == zIf.ClientAddr) {
             zpTmp->DeployState = 1;
             zpReplyCnt[zIf.RepoId]++;
             shutdown(zSd, SHUT_RDWR);
             return;
         }
-        zpTmp = zpTmp->p_next;
     }
 
     zPrint_Err(0, NULL, "不明来源的确认信息!");
