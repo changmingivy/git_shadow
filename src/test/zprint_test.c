@@ -57,18 +57,20 @@ zMark:
             fprintf(stderr,"next: %p\n", zppDpResList[i][j].p_next);
         }
 
+        zDeployResInfo *zpTmp;
         for (_i k = 0; k < zDeployHashSiz; k++) {
             if (NULL == zpppDpResHash[i][k]) {
                 continue;
             } else {
+                zpTmp = zpppDpResHash[i][k];
                 do {
-                    fprintf(stderr,"HashClientAddr: %d\n", zpppDpResHash[i][k]->ClientAddr);
-                    fprintf(stderr,"hashRepoId: %d\n", zpppDpResHash[i][k]->RepoId);
-                    fprintf(stderr,"hashDeployState: %d\n", zpppDpResHash[i][k]->DeployState);
-                    fprintf(stderr,"hashnext: %p\n", zpppDpResHash[i][k]->p_next);
+                    fprintf(stderr,"HashClientAddr: %d\n", zpTmp->ClientAddr);
+                    fprintf(stderr,"hashRepoId: %d\n", zpTmp->RepoId);
+                    fprintf(stderr,"hashDeployState: %d\n", zpTmp->DeployState);
+                    fprintf(stderr,"hashnext: %p\n", zpTmp->p_next);
 
-                    zpppDpResHash[i][k] = zpppDpResHash[i][k]->p_next;
-                } while(NULL != zpppDpResHash[i][k]);
+                    zpTmp = zpTmp->p_next;
+                } while(NULL != zpTmp);
             }
         }
     }

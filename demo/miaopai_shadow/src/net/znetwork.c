@@ -384,7 +384,7 @@ zconfirm_deploy_state(void *zpIf) {
     _i zSd = *((_i *)zpIf);
     zDeployResInfo zIf = { .RepoId = -1 };
 
-    if ((zSizeOf(zIf) - zSizeOf(zIf.DeployState) - zSizeOf(zIf.p_next)) > zrecv_nohang(zSd, &zIf, sizeof(zDeployResInfo), 0, NULL)) {
+    if ((zSizeOf(zIf) - zSizeOf(zIf.p_next)) > zrecv_nohang(zSd, &zIf, (zSizeOf(zIf) - zSizeOf(zIf.p_next)), 0, NULL)) {
         zPrint_Err(0, NULL, "接收到的数据不完整!");
         shutdown(zSd, SHUT_RDWR);
         return;
@@ -396,7 +396,8 @@ zconfirm_deploy_state(void *zpIf) {
         return;
     }
 
-    zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz];  // HASH 定位
+    zDeployResInfo *zpTmp = zpppDpResHash[zIf.RepoId][zIf.ClientAddr % zDeployHashSiz];  // HASH 索引
+    fprintf(stderr, "REPO ID--%d RECV IP:%zd HASH IP:%zd\n", zIf.RepoId, zIf.ClientAddr, zpTmp->ClientAddr);
     while (zpTmp != NULL) {  // 遍历
         if (zpTmp->ClientAddr == zIf.ClientAddr) {
             zpTmp->DeployState = 1;
@@ -407,6 +408,7 @@ zconfirm_deploy_state(void *zpIf) {
         zpTmp = zpTmp->p_next;
     }
 
+    zPrint_Err(0, NULL, "不明来源的确认信息!");
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -498,7 +500,7 @@ zstart_server(void *zpIf) {
     zEpollSd = epoll_create1(0);
     zCheck_Negative_Return(zEpollSd,);
 
-    zEv.events = EPOLLIN | EPOLLET;
+    zEv.events = EPOLLIN;
     zEv.data.fd = zMajorSd;
     zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
@@ -541,8 +543,7 @@ zclient_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit(read(zFd, &(zDpResIf.RepoId), sizeof(_i)));
     close(zFd);
 
-    zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
-    if (-1 == zSd) {
+    if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {  // 以点分格式的ipv4地址连接服务端
         zPrint_Err(0, NULL, "Connect to server failed!");
         exit(1);
     }

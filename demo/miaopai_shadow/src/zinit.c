@@ -15,8 +15,7 @@ zdeploy_init(_i zRepoId) {
 
         pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
-        if (0 != system(zShellBuf)) { goto zMark; }
-
+        system(zShellBuf);
         do {
             zsleep(2);  // 每隔2秒收集一次结果
 
@@ -38,7 +37,6 @@ zdeploy_init(_i zRepoId) {
             zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
         }
 
-zMark:
         pthread_rwlock_unlock(&(zpRWLock[zRepoId]));  // 释放锁
 }
 

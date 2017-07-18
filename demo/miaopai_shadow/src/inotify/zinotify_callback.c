@@ -169,7 +169,6 @@ void
 zthread_update_diff_cache(void *zpIf) {
     _i zRepoId = ((zObjInfo *)zpIf)->RepoId;
     zupdate_diff_cache(zRepoId);
-    ztest_print();
 }
 
 /*
@@ -212,7 +211,7 @@ zupdate_ipv4_db_self(_i zBaseFd) {
  */
 void
 zupdate_ipv4_db_hash(_i zRepoId) {
-    _i zFd[2] = {0};
+    _i zFd[2] = {-9};
     struct stat zStatIf;
     zDeployResInfo *zpTmpIf;
 
@@ -239,8 +238,8 @@ zupdate_ipv4_db_hash(_i zRepoId) {
 
         zpTmpIf = zpppDpResHash[zRepoId][j % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
-            zpppDpResHash[zRepoId][j % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
-            zpppDpResHash[zRepoId][j % zDeployHashSiz]->p_next = NULL;
+            zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
+            zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz]->p_next = NULL;
         } else {
             while (NULL != zpTmpIf->p_next) {  // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
                 zpTmpIf = zpTmpIf->p_next;
@@ -250,6 +249,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
             zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
         }
     }
+
     close(zFd[1]);
 }
 

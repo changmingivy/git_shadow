@@ -144,7 +144,7 @@ _i *zpLogCacheQueueHeadIndex;
 
 void
 zclient(char *zpX) {
-    _i zSd = ztcp_connect("10.30.2.126", "30000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
     if (-1 == zSd) {
         zPrint_Err(0, NULL, "Connect to server failed.");
         exit(1);
@@ -152,7 +152,7 @@ zclient(char *zpX) {
 
     char zBuf[4096] = {'\0'};
     char zTestBuf[128] = {0};
-    zTestBuf[0] = 'p';
+    zTestBuf[0] = 'c';
     //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
     zCheck_Negative_Exit(zsendto(zSd, zTestBuf, 128, 0, NULL));
 
