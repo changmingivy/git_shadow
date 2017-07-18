@@ -249,19 +249,13 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         if (NULL == zpTmpIf) {
             zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
         } else {
-            do {
+			while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
                 zpTmpIf = zpTmpIf->p_next;
-            } while (NULL != zpTmpIf); // 若顶层不为空，分配一个新的链表节点指向数据中对应的位置
+			}
 
-            zpTmpIf = &(zppDpResList[zRepoId][j]);
+            zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
         }
     }
-
-//    zpTmpIf = zpppDpResHash[zRepoId][172];
-//    while (NULL != zpTmpIf) {
-//        fprintf(stderr, "Mark non NULL node: IP: %u\n", zpTmpIf->ClientAddr);
-//        zpTmpIf = zpTmpIf->p_next;
-//    }
 
     close(zFd[1]);
 }
