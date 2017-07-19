@@ -134,37 +134,17 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 /*
  * =>>> Memory Management <<<=
  */
-void *
-zregister_malloc(const size_t zSiz) {
-    register void *zpRes = malloc(zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
 
-void *
-zregister_realloc(void *zpPrev, const size_t zSiz) {
-    register void *zpRes = realloc(zpPrev, zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
-
-void *
-zregister_calloc(const int zCnt, const size_t zSiz) {
-    register void *zpRes = calloc(zCnt, zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
-
-#define zMem_Alloc(zpReqBuf, zType, zCnt) do {\
-    zpReqBuf = (zType *)zregister_malloc((zCnt) * sizeof(zType));\
+#define zMem_Alloc(zpRet, zType, zCnt) do {\
+    zCheck_Null_Exit( zpRet = (zType *) malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_Re_Alloc(zpReqBuf, zType, zpPrev, zSiz) do {\
-    zpReqBuf = (zType *)zregister_realloc(zpPrev, zSiz);\
+#define zMem_Re_Alloc(zpRet, zType, zpOldAddr, zCnt) do {\
+    zCheck_Null_Exit( zpRet = (zType *) realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_C_Alloc(zpReqBuf, zType, zCnt) do {\
-    zpReqBuf = (zType *)zregister_calloc(zCnt, sizeof(zType));\
+#define zMem_C_Alloc(zpRet, zType, zCnt) do {\
+    zCheck_Null_Exit( zpRet = (zType *) calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 #define zFree_Memory_Common(zpObjToFree, zpBridgePointer) do {\

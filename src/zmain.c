@@ -54,6 +54,29 @@ typedef struct {
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
 //----------------------------------
+#define zVersionHashSiz 256
+typedef struct {
+	struct iovec *p_vec;
+	_i VecSiz;
+} zVecInfo;
+
+typedef struct {
+	zVecInfo *p_DiffContentVecIf;  // 指向具体的文件差异内容，按行存储
+	_i FileId;
+    _i len;  // 文件路径长度，提供给前端使用
+    char data[];  // 相对于代码库的路径
+} zFileInfo;
+
+typedef struct {
+	zVecInfo *p_FileListVecIf;
+	_i CommitId;
+    _i len;
+	char data[];  // 时间戳＋CommitSig
+} zCodeVersionInfo;
+
+zVecInfo **zppRepoIf;  // 代码库信息数组，每个成员包含一个大小为 zVersionHashSiz 的 commit HASH，用于缓存代码版本信息
+_i *zpRepoHashHeadId;
+
 typedef struct {
     char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 索引每个代码库路径
@@ -107,6 +130,14 @@ _i *zpLogFd[2];  // 每个代码库的布署日志都需要三个日志文件：
 
 pthread_rwlock_t *zpRWLock;  // 每个代码库对应一把读写锁
 pthread_rwlockattr_t zRWLockAttr;
+
+zCodeVersionInfo (**zppCodeVersionIf)[zVersionHashSiz];
+zVecInfo **zppDiffCacheVecIf;
+
+//zVecInfo **zppLogCacheVecIf;
+//_i *zpLogCacheQueueHeadId;
+//
+//zVecInfo **zppSortedLogCacheVecIf;
 
 struct  iovec **zppCacheVecIf;  // 用于提供代码差异数据的缓存功能，每个代码库对应一个缓存区
 _i *zpCacheVecSiz;  // 对应于每个代码库的缓存区大小，即：缓存的对象数量

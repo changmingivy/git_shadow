@@ -88,6 +88,173 @@ zupdate_log_cache(void *zpDeployLogIf) {
     }
 }
 
+//#define zVersionHashSiz 256
+//typedef struct {
+//	struct iovec *p_vec;
+//	_i VecSiz;
+//} zVecInfo;
+//
+//typedef struct {
+//	zVecInfo *p_DiffContentVecIf;  // 指向具体的文件差异内容，按行存储
+//	_i FileId;
+//    _i len;  // 文件路径长度，提供给前端使用
+//    char data[];  // 相对于代码库的路径
+//} zFileInfo;
+//
+//typedef struct {
+//	zVecInfo *p_FileListVecIf;
+//	_i CommitId;
+//    _i len;
+//	char CommitSig[];
+//} zCodeVersionInfo;
+//
+//zVecInfo **zppRepoIf;  // 代码库信息数组，每个成员包含一个大小为 zVersionHashSiz 的 commit HASH，用于缓存代码版本信息
+
+zVecInfo *
+zget_diff_content(_i zRepoId, _i zCommitId, _i zFileId) {
+    struct iovec *zpLineContentVecIf;
+	_i zVecSiz = 0, zAllocSiz = 128, zDataLen = 0;
+
+    FILE *zpShellRetHandler;
+    char *zpRes, *zpLineContent, zShellBuf[zCommonBufSiz];
+
+	zMem_Alloc(zpLineContentVecIf, struct iovec, zAllocSiz);
+
+    // 必须在shell命令中切换到正确的工作路径
+    sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s", zppRepoPathList[zRepoId],
+			((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->data,
+			((zFileInfo *)((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->p_FileListVecIf->p_vec)[zFileId].data);
+    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+
+    for (_i i = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); i++, zVecSiz++) {
+		if (i > zAllocSiz) {
+			zAllocSiz *= 2;
+			zMem_Re_Alloc(zpLineContentVecIf, struct iovec, zAllocSiz);
+		}
+
+		zDataLen = 1 + strlen(zpRes);
+        zMem_Alloc(zpLineContentVecIf[i].iov_base, char, zDataLen);
+
+		zpLineContentVecIf[i].iov_len = zDataLen;
+        strcpy(zpLineContentVecIf[i].iov_base, zpRes);
+	}
+
+	pclose(zpShellRetHandler);
+	zMem_Re_Alloc(zpLineContentVecIf, struct iovec, zVecSiz);
+
+	static zVecInfo zVecIf;
+	zVecIf.p_vec = zpLineContentVecIf;
+	zVecIf.VecSiz = zVecSiz;
+	return &zVecIf;
+}
+
+/*
+ * 返回差异文件列表，以 iovec 数组形式存储
+ */
+zVecInfo *
+zget_file_list(_i zRepoId, _i zCommitId) {
+    struct iovec *zpFileListVecIf;
+	zFileInfo *zpFileIf;
+	_i zVecSiz = 0, zAllocSiz = 128, zDataLen = 0;
+
+    FILE *zpShellRetHandler;
+    char *zpRes, zShellBuf[zCommonBufSiz];
+
+	zMem_Alloc(zpFileListVecIf, struct iovec, zAllocSiz);
+
+    // 必须在shell命令中切换到正确的工作路径
+    sprintf(zShellBuf, "cd %s git diff --name-only %s CURRENT ", zppRepoPathList[zRepoId],
+			((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->data);
+    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+
+    for (_i i = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); i++, zVecSiz++) {
+		if (i > zAllocSiz) {
+			zAllocSiz *= 2;
+			zMem_Re_Alloc(zpFileListVecIf, struct iovec, zAllocSiz);
+		}
+
+            zDataLen = 1 + strlen(zpRes) + sizeof(zFileInfo);
+            zCheck_Null_Exit( zpFileIf = malloc(zDataLen) );
+
+            zpFileIf->FileId = i;
+			zpFileIf->len = zDataLen;
+			zpFileIf->p_DiffContentVecIf = zget_diff_content(zRepoId, zCommitId, zpFileIf->FileId);
+            strcpy(zpFileIf->data, zpRes);
+			
+            zpFileListVecIf[i].iov_base = zpFileIf;
+	}
+
+	pclose(zpShellRetHandler);
+	zMem_Re_Alloc(zpFileListVecIf, struct iovec, zVecSiz);
+
+	static zVecInfo zVecIf;
+	zVecIf.p_vec = zpFileListVecIf;
+	zVecIf.VecSiz = zVecSiz;
+	return &zVecIf;
+}
+
+//void
+//zfree_version_source(zVecInfo *zpIf) {
+//	_i i, j;
+//	zFileInfo *zpToFree[2];
+//	for (i = 0; i < zpIf->p_FileListVecIf->VecSiz; i++) {
+//		zpToFree[0] = (zFileInfo *) (zpIf->p_FileListVecIf->p_vec[i].iov_base);
+//		for (j = 0; j < zpToFree[0]->p_DiffContentVecIf->VecSiz; j++) {
+//
+//		}
+//		free(zpToFree[0]);
+//	}
+//	free(zpIf->p_FileListVecIf);
+//	zpIf->p_FileListVecIf = NULL;
+//}
+
+zVecInfo *
+zupdate_version_list(_i zRepoId, _i zInitMark) {
+    static struct iovec zVersionVecIf[zVersionHashSiz];
+	zCodeVersionInfo *zpVersionIf;
+	_i zDataLen = 0;
+
+    FILE *zpShellRetHandler;
+    char *zpRes, zShellBuf[zCommonBufSiz], *zpInitOption;
+
+	zpInitOption = (0 == zInitMark) ? "" : "-1";
+
+    // 必须在shell命令中切换到正确的工作路径
+    sprintf(zShellBuf, "cd %s git log %s --format=%%H\\0%%ct", zppRepoPathList[zRepoId], zpInitOption);
+    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+
+    for (_i i = zpRepoHashHeadId[zRepoId] + 1;  i < zVersionHashSiz; i++) {
+		if (NULL == (zpRes = zget_one_line_from_FILE(zpShellRetHandler))) {
+			break;
+		}
+		
+		if (zVersionHashSiz == i) {
+			i = 0;
+		}
+
+//		if (NULL != zppRepoIf[zRepoId][i].p_vec) {
+//			zfree_version_source(&zppRepoIf[zRepoId][i]);
+//		}
+
+        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeVersionInfo);
+        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen) );
+
+        zpVersionIf->CommitId = i;
+		zpVersionIf->len = zDataLen;
+		zpVersionIf->p_FileListVecIf= zget_file_list(zRepoId, zpVersionIf->CommitId);
+        strcpy(zpVersionIf->data, zpRes);
+		
+        zVersionVecIf[i].iov_base = zpVersionIf;
+	}
+
+	pclose(zpShellRetHandler);
+
+	static zVecInfo zVecIf;
+	zVecIf.p_vec = zVersionVecIf;
+	zVecIf.VecSiz = zVersionHashSiz;
+	return &zVecIf;
+}
+
 void
 zupdate_diff_cache(_i zRepoId) {
 // TEST:PASS
