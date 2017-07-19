@@ -106,7 +106,9 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
 void
 zpcre_free_tmpsource(zPCRERetInfo *zpRet) {
 // TEST: PASS
+    if (NULL == zpRet) { return; }
     for (_i i = 0; i < zpRet->cnt; i++) {
+        if (NULL == zpRet->p_rets[i]) { continue; }
         free(zpRet->p_rets[i]);
         zpRet->p_rets[i] = NULL;
     }

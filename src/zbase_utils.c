@@ -249,14 +249,14 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 
 /*
  * DO NOT forget to free memory.
- * \n has been deleted!!!
  */
 char *
 zget_one_line_from_FILE(FILE *zpFile) {
 // TEST: PASS
-    char zBuf[zCommonBufSiz];
-    char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
+    static char zBuf[zCommonBufSiz];
+    memset(zBuf, 0, zCommonBufSiz);
 
+    char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
     if (NULL == zpRes) {
         if(0 == feof(zpFile)) {
             zCheck_Null_Exit(zpRes);
@@ -265,7 +265,7 @@ zget_one_line_from_FILE(FILE *zpFile) {
         }
     }
 
-    zpRes[strlen(zBuf) -1] = '\0';
+    zpRes[strlen(zBuf) -1] = '\0';  // 清除行末的 '\n'
     return zpRes;
 }
 

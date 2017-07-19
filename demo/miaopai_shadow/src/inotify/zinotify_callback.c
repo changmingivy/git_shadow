@@ -34,6 +34,7 @@ zupdate_sig_cache(void *zpRepoId) {
 
 void
 zupdate_log_cache(void *zpDeployLogIf) {
+// TEST:PASS
     if (NULL == zpDeployLogIf) { return; }  // robustness
 
     zDeployLogInfo *zpLogIf = (zDeployLogInfo *)zpDeployLogIf;
@@ -42,17 +43,26 @@ zupdate_log_cache(void *zpDeployLogIf) {
 
     char zCommitSig[zBytes(41)], zShellBuf[zCommonBufSiz], *zpLineContent;
     FILE *zpFile;
+    _i zLen;
 
-    zCheck_Negative_Exit(pread(zpLogFd[1][zpLogIf->RepoId], zCommitSig, zBytes(41), zBytes(41) * zpLogIf->index));
+    _i zFd[2];
+    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zpLogIf->RepoId], O_RDONLY));
+    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
+    zCheck_Negative_Exit(pread(zFd[1], zCommitSig, zBytes(41), zBytes(41) * zpLogIf->index));
+    close(zFd[0]);
+    close(zFd[1]);
 
     sprintf(zShellBuf, "cd %s && git log %s --name-only --format=", zppRepoPathList[zpLogIf->RepoId], zCommitSig);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     for (size_t zWrOffSet = 0; NULL != (zpLineContent = zget_one_line_from_FILE(zpFile));) {
-        zWrOffSet += 1 + strlen(zpLineContent);
+        zLen = strlen(zpLineContent);
+        zpLineContent[zLen] = '\0';
+        zpLineContent[zLen - 1] = '\n';
         strcpy(zpLogCacheIf->path + zWrOffSet, zpLineContent);
+        zWrOffSet += 1 + zLen;
     }
 
-    if (zpLogCacheQueueHeadIndex[zpLogIf->RepoId] == zLogCacheSiz - 1) {
+    if (zpLogCacheQueueHeadIndex[zpLogIf->RepoId] == zpLogCacheVecSiz[zpLogIf->RepoId] - 1) {
         zpLogCacheQueueHeadIndex[zpLogIf->RepoId] = 0;
     } else {
         zpLogCacheQueueHeadIndex[zpLogIf->RepoId]++;
@@ -76,8 +86,6 @@ zupdate_log_cache(void *zpDeployLogIf) {
             j--;
         }
     }
-
-    ztest_print();
 }
 
 void
@@ -193,11 +201,11 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
 void
 zupdate_ipv4_db_self(_i zBaseFd) {
 // TEST:PASS
-    _i zFd;
     _ui zIpv4Addr;
     char *zpBuf;
     FILE *zpFileHandler;
 
+    _i zFd;
     zCheck_Negative_Exit(zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
     zCheck_Null_Exit(zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r"));
@@ -219,14 +227,12 @@ zupdate_ipv4_db_self(_i zBaseFd) {
 void
 zupdate_ipv4_db_hash(_i zRepoId) {
 // TEST:PASS
-    _i zFd[2] = {-9};
     struct stat zStatIf;
     zDeployResInfo *zpTmpIf;
 
-    zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Exit(zFd[0]);
-    // 打开客户端ip地址数据库文件
-    zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY);
+    _i zFd[2] = {-9};
+    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY));
+    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY));  // 打开客户端ip地址数据库文件
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
     close(zFd[0]);
 
@@ -249,9 +255,9 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         if (NULL == zpTmpIf) {
             zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
         } else {
-			while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
+            while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
                 zpTmpIf = zpTmpIf->p_next;
-			}
+            }
 
             zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
         }
@@ -265,6 +271,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
  */
 void
 zupdate_ipv4_db_all(_i zRepoId) {
+// TEST:PASS
     FILE *zpFileHandler = NULL;
     char *zpBuf = NULL;
     _ui zIpv4Addr = 0;
@@ -272,16 +279,12 @@ zupdate_ipv4_db_all(_i zRepoId) {
 
     pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
 
-    zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY);
-    zCheck_Negative_Exit(zFd[0]);
+    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY));
 
-    zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY);
-    zCheck_Negative_Exit(zFd[1]);
-    zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600);
-    zCheck_Negative_Exit(zFd[2]);
+    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY));
+    zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
-    zpFileHandler = fdopen(zFd[1], "r");
-    zCheck_Null_Exit(zpFileHandler);
+    zCheck_Null_Exit(zpFileHandler = fdopen(zFd[1], "r"));
     zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
     zPCRERetInfo *zpPCREResIf;
     for (_i i = 1; NULL != (zpBuf = zget_one_line_from_FILE(zpFileHandler)); i++) {
@@ -314,6 +317,7 @@ zupdate_ipv4_db_all(_i zRepoId) {
 
 void
 zthread_update_ipv4_db_all(void *zpIf) {
+// TEST:PASS
     _i zRepoId = *((_i *)zpIf);
     zupdate_ipv4_db_all(zRepoId);
 }

@@ -56,8 +56,8 @@ typedef struct {
 typedef struct {
     char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 索引每个代码库路径
-    _ui FileIndex;  // 缓存中每个文件路径的索引
-    _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
+    _i FileIndex;  // 缓存中每个文件路径的索引
+    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
     struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
     _i VecSiz;  // 对应于文件差异内容的总行数
@@ -69,7 +69,7 @@ typedef struct {
 typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 标识所属的代码库
-    _ui index;  // 标记是第几条记录(不是数据长度)
+    _i index;  // 标记是第几条记录(不是数据长度)
 
     _l TimeStamp;  // 时间戳，提供给前端使用
     _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
@@ -150,17 +150,24 @@ zclient(char *zpX) {
         exit(1);
     }
 zFileDiffInfo zIf;
+zDeployLogInfo zDpIf;
 
     char zBuf[4096] = {'\0'};
     char zTestBuf[128] = {0};
     zTestBuf[0] = 'D';
-    _l zV = 1500368758;
+    _l zV = 1500434699;
     memcpy(&zTestBuf[zBytes(4) + sizeof(_i) + sizeof(_ui)], &zV, sizeof(_l));
 
-    zIf.hints[0] = 'D';
+    zIf.hints[0] = 'p';
     zIf.RepoId = 0;
-    zIf.CacheVersion = 1500379781;
+    zIf.FileIndex = 9;
+    zIf.CacheVersion = 1500454327;
+
+    zDpIf.hints[0] = 'L';
+    zDpIf.RepoId = 0;
+
     //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
+    //zCheck_Negative_Exit(zsendto(zSd, &zDpIf, sizeof(zDeployLogInfo), 0, NULL));
     zCheck_Negative_Exit(zsendto(zSd, &zIf, zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz), 0, NULL));
     fprintf(stderr, "[Sent]:\n->");
     fprintf(stderr, "%c   ", zTestBuf[0]);
@@ -168,7 +175,7 @@ zFileDiffInfo zIf;
     fprintf(stderr, "%ld", *(_l *)(&zTestBuf[12]));
     fprintf(stderr, "<-\n");
 
-    _i zCnt = zrecv_nohang(zSd, zBuf, 4096, 0, NULL);
+    _i zCnt = recv(zSd, zBuf, 4096, 0);
 
     fprintf(stderr, "[Received]:\n=>");
     for (_i i = 0; i < zCnt; i++) {

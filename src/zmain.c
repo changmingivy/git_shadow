@@ -57,8 +57,8 @@ typedef struct {
 typedef struct {
     char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 索引每个代码库路径
-    _ui FileIndex;  // 缓存中每个文件路径的索引
-    _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
+    _i FileIndex;  // 缓存中每个文件路径的索引
+    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
     struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
     _i VecSiz;  // 对应于文件差异内容的总行数
@@ -70,7 +70,7 @@ typedef struct {
 typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 标识所属的代码库
-    _ui index;  // 标记是第几条记录(不是数据长度)
+    _i index;  // 标记是第几条记录(不是数据长度)
 
     _l TimeStamp;  // 时间戳，提供给前端使用
     _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
@@ -201,15 +201,13 @@ zReLoad:;
     zCallBackList[2] = zthread_update_ipv4_db_all;
 
     zthread_poll_init();  // 初始化线程池
-
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
     zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
+
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
-
-    ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd

@@ -7,41 +7,41 @@
 /**************************************
  * DEAL WITH CONFIG FILE AND INIT ENV *
  **************************************/
-void
-zdeploy_init(_i zRepoId) {
-        _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
-        char zShellBuf[4096];  // 存放SHELL命令字符串
-        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zRepoId]);
-
-        pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
-
-        if (0 != system(zShellBuf)) {
-            zPrint_Err(0, NULL, "shell 布署命令出错!");
-        };
-
-        do {
-            zsleep(2);  // 每隔2秒收集一次结果
-
-            fprintf(stderr, "Waiting list:\n");
-            for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
-                if (0 == zppDpResList[zRepoId][i].DeployState) {
-                    zSendBuf[i] = zppDpResList[zRepoId][i].ClientAddr;
-                    fprintf(stderr, "%d\n", zSendBuf[i]);
-                }
-            }
-
-        } while (zpReplyCnt[zRepoId] < zpTotalHost[zRepoId]);  // 等待所有client端确认状态
-        fprintf(stderr, "DEPLOY SUCCESS !\n");
-        zpReplyCnt[zRepoId] = 0;
-
-        zwrite_log_and_update_cache(zRepoId);  // 将本次布署信息写入日志
-
-        for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {
-            zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
-        }
-
-        pthread_rwlock_unlock(&(zpRWLock[zRepoId]));  // 释放锁
-}
+//void
+//zdeploy_init(_i zRepoId) {
+//        _ui zSendBuf[zpTotalHost[zRepoId]];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+//        char zShellBuf[4096];  // 存放SHELL命令字符串
+//        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zppRepoPathList[zRepoId]);
+//
+//        pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+//
+//        if (0 != system(zShellBuf)) {
+//            zPrint_Err(0, NULL, "shell 布署命令出错!");
+//        };
+//
+//        do {
+//            zsleep(2);  // 每隔2秒收集一次结果
+//
+//            fprintf(stderr, "Waiting list:\n");
+//            for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {  // 登记尚未确认状态的客户端ip列表
+//                if (0 == zppDpResList[zRepoId][i].DeployState) {
+//                    zSendBuf[i] = zppDpResList[zRepoId][i].ClientAddr;
+//                    fprintf(stderr, "%d\n", zSendBuf[i]);
+//                }
+//            }
+//
+//        } while (zpReplyCnt[zRepoId] < zpTotalHost[zRepoId]);  // 等待所有client端确认状态
+//        fprintf(stderr, "DEPLOY SUCCESS !\n");
+//        zpReplyCnt[zRepoId] = 0;
+//
+//        zwrite_log_and_update_cache(zRepoId);  // 将本次布署信息写入日志
+//
+//        for (_i i = 0; i < zpTotalHost[zRepoId]; i++) {
+//            zppDpResList[zRepoId][i].DeployState = 0;  // 重置client状态，以便下次布署使用
+//        }
+//
+//        pthread_rwlock_unlock(&(zpRWLock[zRepoId]));  // 释放锁
+//}
 
 void
 zinit_env(void) {
@@ -65,53 +65,24 @@ zinit_env(void) {
     // 缓存'git diff'文件路径列表及每个文件内容变动的信息，与每个代码库一一对应
     zMem_C_Alloc(zppCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpCacheVecSiz, _i, zRepoNum);
-    for (_i i = 0; i < zRepoNum; i++) {
-        zupdate_diff_cache(i);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
-    }
 
     // 保存各个代码库的CURRENT标签所对应的SHA1 sig
     zMem_C_Alloc(zppCURRENTsig, char *, zRepoNum);
-    for (_i i = 0; i < zRepoNum; i++) {
-        pthread_rwlock_wrlock( &(zpRWLock[i]) );
-        zupdate_sig_cache(&i);
-        pthread_rwlock_unlock( &(zpRWLock[i]) );
-    }
 
     // 每个代码库近期布署日志信息的缓存
     zMem_C_Alloc(zppLogCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zppSortedLogCacheVecIf, struct iovec *, zRepoNum);
     zMem_C_Alloc(zpLogCacheVecSiz, _i, zRepoNum);
     zMem_C_Alloc(zpLogCacheQueueHeadIndex, _i, zRepoNum);
-    for (_i i = 0; i < zRepoNum; i++) {
-        zMem_C_Alloc(zppLogCacheVecIf[i], struct iovec, zLogCacheSiz);
-        zMem_C_Alloc(zppSortedLogCacheVecIf[i], struct iovec, zLogCacheSiz);
-        zpLogCacheVecSiz[i] = zLogCacheSiz;
-
-        zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));  // 获取当前日志文件属性
-        if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
-            zLogToCacheSiz = zLogCacheSiz;
-        }
-
-        pthread_rwlock_wrlock( &(zpRWLock[i]) );
-        for (_i j = zLogToCacheSiz; j > 0; j--) {
-            zCheck_Negative_Exit(pread(zpLogFd[0][i], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo)));
-            zupdate_log_cache(&zDpLogIf);
-        }
-        pthread_rwlock_unlock( &(zpRWLock[i]) );
-    }
 
     // 每个代码库对应一个线性数组，用于接收每个ECS返回的确认信息
     // 同时基于这个线性数组建立一个HASH索引，以提高写入时的定位速度
     zMem_C_Alloc(zppDpResList, zDeployResInfo *, zRepoNum);
     zMem_C_Alloc(zpppDpResHash, zDeployResInfo **, zRepoNum);
-    for (_i i = 0; i < zRepoNum; i++) {
-        zupdate_ipv4_db_all(i);  // 更新 zpppDpResHash 与 zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
-    }
 
     for (_i i = 0; i < zRepoNum; i++) {
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
-        zFd[0] = open(zppRepoPathList[i], O_RDONLY);
-        zCheck_Negative_Exit(zFd[0]);
+        zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[i], O_RDONLY));
 
         #define zCheck_Dir_Status_Exit(zRet) do {\
             if (-1 == (zRet) && errno != EEXIST) {\
@@ -130,18 +101,33 @@ zinit_env(void) {
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
         zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zpRWLock[i]), &zRWLockAttr));
 
-        // 打开meta日志文件
-        zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
-        zCheck_Negative_Exit(fstat(zpLogFd[0][i], &zStatIf));
+        zpCacheVecSiz[i] = zLogCacheSiz;
+        zupdate_diff_cache(i);  // 更新 zppCacheVecIf，读写锁的操作在此函数内部，外部调用方不能再加解锁
+        zupdate_ipv4_db_all(i);  // 更新 zpppDpResHash 与 zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
 
-//        if (0 == zStatIf.st_size) {  // 如果日志文件为空(大小为0)，将创世版(初版)代码布署到目标机器
-//            zdeploy_init(i);
-//        }
+        zCheck_Negative_Exit(zpLogFd[0][i] = openat(zFd[0], zMetaLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600));  // 打开meta日志文件
+        zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600));  // 打开sig日志文件
 
-        // 打开sig日志文件
-        zCheck_Negative_Exit(zpLogFd[1][i] = openat(zFd[0], zSigLogPath, O_RDWR | O_CREAT | O_APPEND, 0600));
+        // 基于 meta 日志，初始化布署日志缓存
+        zpLogCacheVecSiz[i] = zLogCacheSiz;
+        zMem_C_Alloc(zppLogCacheVecIf[i], struct iovec, zpLogCacheVecSiz[i]);
+        zMem_C_Alloc(zppSortedLogCacheVecIf[i], struct iovec, zpLogCacheVecSiz[i]);
 
+        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY));
         close(zFd[0]);
+        zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));  // 获取当前日志文件属性，不能基于 zpLogFd[0][i] 打开（以 append 方式打开，会导致 fstat 结果中 st_size 为0）
+        if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
+            zLogToCacheSiz = zLogCacheSiz;
+        }
+
+        pthread_rwlock_wrlock( &(zpRWLock[i]) );
+        zupdate_sig_cache(&i);  // 必须在更新log cache之前调用
+        for (_i j = zLogToCacheSiz; j > 0; j--) {
+            zCheck_Negative_Exit(pread(zFd[1], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo)));
+            zupdate_log_cache(&zDpLogIf);
+        }
+        pthread_rwlock_unlock( &(zpRWLock[i]) );
+        close(zFd[1]);
     }
 }
 
@@ -329,9 +315,9 @@ zparse_conf_and_init_env(const char *zpConfPath) {
     zPCREInitInfo *zpInitIf[2];
     zPCRERetInfo *zpRetIf[2];
     char *zpRes = NULL;
+    FILE *zpFile;
 
-    FILE *zpFile = fopen(zpConfPath, "r");
-    zCheck_Null_Exit(zpFile);
+    zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
     zpInitIf[1] = zpcre_init("(?<=^\\[)\\S+(?=\\]\\s*($|#))");  // 匹配区块标题：[REPO] 或 [INOTIFY]
