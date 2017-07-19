@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
+zHostNatIf="eno1"
+zHostIP="10.10.40.49"
+zBridgeIf=br0
+
+modprobe tun
+modprobe vhost
+modprobe vhost_net
+
+ip link add $zBridgeIf type bridge 2>/dev/null
+ip link set $zBridgeIf up
+ip addr add "172.16.254.254/16" dev $zBridgeIf
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+iptables -t nat -F POSTROUTING
+iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-source $zHostIP
 
 qemu-system-x86_64 \
 -enable-kvm \

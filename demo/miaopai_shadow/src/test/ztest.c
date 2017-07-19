@@ -33,12 +33,11 @@
 #define zCommonBufSiz 4096
 #define zMaxRepoNum 1024
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-#define zLogCacheSiz 64  // 预缓存日志数量
+#define zDeployHashSiz 1024  // 布署状态HASH的大小
+#define zLogCacheSiz 24  // 预缓存日志数量
 
-#include "../inc/zutils.h"
-#include "zbase_utils.c"
-#include "pcre2/zpcre.c"
+#include "../../inc/zutils.h"
+#include "../zbase_utils.c"
 
 /****************
  * 数据结构定义 *
@@ -57,8 +56,8 @@ typedef struct {
 typedef struct {
     char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 索引每个代码库路径
-    _i FileIndex;  // 缓存中每个文件路径的索引
-    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
+    _ui FileIndex;  // 缓存中每个文件路径的索引
+    _l CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
     struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
     _i VecSiz;  // 对应于文件差异内容的总行数
@@ -70,7 +69,7 @@ typedef struct {
 typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _i RepoId;  // 标识所属的代码库
-    _i index;  // 标记是第几条记录(不是数据长度)
+    _ui index;  // 标记是第几条记录(不是数据长度)
 
     _l TimeStamp;  // 时间戳，提供给前端使用
     _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
@@ -140,83 +139,44 @@ _i *zpLogCacheQueueHeadIndex;
 /**********
  * 子模块 *
  **********/
-#include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
-#include "thread_pool/zthread_pool.c"
-#include "test/zprint_test.c"
-#include "inotify/zinotify_callback.c"
-#include "inotify/zinotify.c"  // 监控代码库文件变动
-#include "net/znetwork.c"  // 对外提供网络服务
-#include "zinit.c"  // 读取主配置文件
+//
+//
+//
+void
+zclient(char *zpX) {
+    char zBuf[4096] = {'\0'};
+    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+    if (-1 == zSd) {
+        zPrint_Err(0, NULL, "Connect to server failed.");
+        exit(1);
+    }
 
-/***************************
- * +++___ main 函数 ___+++ *
- ***************************/
+    char zTestBuf[128] = {0};
+    _i *zpZ =  (_i *)(zTestBuf + 4);
+    zTestBuf[0] = 'p';
+    *zpZ = 0;
+    zCheck_Negative_Return(
+            //zsendto(zSd, zpX, strlen(zpX), 0, NULL),
+            zsendto(zSd, zTestBuf, 128, 0, NULL),
+            );
+    fprintf(stderr, "[Sent]:\n->");
+    for (_i i = 0; i < 128; i++) {
+        fprintf(stderr, "%c", zTestBuf[i]);
+    }
+    fprintf(stderr, "<-\n");
+
+    zrecv_all(zSd, zBuf, 4096, 0, NULL);
+
+    fprintf(stderr, "[Received]:\n=>");
+    for (_i i = 0; i < 4096; i++) {
+        fprintf(stderr, "%c", zBuf[i]);
+    }
+    fprintf(stderr, "<=\n");
+
+    shutdown(zSd, SHUT_RDWR);
+}
+
 _i
 main(_i zArgc, char **zppArgv) {
-// TEST: PASS
-    char *zpConfFilePath = NULL;
-    struct stat zStatIf;
-    _i zActionType = 0;
-    zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
-    zNetServIf.zServType = TCP;
-
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CUh:p:f:"));) {
-        switch (zOpt) {
-        case 'C':  // 启动客户端功能
-            zActionType = 1; break;
-        case 'h':
-            zNetServIf.p_host= optarg; break;
-        case 'p':
-            zNetServIf.p_port = optarg; break;
-        case 'U':
-            zNetServIf.zServType = UDP;
-        case 'f':
-            if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {  // 若指定的主配置文件不存在或不是普通文件，则报错退出
-                zPrint_Time();
-                fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
-                        "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
-                exit(1);
-            }
-            zpConfFilePath = optarg;
-            break;
-        default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-            zPrint_Time();
-             fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
-            exit(1);
-        }
-    }
-
-    if (1 == zActionType) {  // 客户端功能，用于在ECS上由git hook自动执行，向服务端发送状态确认信息
-        zupdate_ipv4_db_self(AT_FDCWD);  // 回应之前客户端将更新自身的ipv4地址库
-        zclient_reply(zNetServIf.p_host, zNetServIf.p_port);
-        return 0;
-    }
-
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-
-zReLoad:;
-    // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zthread_common_func;
-    zCallBackList[1] = zthread_update_diff_cache;
-    zCallBackList[2] = zthread_update_ipv4_db_all;
-
-    zthread_poll_init();  // 初始化线程池
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-    zCheck_Negative_Exit(zInotifyFD);
-
-    zparse_conf_and_init_env(zpConfFilePath); // 解析主配置文件，并将有效条目添加到监控队列
-
-    zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
-    zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
-
-    zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
-    close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
-
-    pid_t zPid = fork(); // 之后父进程退出，子进程按新的主配置文件内容重新初始化
-    zCheck_Negative_Exit(zPid);
-    if (0 < zPid) {
-        exit(0);
-    } else {
-        goto zReLoad;
-    }
+    zclient(zppArgv[1]);
 }
