@@ -45,49 +45,49 @@
 typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
 //----------------------------------
 typedef struct {
-    _s RepoId;  // 每个代码库对应的索引
-    _s RecursiveMark;  // 是否递归标志
-    _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
-    zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char path[];  // 被监控对象的绝对路径名称
+        _s RepoId;  // 每个代码库对应的索引
+        _s RecursiveMark;  // 是否递归标志
+        _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
+        char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
+        zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
+        char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
 //----------------------------------
 typedef struct {
-    char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
-    _i RepoId;  // 索引每个代码库路径
-    _i FileIndex;  // 缓存中每个文件路径的索引
-    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
+        char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
+        _i RepoId;  // 索引每个代码库路径
+        _i FileIndex;  // 缓存中每个文件路径的索引
+        _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
 
-    struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
-    _i VecSiz;  // 对应于文件差异内容的总行数
+        struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
+        _i VecSiz;  // 对应于文件差异内容的总行数
 
-    _i PathLen;  // 文件路径长度，提供给前端使用
-    char path[];  // 相对于代码库的路径
+        _i PathLen;  // 文件路径长度，提供给前端使用
+        char path[];  // 相对于代码库的路径
 } zFileDiffInfo;
 
 typedef struct {  // 布署日志信息的数据结构
-    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
-    _i RepoId;  // 标识所属的代码库
-    _i index;  // 标记是第几条记录(不是数据长度)
+        char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
+        _i RepoId;  // 标识所属的代码库
+        _i index;  // 标记是第几条记录(不是数据长度)
 
-    _l TimeStamp;  // 时间戳，提供给前端使用
-    _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
-    char path[];  // 相对于代码库的路径
+        _l TimeStamp;  // 时间戳，提供给前端使用
+        _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
+        char path[];  // 相对于代码库的路径
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
-    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
-    _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _i RepoId;  // 所属代码库
-    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
-    struct zDeployResInfo *p_next;
+        char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
+        _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
+        _i RepoId;  // 所属代码库
+        _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
+        struct zDeployResInfo *p_next;
 } zDeployResInfo;
 
 typedef struct zNetServInfo {
-    char *p_host;  // 字符串形式的ipv4点分格式地式
-    char *p_port;  // 字符串形式的端口，如："80"
-    _i zServType;  // 网络服务类型：TCP/UDP
+        char *p_host;  // 字符串形式的ipv4点分格式地式
+        char *p_port;  // 字符串形式的端口，如："80"
+        _i zServType;  // 网络服务类型：TCP/UDP
 } zNetServInfo;
 
 /************
@@ -144,49 +144,49 @@ _i *zpLogCacheQueueHeadIndex;
 
 void
 zclient(char *zpX) {
-    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
-    if (-1 == zSd) {
+        _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+        if (-1 == zSd) {
         zPrint_Err(0, NULL, "Connect to server failed.");
         exit(1);
-    }
+        }
 zFileDiffInfo zIf;
 zDeployLogInfo zDpIf;
 
-    char zBuf[4096] = {'\0'};
-    char zTestBuf[128] = {0};
-    zTestBuf[0] = 'D';
-    _l zV = 1500434699;
-    memcpy(&zTestBuf[zBytes(4) + sizeof(_i) + sizeof(_ui)], &zV, sizeof(_l));
+        char zBuf[4096] = {'\0'};
+        char zTestBuf[128] = {0};
+        zTestBuf[0] = 'D';
+        _l zV = 1500434699;
+        memcpy(&zTestBuf[zBytes(4) + sizeof(_i) + sizeof(_ui)], &zV, sizeof(_l));
 
-    zIf.hints[0] = 'p';
-    zIf.RepoId = 0;
-    zIf.FileIndex = 9;
-    zIf.CacheVersion = 1500454327;
+        zIf.hints[0] = 'p';
+        zIf.RepoId = 0;
+        zIf.FileIndex = 9;
+        zIf.CacheVersion = 1500454327;
 
-    zDpIf.hints[0] = 'L';
-    zDpIf.RepoId = 0;
+        zDpIf.hints[0] = 'L';
+        zDpIf.RepoId = 0;
 
-    //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
-    //zCheck_Negative_Exit(zsendto(zSd, &zDpIf, sizeof(zDeployLogInfo), 0, NULL));
-    zCheck_Negative_Exit(zsendto(zSd, &zIf, zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz), 0, NULL));
-    fprintf(stderr, "[Sent]:\n->");
-    fprintf(stderr, "%c   ", zTestBuf[0]);
-    fprintf(stderr, "%d", *(_i *)(&zTestBuf[4]));
-    fprintf(stderr, "%ld", *(_l *)(&zTestBuf[12]));
-    fprintf(stderr, "<-\n");
+        //zCheck_Negative_Exit(zsendto(zSd, zpX, strlen(zpX) + 1, 0, NULL));
+        //zCheck_Negative_Exit(zsendto(zSd, &zDpIf, sizeof(zDeployLogInfo), 0, NULL));
+        zCheck_Negative_Exit(zsendto(zSd, &zIf, zSizeOf(zFileDiffInfo) - zSizeOf(zIf.PathLen) - zSizeOf(zIf.p_DiffContent) - zSizeOf(zIf.VecSiz), 0, NULL));
+        fprintf(stderr, "[Sent]:\n->");
+        fprintf(stderr, "%c   ", zTestBuf[0]);
+        fprintf(stderr, "%d", *(_i *)(&zTestBuf[4]));
+        fprintf(stderr, "%ld", *(_l *)(&zTestBuf[12]));
+        fprintf(stderr, "<-\n");
 
-    _i zCnt = recv(zSd, zBuf, 4096, 0);
+        _i zCnt = recv(zSd, zBuf, 4096, 0);
 
-    fprintf(stderr, "[Received]:\n=>");
-    for (_i i = 0; i < zCnt; i++) {
+        fprintf(stderr, "[Received]:\n=>");
+        for (_i i = 0; i < zCnt; i++) {
         fprintf(stderr, "%c", zBuf[i]);
-    }
-    fprintf(stderr, "<=\n");
+        }
+        fprintf(stderr, "<=\n");
 
-    shutdown(zSd, SHUT_RDWR);
+        shutdown(zSd, SHUT_RDWR);
 }
 
 _i
 main(_i zArgc, char **zppArgv) {
-    zclient(zppArgv[1]);
+        zclient(zppArgv[1]);
 }

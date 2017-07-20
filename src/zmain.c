@@ -31,10 +31,11 @@
 #include <ctype.h>
 
 #define zCommonBufSiz 4096
-#define zMaxRepoNum 1024
+#define zMaxRepoNum 128
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zLogCacheSiz 64  // 预缓存日志数量
+#define zCommitPreCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
@@ -54,28 +55,6 @@ typedef struct {
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
 //----------------------------------
-#define zVersionHashSiz 256
-typedef struct {
-	struct iovec *p_vec;
-	_i VecSiz;
-} zVecInfo;
-
-typedef struct {
-	zVecInfo *p_DiffContentVecIf;  // 指向具体的文件差异内容，按行存储
-	_i FileId;
-    _i len;  // 文件路径长度，提供给前端使用
-    char data[];  // 相对于代码库的路径
-} zFileInfo;
-
-typedef struct {
-	zVecInfo *p_FileListVecIf;
-	_i CommitId;
-    _i len;
-	char data[];  // 时间戳＋CommitSig
-} zCodeVersionInfo;
-
-zVecInfo **zppRepoIf;  // 代码库信息数组，每个成员包含一个大小为 zVersionHashSiz 的 commit HASH，用于缓存代码版本信息
-_i *zpRepoHashHeadId;
 
 typedef struct {
     char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
@@ -114,11 +93,43 @@ typedef struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 } zNetServInfo;
 
+#define zVersionHashSiz 1024
+typedef struct {
+    _i SelfId;
+    zVecInfo *p_SubObjVecIf;
+    _i len;
+    char data[];
+} zCodeInfo;
+
+typedef struct {
+    _i RepoId;
+    char RepoPath[64];  // "/home/git/RepoName_TEST"
+    pthread_rwlock_t RwLock;  // 每个代码库对应一把读写锁
+    _i LogFd[2];  // 每个代码库的布署日志都需要二个日志文件：meta、sig，分别用于存储索引信息、SHA1-sig
+//    _i CacheVersion;
+
+    _i TotalHost;
+    _i ReplyCnt;
+    zDeployResInfo *p_DpResList;
+    zDeployResInfo *p_DpResHash[zDeployHashSiz];
+
+    zVecInfo *p_VecIf[2];  // VecIf[0]：Commit信息，VecIf[1]：Deploy信息
+} zRepoInfo;
+
+zRepoInfo *zpRepoGlobIf;
+
+typedef struct {
+    char hints[4];
+    _i RepoId;
+    _i CommitId;
+    _i FileId;
+    _i HostIp;
+} zRecvInfo;
+
 /************
  * 全局变量 *
  ************/
 _i zRepoNum;  // 总共有多少个代码库
-char **zppRepoPathList;  // 每个代码库的绝对路径
 
 _i zInotifyFD;   // inotify 主描述符
 zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
@@ -126,25 +137,8 @@ zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
 char **zppCURRENTsig;  // 每个代码库当前的CURRENT标签的SHA1 sig
-_i *zpLogFd[2];  // 每个代码库的布署日志都需要三个日志文件：meta、data、sig，分别用于存储索引信息、路径名称、SHA1-sig
 
-pthread_rwlock_t *zpRWLock;  // 每个代码库对应一把读写锁
 pthread_rwlockattr_t zRWLockAttr;
-
-zCodeVersionInfo (**zppCodeVersionIf)[zVersionHashSiz];
-zVecInfo **zppDiffCacheVecIf;
-
-//zVecInfo **zppLogCacheVecIf;
-//_i *zpLogCacheQueueHeadId;
-//
-//zVecInfo **zppSortedLogCacheVecIf;
-
-struct  iovec **zppCacheVecIf;  // 用于提供代码差异数据的缓存功能，每个代码库对应一个缓存区
-_i *zpCacheVecSiz;  // 对应于每个代码库的缓存区大小，即：缓存的对象数量
-
-_i *zpTotalHost;  // 存储每个代码库后端的主机总数
-_i *zpReplyCnt;  // 即时统计每个代码库已返回布署状态的主机总数，当其值与zpTotalHost相等时，即表达布署成功
-zDeployResInfo ***zpppDpResHash, **zppDpResList;  // 每个代码库对应一个布署状态数据及与之配套的链式HASH
 
 struct iovec **zppLogCacheVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
 struct iovec **zppSortedLogCacheVecIf;  // 按时间戳降序排列后的结果，这是向前端发送的最终结果
@@ -193,31 +187,31 @@ main(_i zArgc, char **zppArgv) {
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CUh:p:f:"));) {
         switch (zOpt) {
-        case 'C':  // 启动客户端功能
-            zActionType = 1; break;
-        case 'h':
-            zNetServIf.p_host= optarg; break;
-        case 'p':
-            zNetServIf.p_port = optarg; break;
-        case 'U':
-            zNetServIf.zServType = UDP;
-        case 'f':
-            if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {  // 若指定的主配置文件不存在或不是普通文件，则报错退出
+            case 'C':  // 启动客户端功能
+                zActionType = 1; break;
+            case 'h':
+                zNetServIf.p_host= optarg; break;
+            case 'p':
+                zNetServIf.p_port = optarg; break;
+            case 'U':
+                zNetServIf.zServType = UDP;
+            case 'f':
+                if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {  // 若指定的主配置文件不存在或不是普通文件，则报错退出
+                        zPrint_Time();
+                        fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
+                            "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
+                        exit(1);
+                }
+                zpConfFilePath = optarg;
+                break;
+            default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPrint_Time();
-                fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
-                        "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
+                fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
                 exit(1);
-            }
-            zpConfFilePath = optarg;
-            break;
-        default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-            zPrint_Time();
-             fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
-            exit(1);
-        }
+           }
     }
 
-    if (1 == zActionType) {  // 客户端功能，用于在ECS上由git hook自动执行，向服务端发送状态确认信息
+        if (1 == zActionType) {  // 客户端功能，用于在ECS上由git hook自动执行，向服务端发送状态确认信息
         zupdate_ipv4_db_self(AT_FDCWD);  // 回应之前客户端将更新自身的ipv4地址库
         zclient_reply(zNetServIf.p_host, zNetServIf.p_port);
         return 0;
@@ -228,7 +222,7 @@ main(_i zArgc, char **zppArgv) {
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
     zCallBackList[0] = zthread_common_func;
-    zCallBackList[1] = zthread_update_diff_cache;
+    zCallBackList[1] = zthread_update_commit_cache;
     zCallBackList[2] = zthread_update_ipv4_db_all;
 
     zthread_poll_init();  // 初始化线程池
@@ -240,11 +234,14 @@ zReLoad:;
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
 
+	ztest_print();
+
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
 
     pid_t zPid = fork(); // 之后父进程退出，子进程按新的主配置文件内容重新初始化
     zCheck_Negative_Exit(zPid);
+
     if (0 < zPid) {
         exit(0);
     } else {

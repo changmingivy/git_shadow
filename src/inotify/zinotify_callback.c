@@ -15,7 +15,7 @@ zupdate_sig_cache(void *zpRepoId) {
     FILE *zpShellRetHandler;
 
     /* 以下部分更新所属代码库的CURRENT SHA1 sig值 */
-    sprintf(zShellBuf, "cd %s && git log --format=%%H -n 1 CURRENT", zppRepoPathList[zRepoId]);
+    sprintf(zShellBuf, "cd %s && git log --format=%%H -n 1 CURRENT", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     zCheck_Null_Exit(zpRes = zget_one_line_from_FILE(zpShellRetHandler));  // 读取CURRENT分支的SHA1 sig值
 
@@ -46,13 +46,13 @@ zupdate_log_cache(void *zpDeployLogIf) {
     _i zLen;
 
     _i zFd[2];
-    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zpLogIf->RepoId], O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zpLogIf->RepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
     zCheck_Negative_Exit(pread(zFd[1], zCommitSig, zBytes(41), zBytes(41) * zpLogIf->index));
     close(zFd[0]);
     close(zFd[1]);
 
-    sprintf(zShellBuf, "cd %s && git log %s --name-only --format=", zppRepoPathList[zpLogIf->RepoId], zCommitSig);
+    sprintf(zShellBuf, "cd %s && git log %s --name-only --format=", zpRepoGlobIf[zpLogIf->RepoId].RepoPath, zCommitSig);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     for (size_t zWrOffSet = 0; NULL != (zpLineContent = zget_one_line_from_FILE(zpFile));) {
         zLen = strlen(zpLineContent);
@@ -76,279 +76,209 @@ zupdate_log_cache(void *zpDeployLogIf) {
     zpVecQueueHead->iov_len = zRealLen;
 
     // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
-    for (_i i = 0, j = zpLogCacheQueueHeadIndex[zpLogIf->RepoId]; i < zpCacheVecSiz[zpLogIf->RepoId]; i++) {
+    for (_i i = 0, j = zpLogCacheQueueHeadIndex[zpLogIf->RepoId]; i < zpLogCacheVecSiz[zpLogIf->RepoId]; i++) {
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_base = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_base;
         zppSortedLogCacheVecIf[zpLogIf->RepoId][i].iov_len = zppLogCacheVecIf[zpLogIf->RepoId][j].iov_len;
 
         if (0 == j) {
-            j = zpCacheVecSiz[zpLogIf->RepoId] - 1;
+            j = zpLogCacheVecSiz[zpLogIf->RepoId] - 1;
         } else {
             j--;
         }
     }
 }
 
-//#define zVersionHashSiz 256
-//typedef struct {
-//	struct iovec *p_vec;
-//	_i VecSiz;
-//} zVecInfo;
-//
-//typedef struct {
-//	zVecInfo *p_DiffContentVecIf;  // 指向具体的文件差异内容，按行存储
-//	_i FileId;
-//    _i len;  // 文件路径长度，提供给前端使用
-//    char data[];  // 相对于代码库的路径
-//} zFileInfo;
-//
-//typedef struct {
-//	zVecInfo *p_FileListVecIf;
-//	_i CommitId;
-//    _i len;
-//	char CommitSig[];
-//} zCodeVersionInfo;
-//
-//zVecInfo **zppRepoIf;  // 代码库信息数组，每个成员包含一个大小为 zVersionHashSiz 的 commit HASH，用于缓存代码版本信息
-
-zVecInfo *
-zget_diff_content(_i zRepoId, _i zCommitId, _i zFileId) {
-    struct iovec *zpLineContentVecIf;
-	_i zVecSiz = 0, zAllocSiz = 128, zDataLen = 0;
-
-    FILE *zpShellRetHandler;
-    char *zpRes, *zpLineContent, zShellBuf[zCommonBufSiz];
-
-	zMem_Alloc(zpLineContentVecIf, struct iovec, zAllocSiz);
-
-    // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s", zppRepoPathList[zRepoId],
-			((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->data,
-			((zFileInfo *)((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->p_FileListVecIf->p_vec)[zFileId].data);
-    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
-
-    for (_i i = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); i++, zVecSiz++) {
-		if (i > zAllocSiz) {
-			zAllocSiz *= 2;
-			zMem_Re_Alloc(zpLineContentVecIf, struct iovec, zAllocSiz);
-		}
-
-		zDataLen = 1 + strlen(zpRes);
-        zMem_Alloc(zpLineContentVecIf[i].iov_base, char, zDataLen);
-
-		zpLineContentVecIf[i].iov_len = zDataLen;
-        strcpy(zpLineContentVecIf[i].iov_base, zpRes);
-	}
-
-	pclose(zpShellRetHandler);
-	zMem_Re_Alloc(zpLineContentVecIf, struct iovec, zVecSiz);
-
-	static zVecInfo zVecIf;
-	zVecIf.p_vec = zpLineContentVecIf;
-	zVecIf.VecSiz = zVecSiz;
-	return &zVecIf;
-}
-
 /*
- * 返回差异文件列表，以 iovec 数组形式存储
+ * 功能：生成单次提交的文件差异列表及差异内容缓存
+ * 返回：若 zFileId 参数为 -1，返回文件差异内容；否则返回差异文件列表，以 iovec 数组形式存储
  */
-zVecInfo *
-zget_file_list(_i zRepoId, _i zCommitId) {
-    struct iovec *zpFileListVecIf;
-	zFileInfo *zpFileIf;
-	_i zVecSiz = 0, zAllocSiz = 128, zDataLen = 0;
+#define zget_sub_info(zpObj, zSubObjId) ((zCodeInfo *)((((zpObj)->p_SubObjVecIf)->p_vec)[zSubObjId].iov_base))
+void
+zget_file_diff_info(_i zRepoId, _i zCommitId, _i zFileId) {
+    zVecInfo *zpRetIf;
+    struct iovec *zpVecIf;
+    zCodeInfo *zpCodeIf;  // 此项是 iovec 的 io_base 字段
+    zCodeInfo *zpCommitSigIf, *zpFileDiffIf;
+    _i zVecId, zDataLen;
+    _i zAllocSiz = 128;
 
     FILE *zpShellRetHandler;
     char *zpRes, zShellBuf[zCommonBufSiz];
 
-	zMem_Alloc(zpFileListVecIf, struct iovec, zAllocSiz);
+    zMem_Alloc(zpVecIf, struct iovec, zAllocSiz);
+
+    zpCommitSigIf = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base;  // 按 zCommitId 索引出 "CommitSig" 所在的 zVecInfo 结构体
+    zpFileDiffIf = (-1 == zFileId) ? NULL : zget_sub_info(zpCommitSigIf, zFileId);  // 按 zFileId 索引出 "文件路径名称" 所在的 zVecInfo 结构体，只有取文件内容差异的时候会用到
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s git diff --name-only %s CURRENT ", zppRepoPathList[zRepoId],
-			((zCodeVersionInfo *)(((zppRepoIf[zRepoId])->p_vec)[zCommitId].iov_base))->data);
+    sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpRepoGlobIf[zRepoId].RepoPath,
+        (-1 == zFileId) ? "--name-only" : "",
+        zpCommitSigIf->data,
+        (-1 == zFileId) ? "" : zpFileDiffIf->data);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (_i i = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); i++, zVecSiz++) {
-		if (i > zAllocSiz) {
-			zAllocSiz *= 2;
-			zMem_Re_Alloc(zpFileListVecIf, struct iovec, zAllocSiz);
-		}
+    for (zVecId = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); zVecId++) {
+        if (zVecId >= zAllocSiz) {
+            zAllocSiz *= 2;
+            zMem_Re_Alloc(zpVecIf, struct iovec, zAllocSiz, zpVecIf);
+        }
 
-            zDataLen = 1 + strlen(zpRes) + sizeof(zFileInfo);
-            zCheck_Null_Exit( zpFileIf = malloc(zDataLen) );
+        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeInfo);
+        zCheck_Null_Exit( zpCodeIf = malloc(zDataLen) );
 
-            zpFileIf->FileId = i;
-			zpFileIf->len = zDataLen;
-			zpFileIf->p_DiffContentVecIf = zget_diff_content(zRepoId, zCommitId, zpFileIf->FileId);
-            strcpy(zpFileIf->data, zpRes);
-			
-            zpFileListVecIf[i].iov_base = zpFileIf;
-	}
+        zpCodeIf->SelfId = zVecId;
+        zpCodeIf->len = zDataLen;
+        strcpy(zpCodeIf->data, zpRes);
 
-	pclose(zpShellRetHandler);
-	zMem_Re_Alloc(zpFileListVecIf, struct iovec, zVecSiz);
+        zpVecIf[zVecId].iov_base = zpCodeIf;
+    }
 
-	static zVecInfo zVecIf;
-	zVecIf.p_vec = zpFileListVecIf;
-	zVecIf.VecSiz = zVecSiz;
-	return &zVecIf;
+    pclose(zpShellRetHandler);
+    if (0 == zVecId) {
+        free(zpVecIf);  // 用于差异文件数量为0的情况，如：将 CURRENT 与其自身对比，结果将为空
+        zpVecIf = NULL;
+    } else {
+        zMem_Re_Alloc(zpVecIf, struct iovec, zVecId, zpVecIf);  // for 循环结束后，zVecId 的值即为最终的成员数量
+    }
+
+    zMem_Alloc(zpRetIf, zVecInfo, 1);
+    zpRetIf->p_vec = zpVecIf;
+    zpRetIf->VecSiz = zVecId;
+
+    if (-1 == zFileId) {
+        ((zCodeInfo *)(zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base))->p_SubObjVecIf = zpRetIf;
+        for (_i i = 0; i < zpRetIf->VecSiz; i++) {
+               zget_file_diff_info(zRepoId, zCommitId, i);
+        }
+    } else {
+        ((zCodeInfo *)(((zCodeInfo *)(zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base))->p_SubObjVecIf->p_vec[zFileId].iov_base))->p_SubObjVecIf = zpRetIf;
+    }
 }
 
-//void
-//zfree_version_source(zVecInfo *zpIf) {
-//	_i i, j;
-//	zFileInfo *zpToFree[2];
-//	for (i = 0; i < zpIf->p_FileListVecIf->VecSiz; i++) {
-//		zpToFree[0] = (zFileInfo *) (zpIf->p_FileListVecIf->p_vec[i].iov_base);
-//		for (j = 0; j < zpToFree[0]->p_DiffContentVecIf->VecSiz; j++) {
-//
-//		}
-//		free(zpToFree[0]);
-//	}
-//	free(zpIf->p_FileListVecIf);
-//	zpIf->p_FileListVecIf = NULL;
-//}
+/*
+ *  传入的是一个单次commit信息，内含 “差异文件列表的 zCodeInfo 结构体指针“，需要释放文件列表结构及其内部的文件内容结构
+ */
+void
+zfree_version_source(zCodeInfo *zpIf) {
+    zCodeInfo *zpToFree;
+    _i i, j;
 
-zVecInfo *
-zupdate_version_list(_i zRepoId, _i zInitMark) {
-    static struct iovec zVersionVecIf[zVersionHashSiz];
-	zCodeVersionInfo *zpVersionIf;
-	_i zDataLen = 0;
+    if (NULL == zpIf) { return; }
+
+    for (i = 0; i < zpIf->p_SubObjVecIf->VecSiz; i++) {  // 按文件个数循环
+        zpToFree = (zCodeInfo *) (zpIf->p_SubObjVecIf->p_vec[i].iov_base);
+        for (j = 0; j < zpToFree->p_SubObjVecIf->VecSiz; j++) {  // 按差异内容行数循环
+            free(zpToFree->p_SubObjVecIf->p_vec[j].iov_base);  // 行内容即 zCodeInfo 的最后的 data 字段，释放其所在结构体即可
+        }
+        free(zpToFree->p_SubObjVecIf);
+        free(zpToFree);  // 释放文件列表级别的zCodeInfo
+    }
+    free(zpIf->p_SubObjVecIf);
+    free(zpIf);  // 释放传入的单个CommitSig级别的zCodeInfo
+}
+
+/*
+ * 功能：逐层生成单个代码库的commit列表、文件列表及差异内容缓存
+ * 返回：以 iovec 数组形式存储
+ */
+void
+zinit_commit_version_info(_i zRepoId) {
+    static struct iovec zSortedVersionVecIf[zVersionHashSiz];
+    zCodeInfo *zpVersionIf;  // 此项是 iovec 的 io_base 字段
+    _i zDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zShellBuf[zCommonBufSiz], *zpInitOption;
-
-	zpInitOption = (0 == zInitMark) ? "" : "-1";
+    char *zpRes, zShellBuf[zCommonBufSiz];
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s git log %s --format=%%H\\0%%ct", zppRepoPathList[zRepoId], zpInitOption);
+    sprintf(zShellBuf, "cd %s && git log --format=%%H\\0%%ct", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (_i i = zpRepoHashHeadId[zRepoId] + 1;  i < zVersionHashSiz; i++) {
-		if (NULL == (zpRes = zget_one_line_from_FILE(zpShellRetHandler))) {
-			break;
-		}
-		
-		if (zVersionHashSiz == i) {
-			i = 0;
-		}
-
-//		if (NULL != zppRepoIf[zRepoId][i].p_vec) {
-//			zfree_version_source(&zppRepoIf[zRepoId][i]);
-//		}
-
-        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeVersionInfo);
+    for (zCnter = 0; (zCnter < zVersionHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
+        zpRes[40] = '\0';
+        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeInfo);
         zCheck_Null_Exit( zpVersionIf= malloc(zDataLen) );
 
-        zpVersionIf->CommitId = i;
-		zpVersionIf->len = zDataLen;
-		zpVersionIf->p_FileListVecIf= zget_file_list(zRepoId, zpVersionIf->CommitId);
+        zpVersionIf->SelfId = zCnter;
+        zpVersionIf->len = zDataLen;
         strcpy(zpVersionIf->data, zpRes);
-		
-        zVersionVecIf[i].iov_base = zpVersionIf;
-	}
 
-	pclose(zpShellRetHandler);
+        zSortedVersionVecIf[zCnter].iov_base = zpVersionIf;
+    }
+    pclose(zpShellRetHandler);
 
-	static zVecInfo zVecIf;
-	zVecIf.p_vec = zVersionVecIf;
-	zVecIf.VecSiz = zVersionHashSiz;
-	return &zVecIf;
+    static zVecInfo zRetIf;
+    zRetIf.p_vec = zSortedVersionVecIf;
+    zRetIf.VecSiz = zCnter;  // 存储的是实际的对象数量
+    zpRepoGlobIf[zRepoId].p_VecIf[0] = &zRetIf;
+
+    for (zCnter = 0; zCnter < (zCommitPreCacheSiz < zRetIf.VecSiz ? zCommitPreCacheSiz : zRetIf.VecSiz); zCnter++) {  // 预生成最近 zCommitPreCacheSiz 次提交的缓存
+        zget_file_diff_info(zRepoId, zCnter, -1);
+    }
 }
 
 void
-zupdate_diff_cache(_i zRepoId) {
-// TEST:PASS
-    pthread_rwlock_wrlock( &(zpRWLock[zRepoId]) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+zupdate_commit_version_info(_i zRepoId) {
+    struct iovec zVersionVecIf[zVersionHashSiz];
+    static struct iovec zSortedVersionVecIf[zVersionHashSiz];
+    zCodeInfo *zpVersionIf;  // 此项是 iovec 的 io_base 字段
+    _i zDataLen, zVecId, zCnter, zObjCnt;
 
-    // 首先释放掉老缓存的内存空间
-    if (NULL != zppCacheVecIf[zRepoId]) {
-        for (_i i = 0; i < zpCacheVecSiz[zRepoId]; i++) {
-            for (_i j = 0; j < ((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->VecSiz; j++) {
-                free((((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->p_DiffContent[j]).iov_base);
-            }
-            free(((zFileDiffInfo *)(zppCacheVecIf[zRepoId][i].iov_base))->p_DiffContent);
-            free(zppCacheVecIf[zRepoId][i].iov_base);
-        }
-        free(zppCacheVecIf[zRepoId]);
-    }
-
-    // 如下开始创建新的缓存
-    _i zNewVersion = (_i)time(NULL);  // 以时间戳充当缓存版本号
-    struct iovec *zpNewCacheVec[2];  // 维持2个iovec数据，一个用于缓存文件列表，另一个按行缓存每一个文件差异信息
-
-    FILE *zpShellRetHandler[2];  // 执行SHELL命令，读取此句柄获取返回信息
-    _i zDiffFileNum, zDiffLineNum, zLen;  // 差异文件总数
-
-    char *zpRes[2];  // 存储从命令行返回的原始文本信息
-    char zShellBuf[2][zCommonBufSiz];  // 存储命令行字符串
-
-    zFileDiffInfo *zpIf;
+    FILE *zpShellRetHandler;
+    char *zpRes, zShellBuf[zCommonBufSiz];
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf[0], "cd %s && git diff --name-only HEAD CURRENT | wc -l && git diff --name-only HEAD CURRENT ", zppRepoPathList[zRepoId]);
-    zCheck_Null_Exit(zpShellRetHandler[0] = popen(zShellBuf[0], "r"));
+    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H\\0%%ct", zpRepoGlobIf[zRepoId].RepoPath);
+    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    /* 以下部分更新差异文件列表及详情缓存 */
-    if (NULL == (zpRes[0] = zget_one_line_from_FILE(zpShellRetHandler[0]))) {  // 第一行返回的是文件总数
-        pclose(zpShellRetHandler[0]);
-        return;
-    } else {
-        if (0 == (zDiffFileNum = strtol(zpRes[0], NULL, 10))) {
-            pclose(zpShellRetHandler[0]);
-            return;
+    for (zVecId = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz, zCnter = 0;
+        (zCnter < zVersionHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zVecId++, zCnter++) {
+        zpRes[40] = '\0';
+        if (zVersionHashSiz == zVecId) { zVecId = 0; }
+
+        if (NULL != zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_base) {
+            zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zVecId].iov_base);
         }
 
-        zMem_Alloc(zpNewCacheVec[0], struct iovec, zDiffFileNum);   // 为存储文件路径列表的iovec[0]分配空间
-        zpCacheVecSiz[zRepoId] = zDiffFileNum;  // 更新对应代码库的差异文件数量（更新到全局变量）
+        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeInfo);
+        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen) );
 
-        for (_i i = 0; i < zDiffFileNum; i++) {
-            zpRes[0] =zget_one_line_from_FILE(zpShellRetHandler[0]);
-            zLen = 1 + strlen(zpRes[0]) + sizeof(zFileDiffInfo);
+        zpVersionIf->SelfId = zVecId;
+        zpVersionIf->len = zDataLen;
+        strcpy(zpVersionIf->data, zpRes);
 
-            zCheck_Null_Exit(zpIf = malloc(zLen));
-            zpIf->hints[0] = sizeof(zFileDiffInfo) - sizeof(zpIf->PathLen);
-            zpIf->hints[3] = sizeof(zFileDiffInfo) - sizeof(zpIf->PathLen) - sizeof(zpIf->p_DiffContent) - sizeof(zpIf->VecSiz);
-            zpIf->CacheVersion = zNewVersion;
-            zpIf->RepoId= zRepoId;
-            zpIf->FileIndex = i;
-            strcpy(zpIf->path, zpRes[0]);
+        zSortedVersionVecIf[zCnter].iov_base = zVersionVecIf[zVecId].iov_base = zpVersionIf;
+    }
+    pclose(zpShellRetHandler);
 
-            zpNewCacheVec[0][i].iov_base = zpIf;
-            zpNewCacheVec[0][i].iov_len = zLen;
-
-            // 必须在shell命令中切换到正确的工作路径
-            sprintf(zShellBuf[1], "cd %s && git diff HEAD CURRENT -- %s | wc -l && git diff HEAD CURRENT -- %s", zppRepoPathList[zRepoId], zpRes[0], zpRes[0]);
-            zCheck_Null_Exit(zpShellRetHandler[1] = popen(zShellBuf[1], "r"));
-
-            zCheck_Null_Exit(zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1]));  // 读出差异行总数
-            zDiffLineNum = strtol(zpRes[1], NULL, 10);
-            zpIf->VecSiz = zDiffLineNum;  // 填充文件内容差别行数
-
-            zMem_Alloc(zpNewCacheVec[1], struct iovec, zDiffLineNum);  // 为每个文件的详细差异内容分配iovec[1]分配空间
-            zpIf->p_DiffContent = zpNewCacheVec[1];  // 填充文件内容差别详情
-
-            for (_i j = 0; NULL != (zpRes[1] =zget_one_line_from_FILE(zpShellRetHandler[1])); j++) {
-                zLen = 1 + strlen(zpRes[1]);
-                zMem_Alloc(zpNewCacheVec[1][j].iov_base, char, zLen);
-                strcpy(zpNewCacheVec[1][j].iov_base, zpRes[1]);
-
-                zpNewCacheVec[1][j].iov_len = zLen;
-            }
-            pclose(zpShellRetHandler[1]);
-        }
-        pclose(zpShellRetHandler[0]);
+    zObjCnt = zVersionHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter) ? zVersionHashSiz : (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter);
+    while (zCnter < zObjCnt) {
+        if (zVersionHashSiz == zVecId) { zVecId = 0; }
+        zSortedVersionVecIf[zCnter++] = zVersionVecIf[zVecId++];
     }
 
-    zppCacheVecIf[zRepoId] = zpNewCacheVec[0]; // 更新全局变量
+    static zVecInfo zRetIf;
+    zRetIf.p_vec = zSortedVersionVecIf;
+    zRetIf.VecSiz = zObjCnt;  // 存储的是实际的对象数量
+    zpRepoGlobIf[zRepoId].p_VecIf[0] = &zRetIf;
 
-    pthread_rwlock_unlock( &(zpRWLock[zRepoId]) );
+    _i i;
+    for (i = 0; i < (zCommitPreCacheSiz < zRetIf.VecSiz ? zCommitPreCacheSiz : zRetIf.VecSiz); i++) {  // 预生成最近 zCommitPreCacheSiz 次提交的缓存
+        zget_file_diff_info(zRepoId, i, -1);
+    }
+    for(; (i < zRetIf.VecSiz) && (NULL != (zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[i].iov_base); i++) {  // 释放旧缓存（已失效）
+        zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[i].iov_base);
+    }
 }
 
 void
-zthread_update_diff_cache(void *zpIf) {
+zthread_update_commit_cache(void *zpIf) {
 // TEST:PASS
-    _i zRepoId = ((zObjInfo *)zpIf)->RepoId;
-    zupdate_diff_cache(zRepoId);
+    _i zRepoId = *((_i *)(zpIf));
+
+    pthread_rwlock_wrlock( &(zpRepoGlobIf[zRepoId].RwLock) );
+    zupdate_commit_version_info(zRepoId);
+    pthread_rwlock_unlock( &(zpRepoGlobIf[zRepoId].RwLock) );
 }
 
 /*
@@ -398,35 +328,35 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     zDeployResInfo *zpTmpIf;
 
     _i zFd[2] = {-9};
-    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY));  // 打开客户端ip地址数据库文件
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
     close(zFd[0]);
 
-    zpTotalHost[zRepoId] = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
-    zMem_Alloc(zppDpResList[zRepoId], zDeployResInfo, zpTotalHost[zRepoId]);  // 分配数组空间，用于顺序读取
-    zMem_C_Alloc(zpppDpResHash[zRepoId], zDeployResInfo *, zDeployHashSiz);  // 对应的 HASH 索引,用于快速定位写入
-    for (_i j = 0; j < zpTotalHost[zRepoId]; j++) {
-        (zppDpResList[zRepoId][j].hints)[3] = sizeof(zDeployResInfo) - sizeof(zppDpResList[zRepoId][j].DeployState) - sizeof(zppDpResList[zRepoId][j].p_next);  // hints[3] 用于提示前端回发多少字节的数据
-        zppDpResList[zRepoId][j].RepoId = zRepoId;  // 写入代码库索引值
-        zppDpResList[zRepoId][j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
-        zppDpResList[zRepoId][j].p_next = NULL;
+    zpRepoGlobIf[zRepoId].TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
+    zMem_Alloc(zpRepoGlobIf[zRepoId].p_DpResList, zDeployResInfo, zpRepoGlobIf[zRepoId].TotalHost);  // 分配数组空间，用于顺序读取
+
+    for (_i j = 0; j < zpRepoGlobIf[zRepoId].TotalHost; j++) {
+        (zpRepoGlobIf[zRepoId].p_DpResList->hints)[3] = sizeof(zDeployResInfo) - sizeof(zpRepoGlobIf[zRepoId].p_DpResList->DeployState) - sizeof(zpRepoGlobIf[zRepoId].p_DpResList->p_next);  // hints[3] 用于提示前端回发多少字节的数据
+        zpRepoGlobIf[zRepoId].p_DpResList[j].RepoId = zRepoId;  // 写入代码库索引值
+        zpRepoGlobIf[zRepoId].p_DpResList[j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+        zpRepoGlobIf[zRepoId].p_DpResList[j].p_next = NULL;
 
         errno = 0;
-        if (zSizeOf(_ui) != read(zFd[1], &(zppDpResList[zRepoId][j].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+        if (zSizeOf(_ui) != read(zFd[1], &(zpRepoGlobIf[zRepoId].p_DpResList->ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
             zPrint_Err(errno, NULL, "read client info failed!");
             exit(1);
         }
 
-        zpTmpIf = zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz];  // HASH 定位
+        zpTmpIf = zpRepoGlobIf[zRepoId].p_DpResHash[(zpRepoGlobIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
-            zpppDpResHash[zRepoId][(zppDpResList[zRepoId][j].ClientAddr) % zDeployHashSiz] = &(zppDpResList[zRepoId][j]);  // 若顶层为空，直接指向数组中对应的位置
+            zpRepoGlobIf[zRepoId].p_DpResHash[(zpRepoGlobIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz] = &(zpRepoGlobIf[zRepoId].p_DpResList[j]);  // 若顶层为空，直接指向数组中对应的位置
         } else {
             while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
                 zpTmpIf = zpTmpIf->p_next;
             }
 
-            zpTmpIf->p_next = &(zppDpResList[zRepoId][j]);
+            zpTmpIf->p_next = &(zpRepoGlobIf[zRepoId].p_DpResList[j]);
         }
     }
 
@@ -444,9 +374,9 @@ zupdate_ipv4_db_all(_i zRepoId) {
     _ui zIpv4Addr = 0;
     _i zFd[3] = {0};
 
-    pthread_rwlock_wrlock(&(zpRWLock[zRepoId]));
+    pthread_rwlock_wrlock(&(zpRepoGlobIf[zRepoId].RwLock));
 
-    zCheck_Negative_Exit(zFd[0] = open(zppRepoPathList[zRepoId], O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
 
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY));
     zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
@@ -479,7 +409,7 @@ zupdate_ipv4_db_all(_i zRepoId) {
     // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
     zupdate_ipv4_db_hash(zRepoId);
 
-    pthread_rwlock_unlock(&(zpRWLock[zRepoId]));
+    pthread_rwlock_unlock(&(zpRepoGlobIf[zRepoId].RwLock));
 }
 
 void
@@ -500,10 +430,10 @@ zthread_common_func(void *zpIf) {
     char zShellBuf[zCommonBufSiz];
 
     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify %d %s %s",
-            zppRepoPathList[zpObjIf->RepoId],
-            zpObjIf->RepoId,
-            zppRepoPathList[zpObjIf->RepoId],
-            zpObjHash[zpObjIf->UpperWid]->path);
+        zpRepoGlobIf[zpObjIf->RepoId].RepoPath,
+        zpObjIf->RepoId,
+        zpRepoGlobIf[zpObjIf->RepoId].RepoPath,
+        zpObjHash[zpObjIf->UpperWid]->path);
 
     if (0 != system(zShellBuf)) {
         zPrint_Err(0, NULL, "[system]: shell command failed!");

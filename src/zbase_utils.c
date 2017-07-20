@@ -140,14 +140,19 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 }
 
 // Send message from multi positions.
+typedef struct {
+    struct iovec *p_vec;
+    _i VecSiz;
+} zVecInfo;
+
 _i
-zsendmsg(_i zSd, struct iovec *zpIov, _i zIovSiz, _i zFlags, struct sockaddr *zpAddr) {
+zsendmsg(_i zSd, zVecInfo *zpVecIf, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
         .msg_namelen = INET_ADDRSTRLEN,
-        .msg_iov = zpIov,
-        .msg_iovlen = zIovSiz,
+        .msg_iov = zpVecIf->p_vec,
+        .msg_iovlen = zpVecIf->VecSiz,
         .msg_control = NULL,
         .msg_controllen = 0,
         .msg_flags = 0
@@ -286,6 +291,6 @@ zsleep(_d zSecs) {
 void
 zthread_system(void *zpCmd) {
     if (0 != system((char *) zpCmd)) {
-        zPrint_Err(0, NULL, "[system]: shell command failed!");
+    zPrint_Err(0, NULL, "[system]: shell command failed!");
     }
 }

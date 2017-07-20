@@ -10,7 +10,7 @@
 
 struct zPCRERetInfo{
     char *p_rets[zMatchLimit];  //matched results
-    _i cnt;             //total num of matched substrings
+    _i cnt;         //total num of matched substrings
 //  char *p_NewSubject;      //store the new subject after substitution
 };
 typedef struct zPCRERetInfo zPCRERetInfo;
