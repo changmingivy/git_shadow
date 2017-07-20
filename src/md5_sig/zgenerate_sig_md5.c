@@ -58,14 +58,14 @@ _uc PADDING[]={ 0x80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 
 void
 MD5Encode(_uc *output,_ui *input,_ui len) {
-    _ui i = 0,j = 0;
-    while(j < len) {
-    output[j] = input[i] & 0xFF;
-    output[j+1] = (input[i] >> 8) & 0xFF;
-    output[j+2] = (input[i] >> 16) & 0xFF;
-    output[j+3] = (input[i] >> 24) & 0xFF;
-    i++;
-    j+=4;
+        _ui i = 0,j = 0;
+        while(j < len) {
+        output[j] = input[i] & 0xFF;
+        output[j+1] = (input[i] >> 8) & 0xFF;
+        output[j+2] = (input[i] >> 16) & 0xFF;
+        output[j+3] = (input[i] >> 24) & 0xFF;
+        i++;
+        j+=4;
     }
 }
 
@@ -74,12 +74,12 @@ MD5Decode(_ui *output,_uc *input,_ui len) {
     _ui i = 0,j = 0;
     while(j < len)
     {
-    output[i] = (input[j]) |
-        (input[j+1] << 8) |
-        (input[j+2] << 16) |
-        (input[j+3] << 24);
-    i++;
-    j+=4;
+        output[i] = (input[j]) |
+            (input[j+1] << 8) |
+            (input[j+2] << 16) |
+            (input[j+3] << 24);
+        i++;
+        j+=4;
     }
 }
 
@@ -188,13 +188,14 @@ MD5Update(MD5_CTX *context,_uc *input,_ui inputlen) {
     context->count[1] += inputlen >> 29;
 
     if(inputlen >= partlen) {
-    memcpy(&context->buffer[index],input,partlen);
-    MD5Transform(context->state,context->buffer);
-    for(i = partlen;i+64 <= inputlen;i+=64)
-        MD5Transform(context->state,&input[i]);
-    index = 0;
+        memcpy(&context->buffer[index],input,partlen);
+        MD5Transform(context->state,context->buffer);
+        for(i = partlen;i+64 <= inputlen;i+=64) {
+            MD5Transform(context->state,&input[i]);
+        }
+        index = 0;
     } else {
-    i = 0;
+        i = 0;
     }
     memcpy(&context->buffer[index],&input[i],inputlen-i);
 }

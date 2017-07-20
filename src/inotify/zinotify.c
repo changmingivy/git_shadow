@@ -83,47 +83,47 @@ zinotify_wait(void *_) {
     for (;;) {
     zCheck_Negative_Exit( zLen = read(zInotifyFD, zBuf, zSizeOf(zBuf)) );
 
-    for (zpOffset = zBuf; zpOffset < zBuf + zLen;
-        zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
-        zpEv = (struct inotify_event *)zpOffset;
+        for (zpOffset = zBuf; zpOffset < zBuf + zLen;
+            zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
+            zpEv = (struct inotify_event *)zpOffset;
 
-        if (1 == zpObjHash[zpEv->wd]->RecursiveMark
-            && (zpEv->mask & IN_ISDIR)
-            && ((zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO))) {
+            if (1 == zpObjHash[zpEv->wd]->RecursiveMark
+                && (zpEv->mask & IN_ISDIR)
+                && ((zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO))) {
 
-            // If a new subdir is created or moved in, add it to the watch list.
-            zPCRERetInfo *zpRetIf = NULL;  // 首先检测是否在被忽略的范围之内
-            zPCREInitInfo *zpPCREInitIf = zpcre_init(zpObjHash[zpEv->wd]->zpRegexPattern);  // 暂时在此处编译正则表达式，后续优化，当前效率较低
-            zpRetIf = zpcre_match(zpPCREInitIf, zpEv->name, 0);
-            if (0 == zpRetIf->cnt) {
-                zpcre_free_tmpsource(zpRetIf);
-            } else {
-                zpcre_free_tmpsource(zpRetIf);
-                continue;
+                // If a new subdir is created or moved in, add it to the watch list.
+                zPCRERetInfo *zpRetIf = NULL;  // 首先检测是否在被忽略的范围之内
+                zPCREInitInfo *zpPCREInitIf = zpcre_init(zpObjHash[zpEv->wd]->zpRegexPattern);  // 暂时在此处编译正则表达式，后续优化，当前效率较低
+                zpRetIf = zpcre_match(zpPCREInitIf, zpEv->name, 0);
+                if (0 == zpRetIf->cnt) {
+                    zpcre_free_tmpsource(zpRetIf);
+                } else {
+                    zpcre_free_tmpsource(zpRetIf);
+                    continue;
+                }
+
+                // Must do "malloc" here.
+                // 分配的内存包括路径名称长度
+                zObjInfo *zpSubIf = malloc(zSizeOf(zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->path) + zpEv->len);
+                zCheck_Null_Return(zpSubIf,);
+
+                // 为新监控目标填冲基本信息
+                zpSubIf->RepoId = zpObjHash[zpEv->wd]->RepoId;
+                zpSubIf->UpperWid = zpObjHash[zpEv->wd]->UpperWid;
+                zpSubIf->zpRegexPattern = zpObjHash[zpEv->wd]->zpRegexPattern;
+                zpSubIf->CallBack = zpObjHash[zpEv->wd]->CallBack;
+                zpSubIf->RecursiveMark = zpObjHash[zpEv->wd]->RecursiveMark;
+
+                strcpy(zpSubIf->path, zpObjHash[zpEv->wd]->path);
+                strcat(zpSubIf->path, "/");
+                strcat(zpSubIf->path, zpEv->name);
+
+                zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
             }
 
-            // Must do "malloc" here.
-            // 分配的内存包括路径名称长度
-            zObjInfo *zpSubIf = malloc(zSizeOf(zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->path) + zpEv->len);
-            zCheck_Null_Return(zpSubIf,);
-
-            // 为新监控目标填冲基本信息
-            zpSubIf->RepoId = zpObjHash[zpEv->wd]->RepoId;
-            zpSubIf->UpperWid = zpObjHash[zpEv->wd]->UpperWid;
-            zpSubIf->zpRegexPattern = zpObjHash[zpEv->wd]->zpRegexPattern;
-            zpSubIf->CallBack = zpObjHash[zpEv->wd]->CallBack;
-            zpSubIf->RecursiveMark = zpObjHash[zpEv->wd]->RecursiveMark;
-
-            strcpy(zpSubIf->path, zpObjHash[zpEv->wd]->path);
-            strcat(zpSubIf->path, "/");
-            strcat(zpSubIf->path, zpEv->name);
-
-            zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
+            if (NULL != zpObjHash[zpEv->wd]->CallBack) {
+                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
+            }
         }
-
-        if (NULL != zpObjHash[zpEv->wd]->CallBack) {
-            zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
-        }
-    }
     }
 }

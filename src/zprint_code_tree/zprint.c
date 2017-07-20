@@ -6,13 +6,13 @@ void
 zget_children_summary(const zNodeInfo *zpNodeIf, _i *zpResOUT) {
 // TEST: pass!
     if (NULL != zpNodeIf) {
-    *zpResOUT += zpNodeIf->total;
+        *zpResOUT += zpNodeIf->total;
 
-    zNodeInfo *zp0NodeIf;
-    for (_i i = 0; i < zpNodeIf->total; i++) {
-        zp0NodeIf = zpNodeIf->pp_children[i];
-        zget_children_summary(zp0NodeIf, zpResOUT);
-    }
+        zNodeInfo *zp0NodeIf;
+        for (_i i = 0; i < zpNodeIf->total; i++) {
+            zp0NodeIf = zpNodeIf->pp_children[i];
+            zget_children_summary(zp0NodeIf, zpResOUT);
+        }
     }
 }
 

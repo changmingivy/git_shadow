@@ -170,70 +170,70 @@ zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
     zpInitIf[7] = zpcre_init("\\S+(?=\\s*($|#))");  // 回调函数ID
 
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
-    (*zpLineNum)++;  // 维持行号
-    zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
-    if (0 == zpRetIf[0]->cnt) {
-        zpcre_free_tmpsource(zpRetIf[0]);
-    } else {  // 若是空白行或注释行，跳过
-        zpcre_free_tmpsource(zpRetIf[0]);
-        continue;
-    }
-
-    if (strlen(*zppRes) == 0) { continue; }
-
-    zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
-    if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
-        zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
-        if (0 == zpRetIf[2]->cnt) {
-        zPrint_Time();
-        fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
-        zpcre_free_tmpsource(zpRetIf[1]);
-        zpcre_free_tmpsource(zpRetIf[2]);
-        exit(1);
-        } else {
-        zpcre_free_tmpsource(zpRetIf[1]);
-        zpcre_free_tmpsource(zpRetIf[2]);
-        goto zMark;
+        (*zpLineNum)++;  // 维持行号
+        zpRetIf[0] = zpcre_match(zpInitIf[0], *zppRes, 0);
+        if (0 == zpRetIf[0]->cnt) {
+            zpcre_free_tmpsource(zpRetIf[0]);
+        } else {  // 若是空白行或注释行，跳过
+            zpcre_free_tmpsource(zpRetIf[0]);
+            continue;
         }
-    } else {
-        zpcre_free_tmpsource(zpRetIf[1]);
-    }
 
-    zpRetIf[3] = zpcre_match(zpInitIf[3], *zppRes, 0);
-    zpRetIf[4] = zpcre_match(zpInitIf[4], *zppRes, 0);
-    zpRetIf[5] = zpcre_match(zpInitIf[5], *zppRes, 0);
-    zpRetIf[6] = zpcre_match(zpInitIf[6], *zppRes, 0);
-    zpRetIf[7] = zpcre_match(zpInitIf[7], *zppRes, 0);
+        if (strlen(*zppRes) == 0) { continue; }
 
-    zRepoId = strtol(zpRetIf[3]->p_rets[0], NULL, 10);
-    if ('/' == zpRetIf[4]->p_rets[0][0]) {
-        zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[4]->p_rets[0]));  // 为新条目分配内存
-        zCheck_Null_Exit(zpObjIf);
-        strcpy(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
-    } else {
-        zpObjIf = malloc(sizeof(zObjInfo) + 2 + strlen(zpRetIf[4]->p_rets[0]) + strlen(zpRepoGlobIf[zRepoId].RepoPath));  // 为新条目分配内存
-        zCheck_Null_Exit(zpObjIf);
-        strcpy(zpObjIf->path, zpRepoGlobIf[zRepoId].RepoPath);
-        strcat(zpObjIf->path, "/");
-        strcat(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
-    }
+        zpRetIf[1] = zpcre_match(zpInitIf[1], *zppRes, 0);
+        if (0 == zpRetIf[1]->cnt) {  // 若检测到格式有误的语句，报错后退出
+            zpRetIf[2] = zpcre_match(zpInitIf[2], *zppRes, 0);
+            if (0 == zpRetIf[2]->cnt) {
+            zPrint_Time();
+            fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,*zppRes);
+            zpcre_free_tmpsource(zpRetIf[1]);
+            zpcre_free_tmpsource(zpRetIf[2]);
+            exit(1);
+            } else {
+            zpcre_free_tmpsource(zpRetIf[1]);
+            zpcre_free_tmpsource(zpRetIf[2]);
+            goto zMark;
+            }
+        } else {
+            zpcre_free_tmpsource(zpRetIf[1]);
+        }
 
-    zCheck_Negative_Exit(zFd = open(zpObjIf->path, O_RDONLY));  // 检测被监控目标的路径合法性
-    close(zFd);
+        zpRetIf[3] = zpcre_match(zpInitIf[3], *zppRes, 0);
+        zpRetIf[4] = zpcre_match(zpInitIf[4], *zppRes, 0);
+        zpRetIf[5] = zpcre_match(zpInitIf[5], *zppRes, 0);
+        zpRetIf[6] = zpcre_match(zpInitIf[6], *zppRes, 0);
+        zpRetIf[7] = zpcre_match(zpInitIf[7], *zppRes, 0);
 
-    zpObjIf->RepoId = zRepoId;  // 所属版本库ID
-    zMem_Alloc(zpObjIf->zpRegexPattern, char, 1 + strlen(zpRetIf[5]->p_rets[0]));
-    strcpy(zpObjIf->zpRegexPattern, zpRetIf[5]->p_rets[0]); // 正则字符串
-    zpObjIf->RecursiveMark = ('y' == tolower(zpRetIf[6]->p_rets[0][0])) ? 1 : 0; // 递归标识
-    zpObjIf->CallBack = zCallBackList[strtol(zpRetIf[7]->p_rets[0], NULL, 10)];  // 回调函数
+        zRepoId = strtol(zpRetIf[3]->p_rets[0], NULL, 10);
+        if ('/' == zpRetIf[4]->p_rets[0][0]) {
+            zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[4]->p_rets[0]));  // 为新条目分配内存
+            zCheck_Null_Exit(zpObjIf);
+            strcpy(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
+        } else {
+            zpObjIf = malloc(sizeof(zObjInfo) + 2 + strlen(zpRetIf[4]->p_rets[0]) + strlen(zpRepoGlobIf[zRepoId].RepoPath));  // 为新条目分配内存
+            zCheck_Null_Exit(zpObjIf);
+            strcpy(zpObjIf->path, zpRepoGlobIf[zRepoId].RepoPath);
+            strcat(zpObjIf->path, "/");
+            strcat(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
+        }
 
-    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);  // 检测到有效条目，加入inotify监控队列
+        zCheck_Negative_Exit(zFd = open(zpObjIf->path, O_RDONLY));  // 检测被监控目标的路径合法性
+        close(zFd);
 
-    zpcre_free_tmpsource(zpRetIf[3]);
-    zpcre_free_tmpsource(zpRetIf[4]);
-    zpcre_free_tmpsource(zpRetIf[5]);
-    zpcre_free_tmpsource(zpRetIf[6]);
-    zpcre_free_tmpsource(zpRetIf[7]);
+        zpObjIf->RepoId = zRepoId;  // 所属版本库ID
+        zMem_Alloc(zpObjIf->zpRegexPattern, char, 1 + strlen(zpRetIf[5]->p_rets[0]));
+        strcpy(zpObjIf->zpRegexPattern, zpRetIf[5]->p_rets[0]); // 正则字符串
+        zpObjIf->RecursiveMark = ('y' == tolower(zpRetIf[6]->p_rets[0][0])) ? 1 : 0; // 递归标识
+        zpObjIf->CallBack = zCallBackList[strtol(zpRetIf[7]->p_rets[0], NULL, 10)];  // 回调函数
+
+        zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);  // 检测到有效条目，加入inotify监控队列
+
+        zpcre_free_tmpsource(zpRetIf[3]);
+        zpcre_free_tmpsource(zpRetIf[4]);
+        zpcre_free_tmpsource(zpRetIf[5]);
+        zpcre_free_tmpsource(zpRetIf[6]);
+        zpcre_free_tmpsource(zpRetIf[7]);
     }
 
 zMark:
@@ -322,7 +322,7 @@ zconfig_file_monitor(const char *zpConfPath) {
             zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
             zpEv = (const struct inotify_event *)zpOffset;
             if (zpEv->mask & (IN_MODIFY | IN_MOVE_SELF | IN_DELETE_SELF | IN_IGNORED)) {
-            return;
+                return;
             }
         }
     }
