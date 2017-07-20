@@ -35,6 +35,7 @@
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zLogCacheSiz 64  // 预缓存日志数量
+#define zVersionHashSiz 1024
 #define zCommitPreCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
@@ -55,19 +56,6 @@ typedef struct {
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
 //----------------------------------
-
-typedef struct {
-    char hints[4];   // 用于填充提示类信息，如：提示从何处开始读取需要的数据
-    _i RepoId;  // 索引每个代码库路径
-    _i FileIndex;  // 缓存中每个文件路径的索引
-    _i CacheVersion;  // 文件差异列表及文件内容差异详情的缓存
-
-    struct iovec *p_DiffContent;  // 指向具体的文件差异内容，按行存储
-    _i VecSiz;  // 对应于文件差异内容的总行数
-
-    _i PathLen;  // 文件路径长度，提供给前端使用
-    char path[];  // 相对于代码库的路径
-} zFileDiffInfo;
 
 typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
@@ -93,7 +81,6 @@ typedef struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 } zNetServInfo;
 
-#define zVersionHashSiz 1024
 typedef struct {
     _i SelfId;
     zVecInfo *p_SubObjVecIf;
