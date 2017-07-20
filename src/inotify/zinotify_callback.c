@@ -7,30 +7,30 @@
  ****************/
 // 此部分的多个函数用于生成缓存：差异文件列表、每个文件的差异内容、最近的布署日志信息
 
-void
-zupdate_sig_cache(void *zpRepoId) {
-// TEST:PASS
-    _i zRepoId = *((_i *)zpRepoId);
-    char zShellBuf[zCommonBufSiz], *zpRes;
-    FILE *zpShellRetHandler;
-
-    /* 以下部分更新所属代码库的CURRENT SHA1 sig值 */
-    sprintf(zShellBuf, "cd %s && git log --format=%%H -n 1 CURRENT", zpRepoGlobIf[zRepoId].RepoPath);
-    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
-    zCheck_Null_Exit(zpRes = zget_one_line_from_FILE(zpShellRetHandler));  // 读取CURRENT分支的SHA1 sig值
-
-    if (zBytes(40) > strlen(zpRes)) {
-        zPrint_Err(0, NULL, "Invalid CURRENT sig!!!");
-        exit(1);
-    }
-
-    if (NULL == zppCURRENTsig[zRepoId]) {
-        zMem_Alloc(zppCURRENTsig[zRepoId], char, zBytes(41));  // 含 '\0'
-    }
-
-    strncpy(zppCURRENTsig[zRepoId], zpRes, zBytes(41));  // 更新对应代码库的最新CURRENT 分支SHA1 sig
-    pclose(zpShellRetHandler);
-}
+//void
+//zupdate_sig_cache(void *zpRepoId) {
+//// TEST:PASS
+//    _i zRepoId = *((_i *)zpRepoId);
+//    char zShellBuf[zCommonBufSiz], *zpRes;
+//    FILE *zpShellRetHandler;
+//
+//    /* 以下部分更新所属代码库的CURRENT SHA1 sig值 */
+//    sprintf(zShellBuf, "cd %s && git log --format=%%H -n 1 CURRENT", zpRepoGlobIf[zRepoId].RepoPath);
+//    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+//    zCheck_Null_Exit(zpRes = zget_one_line_from_FILE(zpShellRetHandler));  // 读取CURRENT分支的SHA1 sig值
+//
+//    if (zBytes(40) > strlen(zpRes)) {
+//        zPrint_Err(0, NULL, "Invalid CURRENT sig!!!");
+//        exit(1);
+//    }
+//
+//    if (NULL == zppCURRENTsig[zRepoId]) {
+//        zMem_Alloc(zppCURRENTsig[zRepoId], char, zBytes(41));  // 含 '\0'
+//    }
+//
+//    strncpy(zppCURRENTsig[zRepoId], zpRes, zBytes(41));  // 更新对应代码库的最新CURRENT 分支SHA1 sig
+//    pclose(zpShellRetHandler);
+//}
 
 void
 zupdate_log_cache(void *zpDeployLogIf) {
@@ -92,29 +92,29 @@ zupdate_log_cache(void *zpDeployLogIf) {
  * 功能：生成单次提交的文件差异列表及差异内容缓存
  * 返回：若 zFileId 参数为 -1，返回文件差异内容；否则返回差异文件列表，以 iovec 数组形式存储
  */
-#define zget_sub_info(zpObj, zSubObjId) ((zCodeInfo *)((((zpObj)->p_SubObjVecIf)->p_vec)[zSubObjId].iov_base))
+#define zGet_OneVersionIf(zRepoId, zCommitId) ((zCodeInfo *)(zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base))
+#define zGet_OneFileIf(zRepoId, zCommitId, zFileId) ((zCodeInfo *)(zGet_OneVersionIf(zRepoId, zCommitId)->p_SubObjVecIf->p_vec[zFileId].iov_base))
 void
 zget_file_diff_info(_i zRepoId, _i zCommitId, _i zFileId) {
-    zVecInfo *zpRetIf;
-    struct iovec *zpVecIf;
     zCodeInfo *zpCodeIf;  // 此项是 iovec 的 io_base 字段
-    zCodeInfo *zpCommitSigIf, *zpFileDiffIf;
+    zCodeInfo *zpOneCommitIf, *zpOneFileIf;
     _i zVecId, zDataLen;
     _i zAllocSiz = 128;
 
     FILE *zpShellRetHandler;
     char *zpRes, zShellBuf[zCommonBufSiz];
 
+    zVecInfo *zpRetIf;
+    struct iovec *zpVecIf;
     zMem_Alloc(zpVecIf, struct iovec, zAllocSiz);
 
-    zpCommitSigIf = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base;  // 按 zCommitId 索引出 "CommitSig" 所在的 zVecInfo 结构体
-    zpFileDiffIf = (-1 == zFileId) ? NULL : zget_sub_info(zpCommitSigIf, zFileId);  // 按 zFileId 索引出 "文件路径名称" 所在的 zVecInfo 结构体，只有取文件内容差异的时候会用到
+    zpOneFileIf = (-1 == zFileId) ? NULL : zGet_OneFileIf(zRepoId, zCommitId, zFileId);  // 按 zFileId 索引出 "文件路径名称" 所在的 zVecInfo 结构体，只有取文件内容差异的时候会用到
 
     // 必须在shell命令中切换到正确的工作路径
     sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpRepoGlobIf[zRepoId].RepoPath,
         (-1 == zFileId) ? "--name-only" : "",
-        zpCommitSigIf->data,
-        (-1 == zFileId) ? "" : zpFileDiffIf->data);
+        (char *)(1 + zpOneCommitIf->data),
+        (-1 == zFileId) ? "" : (char *)(zpOneFileIf->data));
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     for (zVecId = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); zVecId++) {
@@ -128,7 +128,7 @@ zget_file_diff_info(_i zRepoId, _i zCommitId, _i zFileId) {
 
         zpCodeIf->SelfId = zVecId;
         zpCodeIf->len = zDataLen;
-        strcpy(zpCodeIf->data, zpRes);
+        strcpy((char *)(zpCodeIf->data), zpRes);
 
         zpVecIf[zVecId].iov_base = zpCodeIf;
     }
@@ -146,35 +146,37 @@ zget_file_diff_info(_i zRepoId, _i zCommitId, _i zFileId) {
     zpRetIf->VecSiz = zVecId;
 
     if (-1 == zFileId) {
-        ((zCodeInfo *)(zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base))->p_SubObjVecIf = zpRetIf;
-        for (_i i = 0; i < zpRetIf->VecSiz; i++) {
-               zget_file_diff_info(zRepoId, zCommitId, i);
+        zpOneCommitIf->p_SubObjVecIf = zpRetIf;
+        for (_i zId = 0; zId < zpRetIf->VecSiz; zId++) {
+           zget_file_diff_info(zRepoId, zCommitId, zId);
         }
     } else {
-        ((zCodeInfo *)(((zCodeInfo *)(zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base))->p_SubObjVecIf->p_vec[zFileId].iov_base))->p_SubObjVecIf = zpRetIf;
+		zGet_OneFileIf(zRepoId, zCommitId, zFileId)->p_SubObjVecIf = zpRetIf;
     }
 }
 
 /*
- *  传入的是一个单次commit信息，内含 “差异文件列表的 zCodeInfo 结构体指针“，需要释放文件列表结构及其内部的文件内容结构
+ *  传入的是一个单次commit信息，内含 “差异文件列表的 zCodeInfo 结构体指针“
+ *  需要释放文件列表结构及其内部的文件内容结构
  */
 void
-zfree_version_source(zCodeInfo *zpIf) {
-    zCodeInfo *zpToFree;
-    _i i, j;
+zfree_one_version_cache(_i zRepoId, _i zCommitId) {
+    if (NULL == zGet_OneVersionIf(zRepoId, zCommitId)) { return; }
 
-    if (NULL == zpIf) { return; }
-
-    for (i = 0; i < zpIf->p_SubObjVecIf->VecSiz; i++) {  // 按文件个数循环
-        zpToFree = (zCodeInfo *) (zpIf->p_SubObjVecIf->p_vec[i].iov_base);
-        for (j = 0; j < zpToFree->p_SubObjVecIf->VecSiz; j++) {  // 按差异内容行数循环
-            free(zpToFree->p_SubObjVecIf->p_vec[j].iov_base);  // 行内容即 zCodeInfo 的最后的 data 字段，释放其所在结构体即可
+    for (_i i = 0; i < zGet_OneVersionIf(zRepoId, zCommitId)->p_SubObjVecIf->VecSiz; i++) {  // 按文件个数循环
+        for (_i j = 0; j < zGet_OneFileIf(zRepoId, zCommitId, i)->p_SubObjVecIf->VecSiz; j++) {  // 按差异内容行数循环
+            free(zGet_OneFileIf(zRepoId, zCommitId, i)->p_SubObjVecIf->p_vec[j].iov_base);  // 行内容即 zCodeInfo 的最后的 data 字段，释放其所在结构体即可
         }
-        free(zpToFree->p_SubObjVecIf);
-        free(zpToFree);  // 释放文件列表级别的zCodeInfo
+
+        free(zGet_OneFileIf(zRepoId, zCommitId, i)->p_SubObjVecIf);
+        free(zGet_OneFileIf(zRepoId, zCommitId, i));  // 释放文件列表级别的zCodeInfo
     }
-    free(zpIf->p_SubObjVecIf);
-    free(zpIf);  // 释放传入的单个CommitSig级别的zCodeInfo
+
+    free(zGet_OneVersionIf(zRepoId, zCommitId)->p_SubObjVecIf);
+    free(zGet_OneVersionIf(zRepoId, zCommitId));  // 释放传入的单个CommitSig级别的zCodeInfo
+
+	zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base = NULL;
+	zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_len = 0;
 }
 
 /*
@@ -182,102 +184,114 @@ zfree_version_source(zCodeInfo *zpIf) {
  * 返回：以 iovec 数组形式存储
  */
 void
-zinit_commit_version_info(_i zRepoId) {
-    static struct iovec zSortedVersionVecIf[zVersionHashSiz];
+zinit_version_cache(_i zRepoId) {
+    zVecInfo *zpRetIf, *zpSortedRetIf;
+	zMem_C_Alloc(zpRetIf, zVecInfo, 1);
+	zMem_C_Alloc(zpSortedRetIf, zVecInfo, 1);
+
+    struct iovec *zpVersionVecIf, *zpSortedVersionVecIf;
+	zMem_C_Alloc(zpVersionVecIf, struct iovec, zVersionHashSiz);
+	zMem_C_Alloc(zpSortedVersionVecIf, struct iovec, zVersionHashSiz);
+
     zCodeInfo *zpVersionIf;  // 此项是 iovec 的 io_base 字段
     _i zDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zShellBuf[zCommonBufSiz];
+    char *zpRes, zShellBuf[64];
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git log --format=%%H\\0%%ct", zpRepoGlobIf[zRepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zCnter = 0; (zCnter < zVersionHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
-        zpRes[40] = '\0';
-        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeInfo);
-        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen) );
+    for (zCnter = 0; (zCnter < zVersionHashSiz)
+			&& (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
+
+        zDataLen = 1 + sizeof(_i) + strlen(zpRes);
+        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen + sizeof(zCodeInfo)) );
 
         zpVersionIf->SelfId = zCnter;
         zpVersionIf->len = zDataLen;
-        strcpy(zpVersionIf->data, zpRes);
+		zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
+        strcpy((char *)(1 + zpVersionIf->data), zpRes);
 
-        zSortedVersionVecIf[zCnter].iov_base = zpVersionIf;
+        zpSortedVersionVecIf[zCnter].iov_base = zpVersionVecIf[zCnter].iov_base = zpVersionIf;
+        zpSortedVersionVecIf[zCnter].iov_len = zpVersionVecIf[zCnter].iov_len = zpVersionIf->len + sizeof(zCodeInfo);
     }
     pclose(zpShellRetHandler);
 
-    static zVecInfo zRetIf;
-    zRetIf.p_vec = zSortedVersionVecIf;
-    zRetIf.VecSiz = zCnter;  // 存储的是实际的对象数量
-    zpRepoGlobIf[zRepoId].p_VecIf[0] = &zRetIf;
+	zpRetIf->p_vec = zpVersionVecIf;
+	zpRetIf->VecSiz = zCnter;  // 存储的是实际的对象数量
+    zpSortedRetIf->p_vec = zpSortedVersionVecIf;
+    zpSortedRetIf->VecSiz = zCnter;
 
-    for (zCnter = 0; zCnter < (zCommitPreCacheSiz < zRetIf.VecSiz ? zCommitPreCacheSiz : zRetIf.VecSiz); zCnter++) {  // 预生成最近 zCommitPreCacheSiz 次提交的缓存
+    zpRepoGlobIf[zRepoId].p_VecIf[0] = zpRetIf;
+    zpRepoGlobIf[zRepoId].p_VecIf[1] = zpSortedRetIf;
+
+	// 预生成最近 zCommitPreCacheSiz 次提交的缓存
+    for (zCnter = 0; zCnter < (zCommitPreCacheSiz < zpRetIf->VecSiz ? zCommitPreCacheSiz : zpRetIf->VecSiz); zCnter++) {
         zget_file_diff_info(zRepoId, zCnter, -1);
     }
 }
 
 void
-zupdate_commit_version_info(_i zRepoId) {
-    struct iovec zVersionVecIf[zVersionHashSiz];
-    static struct iovec zSortedVersionVecIf[zVersionHashSiz];
+zupdate_version_cache(_i zRepoId) {
     zCodeInfo *zpVersionIf;  // 此项是 iovec 的 io_base 字段
-    _i zDataLen, zVecId, zCnter, zObjCnt;
+    _i zDataLen, zVecId, zCnter;
 
     FILE *zpShellRetHandler;
     char *zpRes, zShellBuf[zCommonBufSiz];
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H\\0%%ct", zpRepoGlobIf[zRepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zVecId = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz, zCnter = 0;
-        (zCnter < zVersionHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zVecId++, zCnter++) {
-        zpRes[40] = '\0';
-        if (zVersionHashSiz == zVecId) { zVecId = 0; }
+//    for (zVecId = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz, zCnter = 0; (zCnter < zVersionHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zVecId++, zCnter++) {
+//        if (zVersionHashSiz == zVecId) { zVecId = 0; }
+//
+//        zfree_one_version_cache(zRepoId, zVecId);
+//
+//        zDataLen = 1 + sizeof(_i) + strlen(zpRes);
+//        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen + sizeof(zCodeInfo)) );
+//
+//        zpVersionIf->SelfId = zVecId;
+//        zpVersionIf->len = zDataLen;
+//		zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
+//        strcpy((char *)(1 + zpVersionIf->data), zpRes);
+//
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter].iov_base = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_base = zpVersionIf;
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter].iov_len= zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_len= zpVersionIf->len + sizeof(zCodeInfo);
+//    }
+//    pclose(zpShellRetHandler);
+//
+//	if (zVersionHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter)) {
+//		zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz =zVersionHashSiz;
+//	} else {
+//		zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter;
+//	}
+//
+//    while (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz) {
+//        if (zVersionHashSiz == zVecId) { zVecId = 0; }
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter++].iov_base = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId++].iov_base;
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter++].iov_len = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId++].iov_len;
+//    }
 
-        if (NULL != zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_base) {
-            zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zVecId].iov_base);
-        }
-
-        zDataLen = 1 + strlen(zpRes) + sizeof(zCodeInfo);
-        zCheck_Null_Exit( zpVersionIf= malloc(zDataLen) );
-
-        zpVersionIf->SelfId = zVecId;
-        zpVersionIf->len = zDataLen;
-        strcpy(zpVersionIf->data, zpRes);
-
-        zSortedVersionVecIf[zCnter].iov_base = zVersionVecIf[zVecId].iov_base = zpVersionIf;
+    for (zCnter= 0; zCnter < (zCommitPreCacheSiz < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz ? zCommitPreCacheSiz : zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz); zCnter++) {
+	// 预生成最近 zCommitPreCacheSiz 次提交的缓存
+        zget_file_diff_info(zRepoId, zCnter, -1);
     }
-    pclose(zpShellRetHandler);
-
-    zObjCnt = zVersionHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter) ? zVersionHashSiz : (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter);
-    while (zCnter < zObjCnt) {
-        if (zVersionHashSiz == zVecId) { zVecId = 0; }
-        zSortedVersionVecIf[zCnter++] = zVersionVecIf[zVecId++];
-    }
-
-    static zVecInfo zRetIf;
-    zRetIf.p_vec = zSortedVersionVecIf;
-    zRetIf.VecSiz = zObjCnt;  // 存储的是实际的对象数量
-    zpRepoGlobIf[zRepoId].p_VecIf[0] = &zRetIf;
-
-    _i i;
-    for (i = 0; i < (zCommitPreCacheSiz < zRetIf.VecSiz ? zCommitPreCacheSiz : zRetIf.VecSiz); i++) {  // 预生成最近 zCommitPreCacheSiz 次提交的缓存
-        zget_file_diff_info(zRepoId, i, -1);
-    }
-    for(; (i < zRetIf.VecSiz) && (NULL != (zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[i].iov_base); i++) {  // 释放旧缓存（已失效）
-        zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[i].iov_base);
+    for(; (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz) && (NULL != (zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base); zCnter++) {
+	// 释放旧缓存（已失效）
+        zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base);
     }
 }
 
 void
-zthread_update_commit_cache(void *zpIf) {
+zthread_update_version_cache(void *zpIf) {
 // TEST:PASS
     _i zRepoId = *((_i *)(zpIf));
 
     pthread_rwlock_wrlock( &(zpRepoGlobIf[zRepoId].RwLock) );
-    zupdate_commit_version_info(zRepoId);
+    zupdate_version_cache(zRepoId);
     pthread_rwlock_unlock( &(zpRepoGlobIf[zRepoId].RwLock) );
 }
 
