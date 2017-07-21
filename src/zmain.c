@@ -55,7 +55,6 @@ typedef struct {
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
 } zObjInfo;
-//----------------------------------
 
 typedef struct {  // 布署日志信息的数据结构
     char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
@@ -68,7 +67,6 @@ typedef struct {  // 布署日志信息的数据结构
 } zDeployLogInfo;
 
 typedef struct zDeployResInfo {
-    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i RepoId;  // 所属代码库
     _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
@@ -95,23 +93,27 @@ typedef struct {
 
 typedef struct {
     _i RepoId;
+    _i CacheId;  // 最新一次布署的时间戳，即：CURRENT 分支的时间戳，没有布署日志时初始化为0
     char RepoPath[64];  // "/home/git/RepoName_TEST"
     pthread_rwlock_t RwLock;  // 每个代码库对应一把读写锁
     _i LogFd[2];  // 每个代码库的布署日志都需要二个日志文件：meta、sig，分别用于存储索引信息、SHA1-sig
-//    _i CacheVersion;
 
     _i TotalHost;
     _i ReplyCnt;
     zDeployResInfo *p_DpResList;
     zDeployResInfo *p_DpResHash[zDeployHashSiz];
 
-    zVecInfo *p_VecIf[2];  // VecIf[0]：Commit信息，VecIf[1]：Deploy信息
+    zVecInfo *p_VecIf[4];  // VecIf[0/1]：Commit信息，VecIf[2/3]：Deploy信息
 } zRepoInfo;
 
 zRepoInfo *zpRepoGlobIf;
 
+/*
+ * 此结构体用于接收前端传送的数据
+ */
 typedef struct {
-    char hints[4];
+    char hints[4];  // 前端将指令字符存储在第一个字节，后三个字节暂未用到
+	_i CacheId;
     _i RepoId;
     _i CommitId;
     _i FileId;
@@ -127,10 +129,9 @@ _i zInotifyFD;   // inotify 主描述符
 zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
-
-char **zppCURRENTsig;  // 每个代码库当前的CURRENT标签的SHA1 sig
-
 pthread_rwlockattr_t zRWLockAttr;
+
+//char **zppCURRENTsig;  // 每个代码库当前的CURRENT标签的SHA1 sig
 
 struct iovec **zppLogCacheVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
 struct iovec **zppSortedLogCacheVecIf;  // 按时间戳降序排列后的结果，这是向前端发送的最终结果

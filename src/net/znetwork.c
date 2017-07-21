@@ -226,9 +226,10 @@ zwrite_log_and_update_cache(_i zRepoId) {
     zDeployLogInfo zIf;
     memset(&zIf, 0, sizeof(zIf));
 
-    zupdate_sig_cache(&zRepoId);  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
+//    zupdate_sig_cache(&zRepoId);  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
 
     sprintf(zShellBuf, "cd %s && git log CURRENT -1 --name-only --format=", zpRepoGlobIf[zRepoId].RepoPath);
+    //sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     for (zLogSiz = 0; NULL != (zpBuf = zget_one_line_from_FILE(zpFile));) {
         zLogSiz += (2 + strlen(zpBuf));  // 获取本次布署的所有文件的路径长度之和，含换行符
