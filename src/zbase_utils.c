@@ -139,12 +139,6 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
     return zSentSiz;
 }
 
-// Send message from multi positions.
-typedef struct {
-    struct iovec *p_vec;
-    _i VecSiz;
-} zVecInfo;
-
 _i
 zsendmsg(_i zSd, zVecInfo *zpVecIf, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS

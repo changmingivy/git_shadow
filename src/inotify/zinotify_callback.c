@@ -151,7 +151,7 @@ zget_file_diff_info(_i zRepoId, _i zCommitId, _i zFileId) {
            zget_file_diff_info(zRepoId, zCommitId, zId);
         }
     } else {
-		zGet_OneFileIf(zRepoId, zCommitId, zFileId)->p_SubObjVecIf = zpRetIf;
+        zGet_OneFileIf(zRepoId, zCommitId, zFileId)->p_SubObjVecIf = zpRetIf;
     }
 }
 
@@ -175,8 +175,8 @@ zfree_one_version_cache(_i zRepoId, _i zCommitId) {
     free(zGet_OneVersionIf(zRepoId, zCommitId)->p_SubObjVecIf);
     free(zGet_OneVersionIf(zRepoId, zCommitId));  // 释放传入的单个CommitSig级别的zCodeInfo
 
-	zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base = NULL;
-	zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_len = 0;
+    zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_base = NULL;
+    zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zCommitId].iov_len = 0;
 }
 
 /*
@@ -186,12 +186,12 @@ zfree_one_version_cache(_i zRepoId, _i zCommitId) {
 void
 zinit_version_cache(_i zRepoId) {
     zVecInfo *zpRetIf, *zpSortedRetIf;
-	zMem_C_Alloc(zpRetIf, zVecInfo, 1);
-	zMem_C_Alloc(zpSortedRetIf, zVecInfo, 1);
+    zMem_C_Alloc(zpRetIf, zVecInfo, 1);
+    zMem_C_Alloc(zpSortedRetIf, zVecInfo, 1);
 
     struct iovec *zpVersionVecIf, *zpSortedVersionVecIf;
-	zMem_C_Alloc(zpVersionVecIf, struct iovec, zVersionHashSiz);
-	zMem_C_Alloc(zpSortedVersionVecIf, struct iovec, zVersionHashSiz);
+    zMem_C_Alloc(zpVersionVecIf, struct iovec, zVersionHashSiz);
+    zMem_C_Alloc(zpSortedVersionVecIf, struct iovec, zVersionHashSiz);
 
     zCodeInfo *zpVersionIf;  // 此项是 iovec 的 io_base 字段
     _i zDataLen, zCnter;
@@ -204,14 +204,14 @@ zinit_version_cache(_i zRepoId) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     for (zCnter = 0; (zCnter < zVersionHashSiz)
-			&& (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
+            && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
 
         zDataLen = 1 + sizeof(_i) + strlen(zpRes);
         zCheck_Null_Exit( zpVersionIf= malloc(zDataLen + sizeof(zCodeInfo)) );
 
         zpVersionIf->SelfId = zCnter;
         zpVersionIf->len = zDataLen;
-		zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
+        zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
         strcpy((char *)(1 + zpVersionIf->data), zpRes);
 
         zpSortedVersionVecIf[zCnter].iov_base = zpVersionVecIf[zCnter].iov_base = zpVersionIf;
@@ -219,15 +219,15 @@ zinit_version_cache(_i zRepoId) {
     }
     pclose(zpShellRetHandler);
 
-	zpRetIf->p_vec = zpVersionVecIf;
-	zpRetIf->VecSiz = zCnter;  // 存储的是实际的对象数量
+    zpRetIf->p_vec = zpVersionVecIf;
+    zpRetIf->VecSiz = zCnter;  // 存储的是实际的对象数量
     zpSortedRetIf->p_vec = zpSortedVersionVecIf;
     zpSortedRetIf->VecSiz = zCnter;
 
     zpRepoGlobIf[zRepoId].p_VecIf[0] = zpRetIf;
     zpRepoGlobIf[zRepoId].p_VecIf[1] = zpSortedRetIf;
 
-	// 预生成最近 zCommitPreCacheSiz 次提交的缓存
+    // 预生成最近 zCommitPreCacheSiz 次提交的缓存
     for (zCnter = 0; zCnter < (zCommitPreCacheSiz < zpRetIf->VecSiz ? zCommitPreCacheSiz : zpRetIf->VecSiz); zCnter++) {
         zget_file_diff_info(zRepoId, zCnter, -1);
     }
@@ -255,7 +255,7 @@ zupdate_version_cache(_i zRepoId) {
 //
 //        zpVersionIf->SelfId = zVecId;
 //        zpVersionIf->len = zDataLen;
-//		zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
+//        zpVersionIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
 //        strcpy((char *)(1 + zpVersionIf->data), zpRes);
 //
 //        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter].iov_base = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_base = zpVersionIf;
@@ -263,11 +263,11 @@ zupdate_version_cache(_i zRepoId) {
 //    }
 //    pclose(zpShellRetHandler);
 //
-//	if (zVersionHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter)) {
-//		zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz =zVersionHashSiz;
-//	} else {
-//		zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter;
-//	}
+//    if (zVersionHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter)) {
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz =zVersionHashSiz;
+//    } else {
+//        zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter;
+//    }
 //
 //    while (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz) {
 //        if (zVersionHashSiz == zVecId) { zVecId = 0; }
@@ -276,11 +276,11 @@ zupdate_version_cache(_i zRepoId) {
 //    }
 
     for (zCnter= 0; zCnter < (zCommitPreCacheSiz < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz ? zCommitPreCacheSiz : zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz); zCnter++) {
-	// 预生成最近 zCommitPreCacheSiz 次提交的缓存
+    // 预生成最近 zCommitPreCacheSiz 次提交的缓存
         zget_file_diff_info(zRepoId, zCnter, -1);
     }
     for(; (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz) && (NULL != (zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base); zCnter++) {
-	// 释放旧缓存（已失效）
+    // 释放旧缓存（已失效）
         zfree_version_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base);
     }
 }
