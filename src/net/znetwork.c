@@ -36,7 +36,7 @@ zlist_version(void *zpIf) {
 // TEST:PASS
     _i zSd = *((_i *)zpIf);
     zRecvInfo zIf = { .RepoId = -1, };
-    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId) -sizeof(zIf.CommitId);
+    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId) -sizeof(zIf.VersionId);
 
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zPrint_Err(0, NULL, "接收到的数据不完整!");
@@ -51,7 +51,7 @@ zlist_version(void *zpIf) {
     }
 
     pthread_rwlock_rdlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-    zsendmsg(zSd, ((zCodeInfo *)(zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
+    zsendmsg(zSd, ((zVersionInfo *)(zpRepoGlobIf[zIf.RepoId].p_CommitVecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
 
     shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
@@ -216,65 +216,29 @@ zlist_log(void *zpIf) {
 
 // 记录布署或撤销的日志
 void
-zwrite_log_and_update_cache(_i zRepoId) {
+zwrite_log(_i zRepoId) {
 // TEST:PASS
-    struct stat zStatIf[2];
-    char zShellBuf[zCommonBufSiz], *zpBuf;
+    struct stat zStatIf;
+    char zShellBuf[128], *zpRes;
     FILE *zpFile;
-    _i zLogSiz;
+    _i zFd[2];
 
-    zDeployLogInfo zIf;
-    memset(&zIf, 0, sizeof(zIf));
-
-//    zupdate_sig_cache(&zRepoId);  // 更新 CURRENTsig 值，必须在写日志之前执行，这样写入日志的就是当次布署的sig，而不是上一次的
-
-    sprintf(zShellBuf, "cd %s && git log CURRENT -1 --name-only --format=", zpRepoGlobIf[zRepoId].RepoPath);
-    //sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
-    zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
-    for (zLogSiz = 0; NULL != (zpBuf = zget_one_line_from_FILE(zpFile));) {
-        zLogSiz += (2 + strlen(zpBuf));  // 获取本次布署的所有文件的路径长度之和，含换行符
-    }
-
-    _i zFd[3];
     zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zSigLogPath, O_RDONLY));
-    zCheck_Negative_Exit(fstat(zFd[1], &(zStatIf[0])));  // 获取当前meta日志文件属性
-    zCheck_Negative_Exit(fstat(zFd[2], &(zStatIf[1])));  // 获取当前sig日志文件属性
+    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
+    zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));  // 获取当前sig日志文件属性
     close(zFd[0]);
-    close(zFd[2]);
-
-    if (0 == zStatIf[0].st_size) {
-        zIf.index = 0;
-    } else {
-        zCheck_Negative_Return(pread(zFd[1], &zIf, sizeof(zDeployLogInfo), zStatIf[0].st_size - sizeof(zDeployLogInfo)),);  // 读出前一个记录的信息
-    }
     close(zFd[1]);
 
-    zIf.hints[0] = sizeof(zIf) - sizeof(zIf.PathLen);
-    zIf.hints[1] = sizeof(zIf) - sizeof(zIf.PathLen) -sizeof(zIf.TimeStamp);
-    zIf.hints[3] = zIf.hints[1];  // 需要前端回发的数据总长度
-
-    zIf.RepoId = zRepoId;  // 代码库ID相同
-    zIf.index += 1;  // 布署索引偏移量增加1(即：顺序记录布署批次ID)，用于从sig日志文件中快整定位对应的commit签名
-    zIf.TimeStamp = time(NULL);  // 日志时间戳(1900至今的秒数)
-    zIf.PathLen= zLogSiz;  // 本次布署的全部文件路径名称长度之和（包含换行符）
-
-    // 元信息写入.git_shadow/log/meta
-    if (sizeof(zDeployLogInfo) != write(zpRepoGlobIf[zRepoId].LogFd[0], &zIf, sizeof(zDeployLogInfo))) {
-        zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd[0], zStatIf[0].st_size));
-        zPrint_Err(0, NULL, "Can't write to log/meta!");
-        exit(1);
-    }
     // 将CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
-    if ( zBytes(41) != write(zpRepoGlobIf[zRepoId].LogFd[1], zppCURRENTsig[zRepoId], zBytes(41))) {
-        zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd[0], zStatIf[0].st_size));
-        zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd[1], zStatIf[1].st_size));  // 保证两个日志文件的原子性同步
-        zPrint_Err(0, NULL, "Can't write to log.sig!");
+    sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
+	zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
+	zpRes = zget_one_line_from_FILE(zpFile);
+
+    if ( zBytes(41) != write(zpRepoGlobIf[zRepoId].LogFd, zppCURRENTsig[zRepoId], zBytes(41))) {
+        zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd, zStatIf.st_size));
+        zPrint_Err(0, NULL, "Can't write to <.git_shadow/log/deploy/sig> !");
         exit(1);
     }
-
-    zupdate_log_cache(&zIf);  // 更新 log 缓存
 }
 
 // 执行布署，目前仅支持单文件布署与全部布署两种模式（文件多选布署待实现）

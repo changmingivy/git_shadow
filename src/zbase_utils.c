@@ -145,7 +145,7 @@ zsendmsg(_i zSd, zVecInfo *zpVecIf, _i zFlags, struct sockaddr *zpAddr) {
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
         .msg_namelen = INET_ADDRSTRLEN,
-        .msg_iov = zpVecIf->p_vec,
+        .msg_iov = zpVecIf->p_VecIf,
         .msg_iovlen = zpVecIf->VecSiz,
         .msg_control = NULL,
         .msg_controllen = 0,

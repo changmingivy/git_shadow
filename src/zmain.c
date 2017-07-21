@@ -35,7 +35,7 @@
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zLogCacheSiz 64  // 预缓存日志数量
-#define zVersionHashSiz 1024
+#define zCommitHashSiz 1024
 #define zCommitPreCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
@@ -47,90 +47,83 @@
  ****************/
 typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-typedef struct {  // 布署日志信息的数据结构
-    char hints[4];  // 用于填充提示类信息，如：提示从何处开始读取需要的数据
-    _i RepoId;  // 标识所属的代码库
-    _i index;  // 标记是第几条记录(不是数据长度)
-
-    _l TimeStamp;  // 时间戳，提供给前端使用
-    _i PathLen;  // 所有文件的路径名称长度总和（包括换行符），提供给前端使用
-    char path[];  // 相对于代码库的路径
-} zDeployLogInfo;
-///////////////////////////////////////////////////////////////////////////////////////////////////
-typedef struct {
+struct zObjInfo {
     _s RepoId;  // 每个代码库对应的索引
     _s RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
     char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
-} zObjInfo;
+};
 
-typedef struct zNetServInfo {
+struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
-} zNetServInfo;
+};
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-/* 对 struct iovec 的封装，用于 zsendmsg 函数 */
-typedef struct {
-    struct iovec *p_vec;
-    _i VecSiz;
-} zVecInfo;
-
 /* 用于接收前端传送的数据 */
-typedef struct {
+struct zRecvInfo {
     _i OpsId;  // 操作指令（从0开始的连续排列的非负整数）
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
-    _i VersionId;  // 版本号（对应于svn或git的单次提交标识）
+    _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
     _i HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-} zRecvInfo;
+	char data[];  // 用于接收额外的数据，如：接收IP地址列表时
+};
 
-/* 用于向前端发送数据 */
-typedef struct {
+/* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
+struct zSendInfo {
     _i SelfId;
-    _i len;
-    _i data[];
-} zSendInfo;
+    _i DataLen;
+    char data[];
+};
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
-typedef struct {
-    zSendInfo *p_CodeIf;
-    zVecInfo *p_SubVecIf;  // 传递给 sendmsg 的下一级数据
-    _i data[];  // 如：<SHA1 commit sig> 等
-} zVersionInfo;
+struct zRefDataInfo {
+    struct zVecWrapInfo *p_SubWrapVecIf;  // 传递给 sendmsg 的下一级数据
+    char data[];  // 当处于单个 Commit 记录级别时，用于存放 CommitSig 字符串格式，包括末尾的'\0'
+};
 
-typedef struct zDeployResInfo {
+/* 对 struct iovec 的封装，用于 zsendmsg 函数 */
+struct zVecWrapInfo {
+    _i VecSiz;
+    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_SendIf 字段
+	struct zRefDataInfo *p_RefDataIf;
+};
+
+struct zDeployResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i RepoId;  // 所属代码库
     _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
     struct zDeployResInfo *p_next;
-} zDeployResInfo;
+};
 
 /* 用于存放每个项目的元信息 */
-typedef struct {
+struct zRepoInfo {
     _i RepoId;  // 项目代号
     char RepoPath[64];  // 项目路径，如："/home/git/miaopai_TEST"
-    pthread_rwlock_t RwLock;  // 每个代码库对应一把读写锁
-    _i LogFd[2];  // 每个代码库的布署日志都需要两个日志文件：meta、sig，分别用于存储元信息、SHA1-sig + TimeStamp
+    _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
     _i TotalHost;  // 每个项目的集群的主机数量
+
+    pthread_rwlock_t RwLock;  // 每个代码库对应一把读写锁
+	pthread_rwlockattr_t zRWLockAttr;
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
-    zDeployResInfo *p_DpResList;  // 布署状态收集
-    zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    struct zDeployResInfo *p_DpResList;  // 布署状态收集
+    struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
-    zVecInfo *p_CommitVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
+    struct zVecWrapInfo *p_CommitWrapVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
     _i CommitRecordCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
 
-    zVecInfo *p_DeployVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
+    struct zVecWrapInfo *p_DeployWrapVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
     _i DeployRecordCacheQueueHeadId;  // 用于标识布署记录列表的队列头索引序号（index）
-} zRepoInfo;
+};
 
-zRepoInfo *zpRepoGlobIf;
+struct zRepoInfo *zpRepoGlobIf;
 
 /************
  * 全局变量 *
@@ -141,11 +134,6 @@ _i zInotifyFD;   // inotify 主描述符
 zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
-pthread_rwlockattr_t zRWLockAttr;
-
-struct iovec **zppLogCacheVecIf;  // 以iovec形式缓存的每个代码库最近布署日志信息
-struct iovec **zppSortedLogCacheVecIf;  // 按时间戳降序排列后的结果，这是向前端发送的最终结果
-_i *zpLogCacheVecSiz;
 
 #define UDP 0
 #define TCP 1
