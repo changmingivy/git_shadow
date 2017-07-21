@@ -83,10 +83,15 @@ typedef struct zNetServInfo {
 
 typedef struct {
     _i SelfId;
-    zVecInfo *p_SubObjVecIf;
     _i len;
     char data[];
-} zCodeInfo;
+} zSendInfo;
+
+typedef struct {
+	zSendInfo *p_CodeIf;
+	zVecInfo *p_SubObjVecIf;
+	_i data[];
+} zNativeInfo;
 
 typedef struct {
     _i RepoId;
