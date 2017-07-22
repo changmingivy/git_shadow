@@ -209,8 +209,8 @@ zwrite_log(_i zRepoId) {
 
     // 将CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
     sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
-	zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
-	zpRes = zget_one_line_from_FILE(zpFile);
+    zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
+    zpRes = zget_one_line_from_FILE(zpFile);
 
     if ( zBytes(41) != write(zpRepoGlobIf[zRepoId].LogFd, zppCURRENTsig[zRepoId], zBytes(41))) {
         zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd, zStatIf.st_size));
@@ -512,7 +512,7 @@ zstart_server(void *zpIf) {
             } else {
                if ((sizeof(_i) == zrecv_nohang(zEvents[i].data.fd, &zCmd, sizeof(_i), MSG_PEEK, NULL))
                    && (zServHashSiz > zGetCmdId(zCmd)) && (0 <= zCmd) && (NULL != zNetServ[zCmd])) {
-	               zAdd_To_Thread_Pool(zNetServ[zCmd], &(zEvents[i].data.fd));
+                   zAdd_To_Thread_Pool(zNetServ[zCmd], &(zEvents[i].data.fd));
                }
             }
         }

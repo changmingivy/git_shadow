@@ -64,10 +64,10 @@ struct zNetServInfo {
 };
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 struct zCacheMetaInfo {  // 适用线程并发模型
-	_i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
-	_i RepoId;
-	_i CommitId;
-	_i FileId;
+    _i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
+    _i RepoId;
+    _i CommitId;
+    _i FileId;
 };
 
 /* 用于接收前端传送的数据 */
@@ -78,7 +78,7 @@ struct zRecvInfo {
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
     _i HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-	_i data[];  // 用于接收额外的数据，如：接收IP地址列表时
+    _i data[];  // 用于接收额外的数据，如：接收IP地址列表时
 };
 
 /* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
@@ -90,7 +90,7 @@ struct zSendInfo {
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
-    struct zVecWrapInfo *p_SubWrapVecIf;  // 传递给 sendmsg 的下一级数据
+    struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
     void *p_data;  // 当处于单个 Commit 记录级别时，用于存放 CommitSig 字符串格式，包括末尾的'\0'
 };
 
@@ -98,7 +98,7 @@ struct zRefDataInfo {
 struct zVecWrapInfo {
     _i VecSiz;
     struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_SendIf 字段
-	struct zRefDataInfo *p_RefDataIf;
+    struct zRefDataInfo *p_RefDataIf;
 };
 
 struct zDeployResInfo {
@@ -116,7 +116,7 @@ struct zRepoInfo {
     _i TotalHost;  // 每个项目的集群的主机数量
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
-	pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+    pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
@@ -124,17 +124,17 @@ struct zRepoInfo {
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
-    _i CommitCacheQueueNextId;  // 用于标识提交记录列表的队列头索引序号（index）
-    struct zVecWrapInfo CommitWrapVecIf;  // 存放 commit 记录的原始队列信息
-	struct iovec CommitVecIf[zCacheSiz];
-	struct zRefDataInfo CommitRefDataIf[zCacheSiz];
+    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
+    struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
+    struct iovec CommitVecIf[zCacheSiz];
+    struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo SortedCommitWrapVecIf;  // 存放经过排序的 commit 记录的缓存队列信息
-	struct iovec SortedCommitVecIf[zCacheSiz];
+    struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
+    struct iovec SortedCommitVecIf[zCacheSiz];
 
-    struct zVecWrapInfo DeployWrapVecIf;  // 存放 deploy 记录的原始队列信息
-	struct iovec DeployVecIf[zCacheSiz];
-	struct zRefDataInfo DeployRefDataIf[zCacheSiz];
+    struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
+    struct iovec DeployVecIf[zCacheSiz];
+    struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
 struct zRepoInfo *zpRepoGlobIf;
