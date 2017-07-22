@@ -90,20 +90,14 @@ zupdate_log_cache(void *zpDeployLogIf) {
 
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表及差异内容缓存
- * 返回：若 zFileId 参数为 -1，返回文件差异内容；否则返回差异文件列表，以 iovec 数组形式存储
  */
-#define zGet_SendIfPtr(zpUpperWrapVecIf, zSelfId) ((zpUpperWrapVecIf)->p_VecIf[zSelfId].iov_base)
-#define zGet_SubWrapVecIfPtr(zpUpperWrapVecIf, zSelfId) ((zpUpperWrapVecIf)->p_RefDataIf[zSelfId]->p_SubWrapVecIf)
-#define zGet_NativeDataPtr(zpUpperWrapVecIf, zSelfId) ((zpUpperWrapVecIf)->p_RefDataIf[zSelfId].data)
-
-#define zGet_OneCommitSendIfPtr(zpTopWrapVecIf, zCommitId) zGet_SendIfPtr(zpTopWrapVecIf, zCommitId)
-#define zGet_OneFileSendIfPtr(zpTopWrapVecIf, zCommitId, zFileId) zGet_SendIfPtr(zGet_SubVecIf(zpTopWrapVecIf, zCommitId), zFileId)
-#define zGet_OneCommitSigPtr(zpTopWrapVecIf, zCommitId) zGet_NativeDataPtr(zpTopWrapVecIf, zCommitId)
-
 void
-zget_file_diff_info(struct zVecWrapInfo *zpTopWrapVecIf, _i zCommitId, _i zFileId) {
-	struct zVecWrapInfo *zpUpperWrapVecIf;
-    struct zVecWrapInfo *zpCurWrapVecIf;
+zget_file_list_and_diff_content(void *zpIf) {
+#ifdef _zDEBUG
+	zCheck_Null_Exit(zpIf);
+#endif
+	struct zCacheMetaInfo *zpCacheMetaIf, *zpSubCacheMetaIf;
+	struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpCurVecWrapIf;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], *zpRes;
@@ -113,27 +107,34 @@ zget_file_diff_info(struct zVecWrapInfo *zpTopWrapVecIf, _i zCommitId, _i zFileI
 	_i zSendDataLen, zVecDatalen;
     _i zAllocSiz = 128;
 
-    zMem_Alloc(zpCurWrapVecIf, zVecInfo, 1);
-    zMem_Alloc(zpCurWrapVecIf->p_VecIf, struct iovec, zAllocSiz);
-
-	if (-1 == zFileId) {
- 		zpUpperWrapVecIf = zpTopWrapVecIf;
+	zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
+	if (0 ==zpCacheMetaIf->TopObjTypeMark) {
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf;
 	} else {
- 		zpUpperWrapVecIf = zGet_SubVecIf(zpTopWrapVecIf, zCommitId);
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].DeployWrapVecIf;
 	}
 
+	if (-1 == zFileId) {
+ 		zpUpperVecWrapIf = zpTopVecWrapIf;
+	} else {
+ 		zpUpperVecWrapIf = zGet_SubVecIf(zpTopVecWrapIf, zpCacheMetaIf->zCommitId);
+	}
+
+    zMem_Alloc(zpCurVecWrapIf, zVecInfo, 1);
+    zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
+
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpRepoGlobIf[zRepoId].RepoPath,
+    sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpRepoGlobIf[zpCacheMetaIf->zRepoId].RepoPath,
 			(-1 == zFileId) ? "--name-only" : "",
-			zGet_OneCommitSigPtr(zpTopWrapVecIf, zCommitId),
-			(-1 == zFileId) ? "" : ( (zSendInfo *) zGet_SendIfPtr(zpUpperWrapVecIf, zFileId) )->data);
+			zGet_OneCommitSigPtr(zpTopVecWrapIf, zpCacheMetaIf->zCommitId),
+			(-1 == zFileId) ? "" : ( (zSendInfo *) zGet_SendIfPtr(zpUpperVecWrapIf, zpCacheMetaIf->zFileId) )->data);
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     for (zVecId = 0;  NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler)); zVecId++) {
         if (zVecId >= zAllocSiz) {
             zAllocSiz *= 2;
-            zMem_Re_Alloc(zpCurWrapVecIf->p_VecIf, struct iovec, zAllocSiz, zpCurWrapVecIf->p_VecIf);
+            zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
         }
 
 		zSendDataLen = 1 + strlen(zpRes);
@@ -144,175 +145,287 @@ zget_file_diff_info(struct zVecWrapInfo *zpTopWrapVecIf, _i zCommitId, _i zFileI
         zpSendIf->DataLen = zSendDataLen;
         strcpy(zpSendIf->data, zpRes);
 
-        zpCurWrapVecIf->p_VecIf[zVecId].iov_base = zpSendIf;
-        zpCurWrapVecIf->p_VecIf[zVecId].iov_len = zVecDatalen;
+        zpCurVecWrapIf->p_VecIf[zVecId].iov_base = zpSendIf;
+        zpCurVecWrapIf->p_VecIf[zVecId].iov_len = zVecDatalen;
     }
     pclose(zpShellRetHandler);
 
-	zpCurWrapVecIf->VecSiz = zVecId;
-    if (0 == zpCurWrapVecIf->VecSiz) {
+	zpCurVecWrapIf->VecSiz = zVecId;
+    if (0 == zpCurVecWrapIf->VecSiz) {
 		/* 用于差异文件数量为0的情况，如：将 CURRENT 与其自身对比，结果将为空 */
-        free(zpCurWrapVecIf->p_VecIf[zVecId]);
-        zpCurWrapVecIf->p_VecIf[zVecId] = NULL;
+        free(zpCurVecWrapIf->p_VecIf[zVecId]);
+        zpCurVecWrapIf->p_VecIf[zVecId] = NULL;
 		return;
     } else {
 		/* 将分配的空间缩减为最终的实际成员数量 */
-        zMem_Re_Alloc(zpCurWrapVecIf->p_VecIf[zVecId], struct iovec, zpCurWrapVecIf->VecSiz, zpCurWrapVecIf->p_VecIf[zVecId]);
+        zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf[zVecId], struct iovec, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf[zVecId]);
 	}
 
 	/* 将自身关联到上一级数据结构 */
-	zpUpperWrapVecIf->p_RefDataIf->p_SubWrapVecIf = zpCurWrapVecIf;
+	zpUpperVecWrapIf->p_RefDataIf->p_SubVecWrapIf = zpCurVecWrapIf;
 
     if (-1 == zFileId) {
 		/* 如果是文件路径级别，且差异文件数量不为0，则需要分配RefData空间，指向文件对比差异内容VecInfo */
-    	zMem_Alloc(zpCurWrapVecIf->p_RefDataIf, struct zRefDataInfo, zpCurWrapVecIf->VecSiz);
+    	zMem_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz);
 
 		/* 如果是文件级别，则进入下一层获取对应的差异内容 */
-        for (_i zId = 0; zId < zpCurWrapVecIf->VecSiz; zId++) {
-           zget_file_diff_info(zpTopWrapVecIf, zCommitId, zId);
+        for (_i zId = 0; zId < zpCurVecWrapIf->VecSiz; zId++) {
+			zMem_Alloc(zpSubCacheMetaIf, zCacheMetaInfo, 1);
+			zpSubCacheMetaIf->TopObjTypeMark = zpCacheMetaIf->TopObjTypeMark;
+			zpSubCacheMetaIf->RepoId = zpCacheMetaIf->RepoId;
+			zpSubCacheMetaIf->zCommitId = zpCacheMetaIf->zCommitId;
+			zpSubCacheMetaIf->zFileId = zId;
+
+            zAdd_To_Thread_Pool(zget_file_diff_info, zpSubCacheMetaIf);
         }
 	} else {
 		/* 如果是文件差异内容级别，因为没有下一级数据，所以置为NULL */
-		zpCurWrapVecIf->p_RefDataIf = NULL;
+		zpCurVecWrapIf->p_RefDataIf = NULL;
 	}
+
+	free(zpIf);  // 上一级传入的结构体空间是在堆上分配的
 }
 
 /*
- *  传入的是一个单次commit信息，需要释放其下的文件列表结构及其内部的文件内容结构
+ *  传入的是一个包含单次 commit 信息的额外malloc出来的 zVerWrapInfo 结构体指针，需要释放其下的文件列表结构及其内部的文件内容结构
  */
-   // if (NULL == zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)) { return; }
 void
-zfree_one_commit_cache(struct zVecWrapInfo *zpTopWrapVecIf, _i zCommitId) {
-    for (_i zFileId = 0; zFileId < zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)->VecSiz; zFileId++) {
-        for (_i zLineId = 0; zLineId < zGet_SubWrapVecIfPtr(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId), zFileId)->VecSiz; zLineId++) {
-			free(zGet_SubWrapVecIfPtr(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId), zFileId)->p_VecIf[zLineId].iov_base);
-			free(zGet_SubWrapVecIfPtr(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId), zFileId)->p_VecIf[zLineId]);
+zfree_one_commit_cache(void *zpIf) {
+#ifdef _zDEBUG
+	zCheck_Null_Exit(zpIf);
+#endif
+	struct zVecWrapInfo *zpVecWrapIf = (struct zVecWrapInfo *) zpIf;
+    for (_i zFileId = 0; zFileId < zpVecWrapIf->VecSiz; zFileId++) {
+        for (_i zLineId = 0; zLineId < zGet_SubVecWrapIfPtr(zpVecWrapIf, zFileId)->VecSiz; zLineId++) {
+			free(zGet_SubVecWrapIfPtr(zpVecWrapIf, zFileId)->p_VecIf[zLineId].iov_base);
+			free(zGet_SubVecWrapIfPtr(zpVecWrapIf, zFileId)->p_VecIf[zLineId]);
         }
 
-		free(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)->p_VecIf[zFileId].iov_base);
-		free(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)->p_VecIf[zFileId]);
+		free(zpVecWrapIf->p_VecIf[zFileId].iov_base);
+		free(zpVecWrapIf->p_VecIf[zFileId]);
 
-		free(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)->p_RefDataIf[zFileId].p_SubWrapVecIf);
-		free(zGet_SubWrapVecIfPtr(zpTopWrapVecIf, zCommitId)->p_RefDataIf[zFileId]);
+		free(zpVecWrapIf->p_RefDataIf[zFileId].p_SubVecWrapIf);
+		free(zpVecWrapIf->p_RefDataIf[zFileId]);
     }
 
-	free(zpTopWrapVecIf->p_VecIf[zCommitId].iov_base);
-	free(zpTopWrapVecIf->p_VecIf[zCommitId]);
-	zpTopWrapVecIf->p_VecIf[zCommitId] = NULL;
+	free(zpVecWrapIf->p_VecIf.iov_base);
+	free(zpVecWrapIf->p_VecIf);
 
-	free(zpTopWrapVecIf->p_RefDataIf[zCommitId].p_SubWrapVecIf);
-	free(zpTopWrapVecIf->p_RefDataIf[zCommitId]);
-	zpTopWrapVecIf->p_RefDataIf[zCommitId] = NULL;
+	free(zpVecWrapIf->p_RefDataIf.p_SubVecWrapIf);
+	free(zpVecWrapIf->p_RefDataIf);
+
+	free(zpIf);  // 传入的对象是为线程任务新开辟的内存空间，需要释放掉
 }
 
 /*
- * 功能：逐层生成单个代码库的 commit 列表、文件列表及差异内容缓存
- * 返回：以 iovec 数组形式存储
+ * 功能：逐层生成单个代码库的 commit/deploy 列表、文件列表及差异内容缓存
+ * 当有新的布署或撤销动作完成时，所有的缓存都会失效，因此每次都需要重新执行此函数以刷新预载缓存
  */
 void
-zinit_commit_cache(struct zVecWrapInfo *zpTopWrapVecIf, FILE *zpFile) {
-    zVecInfo *zpRetIf, *zpSortedRetIf;
-    zMem_C_Alloc(zpRetIf, zVecInfo, 1);
-    zMem_C_Alloc(zpSortedRetIf, zVecInfo, 1);
+zinit_cache(void *zpIf) {
+#ifdef _zDEBUG
+	zCheck_Null_Exit(zpIf);
+#endif
+	struct zCacheMetaInfo *zpCacheMetaIf, *zpSubCacheMetaIf;
+	struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf, *zpOldVecWrapIf;
 
-    struct iovec *zpCommitVecIf, *zpSortedCommitVecIf;
-    zMem_C_Alloc(zpCommitVecIf, struct iovec, zCommitHashSiz);
-    zMem_C_Alloc(zpSortedCommitVecIf, struct iovec, zCommitHashSiz);
+	zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
 
-    zCodeInfo *zpCommitIf;  // 此项是 iovec 的 io_base 字段
-    _i zDataLen, zCnter;
+	if (zIsCommitCacheType ==zpCacheMetaIf->TopObjTypeMark) {
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf;
+	} else {
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].DeployWrapVecIf;
+	}
+
+	struct zSendInfo *zpCommitSendIf;  // iov_base
+    _i zSendDataLen, zVecDatalen, zCnter;
+
+	struct zCacheMetaInfo *zpSubCacheMetaIf;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zShellBuf[64];
+    char *zpRes, zShellBuf[128];
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git log --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log --format=%%H%%ct", zpRepoGlobIf[zRepoId].RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+	
+    for (zCnter = 0; (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))) && (zCnter < zCacheSiz); zCnter++) {
+        zSendDataLen = 2 * sizeof(zpRepoGlobIf[zRepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
+		zVecDatalen = zSendDataLen + sizeof(zSendInfo);
 
-    for (zCnter = 0; (zCnter < zCommitHashSiz)
-            && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zCnter++) {
+        zCheck_Null_Exit( zpCommitSendIf = malloc(zVecDatalen) );
 
-        zDataLen = 1 + sizeof(_i) + strlen(zpRes);
-        zCheck_Null_Exit( zpCommitIf= malloc(zDataLen + sizeof(zCodeInfo)) );
+        zpCommitSendIf->SelfId = zCnter;
+        zpCommitSendIf->DataLen = zSendDataLen;
+        zpCommitSendIf->data = zpRepoGlobIf[zRepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
+		zpCommitSendIf->data + sizeof(zpRepoGlobIf[zRepoId].CacheId) = strtol(zpRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
 
-        zpCommitIf->SelfId = zCnter;
-        zpCommitIf->len = zDataLen;
-        zpCommitIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
-        strcpy((char *)(1 + zpCommitIf->data), zpRes);
+		if (NULL != zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf) {
+			zMem_Alloc(zpOldVecWrapIf, zVecWrapInfo, 1);
 
-        zpSortedCommitVecIf[zCnter].iov_base = zpCommitVecIf[zCnter].iov_base = zpCommitIf;
-        zpSortedCommitVecIf[zCnter].iov_len = zpCommitVecIf[zCnter].iov_len = zpCommitIf->len + sizeof(zCodeInfo);
-    }
+			zpOldVecWrapIf.p_RefDataIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_RefDataIf;
+			zpOldVecWrapIf.p_VecIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf;
+			zpOldVecWrapIf.VecSiz = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->VecSiz;
+
+			zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
+
+			zpTopVecWrapIf->p_RefDataIf[zCnter].p_SubWrapVecIf = NULL;
+		}
+
+		zpTopVecWrapIf->p_VecIf[zCnter].iov_base = zpCommitSendIf;
+		zpTopVecWrapIf->p_VecIf[zCnter].iov_len = zVecDatalen;
+
+		zpRes[zBytes(40)] = '\0';
+        zMem_Alloc(zpTopVecWrapIf->p_RefDataIf[zCnter].p_data, char, zBytes(41));  // 40位SHA1 sig ＋ 末尾'\0'
+        strcpy(zpTopVecWrapIf->p_RefDataIf[zCnter].data, zpRes);
+
+	    zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.p_VecIf[zCnter].iov_base
+			= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.p_VecIf[zCnter].iov_base;
+	    zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.p_VecIf[zCnter].iov_len
+			= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.p_VecIf[zCnter].iov_len;
+	}
     pclose(zpShellRetHandler);
 
-    zpRetIf->p_vec = zpCommitVecIf;
-    zpRetIf->VecSiz = zCnter;  // 存储的是实际的对象数量
-    zpSortedRetIf->p_vec = zpSortedCommitVecIf;
-    zpSortedRetIf->VecSiz = zCnter;
+	zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.VecSiz 
+		= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.VecSiz 
+		= zCnter;  // 存储的是实际的对象数量
 
-    zpRepoGlobIf[zRepoId].p_VecIf[0] = zpRetIf;
-    zpRepoGlobIf[zRepoId].p_VecIf[1] = zpSortedRetIf;
+	zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId = zCacheSiz;  // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
 
-    // 预生成最近 zCommitPreCacheSiz 次提交的缓存
-    for (zCnter = 0; zCnter < (zCommitPreCacheSiz < zpRetIf->VecSiz ? zCommitPreCacheSiz : zpRetIf->VecSiz); zCnter++) {
-        zget_file_diff_info(zRepoId, zCnter, -1);
+    // 生成下一级缓存
+	_i zCacheUpdateLimit = (zPreLoadCacheSiz < zCnter) ? zPreLoadCacheSiz : zCnter;
+    for (zCnter = 0; zCnter < zCacheUpdateLimit; zCnter++) {
+		zMem_Alloc(zpSubCacheMetaIf, zCacheMetaInfo, 1);
+
+		zpSubCacheMetaIf->TopObjTypeMark = zpCacheMetaIf->TopObjTypeMark;
+		zpSubCacheMetaIf->RepoId = zpCacheMetaIf->RepoId;
+		zpSubCacheMetaIf->zCommitId = zCnter;
+		zpSubCacheMetaIf->zFileId = -1;
+
+    	zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubCacheMetaIf); // +
     }
 }
 
 void
-zupdate_commit_cache(_i zRepoId, FILE *zpFile) {
-    zCodeInfo *zpCommitIf;  // 此项是 iovec 的 io_base 字段
-    _i zDataLen, zVecId, zCnter;
+zupdate_cache(void *zpIf) {
+#ifdef _zDEBUG
+	zCheck_Null_Exit(zpIf);
+#endif
+	struct zCacheMetaInfo *zpCacheMetaIf, *zpSubCacheMetaIf;
+	struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf, *zpOldVecWrapIf;
+
+	zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
+	if (zIsCommitCacheType ==zpCacheMetaIf->TopObjTypeMark) {
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf;
+	} else {
+		zpTopVecWrapIf = zpRepoGlobIf[zpCacheMetaIf->RepoId].DeployWrapVecIf;
+	}
+
+	struct zSendInfo *zpCommitSendIf;  // iov_base
+    _i zSendDataLen, zVecDatalen, zCnter;
+
+	struct zCacheMetaInfo *zpSubCacheMetaIf;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zShellBuf[zCommonBufSiz];
+    char *zpRes, zShellBuf[128];
+
+	_i zCacheUpdateLimit;
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log %s --format=%%H%%ct",
+			zpRepoGlobIf[zRepoId].RepoPath,
+			(1 == zpCacheMetaIf->InitMark) ? "" : "-1");
+
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+	
+	if (1 == zpCacheMetaIf->InitMark) {
+		zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId = 0;
+	}
 
-//    for (zVecId = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz, zCnter = 0; (zCnter < zCommitHashSiz) && (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))); zVecId++, zCnter++) {
-//        if (zCommitHashSiz == zVecId) { zVecId = 0; }
-//
-//        zfree_one_commit_cache(zRepoId, zVecId);
-//
-//        zDataLen = 1 + sizeof(_i) + strlen(zpRes);
-//        zCheck_Null_Exit( zpCommitIf= malloc(zDataLen + sizeof(zCodeInfo)) );
-//
-//        zpCommitIf->SelfId = zVecId;
-//        zpCommitIf->len = zDataLen;
-//        zpCommitIf->data[0] = zpRepoGlobIf[zRepoId].CacheId;  // 首部4bytes存储CURRENT分支的时间戳
-//        strcpy((char *)(1 + zpCommitIf->data), zpRes);
-//
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter].iov_base = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_base = zpCommitIf;
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter].iov_len= zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId].iov_len= zpCommitIf->len + sizeof(zCodeInfo);
-//    }
-//    pclose(zpShellRetHandler);
-//
-//    if (zCommitHashSiz <= (zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter)) {
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz =zCommitHashSiz;
-//    } else {
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz = zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz + zCnter;
-//    }
-//
-//    while (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[1]->VecSiz) {
-//        if (zCommitHashSiz == zVecId) { zVecId = 0; }
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter++].iov_base = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId++].iov_base;
-//        zpRepoGlobIf[zRepoId].p_VecIf[1]->p_vec[zCnter++].iov_len = zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec[zVecId++].iov_len;
-//    }
+    for (zCnter = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId; (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))) && (zCnter < zCacheSiz); zCnter++) {
+        zSendDataLen = 2 * sizeof(zpRepoGlobIf[zRepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
+		zVecDatalen = zSendDataLen + sizeof(zSendInfo);
 
-    for (zCnter= 0; zCnter < (zCommitPreCacheSiz < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz ? zCommitPreCacheSiz : zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz); zCnter++) {
-    // 预生成最近 zCommitPreCacheSiz 次提交的缓存
-        zget_file_diff_info(zRepoId, zCnter, -1);
-    }
-    for(; (zCnter < zpRepoGlobIf[zRepoId].p_VecIf[0]->VecSiz) && (NULL != (zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base); zCnter++) {
-    // 释放旧缓存（已失效）
-        zfree_commit_source((zpRepoGlobIf[zRepoId].p_VecIf[0]->p_vec)[zCnter].iov_base);
+        zCheck_Null_Exit( zpCommitSendIf = malloc(zVecDatalen) );
+
+        zpCommitSendIf->SelfId = zCnter;
+        zpCommitSendIf->DataLen = zSendDataLen;
+        zpCommitSendIf->data = zpRepoGlobIf[zRepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
+		zpCommitSendIf->data + sizeof(zpRepoGlobIf[zRepoId].CacheId) = strtol(zpRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
+
+		if (NULL != zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf) {
+			zMem_Alloc(zpOldVecWrapIf, zVecWrapInfo, 1);
+
+			zpOldVecWrapIf.p_RefDataIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_RefDataIf;
+			zpOldVecWrapIf.p_VecIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf;
+			zpOldVecWrapIf.VecSiz = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->VecSiz;
+
+			zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
+		}
+
+		zpTopVecWrapIf->p_VecIf[zCnter].iov_base = zpCommitSendIf;
+		zpTopVecWrapIf->p_VecIf[zCnter].iov_len = zVecDatalen;
+
+		zpRes[zBytes(40)] = '\0';
+        zMem_Alloc(zpTopVecWrapIf->p_RefDataIf[zCnter].p_data, char, zBytes(41));  // 40位SHA1 sig ＋ 末尾'\0'
+        strcpy(zpTopVecWrapIf->p_RefDataIf[zCnter].data, zpRes);
+	}
+    pclose(zpShellRetHandler);
+
+	zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.VecSiz 
+		= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.VecSiz 
+		= zCnter;  // 存储的是实际的对象数量
+
+	if (1 == zpCacheMetaIf->InitMark) {
+		zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId = zCacheSiz;
+	} else {
+		if (0 == zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId) {
+			zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId = zCacheSiz -1;
+		} else {
+			zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId--;  // 更新队列下一次将写入的位置的索引
+		}
+
+		if (zIsCommitCacheType ==zpCacheMetaIf->TopObjTypeMark) {
+    		// 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
+			_i i, j, k;
+			if (zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.VecSiz
+					== (zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId + 1)) {
+				k = 0;
+			} else {
+				k = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId + 1;
+			}
+
+    		for (_i i = 0, j = k; i < zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.VecSiz; i++) {
+    		    zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.p_VecIf[i].iov_base
+					= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.p_VecIf[j].iov_base;
+    		    zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitWrapVecIf.p_VecIf[i].iov_len;
+					= zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.p_VecIf[j].iov_len;
+
+    		    if ((zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitWrapVecIf.VecSiz - 1) == j) {
+    		        j = 0;
+    		    } else {
+    		        j++;
+    		    }
+    		}
+		}
+	}
+
+	zCacheUpdateLimit = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId + (zPreLoadCacheSiz < zCnter) ? zPreLoadCacheSiz : zCnter;
+	
+    // 生成下一级缓存
+    for (_i i = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueNextId; i < zCacheUpdateLimit; i++) {
+		zMem_Alloc(zpSubCacheMetaIf, zCacheMetaInfo, 1);
+
+		zpSubCacheMetaIf->TopObjTypeMark = zpCacheMetaIf->TopObjTypeMark;
+		zpSubCacheMetaIf->RepoId = zpCacheMetaIf->RepoId;
+		zpSubCacheMetaIf->zCommitId = i - zCnter;
+		zpSubCacheMetaIf->zFileId = -1;
+
+    	zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubCacheMetaIf); // +
     }
 }
-
 void
-zthread_update_commit_cache(void *zpIf) {
+zthread_update_cache(void *zpIf) {
 // TEST:PASS
     _i zRepoId = *((_i *)(zpIf));
 

@@ -33,10 +33,11 @@
 #define zCommonBufSiz 4096
 #define zMaxRepoNum 128
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
+
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-#define zLogCacheSiz 64  // 预缓存日志数量
-#define zCommitHashSiz 1024
-#define zCommitPreCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
+
+#define zCacheSiz 1009
+#define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
 #include "zbase_utils.c"
@@ -62,6 +63,22 @@ struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+#define zGet_SendIfPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
+#define zGet_SubVecWrapIfPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId]->p_SubVecWrapIf)
+#define zGet_NativeDataPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].data)
+
+#define zGet_OneCommitSendIfPtr(zpTopVecWrapIf, zCommitId) ((char *)zGet_SendIfPtr(zpTopVecWrapIf, zCommitId))
+#define zGet_OneFileSendIfPtr(zpTopVecWrapIf, zCommitId, zFileId) zGet_SendIfPtr(zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCommitId), zFileId)
+#define zGet_OneCommitSigPtr(zpTopVecWrapIf, zCommitId) zGet_NativeDataPtr(zpTopVecWrapIf, zCommitId)
+
+#define zIsCommitCacheType 0
+struct zCacheMetaInfo {  // 适用线程并发模型
+	_i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
+	_i RepoId;
+	_i CommitId;
+	_i FileId;
+};
+
 /* 用于接收前端传送的数据 */
 struct zRecvInfo {
     _i OpsId;  // 操作指令（从0开始的连续排列的非负整数）
@@ -70,20 +87,20 @@ struct zRecvInfo {
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
     _i HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-	char data[];  // 用于接收额外的数据，如：接收IP地址列表时
+	_i data[];  // 用于接收额外的数据，如：接收IP地址列表时
 };
 
 /* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
 struct zSendInfo {
     _i SelfId;
     _i DataLen;
-    char data[];
+    _i data[];
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubWrapVecIf;  // 传递给 sendmsg 的下一级数据
-    char data[];  // 当处于单个 Commit 记录级别时，用于存放 CommitSig 字符串格式，包括末尾的'\0'
+    void *p_data;  // 当处于单个 Commit 记录级别时，用于存放 CommitSig 字符串格式，包括末尾的'\0'
 };
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
@@ -116,11 +133,17 @@ struct zRepoInfo {
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
-    struct zVecWrapInfo *p_CommitWrapVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
-    _i CommitRecordCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
+    _i CommitCacheQueueNextId;  // 用于标识提交记录列表的队列头索引序号（index）
+    struct zVecWrapInfo CommitWrapVecIf;  // 存放 commit 记录的原始队列信息
+	struct iovec CommitVecIf[zCacheSiz];
+	struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo *p_DeployWrapVecIf[2];  // [0]：缓存的原始队列信息，[1]：经过排序的缓存队列信息
-    _i DeployRecordCacheQueueHeadId;  // 用于标识布署记录列表的队列头索引序号（index）
+    struct zVecWrapInfo SortedCommitWrapVecIf;  // 存放经过排序的 commit 记录的缓存队列信息
+	struct iovec SortedCommitVecIf[zCacheSiz];
+
+    struct zVecWrapInfo DeployWrapVecIf;  // 存放 deploy 记录的原始队列信息
+	struct iovec DeployVecIf[zCacheSiz];
+	struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
 struct zRepoInfo *zpRepoGlobIf;
@@ -131,7 +154,7 @@ struct zRepoInfo *zpRepoGlobIf;
 _i zRepoNum;  // 总共有多少个代码库
 
 _i zInotifyFD;   // inotify 主描述符
-zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
+struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于zObjInfo中的CallBackId
 
