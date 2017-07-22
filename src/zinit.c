@@ -4,21 +4,11 @@
 
 void
 zinit_env(void) {
-    zDeployLogInfo zDpLogIf;
+	struct zCacheMetaInfo zCommitMetaIf = {.TopObjTypeMark = 0};
+	struct zCacheMetaInfo zDeployMetaIf = {.TopObjTypeMark = 1};
     struct stat zStatIf;
-    size_t zLogToCacheSiz;
+	char zLastTimeStampStr[11];  // 存放最后一次布署的时间戳
     _i zFd[2];
-
-    zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&zRWLockAttr, PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)); // 设置读写锁属性为写优先，如：正在更新缓存、正在布署过程中、正在撤销过程中等，会阻塞查询请求
-
-    // 保存各个代码库的CURRENT标签所对应的SHA1 sig
-    zMem_C_Alloc(zppCURRENTsig, char *, zRepoNum);
-
-    // 每个代码库近期布署日志信息的缓存
-    zMem_C_Alloc(zppLogCacheVecIf, struct iovec *, zRepoNum);
-    zMem_C_Alloc(zppSortedLogCacheVecIf, struct iovec *, zRepoNum);
-    zMem_C_Alloc(zpLogCacheVecSiz, _i, zRepoNum);
-    zMem_C_Alloc(zpLogCacheQueueHeadIndex, _i, zRepoNum);
 
     for (_i i = 0; i < zRepoNum; i++) {
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
@@ -39,36 +29,37 @@ zinit_env(void) {
         zCheck_Dir_Status_Exit(mkdirat(zFd[0], ".git_shadow/log/deploy", 0700));
 
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
-        zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zpRepoGlobIf[i].RwLock), &zRWLockAttr));
+    	zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zpRepoGlobIf[i].zRWLockAttr)) );
+    	zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zpRepoGlobIf[i].zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
+        zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zpRepoGlobIf[i].RwLock), &zRWLockAttr) );
+    	zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zpRepoGlobIf[i].zRWLockAttr)) );
 
-        zinit_commit_version_info(i);
-
-        zpLogCacheVecSiz[i] = zLogCacheSiz;
         zupdate_ipv4_db_all(i);  // 更新 zpppDpResHash 与 zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
 
-        zCheck_Negative_Exit(zpRepoGlobIf[i].LogFd[0] = openat(zFd[0], zMetaLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600));  // 打开meta日志文件
-        zCheck_Negative_Exit(zpRepoGlobIf[i].LogFd[1] = openat(zFd[0], zSigLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600));  // 打开sig日志文件
+        zCheck_Negative_Exit( zpRepoGlobIf[i].LogFd = openat(zFd[0], zSigLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600) );  // 打开日志文件
 
-        // 基于 meta 日志，初始化布署日志缓存
-        zpLogCacheVecSiz[i] = zLogCacheSiz;
-        zMem_C_Alloc(zppLogCacheVecIf[i], struct iovec, zpLogCacheVecSiz[i]);
-        zMem_C_Alloc(zppSortedLogCacheVecIf[i], struct iovec, zpLogCacheVecSiz[i]);
-
-        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY));
+		/* 获取当前日志文件属性，不能基于 zpLogFd[0][i] 打开（以 append 方式打开，会导致 fstat 结果中 st_size 为0）*/
+        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY) );
+        zCheck_Negative_Exit( fstat(zFd[1], &zStatIf) );
+        zCheck_Negative_Exit( pread(zFd[1], zLastTimeStampStr, zBytes(11), zStatIf.st_size - zBytes(11)) );  // 10 位数字 ＋ '\n'
         close(zFd[0]);
-        zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));  // 获取当前日志文件属性，不能基于 zpLogFd[0][i] 打开（以 append 方式打开，会导致 fstat 结果中 st_size 为0）
-        if (zLogCacheSiz < (zLogToCacheSiz = zStatIf.st_size / sizeof(zDeployLogInfo))) {
-            zLogToCacheSiz = zLogCacheSiz;
-        }
-
-        pthread_rwlock_wrlock( &(zpRepoGlobIf[i].RwLock) );
-        zupdate_sig_cache(&i);  // 必须在更新log cache之前调用
-        for (_i j = zLogToCacheSiz; j > 0; j--) {
-            zCheck_Negative_Exit(pread(zFd[1], &zDpLogIf, sizeof(zDeployLogInfo), zStatIf.st_size - j * sizeof(zDeployLogInfo)));
-            zupdate_log_cache(&zDpLogIf);
-        }
-        pthread_rwlock_unlock( &(zpRepoGlobIf[i].RwLock) );
         close(zFd[1]);
+
+		zpRepoGlobIf[i].CacheId = strtol(zLastTimeStampStr, NULL, 10);  // 读取日志中最后一条记录的时间戳作为初始的缓存版本
+
+		/* 指针指向自身的实体静态数据项 */
+		zpRepoGlobIf[i].CommitWrapVecIf.p_VecIf = zpRepoGlobIf[i].CommitVecIf;
+		zpRepoGlobIf[i].CommitWrapVecIf.p_RefDataIf = zpRepoGlobIf[i].CommitRefDataIf;
+
+		zpRepoGlobIf[i].SortedCommitWrapVecIf.p_VecIf = zpRepoGlobIf[i].SortedCommitVecIf;
+
+		zpRepoGlobIf[i].DeployWrapVecIf.p_VecIf = zpRepoGlobIf[i].DeployVecIf;
+		zpRepoGlobIf[i].DeployWrapVecIf.p_RefDataIf = zpRepoGlobIf[i].DeployRefDataIf;
+		/* 生成缓存 */
+		zCommitMetaIf.RepoId = i;
+		zDeployMetaIf.RepoId = i;
+		zAdd_To_Thread_Pool(zgenerate_cache, &zCommitMetaIf);
+		zAdd_To_Thread_Pool(zgenerate_cache, &zDeployMetaIf);
     }
 }
 

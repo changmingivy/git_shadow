@@ -31,7 +31,7 @@
 #include <ctype.h>
 
 #define zCommonBufSiz 4096
-#define zMaxRepoNum 128
+#define zMaxRepoNum 64
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
@@ -63,15 +63,6 @@ struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-#define zGet_SendIfPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
-#define zGet_SubVecWrapIfPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId]->p_SubVecWrapIf)
-#define zGet_NativeDataPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].data)
-
-#define zGet_OneCommitSendIfPtr(zpTopVecWrapIf, zCommitId) ((char *)zGet_SendIfPtr(zpTopVecWrapIf, zCommitId))
-#define zGet_OneFileSendIfPtr(zpTopVecWrapIf, zCommitId, zFileId) zGet_SendIfPtr(zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCommitId), zFileId)
-#define zGet_OneCommitSigPtr(zpTopVecWrapIf, zCommitId) zGet_NativeDataPtr(zpTopVecWrapIf, zCommitId)
-
-#define zIsCommitCacheType 0
 struct zCacheMetaInfo {  // 适用线程并发模型
 	_i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
 	_i RepoId;
@@ -124,8 +115,8 @@ struct zRepoInfo {
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
     _i TotalHost;  // 每个项目的集群的主机数量
 
-    pthread_rwlock_t RwLock;  // 每个代码库对应一把读写锁
-	pthread_rwlockattr_t zRWLockAttr;
+    pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
+	pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
@@ -180,7 +171,7 @@ zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于
  **********/
 #include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "thread_pool/zthread_pool.c"
-#include "test/zprint_test.c"
+//#include "test/zprint_test.c"
 #include "inotify/zinotify_callback.c"
 #include "inotify/zinotify.c"  // 监控代码库文件变动
 #include "net/znetwork.c"  // 对外提供网络服务
@@ -247,7 +238,7 @@ zReLoad:;
     zAdd_To_Thread_Pool(zstart_server, &zNetServIf);  // 读取配置文件之前启动网络服务
     zAdd_To_Thread_Pool(zinotify_wait, NULL);  // 等待事件发生
 
-    ztest_print();
+//  ztest_print();
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
     close(zInotifyFD);  // 主配置文件有变动后，关闭inotify master fd
