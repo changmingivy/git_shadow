@@ -8,35 +8,13 @@
  * 模块整体信息 *
  ****************/
 
-/*
- * git_shadow充当TCP服务器角色，接收前端请求与后端主机信息反馈，尽可能使用缓存响应各类请求
- *
- * 对接规则：
- *     [OpsMark(l/d/D/R)000]+[meta]+[data]
- *
- * 代号含义:
- *     p:显示差异文件路径名称列表
- *     P:显示单个文件内容的详细差异信息
- *     d:布署某次commit的单个文件
- *     D:布署某次commit的所有文件
- *     l:打印最近十次布署日志
- *     L:打印所有历史布署日志
- *     r:撤销某次提交的单个文件的更改，只来自前端
- *     R:撤销某次提交的所有更改，只来自前端
- *     c:状态确认，后端主机返回
- *     C:状态确认，前端返回
- *     u:更新major ECS列表
- *     U:更新all ECS列表
- *     V:列出Commit Sig + TimeStramp记录表
- */
-
-// 列出差异文件路径名称列表
+// 列出提交或布署的版本代号列表
 void
-zlist_version(void *zpIf) {
+zlist_commit(void *zpIf) {
 // TEST:PASS
     _i zSd = *((_i *)zpIf);
     zRecvInfo zIf = { .RepoId = -1, };
-    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId) -sizeof(zIf.VersionId);
+    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId) -sizeof(zIf.CommitId);
 
     if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
         zPrint_Err(0, NULL, "接收到的数据不完整!");
@@ -51,7 +29,7 @@ zlist_version(void *zpIf) {
     }
 
     pthread_rwlock_rdlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-    zsendmsg(zSd, ((zVersionInfo *)(zpRepoGlobIf[zIf.RepoId].p_CommitVecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
+    zsendmsg(zSd, ((zCommitInfo *)(zpRepoGlobIf[zIf.RepoId].p_CommitVecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
     pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
 
     shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
@@ -79,7 +57,7 @@ zlist_diff_files(void *zpIf) {
 
     if (zCommitPreCacheSiz <= zIf.CommitId) {
         pthread_rwlock_wrlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-        zfree_version_source((zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec)[zIf.CommitId].iov_base);  // 内部已检查 NULL
+        zfree_commit_source((zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec)[zIf.CommitId].iov_base);  // 内部已检查 NULL
         zget_file_diff_info(zIf.RepoId, zIf.CommitId, -1);
         pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
     }
@@ -487,18 +465,22 @@ zMarkWrite:
 // 启动git_shadow服务器
 void
 zstart_server(void *zpIf) {
-#define zGetCmdId(zCmd) ((zCmd) - 64)
 #define zMaxEvents 64
+#define zServHashSiz 12
     // 如下部分定义服务接口
-    zThreadPoolOps zNetServ[64] = {NULL};
-    zNetServ[zGetCmdId('p')] = zlist_diff_files;
-    zNetServ[zGetCmdId('P')] = zprint_diff_contents;
-    zNetServ[zGetCmdId('v')] = zNetServ[zGetCmdId('V')] = zlist_version;
-    zNetServ[zGetCmdId('l')] = zNetServ[zGetCmdId('L')] = zlist_log;
-    zNetServ[zGetCmdId('d')] = zNetServ[zGetCmdId('D')] = zdeploy;
-    zNetServ[zGetCmdId('r')] = zNetServ[zGetCmdId('R')] = zrevoke;
-    zNetServ[zGetCmdId('c')] = zNetServ[zGetCmdId('C')] = zconfirm_deploy_state;
-    zNetServ[zGetCmdId('u')] = zNetServ[zGetCmdId('U')] = zupdate_ipv4_db_txt;
+    zThreadPoolOps zNetServ[zServHashSiz] = {NULL};
+    zNetServ[0] = ;
+    zNetServ[1] = zlist_commit;
+    zNetServ[2] = ;
+    zNetServ[3] = ;
+    zNetServ[4] = ;
+    zNetServ[5] = ;
+    zNetServ[6] = ;
+    zNetServ[7] = ;
+    zNetServ[8] = ;
+    zNetServ[9] = ;
+    zNetServ[10] = ;
+    zNetServ[11] = ;
 
     // 如下部分配置 epoll 环境
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
@@ -515,7 +497,7 @@ zstart_server(void *zpIf) {
     zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv),);
 
     // 如下部分启动 epoll 监听服务
-    for (_c zCmd = 0;;) {  // zCmd: 用于存放前端发送的操作指令
+    for (_i zCmd = 0;;) {  // zCmd: 用于存放前端发送的操作指令
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
         zCheck_Negative_Return(zEvNum,);
 
@@ -528,17 +510,15 @@ zstart_server(void *zpIf) {
                zEv.data.fd = zConnSd;
                zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
-               if ((zBytes(1) == zrecv_nohang(zEvents[i].data.fd, &zCmd, zBytes(1), MSG_PEEK, NULL))
-                   && (64 > zGetCmdId(zCmd))
-                   && (0 <= zGetCmdId(zCmd))
-                   && (NULL != zNetServ[zGetCmdId(zCmd)])) {
-               zAdd_To_Thread_Pool(zNetServ[zGetCmdId(zCmd)], &(zEvents[i].data.fd));
+               if ((sizeof(_i) == zrecv_nohang(zEvents[i].data.fd, &zCmd, sizeof(_i), MSG_PEEK, NULL))
+                   && (zServHashSiz > zGetCmdId(zCmd)) && (0 <= zCmd) && (NULL != zNetServ[zCmd])) {
+	               zAdd_To_Thread_Pool(zNetServ[zCmd], &(zEvents[i].data.fd));
                }
             }
         }
     }
 #undef zMaxEvents
-#undef zGetCmdId
+#undef zServHashSiz
 }
 
 // 客户端用于向中控机发送状态确认信息
