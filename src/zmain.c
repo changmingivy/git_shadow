@@ -40,8 +40,8 @@
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
-#include "zbase_utils.c"
-#include "pcre2/zpcre.c"
+#include "utils/zbase_utils.c"
+#include "utils/pcre2/zpcre.c"
 
 /****************
  * 数据结构定义 *
@@ -169,8 +169,8 @@ zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于
 /**********
  * 子模块 *
  **********/
-#include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
-#include "thread_pool/zthread_pool.c"
+#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
+#include "utils/thread_pool/zthread_pool.c"
 //#include "test/zprint_test.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
 #include "core/zserv.c"  // 对外提供网络服务
