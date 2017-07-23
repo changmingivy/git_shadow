@@ -1,4 +1,5 @@
 #define _Z
+#define _zDEBUG
 #define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
@@ -77,7 +78,7 @@ struct zRecvInfo {
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
-    _i HostIp;  // 32位IPv4地址转换而成的无符号整型格式
+    _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
     _i data[];  // 用于接收额外的数据，如：接收IP地址列表时
 };
 
@@ -113,14 +114,22 @@ struct zRepoInfo {
     _i RepoId;  // 项目代号
     char RepoPath[64];  // 项目路径，如："/home/git/miaopai_TEST"
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
+
     _i TotalHost;  // 每个项目的集群的主机数量
+	_ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
+	/* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
+	/* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
+	_i DpLock;
+
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
+	pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
+
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
@@ -158,8 +167,8 @@ zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于
 // 以下路径均是相对于所属代码库的顶级路径
 #define zAllIpPath ".git_shadow/info/client_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
 #define zSelfIpPath ".git_shadow/info/client_ip_self.bin"  // 格式同上，存储客户端自身的ipv4地址
-#define zAllIpPathTxt ".git_shadow/info/client_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
-#define zMajorIpPathTxt ".git_shadow/info/client_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
+#define zAllIpTxtPath ".git_shadow/info/client_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
+#define zMajorIpTxtPath ".git_shadow/info/client_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath ".git_shadow/info/repo_id"
 
 #define zMetaLogPath ".git_shadow/log/deploy/meta"  // 元数据日志，以zDeployLogInfo格式存储，主要包含data、sig两个日志文件中数据的索引
@@ -216,7 +225,7 @@ main(_i zArgc, char **zppArgv) {
 
         if (1 == zActionType) {  // 客户端功能，用于在ECS上由git hook自动执行，向服务端发送状态确认信息
         zupdate_ipv4_db_self(AT_FDCWD);  // 回应之前客户端将更新自身的ipv4地址库
-        zclient_reply(zNetServIf.p_host, zNetServIf.p_port);
+        zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
         return 0;
     }
 
@@ -224,9 +233,9 @@ main(_i zArgc, char **zppArgv) {
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
-    zCallBackList[0] = zthread_common_func;
-    zCallBackList[1] = zthread_update_commit_cache;
-    zCallBackList[2] = zthread_update_ipv4_db_all;
+    zCallBackList[0] = zinotify_common_callback;
+    zCallBackList[1] = zupdate_one_commit_cache;
+    zCallBackList[2] = zupdate_ipv4_db;
 
     zthread_poll_init();  // 初始化线程池
     zInotifyFD = inotify_init();  // 生成inotify master fd

@@ -1,5 +1,5 @@
 #ifndef _Z
-    #include "../zmain.c"
+    #include "../../zmain.c"
 #endif
 
 #define zThreadPollSiz 128
@@ -51,12 +51,12 @@ zthread_func(void *zpIndex) {
 zMark:;
     pthread_mutex_lock(&(zThreadPollMutexLock[1]));
     while (-1 != zJobQueue) {  // -1: no other thread is ahead of me.
-        pthread_cond_wait(&zThreadPoolCond[1], &(zThreadPollMutexLock[1]));
+        pthread_cond_wait(&(zThreadPoolCond[1]), &(zThreadPollMutexLock[1]));
     }
 
     pthread_mutex_lock(&(zThreadPollMutexLock[0]));
     zJobQueue = i;
-    pthread_cond_signal(&zThreadPoolCond[0]);
+    pthread_cond_signal(&(zThreadPoolCond[0]));
     pthread_mutex_unlock(&(zThreadPollMutexLock[0]));
 
     pthread_mutex_unlock(&(zThreadPollMutexLock[1]));
