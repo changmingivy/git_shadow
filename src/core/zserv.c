@@ -16,6 +16,19 @@
 #define zGet_OneCommitSigPtr(zpTopVecWrapIf, zCommitId) zGet_NativeDataPtr(zpTopVecWrapIf, zCommitId)
 
 #define zIsCommitCacheType 0
+#define zServHashSiz 16
+
+/* 执行结果状态码对应表
+ * -100：动作执行成功 (仅表示动作本身已执行，不代表最终结果，如：布署请求返回 -100 表示中控机已开始布署，但是否布署成功尚不能确认)
+ * -1：操作指令不存在（未知／未定义）
+ * -2：项目ID不存在
+ * -3：代码版本ID不存在
+ * -4：差异文件ID不存在
+ * -5：指定的主机 IP 不存在
+ * -6：项目布署／撤销权限被锁定
+ * -7：后端接收到的数据不完整，要求前端重发
+ * -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
+ */
 
 /**************
  * NATIVE OPS *
@@ -41,9 +54,9 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
     if (0 ==zpCacheMetaIf->TopObjTypeMark) {
-        zpTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
+        zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
     } else {
-        zpTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].DeployVecWrapIf);
+        zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].DeployVecWrapIf);
     }
 
     if (-1 == zpCacheMetaIf->FileId) {
@@ -56,7 +69,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpRepoGlobIf[zpCacheMetaIf->RepoId].RepoPath,
+    sprintf(zShellBuf, "cd %s && git diff %s %s CURRENT -- %s", zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath,
             (-1 == zpCacheMetaIf->FileId) ? "--name-only" : "",
             zGet_OneCommitSigPtr(zpTopVecWrapIf, zpCacheMetaIf->CommitId),
             (-1 == zpCacheMetaIf->FileId) ? "" : (char *)(((struct zSendInfo *)zGet_SendIfPtr(zpUpperVecWrapIf, zpCacheMetaIf->FileId) )->data));
@@ -170,13 +183,13 @@ zgenerate_cache(void *zpIf) {
     char *zpRes, zShellBuf[128], zLogPathBuf[128];
 
     if (zIsCommitCacheType ==zpCacheMetaIf->TopObjTypeMark) {
-        zpTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
+        zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
 
-        sprintf(zShellBuf, "cd %s && git log --format=%%H%%ct", zpRepoGlobIf[zpCacheMetaIf->RepoId].RepoPath); // 必须在shell命令中切换到正确的工作路径
+        sprintf(zShellBuf, "cd %s && git log --format=%%H%%ct", zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath); // 必须在shell命令中切换到正确的工作路径
     } else {
-        zpTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].DeployVecWrapIf);
+        zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].DeployVecWrapIf);
 
-        strcpy(zLogPathBuf, zpRepoGlobIf[zpCacheMetaIf->RepoId].RepoPath);
+        strcpy(zLogPathBuf, zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath);
         strcat(zLogPathBuf, "/");
         strcat(zLogPathBuf, zSigLogPath);
         sprintf(zShellBuf, "cat %s", zLogPathBuf);
@@ -184,7 +197,7 @@ zgenerate_cache(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     
     for (zCnter = 0; (NULL != (zpRes = zget_one_line_from_FILE(zpShellRetHandler))) && (zCnter < zCacheSiz); zCnter++) {
-        zSendDataLen = 2 * sizeof(zpRepoGlobIf[zpCacheMetaIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
+        zSendDataLen = 2 * sizeof(zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
         zVecDatalen = zSendDataLen + sizeof(struct zSendInfo);
 
         zCheck_Null_Exit( zpCommitSendIf = malloc(zVecDatalen) );
@@ -192,7 +205,7 @@ zgenerate_cache(void *zpIf) {
         zpCommitSendIf->SelfId = zCnter;
         zpCommitSendIf->DataLen = zSendDataLen;
 		zpIntPtr = zpCommitSendIf->data;
-		zpIntPtr[0] = zpRepoGlobIf[zpCacheMetaIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
+		zpIntPtr[0] = zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
         zpIntPtr[1] = strtol(zpRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
 
         if (NULL != zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf) {
@@ -213,18 +226,18 @@ zgenerate_cache(void *zpIf) {
         zMem_Alloc(zpTopVecWrapIf->p_RefDataIf[zCnter].p_data, char, zBytes(41));  // 40位SHA1 sig ＋ 末尾'\0'
         strcpy(zpTopVecWrapIf->p_RefDataIf[zCnter].p_data, zpRes);
 
-        zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.p_VecIf[zCnter].iov_base
-            = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.p_VecIf[zCnter].iov_base;
-        zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.p_VecIf[zCnter].iov_len
-            = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.p_VecIf[zCnter].iov_len;
+        zpGlobRepoIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.p_VecIf[zCnter].iov_base
+            = zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.p_VecIf[zCnter].iov_base;
+        zpGlobRepoIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.p_VecIf[zCnter].iov_len
+            = zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.p_VecIf[zCnter].iov_len;
     }
     pclose(zpShellRetHandler);
 
-    zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.VecSiz 
-        = zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.VecSiz 
+    zpGlobRepoIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf.VecSiz 
+        = zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf.VecSiz 
         = zCnter;  // 存储的是实际的对象数量
 
-    zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueHeadId = zCacheSiz;  // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
+    zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitCacheQueueHeadId = zCacheSiz;  // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
 
     // 生成下一级缓存
     _i zCacheUpdateLimit = (zPreLoadCacheSiz < zCnter) ? zPreLoadCacheSiz : zCnter;
@@ -258,18 +271,18 @@ zupdate_one_commit_cache(void *zpIf) {
     char *zpRes, zShellBuf[128];
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
-    zpTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
-    zpSortedTopVecWrapIf = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf);
+    zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
+    zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].SortedCommitVecWrapIf);
 
-    zpHeadId = &(zpRepoGlobIf[zpCacheMetaIf->RepoId].CommitCacheQueueHeadId);
+    zpHeadId = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitCacheQueueHeadId);
 
     // 必须在shell命令中切换到正确的工作路径
-    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H%%ct", zpRepoGlobIf[zpCacheMetaIf->RepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log -1 --format=%%H%%ct", zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     zpRes = zget_one_line_from_FILE(zpShellRetHandler);
     pclose(zpShellRetHandler);
 
-    zSendDataLen = 2 * sizeof(zpRepoGlobIf[zpCacheMetaIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
+    zSendDataLen = 2 * sizeof(zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
     zVecDatalen = zSendDataLen + sizeof(struct zSendInfo);
 
     zCheck_Null_Exit( zpCommitSendIf = malloc(zVecDatalen) );
@@ -277,7 +290,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zpCommitSendIf->SelfId = *zpHeadId;
     zpCommitSendIf->DataLen = zSendDataLen;
 	zpIntPtr = zpCommitSendIf->data;
-	zpIntPtr[0] = zpRepoGlobIf[zpCacheMetaIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
+	zpIntPtr[0] = zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
     zpIntPtr[1] = strtol(zpRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
 
     if (NULL != zGet_SubVecWrapIfPtr(zpTopVecWrapIf, *zpHeadId)) {
@@ -377,38 +390,37 @@ void
 zupdate_ipv4_db_hash(_i zRepoId) {
 // TEST:PASS
     struct stat zStatIf;
-    zDeployResInfo *zpTmpIf;
+    struct zDeployResInfo *zpTmpIf;
 
     _i zFd[2] = {-9};
-    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zRepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY));  // 打开客户端ip地址数据库文件
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
     close(zFd[0]);
 
-    zpRepoGlobIf[zRepoId].TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
-    zMem_Alloc(zpRepoGlobIf[zRepoId].p_DpResList, zDeployResInfo, zpRepoGlobIf[zRepoId].TotalHost);  // 分配数组空间，用于顺序读取
+    zpGlobRepoIf[zRepoId].TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
+    zMem_Alloc(zpGlobRepoIf[zRepoId].p_DpResList, struct zDeployResInfo, zpGlobRepoIf[zRepoId].TotalHost);  // 分配数组空间，用于顺序读取
 
-    for (_i j = 0; j < zpRepoGlobIf[zRepoId].TotalHost; j++) {
-        (zpRepoGlobIf[zRepoId].p_DpResList->hints)[3] = sizeof(zDeployResInfo) - sizeof(zpRepoGlobIf[zRepoId].p_DpResList->DeployState) - sizeof(zpRepoGlobIf[zRepoId].p_DpResList->p_next);  // hints[3] 用于提示前端回发多少字节的数据
-        zpRepoGlobIf[zRepoId].p_DpResList[j].RepoId = zRepoId;  // 写入代码库索引值
-        zpRepoGlobIf[zRepoId].p_DpResList[j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
-        zpRepoGlobIf[zRepoId].p_DpResList[j].p_next = NULL;
+    for (_i j = 0; j < zpGlobRepoIf[zRepoId].TotalHost; j++) {
+        zpGlobRepoIf[zRepoId].p_DpResList[j].RepoId = zRepoId;  // 写入代码库索引值
+        zpGlobRepoIf[zRepoId].p_DpResList[j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+        zpGlobRepoIf[zRepoId].p_DpResList[j].p_next = NULL;
 
         errno = 0;
-        if (zSizeOf(_ui) != read(zFd[1], &(zpRepoGlobIf[zRepoId].p_DpResList->ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+        if (zSizeOf(_ui) != read(zFd[1], &(zpGlobRepoIf[zRepoId].p_DpResList->ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
             zPrint_Err(errno, NULL, "read client info failed!");
             exit(1);
         }
 
-        zpTmpIf = zpRepoGlobIf[zRepoId].p_DpResHash[(zpRepoGlobIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz];  // HASH 定位
+        zpTmpIf = zpGlobRepoIf[zRepoId].p_DpResHash[(zpGlobRepoIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
-            zpRepoGlobIf[zRepoId].p_DpResHash[(zpRepoGlobIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz] = &(zpRepoGlobIf[zRepoId].p_DpResList[j]);  // 若顶层为空，直接指向数组中对应的位置
+            zpGlobRepoIf[zRepoId].p_DpResHash[(zpGlobRepoIf[zRepoId].p_DpResList[j].ClientAddr) % zDeployHashSiz] = &(zpGlobRepoIf[zRepoId].p_DpResList[j]);  // 若顶层为空，直接指向数组中对应的位置
         } else {
             while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
                 zpTmpIf = zpTmpIf->p_next;
             }
 
-            zpTmpIf->p_next = &(zpRepoGlobIf[zRepoId].p_DpResList[j]);
+            zpTmpIf->p_next = &(zpGlobRepoIf[zRepoId].p_DpResList[j]);
         }
     }
 
@@ -426,9 +438,9 @@ zupdate_ipv4_db_all(_i zRepoId) {
     _ui zIpv4Addr = 0;
     _i zFd[3] = {0};
 
-    pthread_rwlock_wrlock(&(zpRepoGlobIf[zRepoId].RwLock));
+    pthread_rwlock_wrlock(&(zpGlobRepoIf[zRepoId].RwLock));
 
-    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zRepoId].RepoPath, O_RDONLY));
 
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPathTxt, O_RDONLY));
     zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
@@ -461,7 +473,7 @@ zupdate_ipv4_db_all(_i zRepoId) {
     // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
     zupdate_ipv4_db_hash(zRepoId);
 
-    pthread_rwlock_unlock(&(zpRepoGlobIf[zRepoId].RwLock));
+    pthread_rwlock_unlock(&(zpGlobRepoIf[zRepoId].RwLock));
 }
 
 void
@@ -478,13 +490,13 @@ zthread_update_ipv4_db_all(void *zpIf) {
  */
 void
 zthread_common_func(void *zpIf) {
-    zObjInfo *zpObjIf = (zObjInfo *) zpIf;
+    struct zObjInfo *zpObjIf = (struct zObjInfo *) zpIf;
     char zShellBuf[zCommonBufSiz];
 
     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify %d %s %s",
-        zpRepoGlobIf[zpObjIf->RepoId].RepoPath,
+        zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
         zpObjIf->RepoId,
-        zpRepoGlobIf[zpObjIf->RepoId].RepoPath,
+        zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
         zpObjHash[zpObjIf->UpperWid]->path);
 
     if (0 != system(zShellBuf)) {
@@ -496,65 +508,118 @@ zthread_common_func(void *zpIf) {
  * NET OPS *
  ***********/
 
-// 列出提交或布署的版本代号列表
+#define zRecv_Cmd_And_Check(zSd) do {\
+    if (zSizeOf(struct zRecvInfo) > zrecv_nohang(zSd, &zRecvIf, sizeof(struct zRecvInfo), 0, NULL)) {\
+        zPrint_Err(0, NULL, "接收到的数据不完整!");\
+		zErrNo = -7;\
+		zsendto(zSd, &zErrNo, sizeof(zErrNo), 0, NULL);\
+        shutdown(zSd, SHUT_RDWR);\
+        return;\
+    }\
+\
+    if (0 > (zRecvIf).OpsId || zServHashSiz <= zRecvIf.RepoId) {\
+        zPrint_Err(0, NULL, "操作指令ID不存在!");\
+		zErrNo = -1;\
+		zsendto(zSd, &zErrNo, sizeof(zErrNo), 0, NULL);\
+        shutdown(zSd, SHUT_RDWR);\
+        return;\
+    }\
+\
+    if (0 > (zRecvIf).RepoId || zGlobRepoNum <= zRecvIf.RepoId) {\
+        zPrint_Err(0, NULL, "项目ID不存在!");\
+		zErrNo = -2;\
+		zsendto(zSd, &zErrNo, sizeof(zErrNo), 0, NULL);\
+        shutdown(zSd, SHUT_RDWR);\
+        return;\
+    }\
+} while(0)\
+
+/*
+ * 0：添加新项目（代码库）
+ */
 void
-zlist_commit(void *zpIf) {
-// TEST:PASS
-    _i zSd = *((_i *)zpIf);
-    zRecvInfo zIf = { .RepoId = -1, };
-    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId) -sizeof(zIf.CommitId);
+zadd_repo(void *zpIf) {
+	struct zRecvInfo zRecvIf;
+	_i zSd, zErrNo;
+    zSd = *((_i *)zpIf);
 
-    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zPrint_Err(0, NULL, "接收到的数据不完整!");
-        shutdown(zSd, SHUT_RDWR);
-        return;
-    }
-
-    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zPrint_Err(0, NULL, "Invalid Repo ID !");
-        shutdown(zSd, SHUT_RDWR);
-        return;
-    }
-
-    pthread_rwlock_rdlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-    zsendmsg(zSd, ((zCommitInfo *)(zpRepoGlobIf[zIf.RepoId].p_CommitVecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
-    pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
+	zRecv_Cmd_And_Check(zSd);
+	// TO DO
 }
 
-// 列出差异文件路径名称列表
+/*
+ * 1：回复开发人员已提交的版本号列表
+ * 2：回复历史布署版本号列表
+ */
 void
-zlist_diff_files(void *zpIf) {
-// TEST:PASS
-    _i zSd = *((_i *)zpIf);
-    zRecvInfo zIf = { .RepoId = -1, };
-    _i zLen = sizeof(zIf) - sizeof(zIf.HostIp) - sizeof(zIf.FileId);
+zprint_record(void *zpIf) {
+	struct zRecvInfo zRecvIf;
+	_i zSd, zErrNo;
+    zSd = *((_i *)zpIf);
 
-    if (zLen > zrecv_nohang(zSd, &zIf, zLen, 0, NULL)) {
-        zPrint_Err(0, NULL, "接收到的数据不完整!");
-        shutdown(zSd, SHUT_RDWR);
-        return;
-    }
+	zRecv_Cmd_And_Check(zSd);
 
-    if (0 > zIf.RepoId || zRepoNum <= zIf.RepoId) {
-        zPrint_Err(0, NULL, "Invalid Repo ID !");
+    pthread_rwlock_rdlock( &(zpGlobRepoIf[zRecvIf.RepoId].RwLock) );
+	if (1 == zRecvIf.OpsId) {
+    	zsendmsg(zSd, zpGlobRepoIf[zRecvIf.RepoId].SortedCommitVecWrapIf, 0, NULL);
+	} else {
+    	zsendmsg(zSd, zpGlobRepoIf[zRecvIf.RepoId].DeployVecWrapIf, 0, NULL);
+	}
+    pthread_rwlock_unlock( &(zpGlobRepoIf[zRecvIf.RepoId].RwLock) );
+
+    shutdown(zSd, SHUT_RDWR);
+}
+
+    zNetServ[3] = zprint_diff_files;  // 显示差异文件路径列表
+    zNetServ[4] = zprint_diff_content;  // 显示差异文件内容
+    zNetServ[5] = zdeploy;  // 布署(如果 zRecvInfo 中 IP 地址数据段不为-1，则表示仅布署到指定的单台主机，适用于前端要求重试的场景)
+    zNetServ[6] = zdeploy;　// 强制布署（当前询所依据的缓存版本与中控机不同时）
+    zNetServ[7] = zdeploy;  // 撤销(如果 zRecvInfo 中 IP 地址数据段不为-1，则表示仅布署到指定的单台主机，适用于前端要求重试的场景)
+    zNetServ[8] = zdeploy;　// 强制撤销（当前询所依据的缓存版本与中控机不同时）
+    zNetServ[9] = zstate_confirm;  // 布署成功状态人工确认
+    zNetServ[10] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[11] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[12] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
+    zNetServ[13] = zupdate_ipv4_db_all;  // 更新集群中所有主机的 ip 列表
+    zNetServ[14] = zallow_deploy;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
+    zNetServ[15] = zdeny_deploy;  // 恢复布署／撤销功能
+
+/*
+ * 3：显示差异文件路径列表
+ */
+void
+zprint_diff_files(void *zpIf) {
+	struct zRecvInfo zRecvIf;
+	_i zSd, zErrNo;
+    zSd = *((_i *)zpIf);
+
+	zRecv_Cmd_And_Check(zSd);
+
+    if (0 > (zRecvIf).CommitId || zCacheSiz <= zRecvIf.CommitId) {
+        zPrint_Err(0, NULL, "版本号ID不存在!");
+		zErrNo = -3;
+		zsendto(zSd, &zErrNo, sizeof(zErrNo), 0, NULL);
         shutdown(zSd, SHUT_RDWR);
         return;
     }
 
     if (zCommitPreCacheSiz <= zIf.CommitId) {
-        pthread_rwlock_wrlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-        zfree_commit_source((zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec)[zIf.CommitId].iov_base);  // 内部已检查 NULL
+        pthread_rwlock_wrlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );
+        zfree_commit_source((zpGlobRepoIf[zIf.RepoId].p_VecIf[0]->p_vec)[zIf.CommitId].iov_base);  // 内部已检查 NULL
         zget_file_diff_info(zIf.RepoId, zIf.CommitId, -1);
-        pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );
     }
 
-    pthread_rwlock_rdlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
-    zsendmsg(zSd, ((zCodeInfo *)(zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base))->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
-    pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
+    pthread_rwlock_rdlock( &(zpGlobRepoIf[zRecvIf.RepoId].RwLock) );
 
-    shutdown(zSd, SHUT_RDWR);  // 若前端复用同一套接字则不需要关闭
+	if (1 == zRecvIf.OpsId) {
+    	zsendmsg(zSd, zpGlobRepoIf[zRecvIf.RepoId].SortedCommitVecWrapIf.p_RefDataIf[zRecvIf.CommitId].p_SubVecWrapIf, 0, NULL);
+	} else {
+    	zsendmsg(zSd, zpGlobRepoIf[zRecvIf.RepoId].DeployVecWrapIf.p_RefDataIf[zRecvIf.CommitId].p_SubVecWrapIf, 0, NULL);
+	}
+
+    pthread_rwlock_unlock( &(zpGlobRepoIf[zRecvIf.RepoId].RwLock) );
+    shutdown(zSd, SHUT_RDWR);
 }
 
 // 打印当前版本缓存与CURRENT标签之间的指定文件的内容差异
@@ -578,11 +643,11 @@ zprint_diff_contents(void *zpIf) {
         return;
     }
 
-    pthread_rwlock_rdlock(&(zpRepoGlobIf[zIf.RepoId].RwLock));
-    zpOneCommitIf = (zCodeInfo *) (zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base);
+    pthread_rwlock_rdlock(&(zpGlobRepoIf[zIf.RepoId].RwLock));
+    zpOneCommitIf = (zCodeInfo *) (zpGlobRepoIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base);
     zpOneFileIf= (zCodeInfo *)(zpOneCommitIf->p_SubObjVecIf->p_vec[zIf.FileId].iov_base);
     zsendmsg(zSd, zpOneFileIf->p_SubObjVecIf, 0, NULL);  // 直接从缓存中提取
-    pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
+    pthread_rwlock_unlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );
 
     shutdown(zSd, SHUT_RDWR);
 }
@@ -615,7 +680,7 @@ zlist_log(void *zpIf) {
         return;
     }
 
-    pthread_rwlock_rdlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
+    pthread_rwlock_rdlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );
 
     if ( 'l' == zIf.hints[0]){    // 默认直接直接回复预存的最近zLogCacheSiz次记录
         zVecIf.p_vec = zppSortedLogCacheVecIf[zIf.RepoId];
@@ -628,7 +693,7 @@ zlist_log(void *zpIf) {
         FILE *zpFile;
 
         _i zFd[3];
-        zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zIf.RepoId].RepoPath, O_RDONLY));
+        zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zIf.RepoId].RepoPath, O_RDONLY));
         zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY));
         zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zSigLogPath, O_RDONLY));
         zCheck_Negative_Exit(fstat(zFd[1], &(zStatIf[0])));  // 获取日志属性
@@ -650,7 +715,7 @@ zlist_log(void *zpIf) {
                 zVec[i].iov_len = sizeof(zDeployLogInfo);
             } else {
                 zMem_Alloc(zpPathBuf, char, (zpMetaLogIf + i / 2)->PathLen);
-                sprintf(zShellBuf, "cd %s && git log %s -1 --name-only --format=", zpRepoGlobIf[zIf.RepoId].RepoPath, zpDpSig + (i / 2) * zBytes(41));
+                sprintf(zShellBuf, "cd %s && git log %s -1 --name-only --format=", zpGlobRepoIf[zIf.RepoId].RepoPath, zpDpSig + (i / 2) * zBytes(41));
                 zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
 
                 for (size_t zWrOffSet = 0; NULL != (zpLineContent = zget_one_line_from_FILE(zpFile));) {
@@ -676,7 +741,7 @@ zlist_log(void *zpIf) {
         close(zFd[2]);
     }
 
-    pthread_rwlock_unlock(&(zpRepoGlobIf[zIf.RepoId].RwLock));
+    pthread_rwlock_unlock(&(zpGlobRepoIf[zIf.RepoId].RwLock));
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -689,19 +754,19 @@ zwrite_log(_i zRepoId) {
     FILE *zpFile;
     _i zFd[2];
 
-    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zRepoId].RepoPath, O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zRepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));  // 获取当前sig日志文件属性
     close(zFd[0]);
     close(zFd[1]);
 
     // 将CURRENT标签的40位sig字符串追加写入.git_shadow/log/sig
-    sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpRepoGlobIf[zRepoId].RepoPath);
+    sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=%%H", zpGlobRepoIf[zRepoId].RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zpRes = zget_one_line_from_FILE(zpFile);
 
-    if ( zBytes(41) != write(zpRepoGlobIf[zRepoId].LogFd, zppCURRENTsig[zRepoId], zBytes(41))) {
-        zCheck_Negative_Exit(ftruncate(zpRepoGlobIf[zRepoId].LogFd, zStatIf.st_size));
+    if ( zBytes(41) != write(zpGlobRepoIf[zRepoId].LogFd, zppCURRENTsig[zRepoId], zBytes(41))) {
+        zCheck_Negative_Exit(ftruncate(zpGlobRepoIf[zRepoId].LogFd, zStatIf.st_size));
         zPrint_Err(0, NULL, "Can't write to <.git_shadow/log/deploy/sig> !");
         exit(1);
     }
@@ -730,42 +795,42 @@ zdeploy(void *zpIf) {
     }
 
     if ('D' == zIf.hints[0]) {
-        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zpRepoGlobIf[zIf.RepoId].RepoPath);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D", zpGlobRepoIf[zIf.RepoId].RepoPath);
     } else {
-        zpOneCommitIf = (zCodeInfo *) (zpRepoGlobIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base);
+        zpOneCommitIf = (zCodeInfo *) (zpGlobRepoIf[zIf.RepoId].p_VecIf[0]->p_vec[zIf.CommitId].iov_base);
         zpOneFileIf= (zCodeInfo *)(zpOneCommitIf->p_SubObjVecIf->p_vec[zIf.FileId].iov_base);
-        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -d %s", zpRepoGlobIf[zIf.RepoId].RepoPath, zpOneFileIf->data);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -d %s", zpGlobRepoIf[zIf.RepoId].RepoPath, zpOneFileIf->data);
     }
 
-    pthread_rwlock_wrlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+    pthread_rwlock_wrlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );  // 加锁，布署没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
     if (0 != system(zShellBuf)) {
         zPrint_Err(0, NULL, "shell 布署命令出错!");
     }
 
-    _ui zSendBuf[zpRepoGlobIf[zIf.RepoId].TotalHost];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+    _ui zSendBuf[zpGlobRepoIf[zIf.RepoId].TotalHost];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
     do {
         zsleep(0.2);  // 每隔0.2秒向前端返回一次结果
 
         _i zUnReplyCnt = 0;  // 必须放在 do...while 循环内部
-        for (_i i = 0; i < zpRepoGlobIf[zIf.RepoId].TotalHost; i++) {  // 登记尚未确认状态的客户端ip列表
-            if (0 == zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->DeployState) {
-                zSendBuf[zUnReplyCnt] = zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->ClientAddr;
+        for (_i i = 0; i < zpGlobRepoIf[zIf.RepoId].TotalHost; i++) {  // 登记尚未确认状态的客户端ip列表
+            if (0 == zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->DeployState) {
+                zSendBuf[zUnReplyCnt] = zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->ClientAddr;
                 zUnReplyCnt++;
             }
         }
 
         zsendto(zSd, zSendBuf, zUnReplyCnt * sizeof(zSendBuf[0]), 0, NULL);
-    } while (zpRepoGlobIf[zIf.RepoId].ReplyCnt < zpRepoGlobIf[zIf.RepoId].TotalHost);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
-    zpRepoGlobIf[zIf.RepoId].ReplyCnt = 0;
+    } while (zpGlobRepoIf[zIf.RepoId].ReplyCnt < zpGlobRepoIf[zIf.RepoId].TotalHost);  // 等待所有client端确认状态：前端人工标记＋后端自动返回
+    zpGlobRepoIf[zIf.RepoId].ReplyCnt = 0;
 
     zwrite_log_and_update_cache(zIf.RepoId);  // 将本次布署信息写入日志
 
-    for (_i i = 0; i < zpRepoGlobIf[zIf.RepoId].TotalHost; i++) {
-        zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->DeployState = 0;  // 重置client状态，以便下次布署使用
+    for (_i i = 0; i < zpGlobRepoIf[zIf.RepoId].TotalHost; i++) {
+        zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->DeployState = 0;  // 重置client状态，以便下次布署使用
     }
 
-    pthread_rwlock_unlock(&(zpRepoGlobIf[zIf.RepoId].RwLock));  // 释放锁
+    pthread_rwlock_unlock(&(zpGlobRepoIf[zIf.RepoId].RwLock));  // 释放锁
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -797,7 +862,7 @@ zrevoke(void *zpIf) {
     }
 
     _i zFd[2];
-    zCheck_Negative_Exit(zFd[0] = open(zpRepoGlobIf[zIf.RepoId].RepoPath, O_RDONLY));
+    zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zIf.RepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
     zCheck_Negative_Return(pread(zFd[1], &zCommitSigBuf, zBytes(40), zBytes(40) * zIf.index),);
     zCommitSigBuf[40] = '\0';
@@ -805,7 +870,7 @@ zrevoke(void *zpIf) {
     close(zFd[1]);
 
     if ('R' == zIf.hints[0]) {
-        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -R -i %s", zpRepoGlobIf[zIf.RepoId].RepoPath, zCommitSigBuf);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -R -i %s", zpGlobRepoIf[zIf.RepoId].RepoPath, zCommitSigBuf);
     } else {
         _i zPathIdInCache;  // 用于接收某个文件路径名称在路径列表中的行号（从1开始）
 
@@ -820,37 +885,37 @@ zrevoke(void *zpIf) {
             zOffSet += 1 + strlen(zTypeConvert(zppLogCacheVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo*)->path + zOffSet);
         }
 
-        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -r -i %s %s", zpRepoGlobIf[zIf.RepoId].RepoPath, zCommitSigBuf, zTypeConvert(zppLogCacheVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo*)->path + zOffSet);
+        sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -r -i %s %s", zpGlobRepoIf[zIf.RepoId].RepoPath, zCommitSigBuf, zTypeConvert(zppLogCacheVecIf[zIf.RepoId][zIf.index].iov_base, zDeployLogInfo*)->path + zOffSet);
     }
 
-    pthread_rwlock_wrlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
+    pthread_rwlock_wrlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );  // 撤销没有完成之前，阻塞相关请求，如：布署、撤销、更新缓存等
 
     if (0 != system(zShellBuf)) {  // 执行外部 shell 命令
     }
 
-    _ui zSendBuf[zpRepoGlobIf[zIf.RepoId].TotalHost];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
+    _ui zSendBuf[zpGlobRepoIf[zIf.RepoId].TotalHost];  // 用于存放尚未返回结果(状态为0)的客户端ip列表
     _i zUnReplyCnt = 0;  // 尚未回复的目标主机计数
     do {
         zsleep(0.2);  // 每0.2秒统计一次结果，并发往前端
 
-        for (_i i = 0; i < zpRepoGlobIf[zIf.RepoId].TotalHost; i++) {
-            if (0 == zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->DeployState) {
-            zSendBuf[zUnReplyCnt] = zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->ClientAddr;
+        for (_i i = 0; i < zpGlobRepoIf[zIf.RepoId].TotalHost; i++) {
+            if (0 == zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->DeployState) {
+            zSendBuf[zUnReplyCnt] = zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->ClientAddr;
             zUnReplyCnt++;
             }
         }
 
         zsendto(zSd, zSendBuf, zUnReplyCnt * sizeof(zSendBuf[0]), 0, NULL);  // 向前端发送当前未成功的列表
-    } while (zpRepoGlobIf[zIf.RepoId].ReplyCnt < zpRepoGlobIf[zIf.RepoId].TotalHost);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
-    zpRepoGlobIf[zIf.RepoId].ReplyCnt = 0;
+    } while (zpGlobRepoIf[zIf.RepoId].ReplyCnt < zpGlobRepoIf[zIf.RepoId].TotalHost);  // 一直等待到所有client状态确认为止：前端人工确认＋后端自动确认
+    zpGlobRepoIf[zIf.RepoId].ReplyCnt = 0;
 
     zwrite_log_and_update_cache(zIf.RepoId);  // 将本次布署信息写入日志
 
-    for (_i i = 0; i < zpRepoGlobIf[zIf.RepoId].TotalHost; i++) {
-        zpRepoGlobIf[zIf.RepoId].p_DpResHash[i]->DeployState = 0;  // 将本项目各主机状态重置为0
+    for (_i i = 0; i < zpGlobRepoIf[zIf.RepoId].TotalHost; i++) {
+        zpGlobRepoIf[zIf.RepoId].p_DpResHash[i]->DeployState = 0;  // 将本项目各主机状态重置为0
     }
 
-    pthread_rwlock_unlock( &(zpRepoGlobIf[zIf.RepoId].RwLock) );
+    pthread_rwlock_unlock( &(zpGlobRepoIf[zIf.RepoId].RwLock) );
     shutdown(zSd, SHUT_RDWR);
 }
 
@@ -874,10 +939,10 @@ zconfirm_deploy_state(void *zpIf) {
     }
 
     // HASH 索引
-    for (zDeployResInfo *zpTmp = zpRepoGlobIf[zIf.RepoId].p_DpResHash[zIf.ClientAddr % zDeployHashSiz]; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
+    for (zDeployResInfo *zpTmp = zpGlobRepoIf[zIf.RepoId].p_DpResHash[zIf.ClientAddr % zDeployHashSiz]; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
         if (zpTmp->ClientAddr == zIf.ClientAddr) {
             zpTmp->DeployState = 1;
-            zpRepoGlobIf[zIf.RepoId].ReplyCnt++;
+            zpGlobRepoIf[zIf.RepoId].ReplyCnt++;
             shutdown(zSd, SHUT_RDWR);
             return;
         }
@@ -912,7 +977,7 @@ zupdate_ipv4_db_txt(void *zpIf) {
         return;
     }
 
-    strcpy(zPathBuf, zpRepoGlobIf[zRepoId].RepoPath);
+    strcpy(zPathBuf, zpGlobRepoIf[zRepoId].RepoPath);
     strcat(zPathBuf, "/");
     strcat(zPathBuf, zpWritePath);
     if (NULL == (zpSigMD5 = zgenerate_file_sig_md5(zPathBuf))) {
@@ -950,28 +1015,33 @@ zMarkWrite:
     shutdown(zSd, SHUT_RDWR);
 }
 
-// 启动git_shadow服务器
+/*
+ * 核心路由函数
+ */
 void
 zstart_server(void *zpIf) {
 #define zMaxEvents 64
-#define zServHashSiz 12
-    // 如下部分定义服务接口
-    zThreadPoolOps zNetServ[zServHashSiz] = {NULL};
-    zNetServ[0] = ;
-    zNetServ[1] = zlist_commit;
-    zNetServ[2] = ;
-    zNetServ[3] = ;
-    zNetServ[4] = ;
-    zNetServ[5] = ;
-    zNetServ[6] = ;
-    zNetServ[7] = ;
-    zNetServ[8] = ;
-    zNetServ[9] = ;
-    zNetServ[10] = ;
-    zNetServ[11] = ;
+    /* 如下部分定义服务接口 */
+    zThreadPoolOps zNetServ[zServHashSiz];
+    zNetServ[0] = zadd_repo;  // 添加新代码库
+    zNetServ[1] = zprint_record;  // 显示提交记录
+    zNetServ[2] = zprint_record;  // 显示布署记录
+    zNetServ[3] = zprint_diff_files;  // 显示差异文件路径列表
+    zNetServ[4] = zprint_diff_content;  // 显示差异文件内容
+    zNetServ[5] = zdeploy;  // 布署(如果 zRecvInfo 中 IP 地址数据段不为-1，则表示仅布署到指定的单台主机，适用于前端要求重试的场景)
+    zNetServ[6] = zdeploy;　// 强制布署（当前询所依据的缓存版本与中控机不同时）
+    zNetServ[7] = zdeploy;  // 撤销(如果 zRecvInfo 中 IP 地址数据段不为-1，则表示仅布署到指定的单台主机，适用于前端要求重试的场景)
+    zNetServ[8] = zdeploy;　// 强制撤销（当前询所依据的缓存版本与中控机不同时）
+    zNetServ[9] = zstate_confirm;  // 布署成功状态人工确认
+    zNetServ[10] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[11] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[12] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
+    zNetServ[13] = zupdate_ipv4_db_all;  // 更新集群中所有主机的 ip 列表
+    zNetServ[14] = zallow_deploy;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
+    zNetServ[15] = zdeny_deploy;  // 恢复布署／撤销功能
 
-    // 如下部分配置 epoll 环境
-    zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
+    /* 如下部分配置 epoll 环境 */
+    struct zNetServInfo *zpNetServIf = (struct zNetServInfo *)zpIf;
     struct epoll_event zEv, zEvents[zMaxEvents];
     _i zMajorSd, zConnSd, zEvNum, zEpollSd;
 
@@ -999,47 +1069,43 @@ zstart_server(void *zpIf) {
                zCheck_Negative_Return(epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv),);
             } else {
                if ((sizeof(_i) == zrecv_nohang(zEvents[i].data.fd, &zCmd, sizeof(_i), MSG_PEEK, NULL))
-                   && (zServHashSiz > zGetCmdId(zCmd)) && (0 <= zCmd) && (NULL != zNetServ[zCmd])) {
+					   && (zServHashSiz > zCmd) && (0 <= zCmd)) {
                    zAdd_To_Thread_Pool(zNetServ[zCmd], &(zEvents[i].data.fd));
                }
             }
         }
     }
 #undef zMaxEvents
-#undef zServHashSiz
 }
 
-// 客户端用于向中控机发送状态确认信息
+/*
+ * 用于集群中的主机向中控机发送状态确认信息
+ */
 void
-zclient_reply(char *zpHost, char *zpPort) {
-    zDeployResInfo zDpResIf = {.hints = {'c',}};  // confirm:标识这是一条状态确认信息
+zstate_reply(char *zpHost, char *zpPort) {
+	struct zRecvInfo zDpResIf;
     _i zFd, zSd, zResLen;
+    _ui zIpv4Bin;
 
-    // 读取版本库ID
-    zCheck_Negative_Exit(zFd = open(zRepoIdPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd);
-    zCheck_Negative_Exit(read(zFd, &(zDpResIf.RepoId), sizeof(_i)));
-    close(zFd);
+    zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
+    zCheck_Negative_Exit( read(zFd, &(zDpResIf.RepoId), sizeof(_i)) ); // 读取版本库ID
+	zDpResIf.OpsId = 10;  // 填充动作代号
 
-    if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {  // 以点分格式的ipv4地址连接服务端
-        zPrint_Err(0, NULL, "Connect to server failed!");
+	/* 以点分格式的ipv4地址连接服务端 */
+    if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+        zPrint_Err(0, NULL, "无法与中控机建立连接！");
         exit(1);
     }
 
-    zCheck_Negative_Exit(zFd = open(zSelfIpPath, O_RDONLY));  // 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端
-    zCheck_Negative_Return(zFd,);
-
-    _ui zIpv4Bin;
-    while (0 != (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-        zCheck_Negative_Return(zResLen,);
+	/* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
+    zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
+    while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
         zDpResIf.ClientAddr = zIpv4Bin;  // 标识本机身份：ipv4地址
-        if ((sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next)) != zsendto(zSd, &zDpResIf, sizeof(zDeployResInfo) - sizeof(zDpResIf.p_next), 0, NULL)) {
-            zPrint_Err(0, NULL, "布署状态确认信息发送失败!");
+        if (sizeof(zDpResIf) != zsendto(zSd, &zDpResIf, sizeof(zDpResIf), 0, NULL)) {
+            zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }
     }
 
     close(zFd);
     shutdown(zSd, SHUT_RDWR);
 }
-
-#undef zTypeConvert

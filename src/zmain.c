@@ -137,12 +137,12 @@ struct zRepoInfo {
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
-struct zRepoInfo *zpRepoGlobIf;
+struct zRepoInfo *zpGlobRepoIf;
 
 /************
  * 全局变量 *
  ************/
-_i zRepoNum;  // 总共有多少个代码库
+_i zGlobRepoNum;  // 总共有多少个代码库
 
 _i zInotifyFD;   // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
