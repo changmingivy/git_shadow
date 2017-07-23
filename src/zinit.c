@@ -6,10 +6,10 @@ void
 zinit_env(void) {
     struct zCacheMetaInfo *zpMetaIf;
     struct stat zStatIf;
-    char zLastTimeStampStr[11];  // 存放最后一次布署的时间戳
+    char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
     _i zFd[2];
 
-    for (_i i = 0; i < zRepoNum; i++) {
+    for (_i i = 0; i < zGlobRepoNum; i++) {
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
         zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY));
 
@@ -30,46 +30,47 @@ zinit_env(void) {
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zpGlobRepoIf[i].zRWLockAttr)) );
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zpGlobRepoIf[i].zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
-        zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zpGlobRepoIf[i].RwLock), &zRWLockAttr) );
+        zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zpGlobRepoIf[i].RwLock), &(zpGlobRepoIf[i].zRWLockAttr)) );
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zpGlobRepoIf[i].zRWLockAttr)) );
 
-		// 条件变量及与之相关的互斥初始化
-		zpGlobRepoIf[i].MutexLock = PTHREAD_MUTEX_INITIALIZER;
-		zpGlobRepoIf[i].CondVar = PTHREAD_COND_INITIALIZER;
+		// 互斥锁初始化
+		zCheck_Pthread_Func_Exit( pthread_mutex_init(&zpGlobRepoIf[i].MutexLock, NULL) );
 
-        zupdate_ipv4_db_all(i);  // 更新 TotalHost、zpppDpResHash、zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
+        zupdate_ipv4_db(&i);  // 更新 TotalHost、zpppDpResHash、zppDpResList，读写锁的操作在此函数内部，外部调用方不能再加解锁
 
-		zMem_Alloc(zpGlobRepoIf[zRepoId].p_FailingList, _ui, 1 + zpGlobRepoIf[zRepoId].TotalHost);  // 第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
+		zMem_Alloc(zpGlobRepoIf[i].p_FailingList, _ui, 1 + zpGlobRepoIf[i].TotalHost);  // 第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
 
         zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zSigLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600) );  // 打开日志文件
 
         /* 获取当前日志文件属性，不能基于 zpLogFd[0][i] 打开（以 append 方式打开，会导致 fstat 结果中 st_size 为0）*/
         zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zMetaLogPath, O_RDONLY) );
         zCheck_Negative_Exit( fstat(zFd[1], &zStatIf) );
-        zCheck_Negative_Exit( pread(zFd[1], zLastTimeStampStr, zBytes(11), zStatIf.st_size - zBytes(11)) );  // 10 位数字 ＋ '\n'
+		if (0 != zStatIf.st_size) {
+        	zCheck_Negative_Exit( pread(zFd[1], zLastTimeStampStr, zBytes(11), zStatIf.st_size - zBytes(11)) );
+		}
         close(zFd[0]);
         close(zFd[1]);
 
         zpGlobRepoIf[i].CacheId = strtol(zLastTimeStampStr, NULL, 10);  // 读取日志中最后一条记录的时间戳作为初始的缓存版本
 
         /* 指针指向自身的实体静态数据项 */
-        zpGlobRepoIf[i].CommitWrapVecIf.p_VecIf = zpGlobRepoIf[i].CommitVecIf;
-        zpGlobRepoIf[i].CommitWrapVecIf.p_RefDataIf = zpGlobRepoIf[i].CommitRefDataIf;
+        zpGlobRepoIf[i].CommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].CommitVecIf;
+        zpGlobRepoIf[i].CommitVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].CommitRefDataIf;
 
-        zpGlobRepoIf[i].SortedCommitWrapVecIf.p_VecIf = zpGlobRepoIf[i].SortedCommitVecIf;
+        zpGlobRepoIf[i].SortedCommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].SortedCommitVecIf;
 
-        zpGlobRepoIf[i].DeployWrapVecIf.p_VecIf = zpGlobRepoIf[i].DeployVecIf;
-        zpGlobRepoIf[i].DeployWrapVecIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
+        zpGlobRepoIf[i].DeployVecWrapIf.p_VecIf = zpGlobRepoIf[i].DeployVecIf;
+        zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
 
         /* 生成缓存，必须在堆上分配内存，因为 zgenerate_cache 会进行free */
 		zMem_Alloc(zpMetaIf, struct zCacheMetaInfo, 1);
     	zpMetaIf->TopObjTypeMark = zIsCommitCacheType;
-        zpMetaIf.RepoId = i;
+        zpMetaIf->RepoId = i;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
 		zMem_Alloc(zpMetaIf, struct zCacheMetaInfo, 1);
     	zpMetaIf->TopObjTypeMark = zIsDeployCacheType;
-        zpMetaIf.RepoId = i;
+        zpMetaIf->RepoId = i;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     }
 }
@@ -89,7 +90,7 @@ zparse_REPO(FILE *zpFile, char **zppRes, _i *zpLineNum) {
     zpInitIf[4] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 
 	/* 预分配足够大的内存空间，待获取实际的代码库数量后，再缩减到实际所需空间 */
-    zMem_C_Alloc(zpGlobRepoIf, zRepoInfo, zMaxRepoNum);
+    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, zMaxRepoNum);
 
     _i zRealRepoNum = 0;
     while (NULL != (*zppRes = zget_one_line_from_FILE(zpFile))) {
@@ -150,15 +151,15 @@ zMark:
     zpcre_free_metasource(zpInitIf[3]);
     zpcre_free_metasource(zpInitIf[4]);
 
-    zRepoNum = zRealRepoNum;
-    zMem_Re_Alloc(zpGlobRepoIf, zRepoInfo, zRepoNum, zpGlobRepoIf);  // 缩减到实际所需空间
+    zGlobRepoNum = zRealRepoNum;
+    zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zGlobRepoNum, zpGlobRepoIf);  // 缩减到实际所需空间
 }
 
 // 取 [INOTIFY] 区域配置条目
 void
 zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 // TEST: PASS
-    zObjInfo *zpObjIf;
+    struct zObjInfo *zpObjIf;
     _i zRepoId, zFd;
     zPCREInitInfo *zpInitIf[8];
     zPCRERetInfo *zpRetIf[8];
@@ -210,11 +211,11 @@ zparse_INOTIFY_and_add_watch(FILE *zpFile, char **zppRes, _i *zpLineNum) {
 
         zRepoId = strtol(zpRetIf[3]->p_rets[0], NULL, 10);
         if ('/' == zpRetIf[4]->p_rets[0][0]) {
-            zpObjIf = malloc(sizeof(zObjInfo) + 1 + strlen(zpRetIf[4]->p_rets[0]));  // 为新条目分配内存
+            zpObjIf = malloc(sizeof(struct zObjInfo) + 1 + strlen(zpRetIf[4]->p_rets[0]));  // 为新条目分配内存
             zCheck_Null_Exit(zpObjIf);
             strcpy(zpObjIf->path, zpRetIf[4]->p_rets[0]); // 被监控对象绝对路径
         } else {
-            zpObjIf = malloc(sizeof(zObjInfo) + 2 + strlen(zpRetIf[4]->p_rets[0]) + strlen(zpGlobRepoIf[zRepoId].RepoPath));  // 为新条目分配内存
+            zpObjIf = malloc(sizeof(struct zObjInfo) + 2 + strlen(zpRetIf[4]->p_rets[0]) + strlen(zpGlobRepoIf[zRepoId].RepoPath));  // 为新条目分配内存
             zCheck_Null_Exit(zpObjIf);
             strcpy(zpObjIf->path, zpGlobRepoIf[zRepoId].RepoPath);
             strcat(zpObjIf->path, "/");

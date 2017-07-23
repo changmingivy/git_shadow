@@ -11,7 +11,7 @@
 void
 zinotify_add_sub_watch(void *zpIf) {
 // TEST: PASS
-    zObjInfo *zpCurIf = (zObjInfo *) zpIf;
+    struct zObjInfo *zpCurIf = (struct zObjInfo *) zpIf;
 
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
     zCheck_Negative_Return(zWid,);
@@ -46,7 +46,7 @@ zinotify_add_sub_watch(void *zpIf) {
             }
 
             // Must do "malloc" here.
-            zObjInfo *zpSubIf = malloc(zSizeOf(zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
+            struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
             zCheck_Null_Return(zpSubIf,);
 
             // 为新监控目标填充基本信息
@@ -104,7 +104,7 @@ zinotify_wait(void *_) {
 
                 // Must do "malloc" here.
                 // 分配的内存包括路径名称长度
-                zObjInfo *zpSubIf = malloc(zSizeOf(zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->path) + zpEv->len);
+                struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->path) + zpEv->len);
                 zCheck_Null_Return(zpSubIf,);
 
                 // 为新监控目标填冲基本信息

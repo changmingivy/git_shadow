@@ -41,8 +41,6 @@
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
 #include "../inc/zutils.h"
-#include "utils/zbase_utils.c"
-#include "utils/pcre2/zpcre.c"
 
 /****************
  * 数据结构定义 *
@@ -178,12 +176,14 @@ zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于
 /**********
  * 子模块 *
  **********/
+#include "utils/zbase_utils.c"
+#include "utils/pcre2/zpcre.c"
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
-//#include "test/zprint_test.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
 #include "core/zserv.c"  // 对外提供网络服务
 #include "zinit.c"  // 读取主配置文件
+//#include "test/zprint_test.c"
 
 /***************************
  * +++___ main 函数 ___+++ *
@@ -194,7 +194,7 @@ main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
     _i zActionType = 0;
-    zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
+    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "CUh:p:f:"));) {
@@ -229,7 +229,7 @@ main(_i zArgc, char **zppArgv) {
         return 0;
     }
 
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     // +++___+++ 需要手动维护每个回调函数的索引 +++___+++
