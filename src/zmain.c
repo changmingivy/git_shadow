@@ -172,9 +172,8 @@ zThreadPoolOps zCallBackList[16];  // 索引每个回调函数指针，对应于
 #include "md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "thread_pool/zthread_pool.c"
 //#include "test/zprint_test.c"
-#include "inotify/zinotify_callback.c"
-#include "inotify/zinotify.c"  // 监控代码库文件变动
-#include "net/znetwork.c"  // 对外提供网络服务
+#include "core/zinotify.c"  // 监控代码库文件变动
+#include "core/zserv.c"  // 对外提供网络服务
 #include "zinit.c"  // 读取主配置文件
 
 /***************************
