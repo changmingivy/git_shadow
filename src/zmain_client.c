@@ -101,24 +101,24 @@ zupdate_ipv4_db_self(_i zBaseFd) {
  */
 void
 zstate_reply(char *zpHost, char *zpPort) {
-	struct zRecvInfo zDpResIf;
+    struct zRecvInfo zDpResIf;
     _i zFd, zSd, zResLen;
     _ui zIpv4Bin;
 
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
-	/* 读取版本库ID */
+    /* 读取版本库ID */
     zCheck_Negative_Exit( read(zFd, &(zDpResIf.RepoId), sizeof(_i)) );
-	/* 更新自身 ip 地址 */
-	zupdate_ipv4_db_self(zFd);
+    /* 更新自身 ip 地址 */
+    zupdate_ipv4_db_self(zFd);
     close(zFd);
-	/* 填充动作代号 */
-	zDpResIf.OpsId = 10;
-	/* 以点分格式的ipv4地址连接服务端 */
+    /* 填充动作代号 */
+    zDpResIf.OpsId = 10;
+    /* 以点分格式的ipv4地址连接服务端 */
     if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         zPrint_Err(0, NULL, "无法与中控机建立连接！");
         exit(1);
     }
-	/* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
+    /* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
     zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
     while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {

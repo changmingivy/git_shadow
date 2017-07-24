@@ -256,8 +256,8 @@ void *
 zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
     char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
     if (NULL == zpRes && (0 == feof(zpFile))) {
-		zPrint_Err(0, NULL, "<fgets> ERROR!");
-		exit(1);
+        zPrint_Err(0, NULL, "<fgets> ERROR!");
+        exit(1);
     }
     return zpRes;
 }
@@ -271,8 +271,8 @@ _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
     if (zCnt < zSiz && (0 == feof(zpFile))) {
-		zPrint_Err(0, NULL, "<fread> ERROR!");
-		exit(1);
+        zPrint_Err(0, NULL, "<fread> ERROR!");
+        exit(1);
     }
     return zCnt;
 }
@@ -311,7 +311,7 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
 void
 zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
     struct in_addr zIpv4Addr;
-	zIpv4Addr.s_addr = zIpv4BinAddr;
+    zIpv4Addr.s_addr = zIpv4BinAddr;
     inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
 }
 

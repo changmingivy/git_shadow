@@ -34,7 +34,7 @@ zinotify_add_sub_watch(void *zpIf) {
     struct dirent *zpEntry;
 
     zPCRERetInfo *zpRetIf = NULL;
-	// 忽略'.'与'..'，暂时在此处编译正则表达式，后续优化，当前效率较低
+    // 忽略'.'与'..'，暂时在此处编译正则表达式，后续优化，当前效率较低
     zPCREInitInfo *zpPCREInitIf = zpcre_init(zpCurIf->zpRegexPattern);
     while (NULL != (zpEntry = readdir(zpDir))) {
         if (DT_DIR == zpEntry->d_type) {

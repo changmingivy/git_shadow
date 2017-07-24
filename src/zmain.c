@@ -112,19 +112,24 @@ struct zRepoInfo {
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
-	_ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
+    _ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
+    void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
+    size_t MemPoolSiz;  // 内存池初始大小：8M
+    pthread_mutex_t MemLock;  // 内存池锁
+    _ui MemPoolHeadId;  // 动态指示下一次内存分配的起始地址
+
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
-	/* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
-	/* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
-	_i DpLock;
+    /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
+    /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
+    _i DpLock;
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
-	pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
+    pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
@@ -221,13 +226,13 @@ zReLoad:;
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
 
-	/* 取所有代码库的写锁，确保服务重启不会造成数据紊乱 */
-	for (_i i = 0; i < zGlobRepoNum; i++) {
-		pthread_rwlock_wrlock(&(zpGlobRepoIf[i].RwLock));
-		pthread_mutex_lock(&(zpGlobRepoIf[i].MutexLock));
-	}
+    /* 取所有代码库的写锁，确保服务重启不会造成数据紊乱 */
+    for (_i i = 0; i < zGlobRepoNum; i++) {
+        pthread_rwlock_wrlock(&(zpGlobRepoIf[i].RwLock));
+        pthread_mutex_lock(&(zpGlobRepoIf[i].MutexLock));
+    }
 
-	/* 父进程退出，子进程按新的主配置文件内容重新初始化 */
+    /* 父进程退出，子进程按新的主配置文件内容重新初始化 */
     pid_t zPid = fork();
     zCheck_Negative_Exit(zPid);
 
