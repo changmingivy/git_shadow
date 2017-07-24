@@ -3,8 +3,8 @@
 #endif
 
 void
-zinit_env(struct zNetServInfo *zpNetServIf) {
-    struct zCacheMetaInfo *zpMetaIf;
+zinit_env(void) {
+    struct zCacheMetaInfo zMetaIf;
     struct zObjInfo *zpObjIf;
     struct stat zStatIf;
     char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
@@ -12,16 +12,21 @@ zinit_env(struct zNetServInfo *zpNetServIf) {
 
     for (_i i = 0; i < zGlobRepoNum; i++) {
         // 初始化每个代码库的内存池
-        zpGlobRepoIf[i].MemPoolSiz = zBytes(8 * 1024 * 1024);
-        zCheck_Null_Exit( zpGlobRepoIf[i].p_MemPool = malloc(zpGlobRepoIf[i].MemPoolSiz) );
         zpGlobRepoIf[i].MemPoolHeadId = 0;
-        zCheck_Pthread_Func_Exit( pthread_mutex_init(&zpGlobRepoIf[i].MemLock, NULL) );
+        zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
+        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);
+		zMap_Alloc(zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz);
+
+        zpGlobRepoIf[i].MemPoolHeadId_1 = 0;
+        zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock_1), NULL) );
+        zpGlobRepoIf[i].MemPoolSiz_1 = zBytes(24 * 1024 * 1024);
+		zMap_Alloc(zpGlobRepoIf[i].p_MemPool_1, char, zpGlobRepoIf[i].MemPoolSiz_1);
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
         zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY));
 
         /* 启动 inotify */
-        zCheck_Null_Exit( zpObjIf = malloc(sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath)) );
+		zMem_Alloc(zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath));
         strcpy(zpObjIf->path, zpGlobRepoIf[i].RepoPath);
         strcat(zpObjIf->path, "/.git/logs");
 
@@ -88,20 +93,14 @@ zinit_env(struct zNetServInfo *zpNetServIf) {
         zpGlobRepoIf[i].DeployVecWrapIf.p_VecIf = zpGlobRepoIf[i].DeployVecIf;
         zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
 
-        /* 生成缓存，必须在堆上分配内存，因为 zgenerate_cache 会进行free */
-        zMem_Alloc(zpMetaIf, struct zCacheMetaInfo, 1);
-        zpMetaIf->TopObjTypeMark = zIsCommitCacheType;
-        zpMetaIf->RepoId = i;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+        /* 生成缓存 */
+        zMetaIf.TopObjTypeMark = zIsCommitCacheType;
+        zMetaIf.RepoId = i;
+        zgenerate_cache(&zMetaIf);
 
-        zMem_Alloc(zpMetaIf, struct zCacheMetaInfo, 1);
-        zpMetaIf->TopObjTypeMark = zIsDeployCacheType;
-        zpMetaIf->RepoId = i;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+        zMetaIf.TopObjTypeMark = zIsDeployCacheType;
+        zgenerate_cache(&zMetaIf);
     }
-
-    zAdd_To_Thread_Pool( zstart_server, zpNetServIf );  // 启动网络服务
-    zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
 }
 
 // 取代码库条目
@@ -117,7 +116,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
     zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 
-    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum);
+    zMem_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum);
 
     _i zRealRepoNum = 0;
     do {
@@ -193,7 +192,6 @@ zparse_conf(const char *zpConfPath) {
     zpInitIf = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
 
     for (_i zLineNum = 1; NULL != (zpRes = zget_one_line(zBuf, zCommonBufSiz, zpFile)); zLineNum++) {
-        //zpRes[strlen(zpRes) - 1 ] = '\0';
         zpRetIf = zpcre_match(zpInitIf, zpRes, 0);  // 若是空白行或注释行，跳过
         if (0 != zpRetIf->cnt) {
             zpcre_free_tmpsource(zpRetIf);
@@ -202,8 +200,9 @@ zparse_conf(const char *zpConfPath) {
         zpcre_free_tmpsource(zpRetIf);
 
         zparse_REPO(zpFile, zpRes, &zLineNum);
-        fclose(zpFile);
     }
+
+    fclose(zpFile);
 }
 
 // 监控主配置文件的变动

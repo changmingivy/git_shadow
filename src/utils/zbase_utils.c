@@ -2,46 +2,46 @@
     #include "../zmain.c"
 #endif
 
-/*
- * Functions for base64 coding [and decoding(TO DO)]
- */
-char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-char *
-zstr_to_base64(const char *zpOrig) {
-// TEST: PASS
-    _i zOrigLen = strlen(zpOrig);
-    _i zMax = (0 == zOrigLen % 3) ? (zOrigLen / 3 * 4) : (1 + zOrigLen / 3 * 4);
-    _i zResLen = zMax + (4- (zMax % 4));
-
-    char zRightOffset[zMax], zLeftOffset[zMax];
-
-    char *zRes;
-    zMem_Alloc(zRes, char, zResLen);
-
-    _i i, j;
-
-    for (i = j = 0; i < zMax; i++) {
-        if (3 == (i % 4)) {
-            zRightOffset[i] = 0;
-            zLeftOffset[i] = 0;
-        } else {
-            zRightOffset[i] = zpOrig[j]>>(2 * ((j % 3) + 1));
-            zLeftOffset[i] = zpOrig[j]<<(2 * (2 - (j % 3)));
-            j++;
-        }
-    }
-
-    _c mask = 63;
-    zRes[0] = zRightOffset[0] & mask;
-
-    for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
-    zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
-
-    for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
-    for (i = zMax; i < zResLen; i++) { zRes[i] = '='; }
-
-    return zRes;
-}
+// /*
+//  * Functions for base64 coding [and decoding(TO DO)]
+//  */
+// char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+// char *
+// zstr_to_base64(const char *zpOrig) {
+// // TEST: PASS
+//     _i zOrigLen = strlen(zpOrig);
+//     _i zMax = (0 == zOrigLen % 3) ? (zOrigLen / 3 * 4) : (1 + zOrigLen / 3 * 4);
+//     _i zResLen = zMax + (4- (zMax % 4));
+// 
+//     char zRightOffset[zMax], zLeftOffset[zMax];
+// 
+//     char *zRes;
+//     zMem_Alloc(zRes, char, zResLen);
+// 
+//     _i i, j;
+// 
+//     for (i = j = 0; i < zMax; i++) {
+//         if (3 == (i % 4)) {
+//             zRightOffset[i] = 0;
+//             zLeftOffset[i] = 0;
+//         } else {
+//             zRightOffset[i] = zpOrig[j]>>(2 * ((j % 3) + 1));
+//             zLeftOffset[i] = zpOrig[j]<<(2 * (2 - (j % 3)));
+//             j++;
+//         }
+//     }
+// 
+//     _c mask = 63;
+//     zRes[0] = zRightOffset[0] & mask;
+// 
+//     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
+//     zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
+// 
+//     for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
+//     for (i = zMax; i < zResLen; i++) { zRes[i] = '='; }
+// 
+//     return zRes;
+// }
 
 /*
  * Functions for socket connection.
@@ -314,4 +314,3 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
     zIpv4Addr.s_addr = zIpv4BinAddr;
     inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
 }
-

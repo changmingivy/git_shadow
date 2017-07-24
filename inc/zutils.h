@@ -136,15 +136,15 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
  */
 
 #define zMem_Alloc(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = (zType *) malloc((zCnt) * sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMem_Re_Alloc(zpRet, zType, zCnt, zpOldAddr) do {\
-    zCheck_Null_Exit( zpRet = (zType *) realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMem_C_Alloc(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = (zType *) calloc(zCnt, sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 #define zFree_Memory_Common(zpObjToFree, zpBridgePointer) do {\
@@ -154,6 +154,17 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
         zpObjToFree = zpBridgePointer;\
     }\
     zpObjToFree = zpBridgePointer = NULL;\
+} while(0)
+
+#define zMap_Alloc(zpRet, zType, zCnt) do {\
+	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {\
+		zPrint_Err(0, NULL, "mmap failed!");\
+		exit(1);\
+	}\
+} while(0)
+
+#define zMap_Free(zpRet, zType, zCnt) do {\
+	munmap(zpRet, (zCnt) * sizeof(zType));\
 } while(0)
 
 /*

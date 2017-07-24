@@ -122,6 +122,11 @@ struct zRepoInfo {
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolHeadId;  // 动态指示下一次内存分配的起始地址
 
+	void *p_MemPool_1;
+    size_t MemPoolSiz_1;
+    pthread_mutex_t MemLock_1;
+    _ui MemPoolHeadId_1;
+
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
@@ -180,7 +185,7 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 #include "utils/thread_pool/zthread_pool.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
 #include "core/zserv.c"  // 对外提供网络服务
-#include "zinit.c"  // 读取主配置文件
+#include "zinit.c"
 //#include "test/zprint_test.c"
 
 /***************************
@@ -226,8 +231,11 @@ zReLoad:;
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
-    zparse_conf( zpConfFilePath ); // 解析主配置文件并初始化运行环境
-    zinit_env(&zNetServIf);  // 代码库信息读取完毕后，初始化整体运行环境
+    zparse_conf(zpConfFilePath); // 解析主配置文件并初始化运行环境
+    zinit_env();  // 代码库信息读取完毕后，初始化整体运行环境
+
+    zAdd_To_Thread_Pool( zstart_server, &zNetServIf );  // 启动网络服务
+    zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
 
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
 

@@ -18,22 +18,39 @@
 
 /*
  * 专用于缓存的内存调度分配函数，适用多线程环境，不需要free
+ * 调用此函数的父函数一定是已经取得全局写锁的，故此处不能再试图加写锁
  */
+void zgenerate_cache(void *);
+
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
-    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) >= zpGlobRepoIf[zRepoId].MemPoolSiz) {
-        zpGlobRepoIf[zRepoId].MemPoolSiz += zBytes(8 * 1024 * 1024);
-        zpGlobRepoIf[zRepoId].p_MemPool = realloc(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
-        zCheck_Null_Exit(zpGlobRepoIf[zRepoId].p_MemPool);
-    }
-
 	pthread_mutex_lock(&(zpGlobRepoIf[zRepoId].MemLock));
+
+    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) >= zpGlobRepoIf[zRepoId].MemPoolSiz) {
+		struct zCacheMetaInfo zCacheMetaIf;
+
+		munmap(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
+        zpGlobRepoIf[zRepoId].MemPoolSiz *= 2;
+		if (MAP_FAILED == (zpGlobRepoIf[zRepoId].p_MemPool = mmap(NULL, zpGlobRepoIf[zRepoId].MemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+			zPrint_Err(0, NULL, "mmap failed!");
+			exit(1);
+		}
+
+		zCacheMetaIf.TopObjTypeMark = zIsCommitCacheType;
+		zCacheMetaIf.RepoId = zRepoId;
+		zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
+
+		zCacheMetaIf.TopObjTypeMark = zIsDeployCacheType;
+		zCacheMetaIf.RepoId = zRepoId;
+		zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
+
+		return NULL;
+    }
 
     void *zpX = zpGlobRepoIf[zRepoId].p_MemPool + zpGlobRepoIf[zRepoId].MemPoolHeadId + zSiz;
     zpGlobRepoIf[zRepoId].MemPoolHeadId += zSiz;
 
 	pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId].MemLock));
-
     return zpX;
 }
 
@@ -225,6 +242,7 @@ zfree_one_commit_cache(void *zpIf) {
         free(zGet_SubVecWrapIfPtr(zpVecWrapIf, zFileId)->p_VecIf);
     }
     free(zpVecWrapIf->p_VecIf);
+	free(zpIf);
 }
 
 /*
@@ -940,7 +958,7 @@ zupdate_ipv4_db_txt(void *zpIf) {
 
     zCheck_Negative_Exit( zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
 
-    zCheck_Null_Exit( zpObjIf = malloc(1 + strlen(zPathBuf) + sizeof(struct zObjInfo)) );
+	zMem_Alloc(zpObjIf, char, 1 + strlen(zPathBuf) + sizeof(struct zObjInfo));
     zupdate_ipv4_db(&(zRecvIf.RepoId));
 
     /* 接收网络数据并同步写入文件 */
