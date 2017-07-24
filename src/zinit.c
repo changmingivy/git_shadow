@@ -4,7 +4,7 @@
 
 void
 zinit_env(void) {
-    struct zCacheMetaInfo zMetaIf;
+    struct zCacheMetaInfo *zpMetaIf;
     struct zObjInfo *zpObjIf;
     struct stat zStatIf;
     char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
@@ -14,7 +14,7 @@ zinit_env(void) {
         // 初始化每个代码库的内存池
         zpGlobRepoIf[i].MemPoolHeadId = 0;
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
-        zpGlobRepoIf[i].MemPoolSiz = zBytes(16 * 1024 * 1024);
+        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);
         zMap_Alloc(zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz);
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
@@ -56,6 +56,13 @@ zinit_env(void) {
         zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT) );
         close(zFd[1]);
 
+        // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
+        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
+        if (sizeof(i) != write(zFd[1], &i, sizeof(i))) {
+            zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
+            exit(1);
+        }
+
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zpGlobRepoIf[i].zRWLockAttr)) );
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zpGlobRepoIf[i].zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
@@ -89,12 +96,15 @@ zinit_env(void) {
         zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
 
         /* 生成缓存 */
-        zMetaIf.TopObjTypeMark = zIsCommitCacheType;
-        zMetaIf.RepoId = i;
-        zgenerate_cache(&zMetaIf);
+		zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
+        zpMetaIf->TopObjTypeMark = zIsCommitCacheType;
+        zpMetaIf->RepoId = i;
+        zgenerate_cache(zpMetaIf);
 
-        zMetaIf.TopObjTypeMark = zIsDeployCacheType;
-        zgenerate_cache(&zMetaIf);
+		zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
+        zpMetaIf->TopObjTypeMark = zIsDeployCacheType;
+        zpMetaIf->RepoId = i;
+        zgenerate_cache(zpMetaIf);
     }
 }
 
@@ -152,12 +162,6 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
             exit(1);
 		}
 
-        // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
-        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
-        if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
-            zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
-            exit(1);
-        }
         close(zFd[1]);
         close(zFd[0]);
         zpcre_free_tmpsource(zpRetIf[2]);

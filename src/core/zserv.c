@@ -109,6 +109,7 @@ zget_diff_content(void *zpIf) {
     zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
 
     /* 必须在shell命令中切换到正确的工作路径 */
+	fprintf(stderr, "COMMIT ID: %d  FILE ID: %d\n", zpCacheMetaIf->CommitId, zpCacheMetaIf->FileId);
     sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s", zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath,
             zGet_OneCommitSigPtr(zpTopVecWrapIf, zpCacheMetaIf->CommitId),
             (char *)(((struct zSendInfo *)zGet_SendIfPtr(zpUpperVecWrapIf, zpCacheMetaIf->FileId) )->data));
