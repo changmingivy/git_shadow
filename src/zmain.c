@@ -218,7 +218,7 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     zthread_poll_init();  // 初始化线程池

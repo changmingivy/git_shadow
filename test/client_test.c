@@ -181,22 +181,45 @@ zclient(char *zpX) {
         	exit(1);
         }
 
-		_i zData[6] = {1, 0, 0, 0, 0, 0};
+		struct zRecvInfo zRecfIf;
+		zRecfIf.OpsId = 1;
+		zRecfIf.RepoId = 0;
+		zRecfIf.CacheId= 0;
+		zRecfIf.CommitId= -1;
+		zRecfIf.HostIp= -1;
+		zRecfIf.FileId= -1;
+
+		_i zData[8] = {1, 0, 0, 0, 0, 0};
 		//_i zData[6] = {3, 0, 0, 0, 0, 0};
 		//_i zData[6] = {4, 0, 0, 0, 0, 0};
 
-        zsendto(zSd, &zData, 6 *sizeof(_i), 0, NULL);
+        _i i = zsendto(zSd, zData, sizeof(struct zRecvInfo), 0, NULL);
 
-		char zBuf[4096];
-        _i zCnt = recv(zSd, zBuf, 4096, 0);
+		fprintf (stderr, "Sent: %d\n", i);
+
+
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[0]);
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[1]);
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[2]);
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[3]);
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[4]);
+		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[5]);
+
+		int zBuf[496];
+        _i zCnt = zrecv_all(zSd, zBuf, 1, 0, NULL);
 
         fprintf(stderr, "[Received]:\n=>");
         for (_i i = 0; i < zCnt; i++) {
-        fprintf(stderr, "%c", zBuf[i]);
+        fprintf(stderr, "%d", zBuf[i]);
         }
         fprintf(stderr, "<=\n");
 
-        shutdown(zSd, SHUT_RDWR);
+		char zB[4096];
+        zCnt = recv(zSd, zB, 4096, 0);
+        for (_i i = 0; i < zCnt; i++) {
+        fprintf(stderr, "%c", zB[i]);
+        }
+ //       shutdown(zSd, SHUT_RDWR);
 }
 
 _i
