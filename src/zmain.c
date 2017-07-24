@@ -218,9 +218,14 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
+    zthread_poll_init();  // 初始化线程池
+
+    zInotifyFD = inotify_init();  // 生成inotify master fd
+    zCheck_Negative_Exit(zInotifyFD);
+
     zparse_conf( zpConfFilePath ); // 解析主配置文件并初始化运行环境
     zinit_env(&zNetServIf);  // 代码库信息读取完毕后，初始化整体运行环境
 

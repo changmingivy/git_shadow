@@ -10,13 +10,9 @@ zinit_env(struct zNetServInfo *zpNetServIf) {
     char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
     _i zFd[2];
 
-    zthread_poll_init();  // 初始化线程池
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-    zCheck_Negative_Exit(zInotifyFD);
-
     for (_i i = 0; i < zGlobRepoNum; i++) {
         // 初始化每个代码库的内存池
-        zpGlobRepoIf[i].MemPoolSiz = 8192 * 1024;
+        zpGlobRepoIf[i].MemPoolSiz = zBytes(8 * 1024 * 1024);
         zCheck_Null_Exit( zpGlobRepoIf[i].p_MemPool = malloc(zpGlobRepoIf[i].MemPoolSiz) );
         zpGlobRepoIf[i].MemPoolHeadId = 0;
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&zpGlobRepoIf[i].MemLock, NULL) );
@@ -35,7 +31,7 @@ zinit_env(struct zNetServInfo *zpNetServIf) {
         zpObjIf->CallBack = zupdate_one_commit_cache;
         zpObjIf->UpperWid = -1;  // 填充负数，提示 zinotify_add_sub_watch 函数这是顶层监控对象
 
-        zinotify_add_sub_watch(zpObjIf);
+        zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
 
         #define zCheck_Dir_Status_Exit(zRet) do {\
             if (-1 == (zRet) && errno != EEXIST) {\
@@ -127,7 +123,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     do {
         if (zRealRepoNum == zRepoNum) {
             zRepoNum *= 2;
-            zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zRealRepoNum, zpGlobRepoIf);
+            zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum, zpGlobRepoIf);
         }
 
         (*zpLineNum)++;  // 维持行号
