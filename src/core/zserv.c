@@ -615,7 +615,7 @@ zwrite_log(_i zRepoId) {
     _i zFd[2], zLen;
 
     zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zRepoId].RepoPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zSigLogPath, O_RDONLY));
+    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zLogPath, O_RDONLY));
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));  // 获取当前sig日志文件属性
     close(zFd[0]);
     close(zFd[1]);
@@ -823,7 +823,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     struct stat zStatIf;
     struct zDeployResInfo *zpTmpIf;
 
-    _i zFd[2] = {-9};
+    _i zFd[2] = {-10000};
     zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[zRepoId].RepoPath, O_RDONLY));
     zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY));  // 打开客户端ip地址数据库文件
     zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
