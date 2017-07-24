@@ -122,11 +122,6 @@ struct zRepoInfo {
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolHeadId;  // 动态指示下一次内存分配的起始地址
 
-	void *p_MemPool_1;
-    size_t MemPoolSiz_1;
-    pthread_mutex_t MemLock_1;
-    _ui MemPoolHeadId_1;
-
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
@@ -223,7 +218,7 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     zthread_poll_init();  // 初始化线程池

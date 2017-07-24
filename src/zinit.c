@@ -14,19 +14,14 @@ zinit_env(void) {
         // 初始化每个代码库的内存池
         zpGlobRepoIf[i].MemPoolHeadId = 0;
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
-        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);
-		zMap_Alloc(zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz);
-
-        zpGlobRepoIf[i].MemPoolHeadId_1 = 0;
-        zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock_1), NULL) );
-        zpGlobRepoIf[i].MemPoolSiz_1 = zBytes(24 * 1024 * 1024);
-		zMap_Alloc(zpGlobRepoIf[i].p_MemPool_1, char, zpGlobRepoIf[i].MemPoolSiz_1);
+        zpGlobRepoIf[i].MemPoolSiz = zBytes(16 * 1024 * 1024);
+        zMap_Alloc(zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz);
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
         zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY));
 
         /* 启动 inotify */
-		zMem_Alloc(zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath));
+        zMem_Alloc(zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath));
         strcpy(zpObjIf->path, zpGlobRepoIf[i].RepoPath);
         strcat(zpObjIf->path, "/.git/logs");
 
@@ -116,7 +111,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
     zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 
-    zMem_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum);
+    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum);
 
     _i zRealRepoNum = 0;
     do {
@@ -138,7 +133,6 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         if (0 == zpRetIf[1]->cnt) {
             zPrint_Time();
             fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,zpRes);
-            zpcre_free_tmpsource(zpRetIf[1]);
             exit(1);
         } else {
             zpcre_free_tmpsource(zpRetIf[1]);
@@ -152,7 +146,12 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         zRealRepoNum++;
         // 检测代码库路径合法性
-        zCheck_Negative_Exit(zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY));
+		if (-1 == (zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
+            zPrint_Time();
+            fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
+            exit(1);
+		}
+
         // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
         zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
         if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {

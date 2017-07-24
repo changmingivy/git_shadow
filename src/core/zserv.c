@@ -24,33 +24,38 @@ void zgenerate_cache(void *);
 
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
-	pthread_mutex_lock(&(zpGlobRepoIf[zRepoId].MemLock));
+    pthread_mutex_lock(&(zpGlobRepoIf[zRepoId].MemLock));
 
-    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) >= zpGlobRepoIf[zRepoId].MemPoolSiz) {
-		struct zCacheMetaInfo zCacheMetaIf;
+    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) > zpGlobRepoIf[zRepoId].MemPoolSiz) {
+        /* 内存池容量不足时，需要全量刷新缓存，必须首先拿到写锁权限方可执行 */
+        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
 
-		munmap(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
+        struct zCacheMetaInfo zCacheMetaIf;
+
+        munmap(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
         zpGlobRepoIf[zRepoId].MemPoolSiz *= 2;
-		if (MAP_FAILED == (zpGlobRepoIf[zRepoId].p_MemPool = mmap(NULL, zpGlobRepoIf[zRepoId].MemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-			zPrint_Err(0, NULL, "mmap failed!");
-			exit(1);
-		}
+        if (MAP_FAILED == (zpGlobRepoIf[zRepoId].p_MemPool = mmap(NULL, zpGlobRepoIf[zRepoId].MemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+            zPrint_Err(0, NULL, "mmap failed!");
+            exit(1);
+        }
 
-		zCacheMetaIf.TopObjTypeMark = zIsCommitCacheType;
-		zCacheMetaIf.RepoId = zRepoId;
-		zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
+        zCacheMetaIf.TopObjTypeMark = zIsCommitCacheType;
+        zCacheMetaIf.RepoId = zRepoId;
+        zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
 
-		zCacheMetaIf.TopObjTypeMark = zIsDeployCacheType;
-		zCacheMetaIf.RepoId = zRepoId;
-		zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
+        zCacheMetaIf.TopObjTypeMark = zIsDeployCacheType;
+        zCacheMetaIf.RepoId = zRepoId;
+        zgenerate_cache(&(zCacheMetaIf));  // 不用线程池
 
-		return NULL;
+        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
+
+        return NULL;
     }
 
-    void *zpX = zpGlobRepoIf[zRepoId].p_MemPool + zpGlobRepoIf[zRepoId].MemPoolHeadId + zSiz;
+    void *zpX = zpGlobRepoIf[zRepoId].p_MemPool + zpGlobRepoIf[zRepoId].MemPoolHeadId;
     zpGlobRepoIf[zRepoId].MemPoolHeadId += zSiz;
 
-	pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId].MemLock));
+    pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId].MemLock));
     return zpX;
 }
 
@@ -75,6 +80,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
  */
 void
 zget_diff_content(void *zpIf) {
+// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -82,12 +88,12 @@ zget_diff_content(void *zpIf) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpCurVecWrapIf;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zCommonBufSiz];
+    char zShellBuf[128], zRes[zBytes(1024)];
 
     struct zSendInfo *zpSendIf;  // 此项是 iovec 的 io_base 字段
     _i zVecId;
     _i zSendDataLen, zVecDataLen;
-    _i zAllocSiz = 128;
+    _i zAllocSiz = 8;
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
 
@@ -109,7 +115,8 @@ zget_diff_content(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zVecId = 0;  NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler); zVecId++) {
+    /* 此处读取行内容，因为没有下一级数据，故不再按行读取 */
+    for (zVecId = 0; 0 != zget_str_content(zRes, zBytes(1024), zpShellRetHandler); zVecId++) {
         if (zVecId >= zAllocSiz) {
             zAllocSiz *= 2;
             zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
@@ -149,6 +156,7 @@ zget_diff_content(void *zpIf) {
  */
 void
 zget_file_list_and_diff_content(void *zpIf) {
+// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -156,12 +164,12 @@ zget_file_list_and_diff_content(void *zpIf) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpCurVecWrapIf;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zCommonBufSiz];
+    char zShellBuf[128], zRes[zBytes(1024)];
 
     struct zSendInfo *zpSendIf;  // 此项是 iovec 的 io_base 字段
     _i zVecId;
     _i zSendDataLen, zVecDataLen;
-    _i zAllocSiz = 128;
+    _i zAllocSiz = 64;
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
 
@@ -181,7 +189,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zVecId = 0;  NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler); zVecId++) {
+    for (zVecId = 0;  NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zVecId++) {
         if (zVecId >= zAllocSiz) {
             zAllocSiz *= 2;
             zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
@@ -242,7 +250,7 @@ zfree_one_commit_cache(void *zpIf) {
         free(zGet_SubVecWrapIfPtr(zpVecWrapIf, zFileId)->p_VecIf);
     }
     free(zpVecWrapIf->p_VecIf);
-	free(zpIf);
+    free(zpIf);
 }
 
 /*
@@ -251,6 +259,7 @@ zfree_one_commit_cache(void *zpIf) {
  */
 void
 zgenerate_cache(void *zpIf) {
+// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -294,7 +303,6 @@ zgenerate_cache(void *zpIf) {
         if (NULL != zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)) {
             zpOldVecWrapIf = zalloc_cache(zpCacheMetaIf->RepoId, sizeof(struct zVecWrapInfo));
 
-            zpOldVecWrapIf->p_RefDataIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_RefDataIf;
             zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->p_VecIf;
             zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIfPtr(zpTopVecWrapIf, zCnter)->VecSiz;
 
@@ -432,28 +440,28 @@ zupdate_one_commit_cache(void *zpIf) {
     }
 }
 
-/*
- * 通用函数，调用外部程序或脚本文件执行相应的动作
- * 传入参数：
- * $1：代码库ID
- * $2：代码库绝对路径
- * $3：受监控路径名称
- */
-void
-zinotify_common_callback(void *zpIf) {
-    struct zObjInfo *zpObjIf = (struct zObjInfo *) zpIf;
-    char zShellBuf[zCommonBufSiz];
-
-    sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify %d %s %s",
-        zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
-        zpObjIf->RepoId,
-        zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
-        zpObjHash[zpObjIf->UpperWid]->path);
-
-    if (0 != system(zShellBuf)) {
-        zPrint_Err(0, NULL, "[system]: shell command failed!");
-    }
-}
+// /*
+//  * 通用函数，调用外部程序或脚本文件执行相应的动作
+//  * 传入参数：
+//  * $1：代码库ID
+//  * $2：代码库绝对路径
+//  * $3：受监控路径名称
+//  */
+// void
+// zinotify_common_callback(void *zpIf) {
+//     struct zObjInfo *zpObjIf = (struct zObjInfo *) zpIf;
+//     char zShellBuf[zCommonBufSiz];
+// 
+//     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify %d %s %s",
+//         zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
+//         zpObjIf->RepoId,
+//         zpGlobRepoIf[zpObjIf->RepoId].RepoPath,
+//         zpObjHash[zpObjIf->UpperWid]->path);
+// 
+//     if (0 != system(zShellBuf)) {
+//         zPrint_Err(0, NULL, "[system]: shell command failed!");
+//     }
+// }
 
 /***********
  * NET OPS *
@@ -744,10 +752,10 @@ zdeploy(void *zpIf) {
     /* 将本次布署信息写入日志 */
     zwrite_log(zRecvIf.RepoId);
 
-	/* 重置内存池状态 */
-	pthread_mutex_lock(&(zpGlobRepoIf[zRecvIf.RepoId].MemLock));
-	zpGlobRepoIf[zRecvIf.RepoId].MemPoolHeadId = 0;
-	pthread_mutex_unlock(&(zpGlobRepoIf[zRecvIf.RepoId].MemLock));
+    /* 重置内存池状态 */
+    pthread_mutex_lock(&(zpGlobRepoIf[zRecvIf.RepoId].MemLock));
+    zpGlobRepoIf[zRecvIf.RepoId].MemPoolHeadId = 0;
+    pthread_mutex_unlock(&(zpGlobRepoIf[zRecvIf.RepoId].MemLock));
 
     /* 更新全局缓存 */
     zpMetaIf = zalloc_cache(zRecvIf.RepoId, sizeof(struct zCacheMetaInfo));
@@ -958,7 +966,7 @@ zupdate_ipv4_db_txt(void *zpIf) {
 
     zCheck_Negative_Exit( zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
 
-	zMem_Alloc(zpObjIf, char, 1 + strlen(zPathBuf) + sizeof(struct zObjInfo));
+    zMem_Alloc(zpObjIf, char, 1 + strlen(zPathBuf) + sizeof(struct zObjInfo));
     zupdate_ipv4_db(&(zRecvIf.RepoId));
 
     /* 接收网络数据并同步写入文件 */
