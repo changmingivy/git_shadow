@@ -1,5 +1,5 @@
 #ifndef _Z
-    #include "../../inc/zutils.h"
+    #include "../../../inc/zutils.h"
 #endif
 
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h

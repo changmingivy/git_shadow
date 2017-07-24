@@ -12,7 +12,7 @@
     #include <sys/stat.h>
     #include <fcntl.h>
     #include <unistd.h>
-    #include "../../inc/zutils.h"
+    #include "../../../inc/zutils.h"
 #endif
 
 typedef struct {

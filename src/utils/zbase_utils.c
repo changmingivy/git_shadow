@@ -248,25 +248,33 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
 }
 
 /*
- * DO NOT forget to free memory.
+ * 以返回是否是 NULL 为条件判断是否已读完所有数据
+ * 可重入，可用于线程
+ * 适合按行读取分别处理的场景
  */
-char *
-zget_one_line_from_FILE(FILE *zpFile) {
-// TEST: PASS
-    static char zBuf[zCommonBufSiz];
-    memset(zBuf, 0, zCommonBufSiz);
-
-    char *zpRes = fgets(zBuf, zCommonBufSiz, zpFile);
-    if (NULL == zpRes) {
-        if(0 == feof(zpFile)) {
-            zCheck_Null_Exit(zpRes);
-        } else {
-            return NULL;
-        }
+void *
+zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
+    char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
+    if (NULL == zpRes && (0 == feof(zpFile))) {
+		zPrint_Err(0, NULL, "<fgets> ERROR!");
+		exit(1);
     }
-
-    zpRes[strlen(zBuf) -1] = '\0';  // 清除行末的 '\n'
     return zpRes;
+}
+
+/*
+ * 以返回值小于 zSiz 为条件判断是否到达末尾（读完所有数据 )
+ * 可重入，可用于线程
+ * 适合一次性大量读取所有文本内容的场景
+ */
+_i
+zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
+    size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
+    if (zCnt < zSiz && (0 == feof(zpFile))) {
+		zPrint_Err(0, NULL, "<fread> ERROR!");
+		exit(1);
+    }
+    return zCnt;
 }
 
 /*
@@ -289,3 +297,21 @@ zthread_system(void *zpCmd) {
     zPrint_Err(0, NULL, "[system]: shell command failed!");
     }
 }
+
+/*
+ * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
+ */
+_ui
+zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
+    struct in_addr zIpv4Addr;
+    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpv4Addr) );
+    return zIpv4Addr.s_addr;
+}
+
+void
+zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
+    struct in_addr zIpv4Addr;
+	zIpv4Addr.s_addr = zIpv4BinAddr;
+    inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
+}
+

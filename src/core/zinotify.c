@@ -14,7 +14,7 @@ zinotify_add_sub_watch(void *zpIf) {
     struct zObjInfo *zpCurIf = (struct zObjInfo *) zpIf;
 
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
-    zCheck_Negative_Return(zWid,);
+    zCheck_Negative_Exit(zWid);
     if (0 > zpCurIf->UpperWid) {
         zpCurIf->UpperWid = zWid;
     }
@@ -34,7 +34,8 @@ zinotify_add_sub_watch(void *zpIf) {
     struct dirent *zpEntry;
 
     zPCRERetInfo *zpRetIf = NULL;
-    zPCREInitInfo *zpPCREInitIf = zpcre_init(zpCurIf->zpRegexPattern);  // 暂时在此处编译正则表达式，后续优化，当前效率较低
+	// 忽略'.'与'..'，暂时在此处编译正则表达式，后续优化，当前效率较低
+    zPCREInitInfo *zpPCREInitIf = zpcre_init(zpCurIf->zpRegexPattern);
     while (NULL != (zpEntry = readdir(zpDir))) {
         if (DT_DIR == zpEntry->d_type) {
             zpRetIf = zpcre_match(zpPCREInitIf, zpEntry->d_name, 0);
