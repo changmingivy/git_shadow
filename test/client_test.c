@@ -175,7 +175,7 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 void
 zclient(char *zpX) {
-        _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+        _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
            if (-1 == zSd) {
             fprintf(stderr, "Connect to server failed \n");
             exit(1);
@@ -193,18 +193,23 @@ zclient(char *zpX) {
         //_i zData[6] = {3, 0, 0, 0, 0, 0};
         //_i zData[6] = {4, 0, 0, 0, 0, 0};
 
-        zsendto(zSd, zData, sizeof(zData), 0, NULL);
+		char zStrBuf[] = "1\00\00\00\00\00\00\00\00\00\0";
+        zsendto(zSd, zStrBuf, zBytes(12), 0, NULL);
+        //zsendto(zSd, zData, sizeof(zData), 0, NULL);
 
-        int zBuf;
-        zrecv_all(zSd, &zBuf, 1, 0, NULL);
-        fprintf(stderr, "%d\n", zBuf);
+        int zBuf[2];
+        recv(zSd, &zBuf, 1, 0);
+        fprintf(stderr, "ONE: %d\n", zBuf[0]);
+        recv(zSd, &zBuf, 1, 0);
+        fprintf(stderr, "TWO: %d\n", zBuf[0]);
 
-        struct zSendInfo zB[4];
-        _i zCnt = recv(zSd, zB, sizeof(zB), 0);
-            fprintf(stderr, "cnt: %d\n", zCnt);
-        for (_i i = 0; i < (zCnt / zSizeOf(zB[0])); i++) {
-            fprintf(stderr, "%d %d\n", zB[i].DataLen, zB[i].data[1]);
-        }
+        _i  zB[20];
+        _i zCnt = recv(zSd, zB, 20 * sizeof(_i), 0);
+
+        fprintf(stderr, "data cnt: %d\n", zCnt);
+		for (_i i = 0; i < 20; i++) {
+        	fprintf(stderr, "%d\n", zB[i]);
+		}
         shutdown(zSd, SHUT_RDWR);
 }
 

@@ -454,14 +454,27 @@ zupdate_one_commit_cache(void *zpIf) {
 /***********
  * NET OPS *
  ***********/
+#define zRecvFieldNum (zSizeOf(struct zRecvInfo) / zSizeOf(_i))
+#define zMaxRecvLen (zRecvFieldNum * (10 + 1))  // 共计6个整数，单个整数最大10位，加上6个'\0'
+#define zMinRecvLen (zRecvFieldNum * (1 + 1))  // 共计6个整数，单个整数最小1位，加上6个'\0'
+
 /* 通用的初始化动作 */
 #define zRecv_Data_And_Check_RepoId_And_Init_TopWrap() do {\
-    if (zSizeOf(struct zRecvInfo) > zrecv_nohang(zSd, &zRecvIf, sizeof(struct zRecvInfo), 0, NULL)) {\
+    char __zStrBuf[zMaxRecvLen];\
+    char *__zpStrPtr = __zStrBuf;\
+    _i *__zpRcevIf = (_i *)(&zRecvIf);\
+\
+    if (zBytes(zMinRecvLen) > zrecv_nohang(zSd, __zStrBuf, zBytes(zMaxRecvLen), 0, NULL)) {\
         zPrint_Err(0, NULL, "接收到的数据不完整!");\
         zErrNo = -7;\
         zsendto(zSd, &zErrNo, sizeof(zErrNo), 0, NULL);\
         shutdown(zSd, SHUT_RDWR);\
         return;\
+    }\
+\
+    for (_i i = 0; i < zRecvFieldNum; i++) {\
+        __zpRcevIf[i] = strtol(__zpStrPtr, NULL, 10);\
+        __zpStrPtr += 1 + strlen(__zpStrPtr);\
     }\
 \
     if (0 > zRecvIf.RepoId || zGlobRepoNum <= zRecvIf.RepoId) {\
@@ -1040,11 +1053,13 @@ zstart_server(void *zpIf) {
     zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv) );
 
     // 如下部分启动 epoll 监听服务
-    for (_i zCmd = 0;;) {  // zCmd: 用于存放前端发送的操作指令
+    _i zCmd;
+    char zCmdBuf[zMaxRecvLen / zRecvFieldNum];
+    for (;;) {  // zCmd: 用于存放前端发送的操作指令
         zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
         zCheck_Negative_Return(zEvNum,);
 
-        for (_i i = 0; i < zEvNum; i++, zCmd = 0) {
+        for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {  // 主socket上收到事件，执行accept
                zCheck_Negative_Exit( zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0) );
 
@@ -1052,15 +1067,18 @@ zstart_server(void *zpIf) {
                zEv.data.fd = zConnSd;
                zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv) );
             } else {
-                if (sizeof(_i) != zrecv_nohang(zEvents[i].data.fd, &zCmd, sizeof(_i), MSG_PEEK, NULL)) {
+                if (zBytes(2) > zrecv_nohang(zEvents[i].data.fd, zCmdBuf, zBytes(zMaxRecvLen / zRecvFieldNum), MSG_PEEK, NULL)) {  // 最少是一个字符＋一个'\0'
                     continue;
                 }
+
+                zCmd = strtol(zCmdBuf, NULL, 10);
                 if (0 > zCmd || zServHashSiz <= zCmd) {
                     zPrint_Err(0, NULL, "操作指令ID不存在!");
                     zErrNo = -1;
                     zsendto(zEvents[i].data.fd, &zErrNo, sizeof(zErrNo), 0, NULL);
                     continue;
                 }
+
                 zAdd_To_Thread_Pool(zNetServ[zCmd], &(zEvents[i].data.fd));
             }
         }
