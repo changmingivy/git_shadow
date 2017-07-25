@@ -5,7 +5,10 @@
     #include <errno.h>
     #include <pthread.h>
     #include <sys/signal.h>
-    #define zCommonBufSiz 4096
+#endif
+
+#ifndef zCommonBufSiz
+#define zCommonBufSiz 1024
 #endif
 
 #define zBytes(zNum) ((_i)(zNum * sizeof(char)))
@@ -214,4 +217,3 @@ _i zSigSet[30] = {
     sigaction(zSigSet[27], &zSigActionIf, NULL);\
     sigaction(zSigSet[28], &zSigActionIf, NULL);\
 } while(0)
-

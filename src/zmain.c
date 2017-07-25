@@ -31,14 +31,24 @@
 #include <libgen.h>
 #include <ctype.h>
 
-#define zCommonBufSiz 1024
 #include "../inc/zutils.h"
+#include "../inc/cJSON.h"
+
+#define zCommonBufSiz 1024
 
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
+
+#define zIsCommitCacheType -1
+#define zIsDeployCacheType -2
+
+#define zServHashSiz 14
+
+#define UDP 0
+#define TCP 1
 
 /****************
  * 数据结构定义 *
@@ -60,35 +70,15 @@ struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zCacheMetaInfo {  // 适用线程并发模型
-    _i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
-    _i RepoId;
-    _i CommitId;
-    _i FileId;
-};
-
-/* 用于接收前端传送的数据 */
-struct zRecvInfo {
-    _i OpsId;  // 操作指令（从0开始的连续排列的非负整数）
+/* 数据交互格式 */
+struct zMetaInfo {
+    _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-    _i data[];  // 用于接收额外的数据，如：接收IP地址列表时
-};
-
-// /* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
-// struct zSendInfo {
-//     _i SelfId;
-//     _i DataLen;
-//     _i data[];
-// };
-
-/* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
-struct zSendInfo {
-    char SelfStrId[12];  // 以字符串字面值形式存储的ID，使用时需要strtol转换
-    char data[];
+    char *p_data;  // 用于接收额外的数据，如：接收IP地址列表时
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
@@ -163,8 +153,8 @@ _i zGlobRepoNum;  // 总共有多少个代码库
 _i zInotifyFD;   // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
-#define UDP 0
-#define TCP 1
+/* 服务接口 */
+zThreadPoolOps zNetServ[zServHashSiz];
 
 /************
  * 配置文件 *
@@ -180,6 +170,7 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 /**********
  * 子模块 *
  **********/
+#include "cJSON.c"
 #include "utils/zbase_utils.c"
 #include "utils/pcre2/zpcre.c"
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和

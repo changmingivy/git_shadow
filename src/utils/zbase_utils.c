@@ -314,3 +314,61 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
     zIpv4Addr.s_addr = zIpv4BinAddr;
     inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
 }
+
+/*
+ *  将json文本转换为zMetaInfo结构体
+ *  返回：用完data字段的内容后，需要释放资源的json对象指针
+ */
+cJSON *
+zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
+	static cJSON *zpRootObj;
+	cJSON *zpValueObj;
+	zCheck_Null_Exit( zpRootObj = cJSON_Parse(zpJsonStr) );
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
+	zpMetaIf->OpsId = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
+	zpMetaIf->RepoId = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
+	zpMetaIf->CommitId = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
+	zpMetaIf->FileId = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostIp") );
+	zpMetaIf->HostIp = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
+	zpMetaIf->CacheId = zpValueObj->valueint;
+
+	zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
+	zpMetaIf->p_data = zpValueObj->valuestring;
+
+	return zpRootObj;
+}
+
+/*
+ * 使用完json后释放顶层对象
+ */
+void
+zjson_obj_free(cJSON *zpJsonRootObj) {
+	cJSON_Delete(zpJsonRootObj);
+}
+
+/*
+ * 将结构体数据转换成生成json文本
+ * 生成缓存时使用
+ */
+void
+zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
+	sprintf(zpJsonStrBuf, "{\"OpsId\": %d, \"RepoId\": %d, \"CommitId\": %d, \"FileId\": %d, \"HostId\": %d, \"CacheId\": %d, \"data\": %s}",
+			zpMetaIf->OpsId,
+			zpMetaIf->RepoId,
+			zpMetaIf->CacheId,
+			zpMetaIf->FileId,
+			zpMetaIf->HostIp,
+			zpMetaIf->CacheId,
+			zpMetaIf->p_data);
+}
