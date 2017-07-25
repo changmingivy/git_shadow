@@ -226,10 +226,10 @@ zgenerate_file_sig_md5(char *zpPathName) {
     zCheck_Negative_Return(fstat(zFd, &zStatIf), NULL);
 
     void *zpX = mmap(NULL, zStatIf.st_size, PROT_READ, MAP_PRIVATE, zFd, 0);
-	if (MAP_FAILED == zpX) {
-		zPrint_Err(0, NULL, "mmap failed!");
-		return NULL;
-	}
+    if (MAP_FAILED == zpX) {
+        zPrint_Err(0, NULL, "mmap failed!");
+        return NULL;
+    }
     madvise(zpX, zStatIf.st_size, MADV_WILLNEED);
 
     MD5_CTX zMd5Handler;

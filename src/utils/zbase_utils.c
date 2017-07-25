@@ -12,14 +12,14 @@
 //     _i zOrigLen = strlen(zpOrig);
 //     _i zMax = (0 == zOrigLen % 3) ? (zOrigLen / 3 * 4) : (1 + zOrigLen / 3 * 4);
 //     _i zResLen = zMax + (4- (zMax % 4));
-// 
+//
 //     char zRightOffset[zMax], zLeftOffset[zMax];
-// 
+//
 //     char *zRes;
 //     zMem_Alloc(zRes, char, zResLen);
-// 
+//
 //     _i i, j;
-// 
+//
 //     for (i = j = 0; i < zMax; i++) {
 //         if (3 == (i % 4)) {
 //             zRightOffset[i] = 0;
@@ -30,16 +30,16 @@
 //             j++;
 //         }
 //     }
-// 
+//
 //     _c mask = 63;
 //     zRes[0] = zRightOffset[0] & mask;
-// 
+//
 //     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
 //     zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
-// 
+//
 //     for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
 //     for (i = zMax; i < zResLen; i++) { zRes[i] = '='; }
-// 
+//
 //     return zRes;
 // }
 

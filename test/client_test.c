@@ -176,50 +176,36 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 void
 zclient(char *zpX) {
         _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
-       	if (-1 == zSd) {
-        	fprintf(stderr, "Connect to server failed \n");
-        	exit(1);
+           if (-1 == zSd) {
+            fprintf(stderr, "Connect to server failed \n");
+            exit(1);
         }
 
-		struct zRecvInfo zRecfIf;
-		zRecfIf.OpsId = 1;
-		zRecfIf.RepoId = 0;
-		zRecfIf.CacheId= 0;
-		zRecfIf.CommitId= -1;
-		zRecfIf.HostIp= -1;
-		zRecfIf.FileId= -1;
+        struct zRecvInfo zRecfIf;
+        zRecfIf.OpsId = 1;
+        zRecfIf.RepoId = 0;
+        zRecfIf.CacheId= 0;
+        zRecfIf.CommitId= -1;
+        zRecfIf.HostIp= -1;
+        zRecfIf.FileId= -1;
 
-		_i zData[8] = {1, 0, 0, 0, 0, 0};
-		//_i zData[6] = {3, 0, 0, 0, 0, 0};
-		//_i zData[6] = {4, 0, 0, 0, 0, 0};
+        _i zData[6] = {1, 0, 0, 0, 0, 0};
+        //_i zData[6] = {3, 0, 0, 0, 0, 0};
+        //_i zData[6] = {4, 0, 0, 0, 0, 0};
 
-        _i i = zsendto(zSd, zData, sizeof(struct zRecvInfo), 0, NULL);
+        zsendto(zSd, zData, sizeof(zData), 0, NULL);
 
-		fprintf (stderr, "Sent: %d\n", i);
+        int zBuf;
+        zrecv_all(zSd, &zBuf, 1, 0, NULL);
+        fprintf(stderr, "%d\n", zBuf);
 
-
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[0]);
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[1]);
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[2]);
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[3]);
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[4]);
-		fprintf (stderr, "Sent: %d\n", ((_i *)(&zRecfIf))[5]);
-
-		int zBuf[496];
-        _i zCnt = zrecv_all(zSd, zBuf, 1, 0, NULL);
-
-        fprintf(stderr, "[Received]:\n=>");
-        for (_i i = 0; i < zCnt; i++) {
-        fprintf(stderr, "%d", zBuf[i]);
+        struct zSendInfo zB[4];
+        _i zCnt = recv(zSd, zB, sizeof(zB), 0);
+            fprintf(stderr, "cnt: %d\n", zCnt);
+        for (_i i = 0; i < (zCnt / zSizeOf(zB[0])); i++) {
+            fprintf(stderr, "%d %d\n", zB[i].DataLen, zB[i].data[1]);
         }
-        fprintf(stderr, "<=\n");
-
-		char zB[4096];
-        zCnt = recv(zSd, zB, 4096, 0);
-        for (_i i = 0; i < zCnt; i++) {
-        fprintf(stderr, "%c", zB[i]);
-        }
- //       shutdown(zSd, SHUT_RDWR);
+        shutdown(zSd, SHUT_RDWR);
 }
 
 _i

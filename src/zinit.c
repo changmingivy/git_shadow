@@ -96,12 +96,12 @@ zinit_env(void) {
         zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
 
         /* 生成缓存 */
-		zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
+        zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
         zpMetaIf->TopObjTypeMark = zIsCommitCacheType;
         zpMetaIf->RepoId = i;
         zgenerate_cache(zpMetaIf);
 
-		zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
+        zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
         zpMetaIf->TopObjTypeMark = zIsDeployCacheType;
         zpMetaIf->RepoId = i;
         zgenerate_cache(zpMetaIf);
@@ -156,11 +156,11 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         zRealRepoNum++;
         // 检测代码库路径合法性
-		if (-1 == (zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
+        if (-1 == (zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
             zPrint_Time();
             fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
             exit(1);
-		}
+        }
 
         close(zFd[1]);
         close(zFd[0]);
