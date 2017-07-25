@@ -78,11 +78,17 @@ struct zRecvInfo {
     _i data[];  // 用于接收额外的数据，如：接收IP地址列表时
 };
 
+// /* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
+// struct zSendInfo {
+//     _i SelfId;
+//     _i DataLen;
+//     _i data[];
+// };
+
 /* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
 struct zSendInfo {
-    _i SelfId;
-    _i DataLen;
-    _i data[];
+    char SelfStrId[12];  // 以字符串字面值形式存储的ID，使用时需要strtol转换
+    char data[];
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */

@@ -181,35 +181,16 @@ zclient(char *zpX) {
             exit(1);
         }
 
-        struct zRecvInfo zRecfIf;
-        zRecfIf.OpsId = 1;
-        zRecfIf.RepoId = 0;
-        zRecfIf.CacheId= 0;
-        zRecfIf.CommitId= -1;
-        zRecfIf.HostIp= -1;
-        zRecfIf.FileId= -1;
-
-        _i zData[6] = {1, 0, 0, 0, 0, 0};
-        //_i zData[6] = {3, 0, 0, 0, 0, 0};
-        //_i zData[6] = {4, 0, 0, 0, 0, 0};
-
 		char zStrBuf[] = "1\00\00\00\00\00\00\00\00\00\0";
         zsendto(zSd, zStrBuf, zBytes(12), 0, NULL);
-        //zsendto(zSd, zData, sizeof(zData), 0, NULL);
 
-        int zBuf[2];
-        recv(zSd, &zBuf, 1, 0);
-        fprintf(stderr, "ONE: %d\n", zBuf[0]);
-        recv(zSd, &zBuf, 1, 0);
-        fprintf(stderr, "TWO: %d\n", zBuf[0]);
+		_i zStateBuf;
+        recv(zSd, &zStateBuf, sizeof(_i), 0);
 
-        _i  zB[20];
-        _i zCnt = recv(zSd, zB, 20 * sizeof(_i), 0);
+		char zBuf[4096];
+        zrecv_all(zSd, &zBuf, 4096, 0, NULL);
+		fprintf(stderr, "%s\n", zBuf);
 
-        fprintf(stderr, "data cnt: %d\n", zCnt);
-		for (_i i = 0; i < 20; i++) {
-        	fprintf(stderr, "%d\n", zB[i]);
-		}
         shutdown(zSd, SHUT_RDWR);
 }
 

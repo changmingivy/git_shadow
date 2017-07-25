@@ -16,6 +16,9 @@
 
 #define zServHashSiz 14
 
+#define zLineMark '\\'
+#define zFieldMark '|'
+
 /*
  * 专用于缓存的内存调度分配函数，适用多线程环境，不需要free
  * 调用此函数的父函数一定是已经取得全局写锁的，故此处不能再试图加写锁
@@ -96,7 +99,6 @@ zfree_one_commit_cache(void *zpIf) {
  */
 void
 zget_diff_content(void *zpIf) {
-// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -108,7 +110,7 @@ zget_diff_content(void *zpIf) {
 
     struct zSendInfo *zpSendIf;  // 此项是 iovec 的 io_base 字段
     _i zVecId;
-    _i zSendDataLen, zVecDataLen;
+    _i zVecDataLen;
     _i zAllocSiz = 8;
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
@@ -138,13 +140,13 @@ zget_diff_content(void *zpIf) {
             zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
         }
 
-        zSendDataLen = 1 + strlen(zRes);
-        zVecDataLen = zSendDataLen + sizeof(struct zSendInfo);
-        zCheck_Null_Exit( zpSendIf = zalloc_cache(zpCacheMetaIf->RepoId, zVecDataLen) );
+        zVecDataLen = 1 + strlen(zRes) + sizeof(struct zSendInfo);
+        zCheck_Null_Exit( zpSendIf = zalloc_cache(zpCacheMetaIf->RepoId, zVecDataLen));
 
-        zpSendIf->SelfId = zVecId;
-        zpSendIf->DataLen = zSendDataLen;
-        strcpy((char *)zpSendIf->data, zRes);
+        memset(zpSendIf->SelfStrId, 0, sizeof(zpSendIf->SelfStrId));  // 置'\0'
+
+        sprintf(zpSendIf->SelfStrId, "%d", zVecId);  // 自身ID转换成字符串形式
+        strcpy(zpSendIf->data, zRes);  // 信息正文
 
         zpCurVecWrapIf->p_VecIf[zVecId].iov_base = zpSendIf;
         zpCurVecWrapIf->p_VecIf[zVecId].iov_len = zVecDataLen;
@@ -171,7 +173,6 @@ zget_diff_content(void *zpIf) {
  */
 void
 zget_file_list_and_diff_content(void *zpIf) {
-// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -183,7 +184,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     struct zSendInfo *zpSendIf;  // 此项是 iovec 的 io_base 字段
     _i zVecId;
-    _i zSendDataLen, zVecDataLen;
+    _i zVecDataLen;
     _i zAllocSiz = 64;
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
@@ -220,13 +221,19 @@ zget_file_list_and_diff_content(void *zpIf) {
             zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
         }
 
-        zSendDataLen = 1 + strlen(zRes);
-        zVecDataLen = zSendDataLen + sizeof(struct zSendInfo);
+        zVecDataLen = 1 + strlen(zRes) + sizeof(struct zSendInfo);
         zCheck_Null_Exit( zpSendIf = zalloc_cache(zpCacheMetaIf->RepoId, zVecDataLen));
 
-        zpSendIf->SelfId = zVecId;
-        zpSendIf->DataLen = zSendDataLen;
-        strcpy((char *)zpSendIf->data, zRes);
+        memset(zpSendIf->SelfStrId, 0, sizeof(zpSendIf->SelfStrId));  // 置'\0'
+
+        sprintf(zpSendIf->SelfStrId, "%d", zVecId);  // 自身ID转换成字符串形式
+#ifdef zFieldMark
+        zpSendIf->SelfStrId[strlen(zpSendIf->SelfStrId)] = zFieldMark;  // 用于提示前端的字段分割符
+#endif
+        strcpy(zpSendIf->data, zRes);  // 信息正文
+#ifdef zLineMark
+        zpSendIf->data[strlen(zpSendIf->data)] = zLineMark;  // 用于提示前端的行分割符
+#endif
 
         zpCurVecWrapIf->p_VecIf[zVecId].iov_base = zpSendIf;
         zpCurVecWrapIf->p_VecIf[zVecId].iov_len = zVecDataLen;
@@ -266,7 +273,6 @@ zget_file_list_and_diff_content(void *zpIf) {
  */
 void
 zgenerate_cache(void *zpIf) {
-// TEST:PASS
 #ifdef _zDEBUG
     zCheck_Null_Exit(zpIf);
 #endif
@@ -276,7 +282,7 @@ zgenerate_cache(void *zpIf) {
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
 
     struct zSendInfo *zpCommitSendIf;  // iov_base
-    _i zSendDataLen, zVecDataLen, zCnter;
+    _i zVecDataLen, zCnter;
 
     FILE *zpShellRetHandler;
     char zRes[zCommonBufSiz], zShellBuf[128], zLogPathBuf[128];
@@ -296,16 +302,23 @@ zgenerate_cache(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     for (zCnter = 0; (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) && (zCnter < zCacheSiz); zCnter++) {
-        zSendDataLen = 2 * sizeof(zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
-        zVecDataLen = zSendDataLen + sizeof(struct zSendInfo);
+        zVecDataLen = zBytes(24) + sizeof(struct zSendInfo);  // 24个字节足够容纳两个字符串形式的UNIX时间戳长度
+        zCheck_Null_Exit( zpCommitSendIf = zalloc_cache(zpCacheMetaIf->RepoId, zVecDataLen) );  // 分配内存
 
-        zCheck_Null_Exit( zpCommitSendIf = zalloc_cache(zpCacheMetaIf->RepoId, zVecDataLen) );
+        memset(zpCommitSendIf, 0, zVecDataLen);  // 置'\0'
 
-        zpCommitSendIf->SelfId = zCnter;
-        zpCommitSendIf->DataLen = zSendDataLen;
-        zpCommitSendIf->data[0] = zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
-        zpCommitSendIf->data[1] = strtol(zRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
-
+        sprintf(zpCommitSendIf->SelfStrId, "%d", zCnter);  // 自身ID转换成字符串形式
+#ifdef zFieldMark
+        zpCommitSendIf->SelfStrId[strlen(zpCommitSendIf->SelfStrId)] = zFieldMark;  // 用于提示前端的字段分割符
+#endif
+        sprintf(zpCommitSendIf->data, "%d", zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // 缓存ID
+#ifdef zFieldMark
+        zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zFieldMark;  // 用于提示前端的字段分割符
+#endif
+        strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
+#ifdef zLineMark
+        zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zLineMark;  // 用于提示前端的字段分割符
+#endif
 
         zpTopVecWrapIf->p_VecIf[zCnter].iov_base = zpCommitSendIf;
         zpTopVecWrapIf->p_VecIf[zCnter].iov_len = zVecDataLen;
@@ -357,7 +370,7 @@ zupdate_one_commit_cache(void *zpIf) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
 
     struct zSendInfo *zpCommitSendIf;  // iov_base
-    _i zSendDataLen, zVecDataLen, *zpHeadId, *zpIntPtr;
+    _i zVecDataLen, *zpHeadId;
 
     FILE *zpShellRetHandler;
     char zRes[zCommonBufSiz], zShellBuf[128];
@@ -375,16 +388,23 @@ zupdate_one_commit_cache(void *zpIf) {
     zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
     pclose(zpShellRetHandler);
 
-    zSendDataLen = 2 * sizeof(zpGlobRepoIf[zpObjIf->RepoId].CacheId);  // [最近一次布署的时间戳，即：CacheId]+[本次commit的时间戳]
-    zVecDataLen = zSendDataLen + sizeof(struct zSendInfo);
+    zVecDataLen = zBytes(24) + sizeof(struct zSendInfo);  // 24个字节足够容纳两个字符串形式的UNIX时间戳长度
+    zCheck_Null_Exit( zpCommitSendIf = zalloc_cache(zpObjIf->RepoId, zVecDataLen) );  // 分配内存
 
-    zCheck_Null_Exit( zpCommitSendIf = zalloc_cache(zpObjIf->RepoId, zVecDataLen) );
+    memset(zpCommitSendIf, 0, sizeof(struct zSendInfo));  // 置'\0'
 
-    zpCommitSendIf->SelfId = *zpHeadId;
-    zpCommitSendIf->DataLen = zSendDataLen;
-    zpIntPtr = zpCommitSendIf->data;
-    zpIntPtr[0] = zpGlobRepoIf[zpObjIf->RepoId].CacheId;  // 前一个整数位存放所属代码库的CacheId
-    zpIntPtr[1] = strtol(zRes + zBytes(40), NULL, 10);  // 后一个整数位存放本次 commit 的时间戳
+    sprintf(zpCommitSendIf->SelfStrId, "%d", *zpHeadId);  // 自身ID转换成字符串形式
+#ifdef zFieldMark
+    zpCommitSendIf->SelfStrId[strlen(zpCommitSendIf->SelfStrId)] = zFieldMark;  // 用于提示前端的字段分割符
+#endif
+    sprintf(zpCommitSendIf->data, "%d", zpGlobRepoIf[zpObjIf->RepoId].CacheId);  // 缓存ID
+#ifdef zFieldMark
+    zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zFieldMark;  // 用于提示前端的字段分割符
+#endif
+    strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
+#ifdef zLineMark
+    zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zLineMark;  // 用于提示前端的字段分割符
+#endif
 
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zpCommitSendIf;
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
@@ -394,8 +414,7 @@ zupdate_one_commit_cache(void *zpIf) {
     strcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zRes);
 
     if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
-        zpTopVecWrapIf->VecSiz++;
-        zpSortedTopVecWrapIf->VecSiz++;
+        zpTopVecWrapIf->VecSiz = ++(zpSortedTopVecWrapIf->VecSiz);
     }
 
     // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
