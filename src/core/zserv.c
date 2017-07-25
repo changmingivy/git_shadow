@@ -316,13 +316,13 @@ zgenerate_cache(void *zpIf) {
         sprintf(zpCommitSendIf->data, "%d", zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // 缓存ID
         zStrLen[0] = strlen(zpCommitSendIf->data);
 #ifdef zFieldMark
-        zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zFieldMark;  // 用于提示前端的字段分割符
+        zpCommitSendIf->data[zStrLen[0]] = zFieldMark;  // 用于提示前端的字段分割符
 #endif
 
-        strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
-        zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]));
+        strcpy(&(zpCommitSendIf->data[1 + zStrLen[0]]), zRes + zBytes(40));  // commit ID
+        zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + zStrLen[0]]));
 #ifdef zLineMark
-        zpCommitSendIf->data[zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符
+        zpCommitSendIf->data[1 + zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符，非从FILE中读取的内容，末尾没有'\n'
 #endif
 
         zpTopVecWrapIf->p_VecIf[zCnter].iov_base = zpCommitSendIf;
@@ -411,9 +411,9 @@ zupdate_one_commit_cache(void *zpIf) {
 #endif
 
     strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
-    zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]));
+    zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + zStrLen[0]]));
 #ifdef zLineMark
-    zpCommitSendIf->data[zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符
+    zpCommitSendIf->data[1 + zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符
 #endif
 
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zpCommitSendIf;

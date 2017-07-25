@@ -36,6 +36,8 @@ zrevoke() {
 #######################################################
 zDeployAll=2; zDeployOne=1; zRevokeOne=-1; zRevokeAll=-2
 
+-D -f %s -H %s
+
 zActionType=
 zCodePath=
 zCommitId=
