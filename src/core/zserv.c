@@ -16,7 +16,7 @@
 
 #define zServHashSiz 14
 
-#define zLineMark '\\'
+#define zLineMark '\\'  // 可以使用 '\\'或' '或'\t'或'\n' 等不影响命令行执行结果的字符
 #define zFieldMark '|'
 
 /*
@@ -112,6 +112,7 @@ zget_diff_content(void *zpIf) {
     _i zVecId;
     _i zVecDataLen;
     _i zAllocSiz = 8;
+    char *zpFilePath;
 
     zpCacheMetaIf = (struct zCacheMetaInfo *)zpIf;
 
@@ -125,11 +126,10 @@ zget_diff_content(void *zpIf) {
 
     zpCurVecWrapIf = zalloc_cache(zpCacheMetaIf->RepoId, sizeof(struct zVecWrapInfo));
     zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
-
     /* 必须在shell命令中切换到正确的工作路径 */
+    zpFilePath = (char *)(((struct zSendInfo *)zGet_SendIfPtr(zpUpperVecWrapIf, zpCacheMetaIf->FileId) )->data);
     sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s", zpGlobRepoIf[zpCacheMetaIf->RepoId].RepoPath,
-            zGet_OneCommitSigPtr(zpTopVecWrapIf, zpCacheMetaIf->CommitId),
-            (char *)(((struct zSendInfo *)zGet_SendIfPtr(zpUpperVecWrapIf, zpCacheMetaIf->FileId) )->data));
+            zGet_OneCommitSigPtr(zpTopVecWrapIf, zpCacheMetaIf->CommitId), zpFilePath);
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
@@ -232,7 +232,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 #endif
         strcpy(zpSendIf->data, zRes);  // 信息正文
 #ifdef zLineMark
-        zpSendIf->data[strlen(zpSendIf->data)] = zLineMark;  // 用于提示前端的行分割符
+        zpSendIf->data[strlen(zpSendIf->data) - 1] = zLineMark;  // 用于提示前端的行分割符
 #endif
 
         zpCurVecWrapIf->p_VecIf[zVecId].iov_base = zpSendIf;
@@ -286,6 +286,7 @@ zgenerate_cache(void *zpIf) {
 
     FILE *zpShellRetHandler;
     char zRes[zCommonBufSiz], zShellBuf[128], zLogPathBuf[128];
+    _i zStrLen[2];
 
     if (zIsCommitCacheType ==zpCacheMetaIf->TopObjTypeMark) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpCacheMetaIf->RepoId].CommitVecWrapIf);
@@ -311,13 +312,17 @@ zgenerate_cache(void *zpIf) {
 #ifdef zFieldMark
         zpCommitSendIf->SelfStrId[strlen(zpCommitSendIf->SelfStrId)] = zFieldMark;  // 用于提示前端的字段分割符
 #endif
+
         sprintf(zpCommitSendIf->data, "%d", zpGlobRepoIf[zpCacheMetaIf->RepoId].CacheId);  // 缓存ID
+        zStrLen[0] = strlen(zpCommitSendIf->data);
 #ifdef zFieldMark
         zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zFieldMark;  // 用于提示前端的字段分割符
 #endif
+
         strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
+        zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]));
 #ifdef zLineMark
-        zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zLineMark;  // 用于提示前端的字段分割符
+        zpCommitSendIf->data[zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符
 #endif
 
         zpTopVecWrapIf->p_VecIf[zCnter].iov_base = zpCommitSendIf;
@@ -374,6 +379,7 @@ zupdate_one_commit_cache(void *zpIf) {
 
     FILE *zpShellRetHandler;
     char zRes[zCommonBufSiz], zShellBuf[128];
+    _i zStrLen[2];
 
     zpObjIf = (struct zObjInfo*)zpIf;
 
@@ -397,13 +403,17 @@ zupdate_one_commit_cache(void *zpIf) {
 #ifdef zFieldMark
     zpCommitSendIf->SelfStrId[strlen(zpCommitSendIf->SelfStrId)] = zFieldMark;  // 用于提示前端的字段分割符
 #endif
+
     sprintf(zpCommitSendIf->data, "%d", zpGlobRepoIf[zpObjIf->RepoId].CacheId);  // 缓存ID
+    zStrLen[0] = strlen(zpCommitSendIf->data);
 #ifdef zFieldMark
     zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zFieldMark;  // 用于提示前端的字段分割符
 #endif
+
     strcpy(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]), zRes + zBytes(40));  // commit ID
+    zStrLen[1] = strlen(&(zpCommitSendIf->data[1 + strlen(zpCommitSendIf->data)]));
 #ifdef zLineMark
-    zpCommitSendIf->data[strlen(zpCommitSendIf->data)] = zLineMark;  // 用于提示前端的字段分割符
+    zpCommitSendIf->data[zStrLen[0] + zStrLen[1]] = zLineMark;  // 用于提示前端的字段分割符
 #endif
 
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zpCommitSendIf;
