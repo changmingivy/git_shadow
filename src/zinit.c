@@ -4,24 +4,23 @@
 
 void
 zinit_env(void) {
+// TEST: PASS
     struct zMetaInfo *zpMetaIf;
     struct zObjInfo *zpObjIf;
-    struct stat zStatIf;
-    char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
     _i zFd[2];
 
     for (_i i = 0; i < zGlobRepoNum; i++) {
         // 初始化每个代码库的内存池
         zpGlobRepoIf[i].MemPoolHeadId = 0;
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
-        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);
-        zMap_Alloc(zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz);
+        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);  // 24M
+        zMap_Alloc( zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz );
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
-        zCheck_Negative_Exit(zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY));
+        zCheck_Negative_Exit( zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY) );
 
         /* 启动 inotify */
-        zMem_Alloc(zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath));
+        zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath) );
         strcpy(zpObjIf->path, zpGlobRepoIf[i].RepoPath);
         strcat(zpObjIf->path, "/.git/logs");
 
@@ -57,11 +56,12 @@ zinit_env(void) {
         close(zFd[1]);
 
         // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
-        zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
+        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
         if (sizeof(i) != write(zFd[1], &i, sizeof(i))) {
             zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
             exit(1);
         }
+        close(zFd[1]);
 
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
         zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zpGlobRepoIf[i].zRWLockAttr)) );
@@ -72,20 +72,13 @@ zinit_env(void) {
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&zpGlobRepoIf[i].MutexLock, NULL) );
         // 更新 TotalHost、zpppDpResHash、zppDpResList
         zupdate_ipv4_db(&i);
-        // 第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
+        // 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
         zMem_Alloc(zpGlobRepoIf[i].p_FailingList, _ui, 1 + zpGlobRepoIf[i].TotalHost);
         // 打开日志文件
         zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0600) );
-        /* 获取当前日志文件属性，不能基于全局 LogFd 打开（以 append 方式打开，会导致 fstat 结果中 st_size 为0）*/
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zLogPath, O_RDONLY) );
-        zCheck_Negative_Exit( fstat(zFd[1], &zStatIf) );
-        if (0 != zStatIf.st_size) {
-            zCheck_Negative_Exit( pread(zFd[1], zLastTimeStampStr, zBytes(11), zStatIf.st_size - zBytes(11)) );
-        }
         close(zFd[0]);
-        close(zFd[1]);
-        // 读取日志中最后一条记录的时间戳作为初始的缓存版本，若日志大小为0，则缓存版本赋0值
-        zpGlobRepoIf[i].CacheId = strtol(zLastTimeStampStr, NULL, 10);
+        // 缓存版本初始化
+        zpGlobRepoIf[i].CacheId = 1000000000;
         /* 指针指向自身的实体静态数据项 */
         zpGlobRepoIf[i].CommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].CommitVecIf;
         zpGlobRepoIf[i].CommitVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].CommitRefDataIf;
@@ -97,14 +90,16 @@ zinit_env(void) {
 
         /* 生成缓存 */
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
-        zpMetaIf->CacheType = zIsCommitCacheType;
         zpMetaIf->RepoId = i;
+		zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->CacheType = zIsCommitCacheType;
 		zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
-        zpMetaIf->CacheType = zIsDeployCacheType;
         zpMetaIf->RepoId = i;
+		zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->CacheType = zIsDeployCacheType;
 		zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     }
@@ -113,6 +108,7 @@ zinit_env(void) {
 // 取代码库条目
 void
 zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
+// TEST: PASS
     _i zRepoId, zFd[2];
     zPCREInitInfo *zpInitIf[4];
     zPCRERetInfo *zpRetIf[4];
@@ -183,9 +179,10 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zGlobRepoNum, zpGlobRepoIf);  // 缩减到实际所需空间
 }
 
-/* 读取主配置文件(正则取词有问题!!! 暂不影响功能，后续排查) */
+/* 读取主配置文件(正则取词有问题!!! 后续排查) */
 void
 zparse_conf(const char *zpConfPath) {
+// TEST: PASS
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
     char zBuf[zCommonBufSiz];

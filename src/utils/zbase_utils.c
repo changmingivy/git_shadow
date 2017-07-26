@@ -294,7 +294,7 @@ zsleep(_d zSecs) {
 void
 zthread_system(void *zpCmd) {
     if (0 != system((char *) zpCmd)) {
-    zPrint_Err(0, NULL, "[system]: shell command failed!");
+    	zPrint_Err(0, NULL, "[system]: shell command failed!");
     }
 }
 
@@ -320,51 +320,57 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  *  将json文本转换为zMetaInfo结构体
  *  返回：用完data字段的内容后，需要释放资源的json对象指针
  */
+#define zCheck_Json_Ret(zJsonRet) do {\
+	void *zpXXXXXXXXX = (zJsonRet);\
+	if (NULL == zpXXXXXXXXX) { return NULL; }\
+} while(0)
+
 cJSON *
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     cJSON *zpRootObj;
     cJSON *zpValueObj;
 
-    if (NULL == (zpRootObj = cJSON_Parse(zpJsonStr))) {
-        return NULL;
-    }
+	zCheck_Json_Ret( zpRootObj = cJSON_Parse(zpJsonStr) );  // 返回NULL表示异常
 
     /* 操作指令、代码库ID，所有操作都需要指定 */
-    zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "O") );  // OpsId
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
-    zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "R") );  // RepoId
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
 
     /* 8 - 9：确认主机布署状态时，需要IP */
     if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
-        zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "H") );  // HostIp
-        zpMetaIf->HostIp = zpValueObj->valueint;
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+        zpMetaIf->HostId = zpValueObj->valueint;
     }
 
     /* 10 - 13：查文件列表、查差异内容、布署、撤销 */
     if (9 < zpMetaIf->OpsId) {
-        zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "C") );  // CacheId
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
         zpMetaIf->CacheId = zpValueObj->valueint;
 
-        zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "V") );  // VersionId(CommitId)
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheType") );
+        zpMetaIf->CacheType = zpValueObj->valueint;
+
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
         zpMetaIf->CommitId = zpValueObj->valueint;
 
         /* 11 - 13：查差异内容、布署、撤销 */
         if (10 < zpMetaIf->OpsId) {
-            zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "F") );   // FileId
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
             zpMetaIf->FileId = zpValueObj->valueint;
 
             /*12 - 13：布署、撤销，单主机布署时需要指定IP */
             if (11 < zpMetaIf->OpsId) {
-                zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "H") );  // HostIp
-                zpMetaIf->HostIp = zpValueObj->valueint;
+                zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+                zpMetaIf->HostId = zpValueObj->valueint;
             }
         }
     }
 
     /* 仅在更新集群IP地址数据库时，需要此项 */
     if (3 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId) {
-        zCheck_Null_Exit( zpValueObj = cJSON_GetObjectItem(zpRootObj, "D") );  // Data
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
         zpMetaIf->p_data = zpValueObj->valuestring;
         return zpRootObj;  // 此时需要后续用完之后释放资源
     }
@@ -388,14 +394,15 @@ zjson_obj_free(cJSON *zpJsonRootObj) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     sprintf(
-            zpJsonStrBuf, "{\"O\":%d,\"R\":%d,\"V\":%d,\"F\":%d,\"H\":%d,\"C\":%d,\"T\":%s,\"D\":%s}",
+            zpJsonStrBuf, "{\"OpsId\":%d,\"RepoId\":%d,\"CommitId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"CacheType\":%d,\"TimeStamp\":%s,\"Data\":%s}",
             zpMetaIf->OpsId,
             zpMetaIf->RepoId,
             zpMetaIf->CommitId,
             zpMetaIf->FileId,
-            zpMetaIf->HostIp,
+            zpMetaIf->HostId,
             zpMetaIf->CacheId,
-            zpMetaIf->p_TimeStamp,  // 不需要时会指向 “”
-            zpMetaIf->p_data  // 不需要时会指向 “”
+            zpMetaIf->CacheType,
+            (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
+            (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
             );
 }

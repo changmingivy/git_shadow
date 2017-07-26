@@ -5,11 +5,11 @@
 /************
  * META OPS *
  ************/
-#define zGet_MetaIfPtr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
+#define zGet_JsonStr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
 #define zGet_SubVecWrapIf(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_SubVecWrapIf)
-#define zGet_StrData(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_data)
+#define zGet_NativeData(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_data)
 
-#define zGet_OneCommitSig(zpTopVecWrapIf, zCommitId) zGet_StrData(zpTopVecWrapIf, zCommitId)
+#define zGet_OneCommitSig(zpTopVecWrapIf, zCommitId) zGet_NativeData(zpTopVecWrapIf, zCommitId)
 
 /*
  * 专用于缓存的内存调度分配函数，适用多线程环境，不需要free
@@ -57,7 +57,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 }
 
 /* 执行结果状态码对应表
- * -10000：动作执行成功 (仅表示动作本身已执行，不代表最终结果，如：布署请求返回 -10000 表示中控机已开始布署，但是否布署成功尚不能确认)
  * -1：操作指令不存在（未知／未定义）
  * -2：项目ID不存在
  * -3：代码版本ID不存在
@@ -126,7 +125,7 @@ zget_diff_content(void *zpIf) {
     sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s",
             zpGlobRepoIf[zpMetaIf->RepoId].RepoPath,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
-            zGet_StrData(zpUpperVecWrapIf, zpMetaIf->FileId));
+            zGet_NativeData(zpUpperVecWrapIf, zpMetaIf->FileId));
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
@@ -139,11 +138,13 @@ zget_diff_content(void *zpIf) {
 
         zVecDataLen = 1 + strlen(zRes);
         /* 因为差异内容级别不使用json，故不必再开辟RefData */
-        zCheck_Null_Exit( zpData = zalloc_cache(zpMetaIf->RepoId, zVecDataLen));
+        zCheck_Null_Exit( zpData = zalloc_cache(zpMetaIf->RepoId, zVecDataLen) );
         strcpy(zpData, zRes);
 
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zpData;
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
+
+		fprintf(stderr, "DBUG:zget_diff_content:LINE147: %s\n", zpUpperVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf[zVecCnter].iov_base);
     }
     pclose(zpShellRetHandler);
 
@@ -176,7 +177,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     char zJsonBuf[zBytes(256)];
     _i zVecCnter;
-    _i zVecDataLen;
+    _i zVecDataLen, zDataLen;
     _i zAllocSiz = 64;
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
@@ -219,18 +220,21 @@ zget_file_list_and_diff_content(void *zpIf) {
             zMem_Re_Alloc( zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zAllocSiz, zpCurVecWrapIf->p_RefDataIf );
         }
 
-        zCheck_Null_Exit( zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, 1 + strlen(zRes)) );
+		zDataLen = strlen(zRes);
+		zRes[zDataLen - 1] = '\0';
+        zCheck_Null_Exit( zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
         strcpy(zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
 
         /* 用于转换成JsonStr以及传向下一级函数 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-		zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
-        zpSubMetaIf->CacheType = zpMetaIf->CacheType;
-        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+		zpSubMetaIf->OpsId = -1;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
         zpSubMetaIf->FileId = zVecCnter;
-        zpSubMetaIf->HostIp = 0;
+        zpSubMetaIf->HostId = 0;
+        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+        zpSubMetaIf->CacheType = zpMetaIf->CacheType;
+		zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
         zpSubMetaIf->p_TimeStamp = "";
         zpSubMetaIf->p_data = zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data;
 
@@ -242,6 +246,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         strcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf);  // 将JsonStr内容复制到分配的位置
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
+		fprintf(stderr, "DBUG:zget_file_list_and_diff_content:LINE246: %s\n", zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[zVecCnter].iov_base);
         /* 进入下一层获取对应的差异内容 */
 		if (zCcurOn == zpMetaIf->CcurSwitch) {
         	zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
@@ -261,7 +266,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     } else {
         /* 将分配的空间缩减为最终的实际成员数量 */
         zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf);
-        zMem_Re_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf);
+        zMem_Re_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_RefDataIf);
     }
 }
 
@@ -301,19 +306,21 @@ zgenerate_cache(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     for (zVecCnter = 0; (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) && (zVecCnter < zCacheSiz); zVecCnter++) {
+		zRes[strlen(zRes) - 1] = '\0';
         zRes[40] = '\0';
         zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(41)) );
         strcpy(zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);
 
         /* 用于转换成JsonStr以及传向下一级函数 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-		zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
-        zpSubMetaIf->CacheType = zpMetaIf->CacheType;
-        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+		zpSubMetaIf->OpsId = -1;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zVecCnter;
         zpSubMetaIf->FileId = -1;
-        zpSubMetaIf->HostIp = 0;
+        zpSubMetaIf->HostId = 0;
+        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+        zpSubMetaIf->CacheType = zpMetaIf->CacheType;
+		zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
         zpSubMetaIf->p_TimeStamp = &(zRes[41]);
         zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data;
 
@@ -326,6 +333,7 @@ zgenerate_cache(void *zpIf) {
         strcpy(zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf);
         zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
+		fprintf(stderr, "DBUG:zgenerate_cache:LINE331: %s\n", zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base);
         /* 生成下一级缓存 */
 		if (zCcurOn == zpMetaIf->CcurSwitch) {
         	zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
@@ -385,19 +393,21 @@ zupdate_one_commit_cache(void *zpIf) {
     zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
     pclose(zpShellRetHandler);
 
+	zRes[strlen(zRes) - 1] = '\0';
     zRes[40] = '\0';
     zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41)) );
     strcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zRes);
 
     /* 用于转换成JsonStr以及传向下一级函数 */
     zpSubMetaIf = zalloc_cache(zpObjIf->RepoId, sizeof(struct zMetaInfo));
-	zpSubMetaIf->CcurSwitch = zCcurOn;
-    zpSubMetaIf->CacheType = zIsCommitCacheType;
-    zpSubMetaIf->CacheId = zpGlobRepoIf[zpObjIf->RepoId].CacheId;
+	zpSubMetaIf->OpsId = -1;
     zpSubMetaIf->RepoId = zpObjIf->RepoId;
     zpSubMetaIf->CommitId = -1;
     zpSubMetaIf->FileId = -1;
-    zpSubMetaIf->HostIp = 0;
+    zpSubMetaIf->HostId = 0;
+    zpSubMetaIf->CacheId = zpGlobRepoIf[zpObjIf->RepoId].CacheId;
+    zpSubMetaIf->CacheType = zIsCommitCacheType;
+	zpSubMetaIf->CcurSwitch = zCcurOn;
     zpSubMetaIf->p_TimeStamp = &(zRes[41]);
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
 
@@ -512,7 +522,7 @@ _i
 zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (5 == zpMetaIf->OpsId) {
+    if (zIsCommitCacheType == zpMetaIf->CacheType) {
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
     } else {
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].DeployVecWrapIf);
@@ -535,7 +545,7 @@ _i
 zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
 
-    if (5 == zpMetaIf->OpsId) {
+    if (zIsCommitCacheType == zpMetaIf->CacheType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
 		zpMetaIf->CacheType = zIsCommitCacheType;
@@ -565,7 +575,8 @@ _i
 zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
 
-    if (5 == zpMetaIf->OpsId) {
+    if (zIsCommitCacheType == zpMetaIf->CacheType) {
+        zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
 		zpMetaIf->CacheType = zIsCommitCacheType;
@@ -631,7 +642,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     _i zFd;
 
    	zIpv4AddrStr[0] = '\0';
-    if (5 == zpMetaIf->OpsId) {
+    if (zIsCommitCacheType == zpMetaIf->CacheType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
 		zpMetaIf->CacheType = zIsCommitCacheType;
@@ -650,7 +661,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (0 > zpMetaIf->FileId) {
         zpFilePath = "";
     } else {
-        zpFilePath = zGet_StrData(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId), zpMetaIf->FileId);
+        zpFilePath = zGet_NativeData(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId), zpMetaIf->FileId);
     }
 
     zCheck_Negative_Exit( zFd = open(zpGlobRepoIf[zpMetaIf->RepoId].RepoPath, O_RDONLY) );
@@ -662,12 +673,12 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 		return -9;
     }
 
-	/* 若前端指定了HostIp，则本次操作为单主机布署（单主机重试场景）*/
-	if (0 != zpMetaIf->HostIp) {
-    	struct zDeployResInfo *zpTmp = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResHash[zpMetaIf->HostIp % zDeployHashSiz];
+	/* 若前端指定了HostId，则本次操作为单主机布署（单主机重试场景）*/
+	if (0 != zpMetaIf->HostId) {
+    	struct zDeployResInfo *zpTmp = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResHash[zpMetaIf->HostId % zDeployHashSiz];
     	while (NULL != zpTmp) {
-    	    if (zpMetaIf->HostIp == zpTmp->ClientAddr) {
-    	        zconvert_ipv4_bin_to_str(zpMetaIf->HostIp, zIpv4AddrStr);
+    	    if (zpMetaIf->HostId == zpTmp->ClientAddr) {
+    	        zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4AddrStr);
     	        break;
     	    }
     	    zpTmp = zpTmp->p_next;
@@ -706,14 +717,16 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 更新全局缓存 */
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-    zpMetaIf->OpsId = zIsCommitCacheType;
     zpMetaIf->RepoId = zpMetaIf->RepoId;
+	zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId].CacheId;
+    zpMetaIf->CacheType = zIsCommitCacheType;
 	zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-    zpMetaIf->OpsId = zIsDeployCacheType;
     zpMetaIf->RepoId = zpMetaIf->RepoId;
+	zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId].CacheId;
+    zpMetaIf->CacheType = zIsDeployCacheType;
 	zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);  // 数据一致性问题？？？
 
@@ -755,7 +768,7 @@ zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
         }
 
 		zconvert_struct_to_json_str(zpJsonStrBuf, zpMetaIf);
-        zsendto(zSd, zpJsonStrBuf, 1 + strlen(zpJsonStrBuf), 0, NULL);
+        zsendto(zSd, zpJsonStrBuf, strlen(zpJsonStrBuf), 0, NULL);
 
 		free(zpMetaIf->p_data);
 		free(zpJsonStrBuf);
@@ -769,10 +782,10 @@ zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zstate_confirm(struct zMetaInfo *zpMetaIf, _i _) {
-    struct zDeployResInfo *zpTmp = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResHash[zpMetaIf->HostIp % zDeployHashSiz];
+    struct zDeployResInfo *zpTmp = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResHash[zpMetaIf->HostId % zDeployHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
-        if (zpTmp->ClientAddr == zpMetaIf->HostIp) {
+        if (zpTmp->ClientAddr == zpMetaIf->HostId) {
             zpTmp->DeployState = 1;
 
             pthread_mutex_lock( &(zpGlobRepoIf[zpMetaIf->RepoId].MutexLock) );
@@ -887,7 +900,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zObjInfo *zpObjIf;
     _i zFd, zRecvSiz;
 
-    if (5 == zpMetaIf->OpsId) {
+    if (zIsCommitCacheType == zpMetaIf->CacheType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
 		zpMetaIf->CacheType = zIsCommitCacheType;
@@ -984,10 +997,14 @@ zops_route(void *zpSd) {
 		zMem_Re_Alloc(zpJsonBuf, char, zRecvdLen, zpJsonBuf);
 	}
 
+	if (zBytes(4) > zRecvdLen) { return; }
+
 	if (NULL == (zpJsonRootObj = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
+		// 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
+		memset(&zMetaIf, 0, sizeof(zMetaIf));
 		zMetaIf.OpsId = -7;  // 此时代表错误码
 		zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, zpJsonBuf, zRecvdLen, 0, NULL);
+        zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         shutdown(zSd, SHUT_RDWR);
         zPrint_Err(0, NULL, "接收到的数据无法解析!");
         return;
@@ -1007,7 +1024,6 @@ zops_route(void *zpSd) {
 		zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, zpJsonBuf, zRecvdLen, 0, NULL);
         shutdown(zSd, SHUT_RDWR);
-        zPrint_Err(0, NULL, "接收到的指令ID不存在!");
 	}
 
 zMark:

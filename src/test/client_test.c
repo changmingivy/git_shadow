@@ -171,24 +171,88 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 #define zRepoIdPath ".git_shadow/info/repo_id"
 #define zLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
 
-#include "../src/utils/zbase_utils.c"
+// Used by client.
+_i
+ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
+// TEST: PASS
+    if (zSockType == 0) { zSockType = SOCK_STREAM; }
+    if (zProto == 0) { zProto = IPPROTO_TCP; }
+
+    _i zSd = socket(AF_INET, zSockType, zProto);
+    zCheck_Negative_Return(zSd, -1);
+    for (_i i = 4; i > 0; --i) {
+        if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
+        close(zSd);
+        sleep(i);
+    }
+
+    return -1;
+}
+
+/*
+ * Functions for socket connection.
+ */
+struct addrinfo *
+zgenerate_hint(_i zFlags) {
+// TEST: PASS
+    static struct addrinfo zHints;
+    zHints.ai_flags = zFlags;
+    zHints.ai_family = AF_INET;
+    return &zHints;
+}
+
+// Used by client.
+_i
+ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
+// TEST: PASS
+    struct addrinfo *zpRes, *zpTmp, *zpHints;
+    _i zSockD, zErr;
+
+    zpHints = zgenerate_hint(zFlags);
+
+    zErr = getaddrinfo(zpHost, zpPort, zpHints, &zpRes);
+    if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
+
+    for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
+        if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
+            freeaddrinfo(zpRes);
+            return zSockD;
+        }
+    }
+
+    freeaddrinfo(zpRes);
+    return -1;
+}
+
+_i
+zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
+// TEST: PASS
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
+    zCheck_Negative_Return(zSentSiz, -1);
+    return zSentSiz;
+}
+
+_i
+zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
+// TEST: PASS
+    socklen_t zAddrLen;
+    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr, &zAddrLen);
+    zCheck_Negative_Return(zRecvSiz, -1);
+    return zRecvSiz;
+}
 
 void
 zclient(char *zpX) {
-        _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+        _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
            if (-1 == zSd) {
             fprintf(stderr, "Connect to server failed \n");
             exit(1);
         }
-
-        char zStrBuf[] = "1\00\00\00\00\00\00\00\00\00\0";
-        zsendto(zSd, zStrBuf, zBytes(12), 0, NULL);
-
-        _i zStateBuf;
-        recv(zSd, &zStateBuf, sizeof(_i), 0);
+        char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":0,\"CommitId\":0,\"F\":-1,\"H\":0,\"CacheId\":1000000000,\"CacheType\":-1,\"Data\":\"\"}";
+        zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
         char zBuf[4096];
-        zrecv_all(zSd, &zBuf, 4096, 0, NULL);
+        recv(zSd, &zBuf, 4096, 0);
         fprintf(stderr, "%s\n", zBuf);
 
         shutdown(zSd, SHUT_RDWR);

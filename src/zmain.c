@@ -42,19 +42,19 @@
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
-#define zIsCommitCacheType -1
-#define zIsDeployCacheType -2
-
 #define zServHashSiz 14
 
-#define UDP 0
-#define TCP 1
+#define UDP -1
+#define TCP -2
 
-#define zCcurOff 0
-#define zCcurOn 1
+#define zCcurOff -1
+#define zCcurOn -2
 
-#define zDeployLocked 1
-#define zDeployUnLock 0
+#define zDeployLocked -1
+#define zDeployUnLock -2
+
+#define zIsCommitCacheType -1
+#define zIsDeployCacheType -2
 
 /****************
  * 数据结构定义 *
@@ -82,7 +82,7 @@ struct zMetaInfo {
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
-    _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
+    _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
 	_i CacheType;  // 缓存类型，zIsCommitCacheType/zIsDeployCacheType
 	_i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
@@ -195,10 +195,9 @@ zNetOpsFunc zNetServ[zServHashSiz];
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
-// TEST: PASS
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
-    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口，或者客户端要连接的目标服务器的Ipv4地址与端口
+    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
@@ -210,10 +209,9 @@ main(_i zArgc, char **zppArgv) {
             case 'U':
                 zNetServIf.zServType = UDP;
             case 'f':
-                if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {  // 若指定的主配置文件不存在或不是普通文件，则报错退出
+                if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {
                         zPrint_Time();
-                        fprintf(stderr, "\033[31;01mConfig file not exists or is not a regular file!\n"
-                            "Usage: %s -f <Config File Path>\033[00m\n", zppArgv[0]);
+                        fprintf(stderr, "\033[31;01m配置文件异常!\n用法: %s -f <PATH>\033[00m\n", zppArgv[0]);
                         exit(1);
                 }
                 zpConfFilePath = optarg;
@@ -225,7 +223,7 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     zthread_poll_init();  // 初始化线程池
@@ -233,7 +231,7 @@ zReLoad:;
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
-    zparse_conf(zpConfFilePath); // 解析主配置文件并初始化运行环境
+    zparse_conf(zpConfFilePath); // 解析配置文件
     zinit_env();  // 代码库信息读取完毕后，初始化整体运行环境
 
     zAdd_To_Thread_Pool( zstart_server, &zNetServIf );  // 启动网络服务

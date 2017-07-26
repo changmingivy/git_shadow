@@ -66,10 +66,30 @@ struct zRecvInfo {
 #define zRepoIdPath ".git_shadow/info/repo_id"
 #define zLogPath ".git_shadow/log/deploy/meta"
 
-/**********
- * 子模块 *
- **********/
-#include "utils/zbase_utils.c"
+/*
+ * 以返回是否是 NULL 为条件判断是否已读完所有数据
+ * 可重入，可用于线程
+ * 适合按行读取分别处理的场景
+ */
+void *
+zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
+    char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
+    if (NULL == zpRes && (0 == feof(zpFile))) {
+        zPrint_Err(0, NULL, "<fgets> ERROR!");
+        exit(1);
+    }
+    return zpRes;
+}
+
+/*
+ * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
+ */
+_ui
+zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
+    struct in_addr zIpv4Addr;
+    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpv4Addr) );
+    return zIpv4Addr.s_addr;
+}
 
 /*
  * 主机更新自身ipv4数据库文件
@@ -96,23 +116,83 @@ zupdate_ipv4_db_self(_i zBaseFd) {
     close(zFd);
 }
 
+// Used by client.
+_i
+ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
+// TEST: PASS
+    if (zSockType == 0) { zSockType = SOCK_STREAM; }
+    if (zProto == 0) { zProto = IPPROTO_TCP; }
+
+    _i zSd = socket(AF_INET, zSockType, zProto);
+    zCheck_Negative_Return(zSd, -1);
+    for (_i i = 4; i > 0; --i) {
+        if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
+        close(zSd);
+        sleep(i);
+    }
+
+    return -1;
+}
+
+/*
+ * Functions for socket connection.
+ */
+struct addrinfo *
+zgenerate_hint(_i zFlags) {
+// TEST: PASS
+    static struct addrinfo zHints;
+    zHints.ai_flags = zFlags;
+    zHints.ai_family = AF_INET;
+    return &zHints;
+}
+
+// Used by client.
+_i
+ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
+// TEST: PASS
+    struct addrinfo *zpRes, *zpTmp, *zpHints;
+    _i zSockD, zErr;
+
+    zpHints = zgenerate_hint(zFlags);
+
+    zErr = getaddrinfo(zpHost, zpPort, zpHints, &zpRes);
+    if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
+
+    for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
+        if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
+            freeaddrinfo(zpRes);
+            return zSockD;
+        }
+    }
+
+    freeaddrinfo(zpRes);
+    return -1;
+}
+
+_i
+zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
+// TEST: PASS
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
+    zCheck_Negative_Return(zSentSiz, -1);
+    return zSentSiz;
+}
+
 /*
  * 用于集群中的主机向中控机发送状态确认信息
  */
 void
 zstate_reply(char *zpHost, char *zpPort) {
-    struct zRecvInfo zDpResIf;
-    _i zFd, zSd, zResLen;
+	char zJsonBuf[256];
+    _i zRepoId, zFd, zSd, zResLen;
     _ui zIpv4Bin;
 
+	// 以相对路径打开文件
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
     /* 读取版本库ID */
-    zCheck_Negative_Exit( read(zFd, &(zDpResIf.RepoId), sizeof(_i)) );
+    zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
     /* 更新自身 ip 地址 */
     zupdate_ipv4_db_self(zFd);
     close(zFd);
-    /* 填充动作代号 */
-    zDpResIf.OpsId = 10;
     /* 以点分格式的ipv4地址连接服务端 */
     if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         zPrint_Err(0, NULL, "无法与中控机建立连接！");
@@ -122,8 +202,8 @@ zstate_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
     while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-        zDpResIf.HostIp = zIpv4Bin;
-        if (sizeof(zDpResIf) != zsendto(zSd, &zDpResIf, sizeof(zDpResIf), 0, NULL)) {
+    	sprintf(zJsonBuf, "{\"O\":%d,\"R\":%d,\"H\":%d}", 9, zRepoId, zIpv4Bin);
+        if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }
     }
