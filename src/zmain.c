@@ -50,6 +50,12 @@
 #define UDP 0
 #define TCP 1
 
+#define zCcurOff 0
+#define zCcurOn 1
+
+#define zDeployLocked 1
+#define zDeployUnLock 0
+
 /****************
  * 数据结构定义 *
  ****************/
@@ -78,6 +84,8 @@ struct zMetaInfo {
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
+	_i CacheType;  // 缓存类型，zIsCommitCacheType/zIsDeployCacheType
+	_i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
     char *p_TimeStamp;  // 字符串形式的UNIX时间戳
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
 };
@@ -155,7 +163,8 @@ _i zInotifyFD;   // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 /* 服务接口 */
-zThreadPoolOps zNetServ[zServHashSiz];
+typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
+zNetOpsFunc zNetServ[zServHashSiz];
 
 /************
  * 配置文件 *
@@ -216,7 +225,7 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
+//    zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
 zReLoad:;
     zthread_poll_init();  // 初始化线程池

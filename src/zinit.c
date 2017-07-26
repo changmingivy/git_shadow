@@ -4,7 +4,7 @@
 
 void
 zinit_env(void) {
-    struct zCacheMetaInfo *zpMetaIf;
+    struct zMetaInfo *zpMetaIf;
     struct zObjInfo *zpObjIf;
     struct stat zStatIf;
     char zLastTimeStampStr[11] = {'0', '\0'};  // 存放最后一次布署的时间戳
@@ -96,15 +96,17 @@ zinit_env(void) {
         zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
 
         /* 生成缓存 */
-        zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
-        zpMetaIf->TopObjTypeMark = zIsCommitCacheType;
+        zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
+        zpMetaIf->CacheType = zIsCommitCacheType;
         zpMetaIf->RepoId = i;
-        zgenerate_cache(zpMetaIf);
+		zpMetaIf->CcurSwitch = zCcurOn;
+        zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
-        zpMetaIf = zalloc_cache(i, sizeof(struct zCacheMetaInfo));
-        zpMetaIf->TopObjTypeMark = zIsDeployCacheType;
+        zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
+        zpMetaIf->CacheType = zIsDeployCacheType;
         zpMetaIf->RepoId = i;
-        zgenerate_cache(zpMetaIf);
+		zpMetaIf->CcurSwitch = zCcurOn;
+        zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     }
 }
 
