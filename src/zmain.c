@@ -74,17 +74,18 @@ struct zNetServInfo {
 struct zMetaInfo {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
-    _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-    char *p_data;  // 用于接收额外的数据，如：接收IP地址列表时
+    _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
+    char *p_TimeStamp;  // 字符串形式的UNIX时间戳
+    char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
-    void *p_data;  // 当处于单个 Commit 记录级别时，用于存放 CommitSig 字符串格式，包括末尾的'\0'
+    char *p_data;  // 实际存放数据正文的地方
 };
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */

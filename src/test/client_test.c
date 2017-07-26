@@ -181,15 +181,15 @@ zclient(char *zpX) {
             exit(1);
         }
 
-		char zStrBuf[] = "1\00\00\00\00\00\00\00\00\00\0";
+        char zStrBuf[] = "1\00\00\00\00\00\00\00\00\00\0";
         zsendto(zSd, zStrBuf, zBytes(12), 0, NULL);
 
-		_i zStateBuf;
+        _i zStateBuf;
         recv(zSd, &zStateBuf, sizeof(_i), 0);
 
-		char zBuf[4096];
+        char zBuf[4096];
         zrecv_all(zSd, &zBuf, 4096, 0, NULL);
-		fprintf(stderr, "%s\n", zBuf);
+        fprintf(stderr, "%s\n", zBuf);
 
         shutdown(zSd, SHUT_RDWR);
 }

@@ -2,14 +2,14 @@
 #include "../zmain.c"
 #endif
 
-	for (_i i = 0; i < zpGlobRepoIf[0].SortedCommitVecWrapIf.VecSiz; i++) {
-		fprintf(stderr, "vec len: %zd\n", zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_len);
-		fprintf(stderr, "vec data len: %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->DataLen);
-		fprintf(stderr, "vec self id: %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->SelfId);
-		fprintf(stderr, "vec data: %zd %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->data[0], ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->data[1]);
+    for (_i i = 0; i < zpGlobRepoIf[0].SortedCommitVecWrapIf.VecSiz; i++) {
+        fprintf(stderr, "vec len: %zd\n", zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_len);
+        fprintf(stderr, "vec data len: %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->DataLen);
+        fprintf(stderr, "vec self id: %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->SelfId);
+        fprintf(stderr, "vec data: %zd %zd\n", ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->data[0], ((struct zSendInfo *)(zpGlobRepoIf[0].SortedCommitVecWrapIf.p_VecIf[i].iov_base))->data[1]);
 
-		fprintf(stderr, "vec len: %s\n", zpGlobRepoIf[0].CommitVecWrapIf.p_RefDataIf[i].p_data);
-	}
+        fprintf(stderr, "vec len: %s\n", zpGlobRepoIf[0].CommitVecWrapIf.p_RefDataIf[i].p_data);
+    }
 
 // 此函数仅用作测试
 void
