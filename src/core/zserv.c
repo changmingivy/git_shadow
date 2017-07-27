@@ -719,12 +719,16 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_Lock_State();  // 这个宏内部会释放写锁
     zCheck_CacheId();
     zCheck_CommitId();
-    zCheck_FileId();
 
-    if (0 < zpMetaIf->FileId) {
-        zpFilePath = zGet_NativeData(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId), zpMetaIf->FileId);
-    } else {
+    // 减 2 是为适应 json 二维结构，最后有一个 ']' 也会计入 VecSiz
+    if (0 > zpMetaIf->FileId) {
         zpFilePath = "";
+    } else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 2) < zpMetaIf->FileId) {
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );  // 释放写锁
+        zPrint_Err(0, NULL, "差异文件ID不存在!");\
+        return -4;\
+    } else {
+        zpFilePath = zGet_NativeData(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId), zpMetaIf->FileId);
     }
 
     zCheck_Negative_Exit( zFd = open(zpGlobRepoIf[zpMetaIf->RepoId].RepoPath, O_RDONLY) );
@@ -982,7 +986,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     strcat(zPathBuf, "/");
     strcat(zPathBuf, zpWritePath);
 
-    if (EBUSY == pthread_rwlock_trywrdlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) )) {  // 加写锁
+    if (EBUSY == pthread_rwlock_trywrlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) )) {  // 加写锁
         return -11;
     };
 
@@ -1017,15 +1021,15 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zlock_repo(struct zMetaInfo *zpMetaIf, _i _) {
-    pthread_mutex_lock(&(zpGlobRepoIf[zpMetaIf->RepoId].MutexLock));
+    pthread_rwlock_wrlock(&(zpGlobRepoIf[zpMetaIf->RepoId].RwLock));
 
-    if (1 == zpMetaIf->OpsId) {
-        zpGlobRepoIf[zpMetaIf->RepoId].DpLock = 1;
+    if (2 == zpMetaIf->OpsId) {
+        zpGlobRepoIf[zpMetaIf->RepoId].DpLock = zDeployLocked;
     } else {
-        zpGlobRepoIf[zpMetaIf->RepoId].DpLock = 0;
+        zpGlobRepoIf[zpMetaIf->RepoId].DpLock = zDeployUnLock;
     }
 
-    pthread_mutex_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId].MutexLock));
+    pthread_rwlock_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId].RwLock));
     return 0;
 }
 
@@ -1034,8 +1038,9 @@ zlock_repo(struct zMetaInfo *zpMetaIf, _i _) {
  */
 void
 zops_route(void *zpSd) {
+#define zSizMark 256
     _i zSd = *((_i *)zpSd);
-    _i zBufSiz = 256;
+    _i zBufSiz = zSizMark;
     _i zRecvdLen;
     _i zErrNo;
     char zJsonBuf[zBufSiz];
@@ -1076,8 +1081,7 @@ zops_route(void *zpSd) {
         zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         shutdown(zSd, SHUT_RDWR);
         zPrint_Err(0, NULL, "接收到的数据无法解析!");
-        free(zpJsonBuf);
-        return;
+        goto zMark;
     }
 
     if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
@@ -1099,8 +1103,12 @@ zMark:
         zjson_obj_free(zpJsonRootObj);
     }
 
+    if (zSizMark < zBufSiz) {
+        free(zpJsonBuf);
+    }
+
     shutdown(zSd, SHUT_RDWR);
-    free(zpJsonBuf);
+#undef zSizMark
 }
 
 /************
