@@ -182,11 +182,11 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
  */
 void
 zstate_reply(char *zpHost, char *zpPort) {
-	char zJsonBuf[256];
+    char zJsonBuf[256];
     _i zRepoId, zFd, zSd, zResLen;
     _ui zIpv4Bin;
 
-	// 以相对路径打开文件
+    // 以相对路径打开文件
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
     /* 读取版本库ID */
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
@@ -202,7 +202,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
     while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-    	sprintf(zJsonBuf, "{\"O\":%d,\"R\":%d,\"H\":%d}", 9, zRepoId, zIpv4Bin);
+        sprintf(zJsonBuf, "{\"O\":%d,\"R\":%d,\"H\":%d}", 9, zRepoId, zIpv4Bin);
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }

@@ -32,7 +32,7 @@
 #include <ctype.h>
 
 #define zCommonBufSiz 1024
-#include "../inc/zutils.h"
+#include "../../inc/zutils.h"
 
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
@@ -243,17 +243,19 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 
 void
 zclient(char *zpX) {
-        _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
+        _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
            if (-1 == zSd) {
             fprintf(stderr, "Connect to server failed \n");
             exit(1);
         }
-        char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":0,\"CommitId\":0,\"F\":-1,\"H\":0,\"CacheId\":1000000000,\"CacheType\":-1,\"Data\":\"\"}";
+        char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":0,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
         zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
-        char zBuf[4096];
-        recv(zSd, &zBuf, 4096, 0);
-        fprintf(stderr, "%s\n", zBuf);
+        char zBuf[204096];
+        recv(zSd, &zBuf, 204096, 0);
+        fprintf(stderr, "%s", zBuf);
+        //fprintf(stderr, "%s", zBuf + 1 + strlen(zBuf));
+        //fprintf(stderr, "%s", zBuf + 1 + strlen(zBuf + 1 + strlen(zBuf)));
 
         shutdown(zSd, SHUT_RDWR);
 }

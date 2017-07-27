@@ -79,6 +79,8 @@ zinit_env(void) {
         close(zFd[0]);
         // 缓存版本初始化
         zpGlobRepoIf[i].CacheId = 1000000000;
+        //CommitCacheQueueHeadId
+        zpGlobRepoIf[i].CommitCacheQueueHeadId = zCacheSiz;
         /* 指针指向自身的实体静态数据项 */
         zpGlobRepoIf[i].CommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].CommitVecIf;
         zpGlobRepoIf[i].CommitVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].CommitRefDataIf;
@@ -91,16 +93,16 @@ zinit_env(void) {
         /* 生成缓存 */
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
         zpMetaIf->RepoId = i;
-		zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
-        zpMetaIf->CacheType = zIsCommitCacheType;
-		zpMetaIf->CcurSwitch = zCcurOn;
+        zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->DataType = zIsCommitDataType;
+        zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
         zpMetaIf->RepoId = i;
-		zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
-        zpMetaIf->CacheType = zIsDeployCacheType;
-		zpMetaIf->CcurSwitch = zCcurOn;
+        zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->DataType = zIsDeployDataType;
+        zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     }
 }

@@ -1,5 +1,5 @@
 #define _Z
-#define _zDEBUG
+//#define _zDEBUG
 #define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
@@ -44,17 +44,17 @@
 
 #define zServHashSiz 14
 
-#define UDP -1
-#define TCP -2
+#define UDP 0
+#define TCP 1
 
-#define zCcurOff -1
-#define zCcurOn -2
+#define zCcurOff 0
+#define zCcurOn 1
 
-#define zDeployLocked -1
-#define zDeployUnLock -2
+#define zDeployUnLock 0
+#define zDeployLocked 1
 
-#define zIsCommitCacheType -1
-#define zIsDeployCacheType -2
+#define zIsCommitDataType 0
+#define zIsDeployDataType 1
 
 /****************
  * 数据结构定义 *
@@ -84,8 +84,8 @@ struct zMetaInfo {
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
-	_i CacheType;  // 缓存类型，zIsCommitCacheType/zIsDeployCacheType
-	_i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
+    _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
+    _i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
     char *p_TimeStamp;  // 字符串形式的UNIX时间戳
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
 };
@@ -139,7 +139,7 @@ struct zRepoInfo {
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
-    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
+    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVecIf[zCacheSiz];
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];

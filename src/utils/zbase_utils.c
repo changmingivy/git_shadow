@@ -294,7 +294,7 @@ zsleep(_d zSecs) {
 void
 zthread_system(void *zpCmd) {
     if (0 != system((char *) zpCmd)) {
-    	zPrint_Err(0, NULL, "[system]: shell command failed!");
+        zPrint_Err(0, NULL, "[system]: shell command failed!");
     }
 }
 
@@ -321,8 +321,8 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  *  返回：用完data字段的内容后，需要释放资源的json对象指针
  */
 #define zCheck_Json_Ret(zJsonRet) do {\
-	void *zpXXXXXXXXX = (zJsonRet);\
-	if (NULL == zpXXXXXXXXX) { return NULL; }\
+    void *zpXXXXXXXXX = (zJsonRet);\
+    if (NULL == zpXXXXXXXXX) { return NULL; }\
 } while(0)
 
 cJSON *
@@ -330,7 +330,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     cJSON *zpRootObj;
     cJSON *zpValueObj;
 
-	zCheck_Json_Ret( zpRootObj = cJSON_Parse(zpJsonStr) );  // 返回NULL表示异常
+    zCheck_Json_Ret( zpRootObj = cJSON_Parse(zpJsonStr) );  // 返回NULL表示异常
 
     /* 操作指令、代码库ID，所有操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
@@ -349,8 +349,8 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
         zpMetaIf->CacheId = zpValueObj->valueint;
 
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheType") );
-        zpMetaIf->CacheType = zpValueObj->valueint;
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+        zpMetaIf->DataType = zpValueObj->valueint;
 
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
         zpMetaIf->CommitId = zpValueObj->valueint;
@@ -369,7 +369,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     }
 
     /* 仅在更新集群IP地址数据库时，需要此项 */
-    if (3 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId) {
+    if (4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
         zpMetaIf->p_data = zpValueObj->valuestring;
         return zpRootObj;  // 此时需要后续用完之后释放资源
@@ -394,14 +394,14 @@ zjson_obj_free(cJSON *zpJsonRootObj) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     sprintf(
-            zpJsonStrBuf, "{\"OpsId\":%d,\"RepoId\":%d,\"CommitId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"CacheType\":%d,\"TimeStamp\":%s,\"Data\":%s}",
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"RepoId\":%d,\"CommitId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"Data\":\"%s\"}",
             zpMetaIf->OpsId,
             zpMetaIf->RepoId,
             zpMetaIf->CommitId,
             zpMetaIf->FileId,
             zpMetaIf->HostId,
             zpMetaIf->CacheId,
-            zpMetaIf->CacheType,
+            zpMetaIf->DataType,
             (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
             (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
             );
