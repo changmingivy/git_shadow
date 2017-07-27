@@ -223,7 +223,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
         zpSubMetaIf->FileId = zVecCnter;
-        zpSubMetaIf->HostId = 0;
+        zpSubMetaIf->HostId = -1;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
@@ -306,7 +306,7 @@ zgenerate_cache(void *zpIf) {
     }
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    // zCacheSiz - 1 :留一个空间给json需要']'
+    // zCacheSiz - 1 :留一个空间给json需要 ']'
     for (zVecCnter = 0; (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) && (zVecCnter < (zCacheSiz - 1)); zVecCnter++) {
         zRes[strlen(zRes) - 1] = '\0';
         zRes[40] = '\0';
@@ -318,8 +318,8 @@ zgenerate_cache(void *zpIf) {
         zpSubMetaIf->OpsId = 0;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zVecCnter;
-        zpSubMetaIf->FileId = 0;
-        zpSubMetaIf->HostId = 0;
+        zpSubMetaIf->FileId = -1;
+        zpSubMetaIf->HostId = -1;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
@@ -427,8 +427,8 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->OpsId = 0;
     zpSubMetaIf->RepoId = zpObjIf->RepoId;
     zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
-    zpSubMetaIf->FileId = 0;
-    zpSubMetaIf->HostId = 0;
+    zpSubMetaIf->FileId = -1;
+    zpSubMetaIf->HostId = -1;
     zpSubMetaIf->CacheId = zpGlobRepoIf[zpObjIf->RepoId].CacheId;
     zpSubMetaIf->DataType = zIsCommitDataType;
     zpSubMetaIf->CcurSwitch = zCcurOn;  // 并发执行
@@ -561,6 +561,7 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpSortedTopVecWrapIf;
+    char zJsonBuf[256];
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf);
@@ -574,6 +575,13 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (EBUSY == pthread_rwlock_tryrdlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) )) {
         return -11;
     };
+
+    /* 若上一次布署是失败的，则提醒前端此时对比的数据可能是不准确的 */
+    if (zRepoDamaged == zpGlobRepoIf[zpMetaIf->RepoId].RepoState) {
+        zpMetaIf->OpsId = -13;  // 此时代表错误码
+        zconvert_struct_to_json_str(zJsonBuf, zpMetaIf);
+        zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+    }
 
     zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
 
@@ -760,6 +768,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zsendto(zSd, &(zpGlobRepoIf[zpMetaIf->RepoId].ReplyCnt), sizeof(zpGlobRepoIf[zpMetaIf->RepoId].ReplyCnt), 0, NULL);
 
         if (120 < zTimeCnter) {
+            // 如果布署失败，代码库状态置为 "损坏" 状态
+            zpGlobRepoIf[zpMetaIf->RepoId].RepoState = zRepoDamaged;
             pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );  // 释放写锁
             zPrint_Err(0, NULL, "布署超时(>120s)!");
             return -12;
@@ -767,6 +777,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
         zTimeCnter++;
     }
+    // 布署成功，代码库状态复位
+    zpGlobRepoIf[zpMetaIf->RepoId].RepoState = zRepoGood;
 
     /* 将本次布署信息写入日志 */
     zwrite_log(zpMetaIf->RepoId);
@@ -1064,11 +1076,11 @@ zops_route(void *zpSd) {
         zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         shutdown(zSd, SHUT_RDWR);
         zPrint_Err(0, NULL, "接收到的数据无法解析!");
+        free(zpJsonBuf);
         return;
     }
 
     if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
-        memset(&zMetaIf, 0, sizeof(zMetaIf));
         zMetaIf.OpsId = -1;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, zpJsonBuf, zRecvdLen, 0, NULL);
@@ -1077,7 +1089,6 @@ zops_route(void *zpSd) {
     }
 
     if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
-        memset(&zMetaIf, 0, sizeof(zMetaIf));
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, zpJsonBuf, zRecvdLen, 0, NULL);
@@ -1089,6 +1100,7 @@ zMark:
     }
 
     shutdown(zSd, SHUT_RDWR);
+    free(zpJsonBuf);
 }
 
 /************
@@ -1107,6 +1119,7 @@ zMark:
  * -10：前端请求的数据类型错误
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
+ * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  */
 void
 zstart_server(void *zpIf) {

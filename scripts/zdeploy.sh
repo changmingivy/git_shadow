@@ -37,6 +37,7 @@ zrevoke() {
 zDeployAll=2; zDeployOne=1; zRevokeOne=-1; zRevokeAll=-2
 
 -D -f %s -H %s
+    sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D -f %s -H %s",
 
 zActionType=
 zCodePath=
