@@ -1,5 +1,5 @@
 #define _Z
-//#define _zDEBUG
+#define _zDEBUG
 #define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
@@ -186,7 +186,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /**********
  * 子模块 *
  **********/
-#include "cJSON.c"
+#include "json/cJSON.c"
 #include "utils/zbase_utils.c"
 #include "utils/pcre2/zpcre.c"
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和

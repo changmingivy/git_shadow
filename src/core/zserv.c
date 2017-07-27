@@ -694,11 +694,13 @@ zwrite_log(_i zRepoId) {
 _i
 zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
+    struct stat zStatIf;
+    _i zFd;
+
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char zIpv4AddrStr[INET_ADDRSTRLEN] = "\0";
     char *zpFilePath;
-    struct stat zStatIf;
-    _i zFd;
+	char *zpCommitSig;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
@@ -754,14 +756,18 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "cd %s && ./.git_shadow/scripts/zdeploy.sh -D -f %s -H %s",
-            zpGlobRepoIf[zpMetaIf->RepoId].RepoPath,
-            zpFilePath,
-            zIpv4AddrStr);
+    sprintf(zShellBuf, "./.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -H %s -P %s",
+            zpGlobRepoIf[zpMetaIf->RepoId].RepoPath,  // 指定代码库的绝对路径
+            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
+            zpFilePath,  // 指定目标文件相对于代码库的路径
+            zIpv4AddrStr,  // 点分格式的ipv4地址
+			zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
 
-    /* ??? */
+    /* 调用 git 命令执行布署 */
     if (0 != system(zShellBuf)) {
-        zPrint_Err(0, NULL, "shell 布署命令出错!");
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );  // 释放写锁
+        zPrint_Err(0, NULL, "Shell 布署命令执行错误!");
+        return -12;
     }
 
     //等待所有主机的状态都得到确认，每隔 1 秒向前端发送已成功部署的数量统计，120秒超时
