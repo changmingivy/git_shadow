@@ -34,6 +34,14 @@ zInitEnv() {
     git commit --allow-empty -m "__sync_init__"
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
 
+    # 初始化 git_shadow 自身的库，不需要建 CURRENT 与 server 分支
+    cd $zDeployPath/.git_shadow
+    git init .
+    git config user.name "git_shadow"
+    git config user.email "git_shadow@_"
+    git add --all .
+    git commit --allow-empty -m "_"
+
     #Init Deploy Git Env
     cd $zDeployPath
     git init .
@@ -44,14 +52,6 @@ zInitEnv() {
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
-
-    # 初始化 git_shadow 自身的库，不需要建 CURRENT 与 server 分支
-    cd $zDeployPath/.git_shadow
-    git init .
-    git config user.name "git_shadow"
-    git config user.email "git_shadow@_"
-    git add --all .
-    git commit --allow-empty -m "_"
 
     cp ${zCurDir}/zsvn_post-commit.sh ${zSvnServPath}/hooks/post-commit
     chmod 0755 ${zSvnServPath}/hooks/post-commit
@@ -94,8 +94,6 @@ killall -9 ssh 2>/dev/null
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
 ../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000 2>../../../log/log 1>&2
-
-sleep 2
 
 # 运行环境
 killall svnserve
