@@ -9,7 +9,7 @@ zInitEnv() {
     rm -rf /home/git/*
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    cp -r ../../../demo/${zProjName}_shadow /home/git
+    cp -rf ../../../demo/${zProjName}_shadow /home/git
 
     mkdir $zSvnServPath
     mkdir $zSyncPath
@@ -56,20 +56,14 @@ zInitEnv() {
 
 zCurDir=$PWD
 
-# 运行环境
-killall svnserve
-zInitEnv miaopai 50000
-
 # 启动服务器
-cd $zCurDir
-
 mkdir -p ../../../bin
 mkdir -p ../../../log
 rm -rf ../../../bin/*
 
 cc -O2 -Wall -Wextra -std=c99 \
     -I../../../inc \
-	-lm \
+    -lm \
     -lpthread \
     -lpcre2-8 \
     -D_XOPEN_SOURCE=700 \
@@ -92,6 +86,10 @@ killall -9 ssh 2>/dev/null
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
 ../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000 2>../../../log/log 1>&2
+
+# 运行环境
+killall svnserve
+zInitEnv miaopai 50000
 
 # 摸拟一个 svn 客户端
 rm -rf /tmp/miaopai

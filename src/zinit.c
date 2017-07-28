@@ -32,31 +32,31 @@ zinit_env(void) {
 
         zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
 
-        #define zCheck_Dir_Status_Exit(zRet) do {\
+        #define zCheck_Status_Exit(zRet) do {\
             if (-1 == (zRet) && errno != EEXIST) {\
                 zPrint_Err(errno, NULL, "Can't create directory!");\
                 exit(1);\
             }\
         } while(0)
         // 如果 .git_shadow 路径不存在，创建之
-        zCheck_Dir_Status_Exit( mkdirat(zFd[0], ".git_shadow", 0700) );
-        zCheck_Dir_Status_Exit( mkdirat(zFd[0], ".git_shadow/info", 0700) );
-        zCheck_Dir_Status_Exit( mkdirat(zFd[0], ".git_shadow/log", 0700) );
-        zCheck_Dir_Status_Exit( mkdirat(zFd[0], ".git_shadow/log/deploy", 0700) );
-        #undef zCheck_Dir_Status_Exit
+        zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow", 0755) );
+        zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/info", 0755) );
+        zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/log", 0755) );
+        zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/log/deploy", 0755) );
 
         // 若对应的文件不存在，创建之
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zAllIpTxtPath, O_WRONLY | O_CREAT, 0700) );
+        zCheck_Status_Exit( zFd[1] = openat(zFd[0], zAllIpTxtPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
         close(zFd[1]);
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zMajorIpTxtPath, O_WRONLY | O_CREAT, 0700) );
+        zCheck_Status_Exit( zFd[1] = openat(zFd[0], zMajorIpTxtPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
         close(zFd[1]);
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_CREAT, 0700) );
+        zCheck_Status_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
         close(zFd[1]);
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT, 0700) );
+        zCheck_Status_Exit( zFd[1] = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
         close(zFd[1]);
+        #undef zCheck_Dir_Status_Exit
 
         // 在每个代码库的 .git_shadow/info/repo_id 文件中写入自身的代码库ID
-        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0700) );
+        zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644) );
         if (sizeof(i) != write(zFd[1], &i, sizeof(i))) {
             zPrint_Err(0, NULL, "[write]: update REPO ID failed!");
             exit(1);
@@ -75,7 +75,7 @@ zinit_env(void) {
         // 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
         zMem_Alloc(zpGlobRepoIf[i].p_FailingList, _ui, 1 + zpGlobRepoIf[i].TotalHost);
         // 打开日志文件
-        zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0700) );
+        zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755) );
         close(zFd[0]);
         // 缓存版本初始化
         zpGlobRepoIf[i].CacheId = 1000000000;

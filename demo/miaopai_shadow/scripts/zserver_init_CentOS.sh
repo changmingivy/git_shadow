@@ -25,7 +25,7 @@ if [[ 0 -eq `ls ../bin | grep -c 'git_shadow'` ]]; then
         -o ../bin/git_shadow \
         ../src/zmain.c
 
-	strip ../bin/git_shadow
+    strip ../bin/git_shadow
 fi
 
 cd $zCurDir

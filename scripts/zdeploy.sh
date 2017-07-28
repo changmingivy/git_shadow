@@ -10,10 +10,10 @@ while getopts p:i:h:f:P: zOption
 do
     case $zOption in
         p) zRepoPath=$OPTARG;;  # repo path
-		i) zCommitSig=$OPTARG;;  # commit id(SHA1 sig)
+        i) zCommitSig=$OPTARG;;  # commit id(SHA1 sig)
         f) zFilePath=$OPTARG;;  # file path
         h) zHostIp=$OPTARG;;  # host ip
-		P) zHostListPath=$OPTARG;;  # host list path
+        P) zHostListPath=$OPTARG;;  # host list path
         ?) exit 1;;
     esac
 done
@@ -22,9 +22,9 @@ shift $[$OPTIND - 1]
 cd $zCodePath
 
 if [[ '' == $zHostIp ]]; then
-	zHostList=`cat ${zCodePath}/${zHostListPath}`
+    zHostList=`cat ${zCodePath}/${zHostListPath}`
 else
-	zHostList=$zHostIp
+    zHostList=$zHostIp
 fi
 
 git reset $zCommitSig -- $zFilePath

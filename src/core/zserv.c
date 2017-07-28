@@ -736,7 +736,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zpFilePath,  // 指定目标文件相对于代码库的路径
             zIpv4AddrStr,  // 点分格式的ipv4地址
-			zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
+            zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
 
     /* 调用 git 命令执行布署 */
     if (0 != system(zShellBuf)) {

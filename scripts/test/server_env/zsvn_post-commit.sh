@@ -11,4 +11,4 @@
 
     git add --all . &&
     git commit --allow-empty -m "{REPO => $1} {REV => $2}" &&
-    su git -c "git push --force git@10.30.2.126:/home/git/miaopai/.git sync_git:server"
+    git push --force git@10.30.2.126:/home/git/miaopai/.git sync_git:server
