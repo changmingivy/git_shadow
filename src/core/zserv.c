@@ -700,7 +700,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char zIpv4AddrStr[INET_ADDRSTRLEN] = "\0";
     char *zpFilePath;
-	char *zpCommitSig;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId].CommitVecWrapIf);
