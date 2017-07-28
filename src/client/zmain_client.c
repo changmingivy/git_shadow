@@ -95,13 +95,13 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
  * 主机更新自身ipv4数据库文件
  */
 void
-zupdate_ipv4_db_self(_i zBaseFd) {
+zupdate_ipv4_db_self(void) {
     FILE *zpFileHandler;
     char zBuf[zCommonBufSiz];
     _ui zIpv4Addr;
     _i zFd;
 
-    zCheck_Negative_Exit(zFd = openat(zBaseFd, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
+    zCheck_Negative_Exit(zFd = openat(AT_FDCWD, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
     zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r") );
     while (NULL != zget_one_line(zBuf, zCommonBufSiz, zpFileHandler)) {
@@ -191,7 +191,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     /* 读取版本库ID */
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
     /* 更新自身 ip 地址 */
-    zupdate_ipv4_db_self(zFd);
+    zupdate_ipv4_db_self();
     close(zFd);
     /* 以点分格式的ipv4地址连接服务端 */
     if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {

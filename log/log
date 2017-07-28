@@ -1,2 +1,2 @@
-fatal: Not a git repository (or any of the parent directories): .git
-fatal: Not a git repository (or any of the parent directories): .git
+[31m[2017-6-28 17:2:0] [00m[31m[Line 3] " 0          /home/git/miaopai
+": 指定的代码库地址不存在或不是目录![00m
