@@ -1,8 +1,0 @@
-[31m[2017-6-28 20:41:13] [00m[31;01m
-====[ ERROR ]====[00m
-[31;01mFile:[00m ../../../src/core/zinotify.c
-[31;01mLine:[00m 17
-[31;01mFunc:[00m zinotify_add_sub_watch
-[31;01mCause:[00m zWid < 0
-[31;01mDetail:[00m No such file or directory
-
