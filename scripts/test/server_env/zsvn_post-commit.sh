@@ -6,7 +6,7 @@
     svn cleanup &&
     svn update &&
 
-    git config user.name "git_shadow"
+    git config user.name "_"
     git config user.email "_@_"
 
     git add --all . &&
