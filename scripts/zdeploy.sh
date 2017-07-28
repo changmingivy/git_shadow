@@ -29,8 +29,10 @@ fi
 
 git reset ${zCommitSig} -- $zFilePath
 if [[ 0 -ne $? ]]; then exit 1; fi
-
-git commit --allow-empty -m "==> <${zCommitSig}>"
+git add .git_shadow
+if [[ 0 -ne $? ]]; then exit 1; fi
+git commit -m "==> [${zCommitSig}]"
+#git commit --allow-empty -m "==> <${zCommitSig}>"
 if [[ 0 -ne $? ]]; then exit 1; fi
 
 i=0
