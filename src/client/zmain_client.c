@@ -25,7 +25,7 @@
 #include <ctype.h>
 
 #define zCommonBufSiz 1024
-#include "../inc/zutils.h"
+#include "../../inc/zutils.h"
 
 /****************
  * 数据结构定义 *

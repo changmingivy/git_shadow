@@ -7,16 +7,20 @@ zInitEnv() {
     zDeployPath=/home/git/$zProjName #Used to deploy code! --CORE--
 
     rm -rf /home/git/*
-    mkdir -p $zDeployPath
-    cp -rp ../../../demo/${zProjName}_shadow /home/git
+    if [[ 0 -ne $? ]]; then exit 1; fi
+
+    cp -r ../../../demo/${zProjName}_shadow /home/git
+
+    mkdir $zSvnServPath
+    mkdir $zSyncPath
+    mkdir $zDeployPath
 
     #Init Subversion Server
-    mkdir $zSvnServPath
     svnadmin create $zSvnServPath
     perl -p -i.bak -e 's/^#\s*anon-access\s*=.*$/anon-access = write/' $zSvnServPath/conf/svnserve.conf
     svnserve --listen-port=$2 -d -r $zSvnServPath
 
-    #Init svn repo，svn 会自动创建目录
+    #Init svn repo
     svn co svn://10.30.2.126:$2/ $zSyncPath
     svn propset svn:ignore '.git' $zSyncPath
 
@@ -41,52 +45,59 @@ zInitEnv() {
     git branch CURRENT
     git branch server  #Act as Git server
 
-    cp ./zsvn_post-commit.sh ${zSvnServPath}/hooks/post-commit
-    chmod 0700 ${zSvnServPath}/hooks/post-commit
+    cp ${zCurDir}/zsvn_post-commit.sh ${zSvnServPath}/hooks/post-commit
+    chmod 0755 ${zSvnServPath}/hooks/post-commit
 
-    cp ./zsync_git_post-update.sh ${zDeployPath}/.git/hooks/post-update
-    chmod 0700 ${zDeployPath}/.git/hooks/post-update
+    cp ${zCurDir}/zsync_git_post-update.sh ${zDeployPath}/.git/hooks/post-update
+    chmod 0755 ${zDeployPath}/.git/hooks/post-update
+
+    chown -R git:git /home/git
 }
+
+zCurDir=$PWD
 
 # 运行环境
 killall svnserve
 zInitEnv miaopai 50000
 
 # 启动服务器
-zCurDir=$PWD
+cd $zCurDir
 
-mkdir -p ../bin
-mkdir -p ../log
-rm -rf ../bin/*
+mkdir -p ../../../bin
+mkdir -p ../../../log
+rm -rf ../../../bin/*
 
 cc -O2 -Wall -Wextra -std=c99 \
-    -I../inc \
+    -I../../../inc \
+	-lm \
     -lpthread \
     -lpcre2-8 \
     -D_XOPEN_SOURCE=700 \
     -o ../../../bin/git_shadow \
     ../../../src/zmain.c
+
 strip ../../../bin/git_shadow
+if [[ 0 -ne $? ]]; then exit 1; fi
 
 cc -O2 -Wall -Wextra -std=c99 \
-    -I../inc \
+    -I../../../inc \
     -D_XOPEN_SOURCE=700 \
     -o ../../../bin/git_shadow_client \
-    ../../../src/zmain.c
-strip ../../../bin/git_shadow_client
+    ../../../src/client/zmain_client.c
 
-cd $zCurDir
+strip ../../../bin/git_shadow_client
+if [[ 0 -ne $? ]]; then exit 1; fi
+
 killall -9 ssh 2>/dev/null
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
-../bin/git_shadow -f `dirname $zCurDir`/conf/sample.conf -h 10.30.2.126 -p 20000 2>>../log/log 1>&2
+../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000 2>../../../log/log 1>&2
 
 # 摸拟一个 svn 客户端
 rm -rf /tmp/miaopai
 mkdir /tmp/miaopai
 cd /tmp/miaopai
 svn co svn://10.30.2.126:50000
-cp -r /etc/* ./ 2>/dev/null
-svn add *
-svn commit -m "etc files"
-svn up
+cp -r /etc/conf.d ./ 2>/dev/null
+chmod -R 0777 /tmp/miaopai
+chown -R git:git /tmp/miaopai

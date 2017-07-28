@@ -2,8 +2,8 @@
 zProjName="miaopai"
 zCodePath=/home/git/$zProjName
 
-\rm -rf $zCodePath
-mkdir $zCodePath
+#\rm -rf $zCodePath
+mkdir -p $zCodePath
 \cp -rf ../../../demo/${zProjName}_shadow ${zCodePath}/.git_shadow
 
 cd $zCodePath

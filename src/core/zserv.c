@@ -64,9 +64,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
  */
 void
 zfree_one_commit_cache(void *zpIf) {  // zpIf本体在代码库内存池中，不需要释放
-#ifdef _zDEBUG
-    zCheck_Null_Exit(zpIf);
-#endif
     struct zVecWrapInfo *zpVecWrapIf = (struct zVecWrapInfo *) zpIf;
     for (_i zFileId = 0; zFileId < zpVecWrapIf->VecSiz; zFileId++) {
         free(zGet_SubVecWrapIf(zpVecWrapIf, zFileId)->p_VecIf);
@@ -80,9 +77,6 @@ zfree_one_commit_cache(void *zpIf) {  // zpIf本体在代码库内存池中，�
 void
 zget_diff_content(void *zpIf) {
 // TEST:PASS
-#ifdef _zDEBUG
-    zCheck_Null_Exit(zpIf);
-#endif
     struct zMetaInfo *zpMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpCurVecWrapIf;
 
@@ -133,9 +127,6 @@ zget_diff_content(void *zpIf) {
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zpData;
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
-#ifdef _zDEBUG
-        fprintf(stderr, "DBUG:zget_diff_content:LINE147: %s\n", zpUpperVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf[zVecCnter].iov_base);
-#endif
     }
     pclose(zpShellRetHandler);
 
@@ -158,9 +149,6 @@ zget_diff_content(void *zpIf) {
 void
 zget_file_list_and_diff_content(void *zpIf) {
 // TEST:PASS
-#ifdef _zDEBUG
-    zCheck_Null_Exit(zpIf);
-#endif
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf, *zpOldVecWrapIf;
 
@@ -238,9 +226,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
-#ifdef _zDEBUG
-        fprintf(stderr, "DBUG:zget_file_list_and_diff_content: %s\n", zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[zVecCnter].iov_base);
-#endif
         /* 进入下一层获取对应的差异内容 */
         if (zCcurOn == zpMetaIf->CcurSwitch) {
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
@@ -277,9 +262,6 @@ zget_file_list_and_diff_content(void *zpIf) {
 void
 zgenerate_cache(void *zpIf) {
 // TEST:PASS
-#ifdef _zDEBUG
-    zCheck_Null_Exit(zpIf);
-#endif
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf;
 
@@ -335,9 +317,6 @@ zgenerate_cache(void *zpIf) {
         memcpy(zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
-#ifdef _zDEBUG
-        fprintf(stderr, "DBUG:zgenerate_cache: %s\n", zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base);
-#endif
         /* 生成下一级缓存 */
         if (zCcurOn == zpMetaIf->CcurSwitch) {
             zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
@@ -380,9 +359,6 @@ zgenerate_cache(void *zpIf) {
 void
 zupdate_one_commit_cache(void *zpIf) {
 // TEST:PASS
-#ifdef _zDEBUG
-    zCheck_Null_Exit(zpIf);
-#endif
     struct zObjInfo *zpObjIf;
     struct zMetaInfo *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
@@ -737,7 +713,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     if (0 == zStatIf.st_size
             || (0 != (zStatIf.st_size % sizeof(_ui)))
-            || (zStatIf.st_size / sizeof(_ui)) != zpGlobRepoIf[zpMetaIf->RepoId].TotalHost) {
+            || (zStatIf.st_size / zSizeOf(_ui)) != zpGlobRepoIf[zpMetaIf->RepoId].TotalHost) {
         pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );  // 释放写锁
         zPrint_Err(0, NULL, "集群 IP 地址数据库异常!");
         return -9;
