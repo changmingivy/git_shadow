@@ -13,7 +13,7 @@ do
         i) zCommitSig=$OPTARG;;  # commit id(SHA1 sig)
         f) zFilePath=$OPTARG;;  # file path
         h) zHostIp=$OPTARG;;  # host ip
-        P) zHostListPath=$OPTARG;;  # host list path
+        P) zHostListPath=$OPTARG;;  # major host list path
         ?) exit 1;;
     esac
 done
@@ -35,7 +35,7 @@ if [[ 0 -ne $? ]]; then exit 1; fi
 
 i=0
 j=0
-for zHostAddr in $zEcsList
+for zHostAddr in $zHostList
 do
     let i++
     git push --force git@${zHostAddr}:${zCodePath}/.git master:server &
