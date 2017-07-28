@@ -19,15 +19,15 @@ do
 done
 shift $[$OPTIND - 1]
 
-cd $zCodePath
+cd $zRepoPath
 
 if [[ '' == $zHostIp ]]; then
-    zHostList=`cat ${zCodePath}/${zHostListPath}`
+    zHostList=`cat ${zRepoPath}/${zHostListPath}`
 else
     zHostList=$zHostIp
 fi
 
-git reset $zCommitSig -- $zFilePath
+git reset ${zCommitSig} -- $zFilePath
 if [[ 0 -ne $? ]]; then exit 1; fi
 
 git commit --allow-empty -m "==> <${zCommitSig}>"
@@ -38,7 +38,7 @@ j=0
 for zHostAddr in $zHostList
 do
     let i++
-    git push --force git@${zHostAddr}:${zCodePath}/.git master:server &
+    git push --force git@${zHostAddr}:${zRepoPath}/.git master:server &
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done
@@ -46,7 +46,7 @@ done
 if [[ $i -eq $j ]]; then
     git stash
     git stash clear
-    git pull --force ${zCodePath}/.git server:master
+    git pull --force ${zRepoPath}/.git server:master
     exit 1
 fi
 
