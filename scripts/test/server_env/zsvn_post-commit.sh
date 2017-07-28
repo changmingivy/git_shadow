@@ -4,11 +4,11 @@
 
     cd /home/git/sync_miaopai &&
     svn cleanup &&
-    svn up &&
+    svn update &&
 
     git config user.name "git_shadow"
     git config user.email "_@_"
 
     git add --all . &&
-    git commit --allow-empty -m "{REPO => $1} {REV => $2}" &&
+    git commit --allow-empty -m "[REPO: $1] [REV: $2]" &&
     git push --force git@10.30.2.126:/home/git/miaopai/.git sync_git:server

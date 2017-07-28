@@ -41,6 +41,7 @@ for zHostAddr in $zHostList
 do
     let i++
     git push --force git@${zHostAddr}:${zRepoPath}/.git master:server &
+    git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server &  #
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done

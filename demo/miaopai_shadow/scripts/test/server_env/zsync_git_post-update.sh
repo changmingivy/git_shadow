@@ -4,6 +4,3 @@
 
     cd /home/git/miaopai &&
     git pull --force ./.git server:master &&
-
-    rm -rf ./.git_shadow &&
-    cp -rf /home/git/miaopai_shadow ./.git_shadow

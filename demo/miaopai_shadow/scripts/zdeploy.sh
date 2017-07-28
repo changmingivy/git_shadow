@@ -29,8 +29,10 @@ fi
 
 git reset ${zCommitSig} -- $zFilePath
 if [[ 0 -ne $? ]]; then exit 1; fi
-
-git commit --allow-empty -m "==> <${zCommitSig}>"
+git add .git_shadow
+if [[ 0 -ne $? ]]; then exit 1; fi
+git commit -m "==> [${zCommitSig}]"
+#git commit --allow-empty -m "==> <${zCommitSig}>"
 if [[ 0 -ne $? ]]; then exit 1; fi
 
 i=0
@@ -39,6 +41,7 @@ for zHostAddr in $zHostList
 do
     let i++
     git push --force git@${zHostAddr}:${zRepoPath}/.git master:server &
+    git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server &  #
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done

@@ -9,11 +9,11 @@ zInitEnv() {
     rm -rf /home/git/*
     if [[ 0 -ne $? ]]; then exit 1; fi
 
-    cp -rf ../../../demo/${zProjName}_shadow /home/git
-
     mkdir $zSvnServPath
     mkdir $zSyncPath
     mkdir $zDeployPath
+
+    cp -rf ../../../demo/${zProjName}_shadow ${zDeployPath}/.git_shadow
 
     #Init Subversion Server
     svnadmin create $zSvnServPath
@@ -27,9 +27,8 @@ zInitEnv() {
     #Init Sync Git Env
     cd $zSyncPath
     git init .
-    git config --global user.email git_shadow@yixia.com
-    git config --global user.name git_shadow
-
+    git config user.name "sync"
+    git config user.email "sync@_"
     printf ".svn" > .gitignore
     git add --all .
     git commit --allow-empty -m "__sync_init__"
@@ -38,12 +37,21 @@ zInitEnv() {
     #Init Deploy Git Env
     cd $zDeployPath
     git init .
-
+    git config user.name "deploy"
+    git config user.email "deploy@_"
     printf ".svn" > .gitignore
     git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
+
+    # 初始化 git_shadow 自身的库，不需要建 CURRENT 与 server 分支
+    cd $zDeployPath/.git_shadow
+    git init .
+    git config user.name "git_shadow"
+    git config user.email "git_shadow@_"
+    git add --all .
+    git commit --allow-empty -m "_"
 
     cp ${zCurDir}/zsvn_post-commit.sh ${zSvnServPath}/hooks/post-commit
     chmod 0755 ${zSvnServPath}/hooks/post-commit
@@ -86,6 +94,8 @@ killall -9 ssh 2>/dev/null
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
 ../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000 2>../../../log/log 1>&2
+
+sleep 2
 
 # 运行环境
 killall svnserve
