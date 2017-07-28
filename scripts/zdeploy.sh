@@ -40,8 +40,8 @@ j=0
 for zHostAddr in $zHostList
 do
     let i++
-    git push --force git@${zHostAddr}:${zRepoPath}/.git master:server &
-    git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server &  #
+	# 必须首先切换目录
+    (cd $zRepoPath/.git_shadow && git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server && cd .. && git push --force git@${zHostAddr}:${zRepoPath}/.git master:server) &
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done
