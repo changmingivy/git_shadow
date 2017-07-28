@@ -2,7 +2,7 @@
 zProjName="miaopai"
 zCodePath=/home/git/$zProjName
 
-zCurDir=`pwd`  // test/host_env 目录
+zCurDir=`pwd`  # test/host_env 目录
 
 rm -rf $zCodePath
 mkdir $zCodePath
