@@ -102,8 +102,7 @@ strip ../../../bin/git_shadow_client
 printf "`date +%s`" >> ../../../bin/git_shadow_client  # 末尾追加随机字符，防止git不识别二进制文件变动
 if [[ 0 -ne $? ]]; then exit 1; fi
 
-../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000
-# 2>../../../log/log 1>&2
+../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000  2>../../../log/log 1>&2
 
 # 摸拟一个 svn 客户端
 rm -rf /tmp/miaopai

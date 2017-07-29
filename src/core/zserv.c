@@ -21,33 +21,34 @@ void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
     pthread_mutex_lock(&(zpGlobRepoIf[zRepoId].MemLock));
 
-    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) > zpGlobRepoIf[zRepoId].MemPoolSiz) {
-        /* 内存池容量不足时，需要全量刷新缓存，必须首先拿到写锁权限方可执行 */
-        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
-
-        struct zMetaInfo zMetaIf;
-
-        munmap(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
-        zpGlobRepoIf[zRepoId].MemPoolSiz *= 2;
-        if (MAP_FAILED == (zpGlobRepoIf[zRepoId].p_MemPool = mmap(NULL, zpGlobRepoIf[zRepoId].MemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-            zPrint_Err(0, NULL, "mmap failed!");
-            exit(1);
-        }
-
-        zMetaIf.DataType = zIsCommitDataType;
-        zMetaIf.RepoId = zRepoId;
-        zMetaIf.CcurSwitch = zCcurOff;  // 串行执行，保证数据一致性
-        zgenerate_cache(&(zMetaIf));
-
-        zMetaIf.DataType = zIsDeployDataType;
-        zMetaIf.RepoId = zRepoId;
-        zMetaIf.CcurSwitch = zCcurOff;
-        zgenerate_cache(&(zMetaIf));
-
-        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
-
-        return NULL;
-    }
+    // 有死锁问题
+//    if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolHeadId) > zpGlobRepoIf[zRepoId].MemPoolSiz) {
+//        /* 内存池容量不足时，需要全量刷新缓存，必须首先拿到写锁权限方可执行 */
+//        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
+//
+//        struct zMetaInfo zMetaIf;
+//
+//        munmap(zpGlobRepoIf[zRepoId].p_MemPool, zpGlobRepoIf[zRepoId].MemPoolSiz);
+//        zpGlobRepoIf[zRepoId].MemPoolSiz *= 2;
+//        if (MAP_FAILED == (zpGlobRepoIf[zRepoId].p_MemPool = mmap(NULL, zpGlobRepoIf[zRepoId].MemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+//            zPrint_Err(0, NULL, "mmap failed!");
+//            exit(1);
+//        }
+//
+//        zMetaIf.DataType = zIsCommitDataType;
+//        zMetaIf.RepoId = zRepoId;
+//        zMetaIf.CcurSwitch = zCcurOff;  // 串行执行，保证数据一致性
+//        zgenerate_cache(&(zMetaIf));
+//
+//        zMetaIf.DataType = zIsDeployDataType;
+//        zMetaIf.RepoId = zRepoId;
+//        zMetaIf.CcurSwitch = zCcurOff;
+//        zgenerate_cache(&(zMetaIf));
+//
+//        pthread_rwlock_wrlock( &(zpGlobRepoIf[zRepoId].RwLock) );
+//
+//        return NULL;
+//    }
 
     void *zpX = zpGlobRepoIf[zRepoId].p_MemPool + zpGlobRepoIf[zRepoId].MemPoolHeadId;
     zpGlobRepoIf[zRepoId].MemPoolHeadId += zSiz;
@@ -86,7 +87,7 @@ zget_diff_content(void *zpIf) {
     char *zpData;  // 此项是 iovec 的 io_base 字段
     _i zVecCnter;
     _i zVecDataLen;
-    _i zAllocSiz = 256;
+    _i zAllocSiz = 1;
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -246,12 +247,16 @@ zget_file_list_and_diff_content(void *zpIf) {
 
         /* 将分配的空间缩减为最终的实际成员数量 */
         zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf);  // 多留一项用于存放二维json最后的']'
-        zMem_Re_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz - 1, zpCurVecWrapIf->p_RefDataIf);
+        zMem_Re_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_RefDataIf);
 
         /* 修饰第一项，添加最后一项，形成二维json格式 */
         ((char *)(zpCurVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = "]";
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len= zBytes(1);  // 不发送最后的 '\0'
+
+        // 防止意外访问出错
+        zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = NULL;
+        zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_SubVecWrapIf = NULL;
     }
 }
 
@@ -342,6 +347,12 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len= zBytes(1);  // 不发送最后的 '\0'
     }
 
+    // 防止意外访问
+    for (_i i = zVecCnter; i < zCacheSiz; i++) {
+        zpTopVecWrapIf->p_RefDataIf[i].p_data = NULL;
+        zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
+    }
+
     if (zIsCommitDataType ==zpMetaIf->DataType) {
         zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf.VecSiz = zpTopVecWrapIf->VecSiz;
         zpGlobRepoIf[zpMetaIf->RepoId].SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
@@ -385,7 +396,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
     pclose(zpShellRetHandler);
 
-    zRes[strlen(zRes) - 1] = '\0';
+    zRes[strlen(zRes) - 1] = '\0';  // 去掉换行符
     zRes[40] = '\0';
 
     /* 防止冗余事件导致的重复更新 */
@@ -485,7 +496,7 @@ zupdate_one_commit_cache(void *zpIf) {
  ***********/
 /* 检查 CommitId 是否合法 */
 #define zCheck_CommitId() do {\
-    if (0 > zpMetaIf->CommitId || (zCacheSiz - 2) < zpMetaIf->CommitId) {\
+    if (0 > zpMetaIf->CommitId || (zCacheSiz - 1) < zpMetaIf->CommitId) {\
         zPrint_Err(0, NULL, "Commit ID 不存在!");\
         return -3;\
     }\
@@ -493,7 +504,7 @@ zupdate_one_commit_cache(void *zpIf) {
 
 /* 检查 FileId 是否合法 */
 #define zCheck_FileId() do {\
-    if (0 > zpMetaIf->FileId || (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 2) < zpMetaIf->FileId) {\
+    if (0 > zpMetaIf->FileId || (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) {\
         zPrint_Err(0, NULL, "差异文件ID不存在!");\
         return -4;\
     }\

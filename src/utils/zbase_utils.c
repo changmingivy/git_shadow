@@ -142,6 +142,8 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 _i
 zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
+    if (NULL == zpVecWrapIf) { return -1; }
+
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
         .msg_namelen = INET_ADDRSTRLEN,
