@@ -724,7 +724,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     zCheck_Negative_Exit( zFd = open(zpGlobRepoIf[zpMetaIf->RepoId].RepoPath, O_RDONLY) );
-    zCheck_Negative_Exit( fstatat(zFd, zAllIpTxtPath, &zStatIf, 0) );
+    zCheck_Negative_Exit( fstatat(zFd, zAllIpPath, &zStatIf, 0) );
 
     if (0 == zStatIf.st_size
             || (0 != (zStatIf.st_size % sizeof(_ui)))
