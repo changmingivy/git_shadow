@@ -1,9 +1,268 @@
 DEBUG[zops_route]: {"OpsId":12,"RepoId":0,"CommitId":1008,"FileId":-1,"HostId":0,"CacheId":1000000000,"DataType":0,"Data":""}
-[31m[2017-6-29 21:13:19] [00m[31;01m
+DEBUG: /home/git/miaopai/.git_shadow/scripts/zdeploy.sh -p /home/git/miaopai -i 7c90a38ee25dbf7df442f9dc0a6bf292ad8b4a33 -f  -H  -P .git_shadow/info/host_ip_major.txt
+[31m[2017-6-29 21:20:2] [00m[31;01m
 ====[ ERROR ]====[00m
 [31;01mFile:[00m ../../../src/core/zserv.c
-[31;01mLine:[00m 733
+[31;01mLine:[00m 761
 [31;01mFunc:[00m zdeploy
 [31;01mCause:[00m 
-[31;01mDetail:[00m 集群 IP 地址数据库异常!
+[31;01mDetail:[00m Shell 布署命令执行错误!
 
+To 10.10.40.49:/home/git/miaopai/.git_shadow/.git
+ + e48aa00...085f8f5 master -> server (forced update)
+remote: Switched to branch 'server'        
+remote: Switched to a new branch 'TMP'        
+remote: Switched to branch 'server'        
+remote: Switched to a new branch 'TMP'        
+remote: git_shadow: no process found        
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":4278063276}
+remote: To 172.16.0.11:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.3:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.23:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.7:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.21:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.1:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.5:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.4:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.13:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.6:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.9:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.19:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.14:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.8:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.10:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.20:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.16:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.18:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.17:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.15:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.12:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.22:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.24:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: To 172.16.0.2:/home/git/miaopai/.git_shadow/.git        
+remote:  + e48aa00...085f8f5 client -> server (forced update)        
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":234885292}
+remote: To 172.16.0.14:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":50335916}
+remote: remote: Switched to branch 'server'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":100667564}
+remote: To 172.16.0.6:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.3:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":184553644}
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.11:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":167776428}
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: To 172.16.0.10:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":385880236}
+remote: To 172.16.0.23:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":369103020}
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":33558700}
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":67113132}
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: To 172.16.0.2:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":251662508}
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":150999212}
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.15:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":352325804}
+remote: To 172.16.0.22:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: To 172.16.0.4:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":301994156}
+remote: To 172.16.0.21:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":134221996}
+remote: remote: Switched to branch 'server'                
+remote: To 172.16.0.8:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":83890348}
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: remote: git_shadow: no process killed                
+remote: remote: git_shadow: no process killed                
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":335548588}
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":16781484}
+remote: To 172.16.0.1:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: To 172.16.0.9:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.5:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: To 172.16.0.18:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.20:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to branch 'server'                
+remote: remote: Switched to a new branch 'TMP'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":218108076}
+remote: remote: Switched to branch 'server'                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":268439724}
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":402657452}
+remote: remote: Switched to a new branch 'TMP'                
+[31m[2017-6-29 21:20:4] [00m[31;01m
+====[ ERROR ]====[00m
+[31;01mFile:[00m ../../../src/utils/zbase_utils.c
+[31;01mLine:[00m 176
+[31;01mFunc:[00m zrecv_nohang
+[31;01mCause:[00m zRecvSiz < 0
+[31;01mDetail:[00m Transport endpoint is not connected
+
+remote: To 172.16.0.13:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":318771372}
+remote: To 172.16.0.16:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: Switched to branch 'server'                
+remote: To 172.16.0.19:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: git_shadow: no process killed                
+remote: remote: Switched to a new branch 'TMP'                
+remote: To 172.16.0.24:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":201330860}
+remote: To 172.16.0.12:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: remote: git_shadow: no process killed                
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":117444780}
+DEBUG[zops_route]: {"OpsId":9,"RepoId":0,"HostId":285216940}
+remote: To 172.16.0.7:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+remote: To 172.16.0.17:/home/git/miaopai/.git        
+remote:  + 2e0aacc...7c90a38 client -> server (forced update)        
+To 10.10.40.49:/home/git/miaopai/.git
+ + 2e0aacc...7c90a38 master -> server (forced update)

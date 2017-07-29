@@ -746,7 +746,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "./.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -H %s -P %s",
+    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -H %s -P %s",
+            zpGlobRepoIf[zpMetaIf->RepoId].RepoPath,  // 指定代码库的绝对路径
             zpGlobRepoIf[zpMetaIf->RepoId].RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zpFilePath,  // 指定目标文件相对于代码库的路径
@@ -1069,7 +1070,6 @@ zops_route(void *zpSd) {
 
     if (zBytes(6) > zRecvdLen) { return; }
 
-fprintf(stderr, "DEBUG[zops_route]: %s\n", zpJsonBuf);
     if (NULL == (zpJsonRootObj = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         // 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
         memset(&zMetaIf, 0, sizeof(zMetaIf));
