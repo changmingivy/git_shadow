@@ -90,32 +90,6 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
     return zIpv4Addr.s_addr;
 }
 
-/*
- * 主机更新自身ipv4数据库文件
- */
-void
-zupdate_ipv4_db_self(void) {
-    FILE *zpFileHandler;
-    char zBuf[INET_ADDRSTRLEN];
-    _ui zIpv4Addr;
-    _i zFd;
-
-    zCheck_Negative_Exit(zFd = openat(AT_FDCWD, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
-
-    zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
-    while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
-        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
-        zIpv4Addr = zconvert_ipv4_str_to_bin(zBuf);
-        if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
-            zPrint_Err(0, NULL, "自身IP地址更新失败!");
-            exit(1);
-        }
-    }
-
-    fclose(zpFileHandler);
-    close(zFd);
-}
-
 // Used by client.
 _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
@@ -182,34 +156,37 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
  */
 void
 zstate_reply(char *zpHost, char *zpPort) {
+    FILE *zpFileHandler;
+    char zBuf[INET_ADDRSTRLEN];
     char zJsonBuf[256];
-    _i zRepoId, zFd, zSd, zResLen;
-    _ui zIpv4Bin = 0;
+    _i zRepoId, zFd, zSd;
+    _ui zIpv4Bin;
 
     // 以相对路径打开文件
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
     /* 读取版本库ID */
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
-    /* 更新自身 ip 地址 */
-    zupdate_ipv4_db_self();
     close(zFd);
     /* 以点分格式的ipv4地址连接服务端 */
     if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         zPrint_Err(0, NULL, "无法与中控机建立连接！");
         exit(1);
     }
-    /* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
-    zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
-    while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
+    /* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
+    zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
+    while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
+        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
+        zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
+
         sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);  // 一定要打印成无符号整型
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }
     }
 
+    fclose(zpFileHandler);
     shutdown(zSd, SHUT_RDWR);
-    close(zFd);
 }
 
 _i
