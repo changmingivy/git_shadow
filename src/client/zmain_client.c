@@ -202,7 +202,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
     while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-        sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%d}", zRepoId, zIpv4Bin);
+        sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);  // 一定要打印成无符号整型
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }

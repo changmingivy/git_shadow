@@ -99,7 +99,7 @@ cc -O2 -Wall -Wextra -std=c99 \
     ../../../src/client/zmain_client.c
 
 strip ../../../bin/git_shadow_client
-printf "" >> ../../../bin/git_shadow_client  # 末尾追加一个空字符，防止git不识别二进制文件变动
+printf "`date +%s`" >> ../../../bin/git_shadow_client  # 末尾追加随机字符，防止git不识别二进制文件变动
 if [[ 0 -ne $? ]]; then exit 1; fi
 
 ../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000
