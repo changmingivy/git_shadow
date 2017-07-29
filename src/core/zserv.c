@@ -423,7 +423,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
 
     /* 生成下一级缓存 */
-    zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
+    zAdd_To_Thread_Pool( zget_file_list_and_diff_content, zpSubMetaIf );
 
     /* 将zMetaInfo转换为JSON文本 */
     zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
@@ -465,6 +465,7 @@ zupdate_one_commit_cache(void *zpIf) {
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
     zpSortedTopVecWrapIf->p_VecIf[zpTopVecWrapIf->VecSiz].iov_base = "]";
     zpSortedTopVecWrapIf->p_VecIf[zpTopVecWrapIf->VecSiz].iov_len= zBytes(1);  // 不发送最后的 '\0'
+
     pthread_rwlock_unlock( &(zpGlobRepoIf[zpObjIf->RepoId].RwLock) );
 }
 
@@ -496,7 +497,8 @@ zupdate_one_commit_cache(void *zpIf) {
  ***********/
 /* 检查 CommitId 是否合法 */
 #define zCheck_CommitId() do {\
-    if (0 > zpMetaIf->CommitId || (zCacheSiz - 1) < zpMetaIf->CommitId) {\
+    if (0 > zpMetaIf->CommitId || (zCacheSiz - 1) < zpMetaIf->CommitId || NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {\
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );\
         zPrint_Err(0, NULL, "Commit ID 不存在!");\
         return -3;\
     }\
@@ -505,6 +507,7 @@ zupdate_one_commit_cache(void *zpIf) {
 /* 检查 FileId 是否合法 */
 #define zCheck_FileId() do {\
     if (0 > zpMetaIf->FileId || (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) {\
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );\
         zPrint_Err(0, NULL, "差异文件ID不存在!");\
         return -4;\
     }\
@@ -513,6 +516,7 @@ zupdate_one_commit_cache(void *zpIf) {
 /* 检查缓存中的CacheId与全局CacheId是否一致，若不一致，返回错误，此处不执行更新缓存的动作 */
 #define zCheck_CacheId() do {\
     if (zpGlobRepoIf[zpMetaIf->RepoId].CacheId != zpMetaIf->CacheId) {\
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );\
         zPrint_Err(0, NULL, "前端发送的缓存ID已失效!");\
         return -8;\
     }\
@@ -600,8 +604,8 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-    zCheck_CacheId();
-    zCheck_CommitId();
+    zCheck_CacheId();  // 宏内部会解锁
+    zCheck_CommitId();  // 宏内部会解锁
 
     zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf, 0, NULL);
 
@@ -633,9 +637,9 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-    zCheck_CacheId();
-    zCheck_CommitId();
-    zCheck_FileId();
+    zCheck_CacheId();  // 宏内部会解锁
+    zCheck_CommitId();  // 宏内部会解锁
+    zCheck_FileId();  // 宏内部会解锁
 
     zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
 
@@ -705,8 +709,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     };
 
     zCheck_Lock_State();  // 这个宏内部会释放写锁
-    zCheck_CacheId();
-    zCheck_CommitId();
+    zCheck_CacheId();  // 宏内部会解锁
+    zCheck_CommitId();  // 宏内部会解锁
 
     // 减 2 是为适应 json 二维结构，最后有一个 ']' 也会计入 VecSiz
     if (0 > zpMetaIf->FileId) {

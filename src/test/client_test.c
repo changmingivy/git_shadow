@@ -248,7 +248,7 @@ zclient(char *zpX) {
             fprintf(stderr, "Connect to server failed \n");
             exit(1);
         }
-        char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":0,\"CommitId\":1006,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+        char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":0,\"CommitId\":1008,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
         zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
         char zBuf[4096];

@@ -1,1 +1,10 @@
-DEBUG[zops_route]: {"OpsId":6,"RepoId":0,"CommitId":1006,"FileId":0,"HostId":0,"CacheId":1000000000,"DataType":0,"Data":""}
+DEBUG[zops_route]: {"OpsId":12,"RepoId":0,"CommitId":1006,"FileId":-1,"HostId":0,"CacheId":1000000000,"DataType":0,"Data":""}
+[31m[2017-6-29 21:6:13] [00m[31;01m
+====[ ERROR ]====[00m
+[31;01mFile:[00m ../../../src/core/zserv.c
+[31;01mLine:[00m 710
+[31;01mFunc:[00m zdeploy
+[31;01mCause:[00m 
+[31;01mDetail:[00m Commit ID 不存在!
+
+DEBUG[zops_route]: {"OpsId":12,"RepoId":0,"CommitId":1008,"FileId":-1,"HostId":0,"CacheId":1000000000,"DataType":0,"Data":""}
