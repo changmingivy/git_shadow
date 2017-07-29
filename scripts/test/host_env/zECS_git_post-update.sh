@@ -40,14 +40,14 @@ for zAddr in $(ifconfig | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\
     if [[ 0 -lt $(cat $zEcsAddrMajorListPath | grep -c $zAddr) ]]; then
         zEcsAddrList=$(cat $zEcsAddrListPath | tr '\n' ' ')
         for zEcsAddr in $zEcsAddrList; do
-            (\
+            ( \
                 export GIT_DIR="${zCodePath}/.git_shadow/.git" \
                 && cd ${zCodePath}/.git_shadow \
                 && git push --force git@${zEcsAddr}:${zCodePath}/.git_shadow/.git client:server \
                 \
                 && export GIT_DIR="${zCodePath}/.git" \
                 && cd .. \
-                && git push --force git@${zEcsAddr}:${zCodePath}/.git client:server\
+                && git push --force git@${zEcsAddr}:${zCodePath}/.git client:server \
             ) &
         done
         break

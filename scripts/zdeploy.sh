@@ -29,19 +29,26 @@ fi
 
 git reset ${zCommitSig} -- $zFilePath
 if [[ 0 -ne $? ]]; then exit 1; fi
-git add .git_shadow
+
+# git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
+cd $zRepoPath/.git_shadow
+git add --all .
 if [[ 0 -ne $? ]]; then exit 1; fi
-git commit -m "==> [${zCommitSig}]"
-#git commit --allow-empty -m "==> <${zCommitSig}>"
+git commit --allow-empty -m "_"
 if [[ 0 -ne $? ]]; then exit 1; fi
 
 i=0
 j=0
-for zHostAddr in $zHostList
-do
+for zHostAddr in $zHostList; do
     let i++
-	# 必须首先切换目录
-    (cd $zRepoPath/.git_shadow && git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server && cd .. && git push --force git@${zHostAddr}:${zRepoPath}/.git master:server) &
+    # 必须首先切换目录
+    ( \
+        cd $zRepoPath/.git_shadow \
+        && git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server \
+        \
+        && cd .. \
+        && git push --force git@${zHostAddr}:${zRepoPath}/.git master:server \
+    ) &
 
     if [[ $? -ne 0 ]]; then let j++; fi
 done
@@ -53,7 +60,9 @@ if [[ $i -eq $j ]]; then
     exit 1
 fi
 
-git branch -f `git log CURRENT -1 --format=%H` # 创建一个以 CURRENT 分支的 SHA1 sig 命名的分支
+cd $zRepoPath
+zOldSig=`git log CURRENT -1 --format=%H`
+git branch -f $zOldSig  # 创建一个以 CURRENT 分支的 SHA1 sig 命名的分支
 git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 
 exit 0

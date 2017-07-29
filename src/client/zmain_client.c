@@ -10,10 +10,10 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+//#include <sys/wait.h>
+//#include <sys/stat.h>
 #include <sys/signal.h>
-#include <pwd.h>
+//#include <pwd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +21,7 @@
 #include <time.h>
 #include <errno.h>
 #include <dirent.h>
-#include <libgen.h>
+//#include <libgen.h>
 #include <ctype.h>
 
 #define zCommonBufSiz 1024
@@ -64,7 +64,6 @@ struct zRecvInfo {
 #define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
 #define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/meta"
 
 /*
  * 以返回是否是 NULL 为条件判断是否已读完所有数据
@@ -97,14 +96,15 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
 void
 zupdate_ipv4_db_self(void) {
     FILE *zpFileHandler;
-    char zBuf[zCommonBufSiz];
+    char zBuf[INET_ADDRSTRLEN];
     _ui zIpv4Addr;
     _i zFd;
 
     zCheck_Negative_Exit(zFd = openat(AT_FDCWD, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
-    zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r") );
-    while (NULL != zget_one_line(zBuf, zCommonBufSiz, zpFileHandler)) {
+    zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
+    while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
+        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
         zIpv4Addr = zconvert_ipv4_str_to_bin(zBuf);
         if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
             zPrint_Err(0, NULL, "自身IP地址更新失败!");
@@ -184,7 +184,7 @@ void
 zstate_reply(char *zpHost, char *zpPort) {
     char zJsonBuf[256];
     _i zRepoId, zFd, zSd, zResLen;
-    _ui zIpv4Bin;
+    _ui zIpv4Bin = 0;
 
     // 以相对路径打开文件
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
@@ -202,7 +202,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
     while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-        sprintf(zJsonBuf, "{\"O\":%d,\"R\":%d,\"H\":%d}", 9, zRepoId, zIpv4Bin);
+        sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%d}", zRepoId, zIpv4Bin);
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }

@@ -81,7 +81,7 @@ zget_diff_content(void *zpIf) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpCurVecWrapIf;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zBytes(1024)];
+    char zShellBuf[128], zRes[zBytes(4096)];
 
     char *zpData;  // 此项是 iovec 的 io_base 字段
     _i zVecCnter;
@@ -113,7 +113,7 @@ zget_diff_content(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
-    for (zVecCnter = 0; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zVecCnter++) {
+    for (zVecCnter = 0; 0 < zget_str_content(zRes, zBytes(4096), zpShellRetHandler); zVecCnter++) {
         if (zVecCnter >= zAllocSiz) {
             zAllocSiz *= 2;
             zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf);
@@ -1052,8 +1052,9 @@ zops_route(void *zpSd) {
         zMem_Re_Alloc(zpJsonBuf, char, zRecvdLen, zpJsonBuf);
     }
 
-    if (zBytes(4) > zRecvdLen) { return; }
+    if (zBytes(6) > zRecvdLen) { return; }
 
+fprintf(stderr, "DEBUG[zops_route]: %s\n", zpJsonBuf);
     if (NULL == (zpJsonRootObj = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         // 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
         memset(&zMetaIf, 0, sizeof(zMetaIf));
