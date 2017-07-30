@@ -11,9 +11,11 @@ zInitEnv() {
 
     mkdir $zSvnServPath
     mkdir $zSyncPath
-    mkdir $zDeployPath
+    mkdir -p $zDeployPath/.git_shadow
 
-    cp -rf ../../../demo/${zProjName}_shadow ${zDeployPath}/.git_shadow
+    cp -rf ../../../bin ${zDeployPath}/.git_shadow/
+    cp -rf ../../../scripts ${zDeployPath}/.git_shadow/
+    cp -rf ../../../PROJ_INFO/${zProjName} ${zDeployPath}/.git_shadow/info
 
     #Init Subversion Server
     svnadmin create $zSvnServPath
@@ -47,7 +49,7 @@ zInitEnv() {
     git init .
     git config user.name "deploy"
     git config user.email "deploy@_"
-    printf ".svn" > .gitignore
+    printf ".svn\n.git_shadow" > .gitignore  # 项目 git 库设置忽略 .git_shadow 目录
     git add --all .
     git commit --allow-empty -m "__deploy_init__"
     git branch CURRENT
@@ -64,7 +66,16 @@ zInitEnv() {
 
 zCurDir=$PWD
 
+# 运行环境
+killall -9 svnserve
+#killall -9 ssh
+killall -9 git
+killall -9 git_shadow
+zInitEnv miaopai 50000
+
 # 启动服务器
+cd $zCurDir
+
 mkdir -p ../../../bin
 mkdir -p ../../../log
 rm -rf ../../../bin/*
@@ -88,16 +99,10 @@ cc -O2 -Wall -Wextra -std=c99 \
     ../../../src/client/zmain_client.c
 
 strip ../../../bin/git_shadow_client
+printf "`date +%s`" >> ../../../bin/git_shadow_client  # 末尾追加随机字符，防止git不识别二进制文件变动
 if [[ 0 -ne $? ]]; then exit 1; fi
 
-killall -9 ssh 2>/dev/null
-killall -9 git 2>/dev/null
-killall -9 git_shadow 2>/dev/null
-../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000 2>../../../log/log 1>&2
-
-# 运行环境
-killall svnserve
-zInitEnv miaopai 50000
+../../../bin/git_shadow -f /home/fh/zgit_shadow/conf/sample.conf -h 10.30.2.126 -p 20000  2>../../../log/log 1>&2
 
 # 摸拟一个 svn 客户端
 rm -rf /tmp/miaopai

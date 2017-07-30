@@ -142,6 +142,8 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 _i
 zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
+    if (NULL == zpVecWrapIf) { return -1; }
+
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
         .msg_namelen = INET_ADDRSTRLEN,
@@ -269,6 +271,14 @@ zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
  */
 _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
+    size_t zCnt;
+    zCheck_Negative_Exit( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
+    return zCnt;
+}
+
+// 注意：fread 版的实现会将行末的换行符处理掉
+_i
+zget_str_content_1(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
     if (zCnt < zSiz && (0 == feof(zpFile))) {
         zPrint_Err(0, NULL, "<fread> ERROR!");
@@ -299,6 +309,29 @@ zthread_system(void *zpCmd) {
 }
 
 /*
+ * 用途：
+ *   从字符串取按指定分割符逐一取出每个字段
+ * 返回值:
+ *   下一个字段的第一个字符在源字符串中的下标（index）
+ * 参数：
+ *   zpOffSet：定义一个整型变量赋值为0，之后循环传入此同一个变量即可
+ *   zpBufOUT：每一次循环后，存放的是取出的字段（子字符串，将原分割符替换为了'\0'）
+ *   zStrLen：是使用 strlen() 函数获得的源字符串的长度（不含 '\0'）
+ * 取值完毕判断条件：
+ *   以返回值大于 (zStrLen + 1) 为条件终止循环取字段
+ */
+_i
+zget_str_field(char *zpBufOUT, char *zpStr, _i zStrLen, char zDelimiter, _i *zpOffSet) {
+    _i i = 0;
+    for (; (*zpOffSet < zStrLen) && (zpStr[*zpOffSet] != zDelimiter); (*zpOffSet)++) {
+        zpBufOUT[i++] = zpStr[*zpOffSet];
+    }
+    zpBufOUT[i] = '\0';
+    (*zpOffSet)++;
+    return *zpOffSet;
+}
+
+/*
  * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
  */
 _ui
@@ -313,6 +346,24 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
     struct in_addr zIpv4Addr;
     zIpv4Addr.s_addr = zIpv4BinAddr;
     inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
+}
+
+/*
+ * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
+ */
+_ui
+zconvert_ipv4_str_to_bin_1(char *zpStrAddr) {
+    char zBuf[INET_ADDRSTRLEN];
+    _uc zRes[4];
+    _i zOffSet = 0, zLen;
+
+    if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
+
+    for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
+        zRes[i] = (char)strtol(zBuf, NULL, 10);
+    }
+
+    return *((_ui *)zRes);
 }
 
 /*

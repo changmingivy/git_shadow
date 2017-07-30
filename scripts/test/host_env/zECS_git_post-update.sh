@@ -28,9 +28,9 @@ git branch -M client &&
     killall -9 git_shadow
     ${zCodePath}/.git_shadow/bin/git_shadow_client -h 10.30.2.126 -p 20000
     i=0
-    while [[ 0 -ne $? && 3 -gt $i ]]; do
+    while [[ 10 -gt $i ]]; do
         sleep 1
-        ${zCodePath}/.git_shadow/bin/git_shadow_client -t 10.30.2.126 -p 20000
+        ${zCodePath}/.git_shadow/bin/git_shadow_client -h 10.30.2.126 -p 20000
         let i++
     done
 ) &
@@ -40,14 +40,16 @@ for zAddr in $(ifconfig | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\
     if [[ 0 -lt $(cat $zEcsAddrMajorListPath | grep -c $zAddr) ]]; then
         zEcsAddrList=$(cat $zEcsAddrListPath | tr '\n' ' ')
         for zEcsAddr in $zEcsAddrList; do
-            (\
+            if [[ $zAddr == $zEcsAddr ]];then continue; fi
+
+            ( \
                 export GIT_DIR="${zCodePath}/.git_shadow/.git" \
                 && cd ${zCodePath}/.git_shadow \
                 && git push --force git@${zEcsAddr}:${zCodePath}/.git_shadow/.git client:server \
                 \
                 && export GIT_DIR="${zCodePath}/.git" \
                 && cd .. \
-                && git push --force git@${zEcsAddr}:${zCodePath}/.git client:server\
+                && git push --force git@${zEcsAddr}:${zCodePath}/.git client:server \
             ) &
         done
         break

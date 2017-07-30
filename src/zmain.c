@@ -40,6 +40,7 @@
 
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
+#define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 #define zServHashSiz 14
 
@@ -125,11 +126,10 @@ struct zRepoInfo {
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
-    size_t MemPoolSiz;  // 内存池初始大小：8M
     pthread_mutex_t MemLock;  // 内存池锁
-    _ui MemPoolHeadId;  // 动态指示下一次内存分配的起始地址
+    _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 
-    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
+    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -140,6 +140,8 @@ struct zRepoInfo {
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
+
+    _ui zDeployLogOffSet;  // 标记日志文件的下一次写入位置
 
     struct zDeployResInfo *p_DpResList;  // 布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列

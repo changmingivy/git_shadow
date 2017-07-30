@@ -10,10 +10,10 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
+//#include <sys/wait.h>
+//#include <sys/stat.h>
 #include <sys/signal.h>
-#include <pwd.h>
+//#include <pwd.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +21,7 @@
 #include <time.h>
 #include <errno.h>
 #include <dirent.h>
-#include <libgen.h>
+//#include <libgen.h>
 #include <ctype.h>
 
 #define zCommonBufSiz 1024
@@ -64,7 +64,6 @@ struct zRecvInfo {
 #define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
 #define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/meta"
 
 /*
  * 以返回是否是 NULL 为条件判断是否已读完所有数据
@@ -89,31 +88,6 @@ zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
     struct in_addr zIpv4Addr;
     zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpv4Addr) );
     return zIpv4Addr.s_addr;
-}
-
-/*
- * 主机更新自身ipv4数据库文件
- */
-void
-zupdate_ipv4_db_self(void) {
-    FILE *zpFileHandler;
-    char zBuf[zCommonBufSiz];
-    _ui zIpv4Addr;
-    _i zFd;
-
-    zCheck_Negative_Exit(zFd = openat(AT_FDCWD, zSelfIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
-
-    zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d{1,3}\\.){3}\\d{1,3}' | grep -v 127", "r") );
-    while (NULL != zget_one_line(zBuf, zCommonBufSiz, zpFileHandler)) {
-        zIpv4Addr = zconvert_ipv4_str_to_bin(zBuf);
-        if (zSizeOf(_ui) != write(zFd, &zIpv4Addr, zSizeOf(_ui))) {
-            zPrint_Err(0, NULL, "自身IP地址更新失败!");
-            exit(1);
-        }
-    }
-
-    fclose(zpFileHandler);
-    close(zFd);
 }
 
 // Used by client.
@@ -182,57 +156,64 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
  */
 void
 zstate_reply(char *zpHost, char *zpPort) {
+    FILE *zpFileHandler;
+    char zBuf[INET_ADDRSTRLEN];
     char zJsonBuf[256];
-    _i zRepoId, zFd, zSd, zResLen;
+    _i zRepoId, zFd, zSd;
     _ui zIpv4Bin;
 
     // 以相对路径打开文件
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
     /* 读取版本库ID */
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
-    /* 更新自身 ip 地址 */
-    zupdate_ipv4_db_self();
     close(zFd);
     /* 以点分格式的ipv4地址连接服务端 */
     if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         zPrint_Err(0, NULL, "无法与中控机建立连接！");
         exit(1);
     }
-    /* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
-    zCheck_Negative_Exit( zFd = open(zSelfIpPath, O_RDONLY) );
 
-    while (0 < (zResLen = read(zFd, &zIpv4Bin, sizeof(_ui)))) {
-        sprintf(zJsonBuf, "{\"O\":%d,\"R\":%d,\"H\":%d}", 9, zRepoId, zIpv4Bin);
+    /* 读取本机的所有非回环ip地址，依次发送状态确认信息至服务端 */
+    zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
+    while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
+        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
+        zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
+
+        memset(zJsonBuf, 0, 256);
+        sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);  // 一定要打印成无符号整型
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
         }
     }
 
+    fclose(zpFileHandler);
     shutdown(zSd, SHUT_RDWR);
-    close(zFd);
 }
 
 _i
 main(_i zArgc, char **zppArgv) {
-// TEST: PASS
-    struct zNetServInfo zNetServIf;  // 指定客户端要连接的目标服务器的Ipv4地址与端口
-    zNetServIf.zServType = TCP;
+//TEST: PASS
+   struct zNetServInfo zNetServIf;  // 指定客户端要连接的目标服务器的Ipv4地址与端口
+   zNetServIf.zServType = TCP;
 
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:"));) {
-        switch (zOpt) {
-            case 'h':
-                zNetServIf.p_host= optarg; break;
-            case 'p':
-                zNetServIf.p_port = optarg; break;
-            case 'U':
-                zNetServIf.zServType = UDP;
-            default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-                zPrint_Time();
-                fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
-                exit(1);
-           }
-    }
+   for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:"));) {
+       switch (zOpt) {
+           case 'h':
+               zNetServIf.p_host= optarg; break;
+           case 'p':
+               zNetServIf.p_port = optarg; break;
+           case 'U':
+               zNetServIf.zServType = UDP;
+           default: // zOpt == '?'  // 若指定了无效的选项，报错退出
+               zPrint_Time();
+               fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
+               exit(1);
+          }
+   }
 
-    zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
-    return 0;
+   zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
+   return 0;
+
+//	_ui i = zconvert_ipv4_str_to_bin(zppArgv[1]);
+//		printf("%u\n", i);
 }
