@@ -756,8 +756,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -12;
     }
 
-    //等待所有主机的状态都得到确认，每隔 1 秒向前端发送已成功部署的数量统计，10 秒超时
-    while (zpGlobRepoIf[zpMetaIf->RepoId].TotalHost > zpGlobRepoIf[zpMetaIf->RepoId].ReplyCnt) {
+    //等待所有主机的状态都得到确认，10 秒超时
+    for (_i zTimeCnter = 0; zpGlobRepoIf[zpMetaIf->RepoId].TotalHost > zpGlobRepoIf[zpMetaIf->RepoId].ReplyCnt; zTimeCnter++) {
         sleep(1);
         //zsleep(0.2);
 
