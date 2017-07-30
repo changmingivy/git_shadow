@@ -7,14 +7,17 @@ zinit_env(void) {
 // TEST: PASS
     struct zMetaInfo *zpMetaIf;
     struct zObjInfo *zpObjIf;
+    struct stat zStatIf;
+    void **zppPrev;
     _i zFd[2];
 
     for (_i i = 0; i < zGlobRepoNum; i++) {
         // 初始化每个代码库的内存池
-        zpGlobRepoIf[i].MemPoolHeadId = 0;
+        zpGlobRepoIf[i].MemPoolOffSet = sizeof(void *);  // 开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存map区
         zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
-        zpGlobRepoIf[i].MemPoolSiz = zBytes(24 * 1024 * 1024);  // 24M
-        zMap_Alloc( zpGlobRepoIf[i].p_MemPool, char, zpGlobRepoIf[i].MemPoolSiz );
+        zMap_Alloc( zpGlobRepoIf[i].p_MemPool, char, zMemPoolSiz );
+        zppPrev = zpGlobRepoIf[i].p_MemPool;
+        zppPrev[0] = NULL;
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
         zCheck_Negative_Exit( zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY) );
@@ -74,7 +77,9 @@ zinit_env(void) {
         zupdate_ipv4_db(&i);
         // 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
         zMem_Alloc(zpGlobRepoIf[i].p_FailingList, _ui, 1 + zpGlobRepoIf[i].TotalHost);
-        // 打开日志文件
+        // 初始化日志下一次写入偏移量并找开日志文件
+        zCheck_Negative_Exit( fstatat(zFd[0], zLogPath, &zStatIf, 0) );
+        zpGlobRepoIf[i].zDeployLogOffSet = zStatIf.st_size;
         zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755) );
         close(zFd[0]);
         // 缓存版本初始化

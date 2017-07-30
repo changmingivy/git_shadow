@@ -179,6 +179,7 @@ zstate_reply(char *zpHost, char *zpPort) {
         zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
 
+        memset(zJsonBuf, 0, 256);
         sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);  // 一定要打印成无符号整型
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态信息回复失败！");
@@ -191,25 +192,28 @@ zstate_reply(char *zpHost, char *zpPort) {
 
 _i
 main(_i zArgc, char **zppArgv) {
-// TEST: PASS
-    struct zNetServInfo zNetServIf;  // 指定客户端要连接的目标服务器的Ipv4地址与端口
-    zNetServIf.zServType = TCP;
+//TEST: PASS
+   struct zNetServInfo zNetServIf;  // 指定客户端要连接的目标服务器的Ipv4地址与端口
+   zNetServIf.zServType = TCP;
 
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:"));) {
-        switch (zOpt) {
-            case 'h':
-                zNetServIf.p_host= optarg; break;
-            case 'p':
-                zNetServIf.p_port = optarg; break;
-            case 'U':
-                zNetServIf.zServType = UDP;
-            default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-                zPrint_Time();
-                fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
-                exit(1);
-           }
-    }
+   for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:"));) {
+       switch (zOpt) {
+           case 'h':
+               zNetServIf.p_host= optarg; break;
+           case 'p':
+               zNetServIf.p_port = optarg; break;
+           case 'U':
+               zNetServIf.zServType = UDP;
+           default: // zOpt == '?'  // 若指定了无效的选项，报错退出
+               zPrint_Time();
+               fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
+               exit(1);
+          }
+   }
 
-    zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
-    return 0;
+   zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
+   return 0;
+
+//	_ui i = zconvert_ipv4_str_to_bin(zppArgv[1]);
+//		printf("%u\n", i);
 }

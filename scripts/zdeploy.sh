@@ -14,7 +14,7 @@ do
         f) zFilePath=$OPTARG;;  # file path
         h) zHostIp=$OPTARG;;  # host ip
         P) zHostListPath=$OPTARG;;  # major host list path
-        ?) exit 1;;
+        ?) exit 255;;
     esac
 done
 shift $[$OPTIND - 1]
@@ -28,14 +28,14 @@ else
 fi
 
 git reset ${zCommitSig} -- $zFilePath
-if [[ 0 -ne $? ]]; then exit 1; fi
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
 cd $zRepoPath/.git_shadow
 git add --all .
-if [[ 0 -ne $? ]]; then exit 1; fi
+if [[ 0 -ne $? ]]; then exit 255; fi
 git commit --allow-empty -m "_"
-if [[ 0 -ne $? ]]; then exit 1; fi
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 i=0
 j=0
@@ -57,7 +57,7 @@ if [[ $i -eq $j ]]; then
     git stash
     git stash clear
     git pull --force ${zRepoPath}/.git server:master
-    exit 1
+    exit 255
 fi
 
 cd $zRepoPath
