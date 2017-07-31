@@ -34,7 +34,7 @@ if [[ 0 -ne $? ]]; then exit 255; fi
 cd $zRepoPath/.git_shadow
 git add --all .
 if [[ 0 -ne $? ]]; then exit 255; fi
-git commit --allow-empty -m "_"
+git commit --allow-empty --allow-empty-message --allow-empty -m "_"
 if [[ 0 -ne $? ]]; then exit 255; fi
 
 i=0

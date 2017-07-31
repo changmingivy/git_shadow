@@ -33,7 +33,7 @@ zInitEnv() {
     git config user.email "sync@_"
     printf ".svn" > .gitignore
     git add --all .
-    git commit --allow-empty -m "__sync_init__"
+    git commit --allow-empty --allow-empty-message --allow-empty -m "__sync_init__"
     git branch -M master sync_git  # 此git的作用是将svn库代码转换为git库代码
 
     # 初始化 git_shadow 自身的库，不需要建 CURRENT 与 server 分支
@@ -42,7 +42,7 @@ zInitEnv() {
     git config user.name "git_shadow"
     git config user.email "git_shadow@_"
     git add --all .
-    git commit --allow-empty -m "_"
+    git commit --allow-empty --allow-empty-message --allow-empty -m "_"
 
     #Init Deploy Git Env
     cd $zDeployPath
@@ -51,7 +51,7 @@ zInitEnv() {
     git config user.email "deploy@_"
     printf ".svn\n.git_shadow" > .gitignore  # 项目 git 库设置忽略 .git_shadow 目录
     git add --all .
-    git commit --allow-empty -m "__deploy_init__"
+    git commit --allow-empty --allow-empty-message --allow-empty -m "__deploy_init__"
     git branch CURRENT
     git branch server  #Act as Git server
 

@@ -255,7 +255,7 @@ zclient(char *zpX) {
         recv(zSd, &zBuf, 4096, MSG_WAITALL);
         fprintf(stderr, "%s\n", zBuf);
 
-		memset(zBuf, 0, 4096);
+        memset(zBuf, 0, 4096);
         recv(zSd, &zBuf, 4096, MSG_WAITALL);
         fprintf(stderr, "\n2:-------%s\n", zBuf);
 //        for (_ui i = 0; i < 4096; i++) {

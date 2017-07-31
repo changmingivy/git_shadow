@@ -214,6 +214,6 @@ main(_i zArgc, char **zppArgv) {
    zstate_reply(zNetServIf.p_host, zNetServIf.p_port);
    return 0;
 
-//	_ui i = zconvert_ipv4_str_to_bin(zppArgv[1]);
-//		printf("%u\n", i);
+//    _ui i = zconvert_ipv4_str_to_bin(zppArgv[1]);
+//        printf("%u\n", i);
 }

@@ -17,6 +17,7 @@
  */
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
+// TEST:PASS
     pthread_mutex_lock(&(zpGlobRepoIf[zRepoId].MemLock));
 
     if ((zSiz + zpGlobRepoIf[zRepoId].MemPoolOffSet) > zMemPoolSiz) {
@@ -166,16 +167,16 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].DeployVecWrapIf);
     }
 
-//    // 检查是否有旧数据，有则释放空间
-//    if (NULL != zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
-//        zpOldVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
-//
-//        zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
-//        zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;
-//
-//        zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
-//        zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
-//    }
+    // 检查是否有旧数据，有则释放空间
+    if (NULL != zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
+        zpOldVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
+
+        zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
+        zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;
+
+        zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
+        zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
+    }
 
     zpCurVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
     /* 关联到上一级数据结构 */
@@ -545,7 +546,7 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     char zShellBuf[128], zJsonBuf[128];
-    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zcreate_repo.sh %d %s", zpMetaIf->RepoId, zpMetaIf->p_data);
+    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %d %s", zpMetaIf->RepoId, zpMetaIf->p_data);
 
     if (255 == system(zShellBuf)) {
         return -14;
@@ -562,6 +563,7 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     struct zVecWrapInfo *zpSortedTopVecWrapIf;
 //    char zJsonBuf[256];
 
@@ -598,6 +600,7 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
@@ -631,6 +634,7 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
@@ -661,6 +665,7 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
 // 记录布署或撤销的日志
 void
 zwrite_log(_i zRepoId) {
+// TEST:PASS
     struct stat zStatIf;
     char zShellBuf[128], zRes[zCommonBufSiz];
     FILE *zpFile;
@@ -692,6 +697,7 @@ zwrite_log(_i zRepoId) {
  */
 _i
 zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
     struct stat zStatIf;
     _i zFd;
@@ -824,6 +830,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     _ui *zpFailingList = zpGlobRepoIf[zpMetaIf->RepoId].p_FailingList;
     memset(zpFailingList, 0, sizeof(_ui) * zpGlobRepoIf[zpMetaIf->RepoId].TotalHost);
     /* 第一个元素写入实时时间戳 */
@@ -872,22 +879,20 @@ zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
  * 9：布署成功主机自动确认
  */
 _i
-zstate_confirm(struct zMetaInfo *zpMetaIf, _i _) {
+zstate_confirm(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     struct zDeployResInfo *zpTmp = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResHash[zpMetaIf->HostId % zDeployHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
         if (0 == zpTmp->DeployState && zpTmp->ClientAddr == zpMetaIf->HostId) {
             zpTmp->DeployState = 1;
-
             // 需要原子性递增
             pthread_mutex_lock( &(zpGlobRepoIf[zpMetaIf->RepoId].MutexLock) );
             zpGlobRepoIf[zpMetaIf->RepoId].ReplyCnt++;
             pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].MutexLock) );
-
             return 0;
         }
     }
-
     return 0;
 }
 
@@ -989,9 +994,8 @@ zupdate_ipv4_db(void *zpIf) {
  */
 _i
 zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
-    char zRecvBuf[zCommonBufSiz], zPathBuf[128], *zpWritePath;
-    struct zObjInfo *zpObjIf;
-    _i zFd, zRecvSiz;
+    char zShellBuf[256], zPathBuf[128], *zpWritePath;
+    _i zFd, zStrDbLen;
 
     zpWritePath = (4 == zpMetaIf->OpsId) ? zMajorIpTxtPath : zAllIpTxtPath;
 
@@ -999,33 +1003,38 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     strcat(zPathBuf, "/");
     strcat(zPathBuf, zpWritePath);
 
-    if (EBUSY == pthread_rwlock_trywrlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) )) {  // 加写锁
+    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) )) {
+        zpMetaIf->p_data = "";
         return -11;
     };
 
-    zCheck_Lock_State();
-
+    /* 将接收到的IP地址库写入文件 */
     zCheck_Negative_Exit( zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
-
-    zMem_Alloc(zpObjIf, char, 1 + strlen(zPathBuf) + sizeof(struct zObjInfo));
-    zupdate_ipv4_db(&(zpMetaIf->RepoId));
-
-    /* 接收网络数据并同步写入文件 */
-    while (0 < (zRecvSiz = recv(zSd, zRecvBuf, zCommonBufSiz, 0))) {
-        if (zRecvSiz != write(zFd, zRecvBuf, zRecvSiz)) {
-            zPrint_Err(errno, NULL, "Write ipv4 list to txt file failed!");
-            exit(1);
-        }
+    zStrDbLen = 1 + strlen(zpMetaIf->p_data);
+    if (zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)) {
+        zpMetaIf->p_data = "";
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );
+        zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)!");
+        return -15;
     }
-    zCheck_Negative_Exit(zRecvSiz);
-
     close(zFd);
 
-    /* 将新接收的文件的 MD5 checksum 发送给前端校验 */
-    zsendto(zSd, zgenerate_file_sig_md5(zPathBuf), zBytes(36), 0, NULL);
+    /* 生成 MD5_checksum 作为data回发给前端 */
+    zpMetaIf->p_data = zgenerate_file_sig_md5(zPathBuf);
+
+    /* 更新集群整体IP数据库时，检测新机器并进行初始化 */
+    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zpGlobRepoIf[zpMetaIf->RepoId].RepoPath);
+    if ((5 == zpMetaIf->OpsId) && (255 == system(zShellBuf))) {
+        pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );
+        zPrint_Err(errno, NULL, "集群主机布署环境初始化失败!");
+        return -15;
+    }
+
+    zupdate_ipv4_db( &(zpMetaIf->RepoId) );
 
     pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId].RwLock) );
-    return 0;
+    return -100;  // 提示前端验证 MD5_checksum
 }
 
 /*
@@ -1033,7 +1042,8 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
  * 3：允许布署／撤销／更新ip数据库
  */
 _i
-zlock_repo(struct zMetaInfo *zpMetaIf, _i _) {
+zlock_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
+// TEST:PASS
     pthread_rwlock_wrlock(&(zpGlobRepoIf[zpMetaIf->RepoId].RwLock));
 
     if (2 == zpMetaIf->OpsId) {
@@ -1049,9 +1059,45 @@ zlock_repo(struct zMetaInfo *zpMetaIf, _i _) {
 /*
  * 网络服务路由函数
  */
+#define zCheck_Errno_12() do {\
+    if (-12 == zErrNo) {\
+        char *zpJsonStrBuf, *zpBasePtr;\
+        _i zUnReplyCnt = 0;\
+        _i zDataLen = 16 * zpGlobRepoIf[zMetaIf.RepoId].TotalHost;\
+\
+        zMem_Alloc(zMetaIf.p_data, char, zDataLen);\
+        zMem_Alloc(zpJsonStrBuf, char, 256 + zDataLen);\
+        zpBasePtr = zMetaIf.p_data;\
+\
+        memset(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList, 0, zpGlobRepoIf[zMetaIf.RepoId].TotalHost);\
+        /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */\
+        for (_i i = 0; i < zpGlobRepoIf[zMetaIf.RepoId].TotalHost; i++) {\
+            if (0 == zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].DeployState) {\
+                zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt] = zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].ClientAddr;\
+\
+                zconvert_ipv4_bin_to_str(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt], zpBasePtr);\
+                if (0 != i) {\
+                    (zpBasePtr - 1)[0]  = ',';\
+                }\
+\
+                zpBasePtr += 1 + strlen(zpBasePtr);\
+                zUnReplyCnt++;\
+            }\
+        }\
+        zconvert_struct_to_json_str(zpJsonStrBuf, &zMetaIf);\
+        zsendto(zSd, &(zpJsonStrBuf[1]), strlen(zpJsonStrBuf) - 1, 0, NULL);\
+\
+        free(zMetaIf.p_data);\
+        free(zpJsonStrBuf);\
+\
+        goto zMark;\
+    }\
+} while(0)
+
+#define zSizMark 256
 void
 zops_route(void *zpSd) {
-#define zSizMark 256
+// TEST:PASS
     _i zSd = *((_i *)zpSd);
     _i zBufSiz = zSizMark;
     _i zRecvdLen;
@@ -1063,8 +1109,7 @@ zops_route(void *zpSd) {
     cJSON *zpJsonRootObj;
 
     /* 用于接收IP地址列表的场景 */
-    if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
-    //if (zBufSiz == (zRecvdLen = zrecv_nohang(zSd, zpJsonBuf, zBufSiz, 0, NULL))) {
+    if (zBufSiz == (zRecvdLen = zrecv_nohang(zSd, zpJsonBuf, zBufSiz, 0, NULL))) {
         _i zRecvSiz, zOffSet;
         zRecvSiz = zOffSet = zBufSiz;
         zBufSiz = 8192;
@@ -1092,7 +1137,7 @@ zops_route(void *zpSd) {
         memset(&zMetaIf, 0, sizeof(zMetaIf));
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
+        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
         shutdown(zSd, SHUT_RDWR);
         zPrint_Err(0, NULL, "接收到的数据无法解析!");
         goto zMark;
@@ -1101,45 +1146,15 @@ zops_route(void *zpSd) {
     if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
         zMetaIf.OpsId = -1;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, zpJsonBuf, zRecvdLen, 0, NULL);
+        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
         zPrint_Err(0, NULL, "接收到的指令ID不存在!");
         goto zMark;
     }
-fprintf(stderr, "%s\n", zpJsonBuf);
+
     if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
-        if (-12 == zErrNo) {
-            char *zpJsonStrBuf, *zpBasePtr;
-            _i zUnReplyCnt = 0;
-            _i zDataLen = 16 * zpGlobRepoIf[zMetaIf.RepoId].TotalHost;
 
-            zMem_Alloc(zMetaIf.p_data, char, zDataLen);
-            zMem_Alloc(zpJsonStrBuf, char, 256 + zDataLen);
-            zpBasePtr = zMetaIf.p_data;
-
-            memset(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList, 0, zpGlobRepoIf[zMetaIf.RepoId].TotalHost);
-            /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-            for (_i i = 0; i < zpGlobRepoIf[zMetaIf.RepoId].TotalHost; i++) {
-                if (0 == zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].DeployState) {
-                    zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt] = zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].ClientAddr;
-
-                    zconvert_ipv4_bin_to_str(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt], zpBasePtr);
-                    if (0 != i) {
-                        (zpBasePtr - 1)[0]  = ',';
-                    }
-
-                    zpBasePtr += 1 + strlen(zpBasePtr);
-                    zUnReplyCnt++;
-                }
-            }
-            zconvert_struct_to_json_str(zpJsonStrBuf, &zMetaIf);
-            zsendto(zSd, &(zpJsonStrBuf[1]), strlen(zpJsonStrBuf) - 1, 0, NULL);
-
-            free(zMetaIf.p_data);
-            free(zpJsonStrBuf);
-
-            goto zMark;
-        }
+        zCheck_Errno_12();
 
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
@@ -1155,8 +1170,9 @@ zMark:
     }
 
     shutdown(zSd, SHUT_RDWR);
-#undef zSizMark
 }
+#undef zSizMark
+#undef zCheck_Errno_12
 
 /************
  * 网络服务 *
@@ -1176,6 +1192,8 @@ zMark:
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  * -14：项目代码已存在或不合法（创建项目代码库时出错）
+ * -15：集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
 void
 zstart_server(void *zpIf) {
