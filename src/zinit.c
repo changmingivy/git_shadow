@@ -119,13 +119,18 @@ void
 zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 // TEST: PASS
     _i zRepoId, zFd;
-    zPCREInitInfo *zpInitIf[4];
-    zPCRERetInfo *zpRetIf[4];
+    char zPullCmdBuf[256];
+    zPCREInitInfo *zpInitIf[7];
+    zPCRERetInfo *zpRetIf[7];
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
-    zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*($|#)");  // 检测整体格式是否合法
-    zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
-    zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
+    zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#)");  // 检测整体格式是否合法
+
+    zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#))");  // 取代码库编号
+    zpInitIf[3] = zpcre_init("/\\S+(?=\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#))");  // 取代码库路径（生产机上的绝对路径，中控机需要加前缀/home/git）
+    zpInitIf[4] = zpcre_init("\\S+(?=\\s*\\S+\\s*\\S+\\s*($|#))");  // 取代码库远程地址（pull地址）
+    zpInitIf[5] = zpcre_init("\\S+(?=\\s*\\S+\\s*($|#))");  // 取远程代码库生产（主）分支名称
+    zpInitIf[6] = zpcre_init("\\S+(?=\\s*($|#))");  // 远程（源）代码服务器所使用的版本控制系统：svn或git
 
     zppGlobRepoIf = NULL;
     _i zMaxRepoId = -1;
@@ -150,6 +155,9 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         zpRetIf[2] = zpcre_match(zpInitIf[2], zpRes, 0);
         zpRetIf[3] = zpcre_match(zpInitIf[3], zpRes, 0);
+        zpRetIf[4] = zpcre_match(zpInitIf[4], zpRes, 0);
+        zpRetIf[5] = zpcre_match(zpInitIf[5], zpRes, 0);
+        zpRetIf[6] = zpcre_match(zpInitIf[6], zpRes, 0);
 
         /* 检测代码库路径合法性 */
         if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
@@ -173,14 +181,36 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
         strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf[3]->p_rets[0]);
 
+        if (0 == strcmp("git", zpRetIf[6]->p_rets[0])) {
+            sprintf(zPullCmdBuf, "cd %s && git pull --force %s %s:server",
+                    zppGlobRepoIf[zRepoId]->p_RepoPath,
+                    zpRetIf[4]->p_rets[0],
+                    zpRetIf[5]->p_rets[0]);
+        } else if (0 == strcmp("svn", zpRetIf[6]->p_rets[0])) {
+            sprintf(zPullCmdBuf, "cd %s/sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
+                    zppGlobRepoIf[zRepoId]->p_RepoPath);
+        } else {
+            zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
+            exit(1);
+        }
+
+        zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
+        strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
+
         zpcre_free_tmpsource(zpRetIf[2]);
         zpcre_free_tmpsource(zpRetIf[3]);
+        zpcre_free_tmpsource(zpRetIf[4]);
+        zpcre_free_tmpsource(zpRetIf[5]);
+        zpcre_free_tmpsource(zpRetIf[6]);
     } while (NULL != (zpRes = zget_one_line(zpRes, zCommonBufSiz, zpFile)));
 
     zpcre_free_metasource(zpInitIf[0]);
     zpcre_free_metasource(zpInitIf[1]);
     zpcre_free_metasource(zpInitIf[2]);
     zpcre_free_metasource(zpInitIf[3]);
+    zpcre_free_metasource(zpInitIf[4]);
+    zpcre_free_metasource(zpInitIf[5]);
+    zpcre_free_metasource(zpInitIf[6]);
 
     if (0 > (zGlobMaxRepoId = zMaxRepoId)) {
         zPrint_Err(0, NULL, "未读取到有效代码库信息!");
