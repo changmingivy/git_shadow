@@ -11,20 +11,22 @@ zinit_env(void) {
     void **zppPrev;
     _i zFd[2];
 
-    for (_i i = 0; i < zGlobRepoNum; i++) {
+    for (_i i = 0; i <= zGlobMaxRepoId; i++) {
+        if (NULL == zppGlobRepoIf[i]) { continue; }
+
         // 初始化每个代码库的内存池
-        zpGlobRepoIf[i].MemPoolOffSet = sizeof(void *);  // 开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存map区
-        zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[i].MemLock), NULL) );
-        zMap_Alloc( zpGlobRepoIf[i].p_MemPool, char, zMemPoolSiz );
-        zppPrev = zpGlobRepoIf[i].p_MemPool;
+        zppGlobRepoIf[i]->MemPoolOffSet = sizeof(void *);  // 开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存map区
+        zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[i]->MemLock), NULL) );
+        zMap_Alloc( zppGlobRepoIf[i]->p_MemPool, char, zMemPoolSiz );
+        zppPrev = zppGlobRepoIf[i]->p_MemPool;
         zppPrev[0] = NULL;
 
         // 打开代码库顶层目录，生成目录fd供接下来的openat使用
-        zCheck_Negative_Exit( zFd[0] = open(zpGlobRepoIf[i].RepoPath, O_RDONLY) );
+        zCheck_Negative_Exit( zFd[0] = open(zppGlobRepoIf[i]->p_RepoPath, O_RDONLY) );
 
         /* 启动 inotify */
-        zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zpGlobRepoIf[i].RepoPath) );
-        strcpy(zpObjIf->path, zpGlobRepoIf[i].RepoPath);
+        zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[i]->p_RepoPath) );
+        strcpy(zpObjIf->path, zppGlobRepoIf[i]->p_RepoPath);
         strcat(zpObjIf->path, "/.git/logs");
 
         zpObjIf->RepoId = i;
@@ -67,56 +69,56 @@ zinit_env(void) {
         close(zFd[1]);
 
         // 为每个代码库生成一把读写锁，锁属性设置写者优先
-        zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zpGlobRepoIf[i].zRWLockAttr)) );
-        zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zpGlobRepoIf[i].zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
-        zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zpGlobRepoIf[i].RwLock), &(zpGlobRepoIf[i].zRWLockAttr)) );
-        zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zpGlobRepoIf[i].zRWLockAttr)) );
+        zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zppGlobRepoIf[i]->zRWLockAttr)) );
+        zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[i]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
+        zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[i]->RwLock), &(zppGlobRepoIf[i]->zRWLockAttr)) );
+        zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zppGlobRepoIf[i]->zRWLockAttr)) );
         // 互斥锁初始化
-        zCheck_Pthread_Func_Exit( pthread_mutex_init(&zpGlobRepoIf[i].MutexLock, NULL) );
+        zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[i]->MutexLock, NULL) );
         // 更新 TotalHost、zpppDpResHash、zppDpResList
         zupdate_ipv4_db(&i);
         // 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间
-        zMem_Alloc(zpGlobRepoIf[i].p_FailingList, _ui, 1 + zpGlobRepoIf[i].TotalHost);
+        zMem_Alloc(zppGlobRepoIf[i]->p_FailingList, _ui, 1 + zppGlobRepoIf[i]->TotalHost);
         // 初始化日志下一次写入偏移量并找开日志文件
         zCheck_Negative_Exit( fstatat(zFd[0], zLogPath, &zStatIf, 0) );
-        zpGlobRepoIf[i].zDeployLogOffSet = zStatIf.st_size;
-        zCheck_Negative_Exit( zpGlobRepoIf[i].LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755) );
+        zppGlobRepoIf[i]->zDeployLogOffSet = zStatIf.st_size;
+        zCheck_Negative_Exit( zppGlobRepoIf[i]->LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755) );
         close(zFd[0]);
         // 缓存版本初始化
-        zpGlobRepoIf[i].CacheId = 1000000000;
+        zppGlobRepoIf[i]->CacheId = 1000000000;
         //CommitCacheQueueHeadId
-        zpGlobRepoIf[i].CommitCacheQueueHeadId = zCacheSiz;
+        zppGlobRepoIf[i]->CommitCacheQueueHeadId = zCacheSiz;
         /* 指针指向自身的实体静态数据项 */
-        zpGlobRepoIf[i].CommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].CommitVecIf;
-        zpGlobRepoIf[i].CommitVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].CommitRefDataIf;
+        zppGlobRepoIf[i]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[i]->CommitVecIf;
+        zppGlobRepoIf[i]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[i]->CommitRefDataIf;
 
-        zpGlobRepoIf[i].SortedCommitVecWrapIf.p_VecIf = zpGlobRepoIf[i].SortedCommitVecIf;
+        zppGlobRepoIf[i]->SortedCommitVecWrapIf.p_VecIf = zppGlobRepoIf[i]->SortedCommitVecIf;
 
-        zpGlobRepoIf[i].DeployVecWrapIf.p_VecIf = zpGlobRepoIf[i].DeployVecIf;
-        zpGlobRepoIf[i].DeployVecWrapIf.p_RefDataIf = zpGlobRepoIf[i].DeployRefDataIf;
+        zppGlobRepoIf[i]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[i]->DeployVecIf;
+        zppGlobRepoIf[i]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[i]->DeployRefDataIf;
 
         /* 生成缓存 */
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
         zpMetaIf->RepoId = i;
-        zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->CacheId = zppGlobRepoIf[i]->CacheId;
         zpMetaIf->DataType = zIsCommitDataType;
         zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
         zpMetaIf = zalloc_cache(i, sizeof(struct zMetaInfo));
         zpMetaIf->RepoId = i;
-        zpMetaIf->CacheId = zpGlobRepoIf[i].CacheId;
+        zpMetaIf->CacheId = zppGlobRepoIf[i]->CacheId;
         zpMetaIf->DataType = zIsDeployDataType;
         zpMetaIf->CcurSwitch = zCcurOn;
         zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     }
 }
 
-// 取代码库条目
+// 解析代码库条目信息
 void
 zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 // TEST: PASS
-    _i zRepoId, zFd[2];
+    _i zRepoId, zFd;
     zPCREInitInfo *zpInitIf[4];
     zPCRERetInfo *zpRetIf[4];
 
@@ -125,9 +127,8 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
     zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 
-    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, 1);
-
-    _i zMaxRepoNum = 0;
+    zppGlobRepoIf = NULL;
+    _i zMaxRepoId = -1;
     do {
         (*zpLineNum)++;  // 维持行号
         zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
@@ -150,24 +151,28 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         zpRetIf[2] = zpcre_match(zpInitIf[2], zpRes, 0);
         zpRetIf[3] = zpcre_match(zpInitIf[3], zpRes, 0);
 
-        zRepoId = strtol(zpRetIf[2]->p_rets[0], NULL, 10);
-
-        if (zRepoId > zMaxRepoNum) {
-            zMaxRepoNum = zRepoId;
-            zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zMaxRepoNum, zpGlobRepoIf);
-        }
-
-        strcpy(zpGlobRepoIf[zRepoId].RepoPath, zpRetIf[3]->p_rets[0]);
-
-        // 检测代码库路径合法性
-        if (-1 == (zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
+        /* 检测代码库路径合法性 */
+        if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
             zPrint_Time();
             fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
             exit(1);
         }
+        close(zFd);
 
-        close(zFd[1]);
-        close(zFd[0]);
+        zRepoId = strtol(zpRetIf[2]->p_rets[0], NULL, 10);
+        if (zRepoId > zMaxRepoId) {
+            zMem_Re_Alloc(zppGlobRepoIf, struct zRepoInfo *, zRepoId + 1, zppGlobRepoIf);
+            for (_i i = zMaxRepoId + 1; i < zRepoId; i++) {
+                zppGlobRepoIf[i] = NULL;
+            }
+            zMaxRepoId = zRepoId;
+        }
+        zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, sizeof(struct zRepoInfo));
+        zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
+        zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf[3]->p_rets[0]));
+        strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
+        strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf[3]->p_rets[0]);
+
         zpcre_free_tmpsource(zpRetIf[2]);
         zpcre_free_tmpsource(zpRetIf[3]);
     } while (NULL != (zpRes = zget_one_line(zpRes, zCommonBufSiz, zpFile)));
@@ -177,7 +182,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zpcre_free_metasource(zpInitIf[2]);
     zpcre_free_metasource(zpInitIf[3]);
 
-    if (0 == (zGlobRepoNum = zMaxRepoNum)) {
+    if (0 > (zGlobMaxRepoId = zMaxRepoId)) {
         zPrint_Err(0, NULL, "未读取到有效代码库信息!");
         exit(1);
     }

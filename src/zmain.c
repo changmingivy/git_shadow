@@ -116,7 +116,7 @@ struct zDeployResInfo {
 /* 用于存放每个项目的元信息 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    char RepoPath[64];  // 项目路径，如："/home/git/miaopai_TEST"
+    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
@@ -130,6 +130,8 @@ struct zRepoInfo {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
+
+    char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -159,12 +161,12 @@ struct zRepoInfo {
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
-struct zRepoInfo *zpGlobRepoIf;
+struct zRepoInfo **zppGlobRepoIf;
 
 /************
  * 全局变量 *
  ************/
-_i zGlobRepoNum;  // 总共有多少个代码库
+_i zGlobMaxRepoId;  // 总共有多少个代码库
 
 _i zInotifyFD;   // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
@@ -195,7 +197,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 #include "core/zinotify.c"  // 监控代码库文件变动
 #include "core/zserv.c"  // 对外提供网络服务
 #include "zinit.c"
-//#include "test/zprint_test.c"
 
 /***************************
  * +++___ main 函数 ___+++ *
@@ -244,12 +245,14 @@ zReLoad:;
     zAdd_To_Thread_Pool( zstart_server, &zNetServIf );  // 启动网络服务
     zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
 
+    zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
+
     zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
 
     /* 取所有代码库的写锁，确保服务重启不会造成数据紊乱 */
-    for (_i i = 0; i < zGlobRepoNum; i++) {
-        pthread_rwlock_wrlock(&(zpGlobRepoIf[i].RwLock));
-        pthread_mutex_lock(&(zpGlobRepoIf[i].MutexLock));
+    for (_i i = 0; (i < zGlobMaxRepoId) && (NULL != zppGlobRepoIf[i]); i++) {
+        pthread_rwlock_wrlock(&(zppGlobRepoIf[i]->RwLock));
+        pthread_mutex_lock(&(zppGlobRepoIf[i]->MutexLock));
     }
 
     /* 父进程退出，子进程按新的主配置文件内容重新初始化 */
