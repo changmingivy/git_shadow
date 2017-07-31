@@ -14,7 +14,7 @@ zDeployPath=/home/git/$zProjPath
 mkdir -p ${zDeployPath}/.git_shadow
     if [[ 0 -ne $? ]];then exit 255; fi
 
-if [[ "svn" == zRemoteVcsType ]]; then
+if [[ "svn" == $zRemoteVcsType ]]; then
     svn co $zPullAddr ${zDeployPath}/sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中，svn 会自动创建该目录
         if [[ 0 -ne $? ]];then exit 255; fi
     cd ${zDeployPath}/sync_svn_to_git

@@ -124,7 +124,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zPCRERetInfo *zpRetIf[7];
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
-    zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#)");  // 检测整体格式是否合法
+    zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*\\S+\\s*\\S+\\s*\\S+(?=\\s*($|#))");  // 检测整体格式是否合法
 
     zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#))");  // 取代码库编号
     zpInitIf[3] = zpcre_init("/\\S+(?=\\s*\\S+\\s*\\S+\\s*\\S+\\s*($|#))");  // 取代码库路径（生产机上的绝对路径，中控机需要加前缀/home/git）
@@ -149,8 +149,6 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
             zPrint_Time();
             fprintf(stderr, "\033[31m[Line %d] \"%s\": 语法格式错误\033[00m\n", *zpLineNum ,zpRes);
             exit(1);
-        } else {
-            zpcre_free_tmpsource(zpRetIf[1]);
         }
 
         zpRetIf[2] = zpcre_match(zpInitIf[2], zpRes, 0);
@@ -158,14 +156,6 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         zpRetIf[4] = zpcre_match(zpInitIf[4], zpRes, 0);
         zpRetIf[5] = zpcre_match(zpInitIf[5], zpRes, 0);
         zpRetIf[6] = zpcre_match(zpInitIf[6], zpRes, 0);
-
-        /* 检测代码库路径合法性 */
-        if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
-            zPrint_Time();
-            fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
-            exit(1);
-        }
-        close(zFd);
 
         zRepoId = strtol(zpRetIf[2]->p_rets[0], NULL, 10);
         if (zRepoId > zMaxRepoId) {
@@ -197,6 +187,17 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
         strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
 
+        /* 检测代码库路径是否存在，不存在尝试初始化之 */
+        if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
+			if (255 == system(zpRetIf[1]->p_rets[0])) {
+                zPrint_Time();
+                fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
+                exit(1);
+			}
+        }
+        close(zFd);
+
+        zpcre_free_tmpsource(zpRetIf[1]);
         zpcre_free_tmpsource(zpRetIf[2]);
         zpcre_free_tmpsource(zpRetIf[3]);
         zpcre_free_tmpsource(zpRetIf[4]);
