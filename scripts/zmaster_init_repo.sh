@@ -11,6 +11,15 @@ zRemoteVcsType=$5  # svn 或 git
 zShadowPath=/home/git/zgit_shadow
 zDeployPath=/home/git/$zProjPath
 
+if [[ "" == $zProjNo
+	|| "" == $zProjPath
+	|| "" == $zPullAddr
+	|| "" == $zRemoteMasterBranchName
+	|| "" == $zRemoteVcsType ]]
+then
+	exit 255
+fi
+
 mkdir -p ${zDeployPath}/.git_shadow
     if [[ 0 -ne $? ]];then exit 255; fi
 
