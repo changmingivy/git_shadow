@@ -119,22 +119,16 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     _i zRepoId, zFd[2];
     zPCREInitInfo *zpInitIf[4];
     zPCRERetInfo *zpRetIf[4];
-    _i zRepoNum = 4;
 
     zpInitIf[0] = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
     zpInitIf[1] = zpcre_init("\\s*\\d+\\s+/\\S+\\s*($|#)");  // 检测整体格式是否合法
     zpInitIf[2] = zpcre_init("\\d+(?=\\s+/\\S+\\s*($|#))");  // 取代码库编号
     zpInitIf[3] = zpcre_init("/\\S+(?=\\s*($|#))");  // 取代码库路径
 
-    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum);
+    zMem_C_Alloc(zpGlobRepoIf, struct zRepoInfo, 1);
 
-    _i zRealRepoNum = 0;
+    _i zMaxRepoNum = 0;
     do {
-        if (zRealRepoNum == zRepoNum) {
-            zRepoNum *= 2;
-            zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zRepoNum, zpGlobRepoIf);
-        }
-
         (*zpLineNum)++;  // 维持行号
         zpRetIf[0] = zpcre_match(zpInitIf[0], zpRes, 0);
         if (0 == zpRetIf[0]->cnt) {
@@ -157,9 +151,14 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
         zpRetIf[3] = zpcre_match(zpInitIf[3], zpRes, 0);
 
         zRepoId = strtol(zpRetIf[2]->p_rets[0], NULL, 10);
+
+        if (zRepoId > zMaxRepoNum) {
+            zMaxRepoNum = zRepoId;
+            zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zMaxRepoNum, zpGlobRepoIf);
+        }
+
         strcpy(zpGlobRepoIf[zRepoId].RepoPath, zpRetIf[3]->p_rets[0]);
 
-        zRealRepoNum++;
         // 检测代码库路径合法性
         if (-1 == (zFd[0] = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
             zPrint_Time();
@@ -178,12 +177,10 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
     zpcre_free_metasource(zpInitIf[2]);
     zpcre_free_metasource(zpInitIf[3]);
 
-    if (0 == (zGlobRepoNum = zRealRepoNum)) {
+    if (0 == (zGlobRepoNum = zMaxRepoNum)) {
         zPrint_Err(0, NULL, "未读取到有效代码库信息!");
         exit(1);
     }
-
-    zMem_Re_Alloc(zpGlobRepoIf, struct zRepoInfo, zGlobRepoNum, zpGlobRepoIf);  // 缩减到实际所需空间
 }
 
 /* 读取主配置文件(正则取词有问题!!! 后续排查) */

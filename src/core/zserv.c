@@ -166,16 +166,16 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId].DeployVecWrapIf);
     }
 
-    // 检查是否有旧数据，有则释放空间
-    if (NULL != zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
-        zpOldVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
-
-        zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
-        zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;
-
-        zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
-        zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
-    }
+//    // 检查是否有旧数据，有则释放空间
+//    if (NULL != zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
+//        zpOldVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
+//
+//        zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
+//        zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;
+//
+//        zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
+//        zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
+//    }
 
     zpCurVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
     /* 关联到上一级数据结构 */
@@ -540,6 +540,20 @@ zzero(struct zMetaInfo *_, _i __) {
  */
 _i
 zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
+    if (zGlobRepoNum > zpMetaIf->RepoId) {
+        return -14;
+    }
+
+    char zShellBuf[128], zJsonBuf[128];
+    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zcreate_repo.sh %d %s", zpMetaIf->RepoId, zpMetaIf->p_data);
+
+    if (255 == system(zShellBuf)) {
+        return -14;
+    }
+
+    sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
+    zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+
     return 0;
 }
 
@@ -684,7 +698,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char zIpv4AddrStr[INET_ADDRSTRLEN] = "\0";
-	char zJsonBuf[64];
+    char zJsonBuf[64];
     char *zpFilePath;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
@@ -772,7 +786,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         }
     }
     // 布署成功，向前端确认成功，并复位代码库状态
-	sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
+    sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
     zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
     zpGlobRepoIf[zpMetaIf->RepoId].RepoState = zRepoGood;
 
@@ -811,7 +825,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
     _ui *zpFailingList = zpGlobRepoIf[zpMetaIf->RepoId].p_FailingList;
-	memset(zpFailingList, 0, sizeof(_ui) * zpGlobRepoIf[zpMetaIf->RepoId].TotalHost);
+    memset(zpFailingList, 0, sizeof(_ui) * zpGlobRepoIf[zpMetaIf->RepoId].TotalHost);
     /* 第一个元素写入实时时间戳 */
     zpFailingList[0] = time(NULL);
 
@@ -832,11 +846,11 @@ zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
             if (0 == zpGlobRepoIf[zpMetaIf->RepoId].p_DpResList[i].DeployState) {
                 zpFailingList[zUnReplyCnt] = zpGlobRepoIf[zpMetaIf->RepoId].p_DpResList[i].ClientAddr;
 
-				if (0 == i) {
+                if (0 == i) {
                     sprintf(zpBasePtr, "%u", zpFailingList[zUnReplyCnt]);
-				} else {
+                } else {
                     sprintf(zpBasePtr, "|%u", zpFailingList[zUnReplyCnt]);
-				}
+                }
                 zpBasePtr += 1 + strlen(zpBasePtr);
 
                 zUnReplyCnt++;
@@ -1094,6 +1108,39 @@ zops_route(void *zpSd) {
 fprintf(stderr, "%s\n", zpJsonBuf);
     if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
+        if (-12 == zErrNo) {
+            char *zpJsonStrBuf, *zpBasePtr;
+            _i zUnReplyCnt = 0;
+            _i zDataLen = 16 * zpGlobRepoIf[zMetaIf.RepoId].TotalHost;
+
+            zMem_Alloc(zMetaIf.p_data, char, zDataLen);
+            zMem_Alloc(zpJsonStrBuf, char, 256 + zDataLen);
+            zpBasePtr = zMetaIf.p_data;
+
+            memset(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList, 0, zpGlobRepoIf[zMetaIf.RepoId].TotalHost);
+            /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
+            for (_i i = 0; i < zpGlobRepoIf[zMetaIf.RepoId].TotalHost; i++) {
+                if (0 == zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].DeployState) {
+                    zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt] = zpGlobRepoIf[zMetaIf.RepoId].p_DpResList[i].ClientAddr;
+
+                    zconvert_ipv4_bin_to_str(zpGlobRepoIf[zMetaIf.RepoId].p_FailingList[zUnReplyCnt], zpBasePtr);
+                    if (0 != i) {
+                        (zpBasePtr - 1)[0]  = ',';
+                    }
+
+                    zpBasePtr += 1 + strlen(zpBasePtr);
+                    zUnReplyCnt++;
+                }
+            }
+            zconvert_struct_to_json_str(zpJsonStrBuf, &zMetaIf);
+            zsendto(zSd, &(zpJsonStrBuf[1]), strlen(zpJsonStrBuf) - 1, 0, NULL);
+
+            free(zMetaIf.p_data);
+            free(zpJsonStrBuf);
+
+            goto zMark;
+        }
+
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
     }
@@ -1128,6 +1175,7 @@ zMark:
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
+ * -14：项目代码已存在或不合法（创建项目代码库时出错）
  */
 void
 zstart_server(void *zpIf) {
