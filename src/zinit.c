@@ -119,7 +119,8 @@ void
 zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 // TEST: PASS
     _i zRepoId, zFd;
-    char zPullCmdBuf[256];
+    char zPullCmdBuf[zCommonBufSiz];
+    char zShellBuf[zCommonBufSiz];
     zPCREInitInfo *zpInitIf[7];
     zPCRERetInfo *zpRetIf[7];
 
@@ -165,7 +166,7 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
             }
             zMaxRepoId = zRepoId;
         }
-        zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, sizeof(struct zRepoInfo));
+        zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
         zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
         zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf[3]->p_rets[0]));
         strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
@@ -189,11 +190,12 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         /* 检测代码库路径是否存在，不存在尝试初始化之 */
         if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
-			if (255 == system(zpRetIf[1]->p_rets[0])) {
+            sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRetIf[1]->p_rets[0]);
+            if (255 == system(zShellBuf)) {
                 zPrint_Time();
-                fprintf(stderr, "\033[31m[Line %d] \"%s\": 指定的代码库地址不存在或不是目录!\033[00m\n", *zpLineNum ,zpRes);
+                fprintf(stderr, "\033[31m[Line %d] \"%s\": 代码库初始化失败!\033[00m\n", *zpLineNum,zpRes);
                 exit(1);
-			}
+            }
         }
         close(zFd);
 
@@ -228,12 +230,13 @@ zparse_conf(const char *zpConfPath) {
     char zBuf[zCommonBufSiz];
     char *zpRes = NULL;
     FILE *zpFile;
+	_i zLineNum;
 
     zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
 
     zpInitIf = zpcre_init("^\\s*($|#)");  // 匹配空白行或注释行
 
-    for (_i zLineNum = 1; NULL != (zpRes = zget_one_line(zBuf, zCommonBufSiz, zpFile)); zLineNum++) {
+    for (zLineNum = 1; NULL != (zpRes = zget_one_line(zBuf, zCommonBufSiz, zpFile)); zLineNum++) {
         zpRetIf = zpcre_match(zpInitIf, zpRes, 0);  // 若是空白行或注释行，跳过
         if (0 != zpRetIf->cnt) {
             zpcre_free_tmpsource(zpRetIf);
@@ -243,6 +246,11 @@ zparse_conf(const char *zpConfPath) {
 
         zparse_REPO(zpFile, zpRes, &zLineNum);
     }
+
+	if (1 == zLineNum) {
+		zPrint_Err(0, NULL, "配置文件为空!");
+		exit(1);
+	}
 
     fclose(zpFile);
 }

@@ -184,7 +184,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
 #define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
 #define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
+#define zLogPath ".git_shadow/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 
 /**********
  * 子模块 *

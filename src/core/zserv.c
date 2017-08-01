@@ -67,6 +67,8 @@ zauto_pull(void *_) {
 zMark:
     for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
         if (NULL == zppGlobRepoIf[zCnter]) { continue; }
+
+			fprintf(stderr, "DEBUG71: %s\n", zppGlobRepoIf[zCnter]->p_PullCmd);
         if (255 == system(zppGlobRepoIf[zCnter]->p_PullCmd)) {
             zPrint_Err(0, NULL, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
@@ -306,6 +308,7 @@ zgenerate_cache(void *zpIf) {
         strcat(zLogPathBuf, zLogPath);
         sprintf(zShellBuf, "cat %s", zLogPathBuf);
     }
+	
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     // zCacheSiz - 1 :留一个空间给json需要 ']'

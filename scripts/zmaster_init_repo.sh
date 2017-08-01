@@ -12,19 +12,45 @@ zShadowPath=/home/git/zgit_shadow
 zDeployPath=/home/git/$zProjPath
 
 if [[ "" == $zProjNo
-	|| "" == $zProjPath
-	|| "" == $zPullAddr
-	|| "" == $zRemoteMasterBranchName
-	|| "" == $zRemoteVcsType ]]
+    || "" == $zProjPath
+    || "" == $zPullAddr
+    || "" == $zRemoteMasterBranchName
+    || "" == $zRemoteVcsType ]]
 then
-	exit 255
+    exit 255
 fi
 
-mkdir -p ${zDeployPath}/.git_shadow
+zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^${zProjNo}\s"`
+if [[ 0 -lt $zExistMark && 0 -lt `ls -d $zDeployPath 2>/dev/null | wc -l` ]];then
+    exit 255
+fi
+
+#Init Deploy Git Env
+git clone $zPullAddr $zDeployPath
+    if [[ 0 -ne $? ]];then exit 255; fi
+cd $zDeployPath
+    if [[ 0 -ne $? ]];then exit 255; fi
+git config user.name "$zProjNo"
+    if [[ 0 -ne $? ]];then exit 255; fi
+git config user.email "${zProjNo}@${zProjPath}"
+    if [[ 0 -ne $? ]];then exit 255; fi
+printf ".git_shadow\nsync_svn_to_git" > .gitignore  # 项目 git 库设置忽略 .git_shadow 目录
+    if [[ 0 -ne $? ]];then exit 255; fi
+git add --all .
+    if [[ 0 -ne $? ]];then exit 255; fi
+git commit --allow-empty -m "__init__"
+    if [[ 0 -ne $? ]];then exit 255; fi
+git branch -f CURRENT
+    if [[ 0 -ne $? ]];then exit 255; fi
+git branch -f server  #Act as Git server
+    if [[ 0 -ne $? ]];then exit 255; fi
+
+rm -rf ${zDeployPath}/sync_svn_to_git 2>/dev/null
+mkdir ${zDeployPath}/sync_svn_to_git
     if [[ 0 -ne $? ]];then exit 255; fi
 
 if [[ "svn" == $zRemoteVcsType ]]; then
-    svn co $zPullAddr ${zDeployPath}/sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中，svn 会自动创建该目录
+    svn co $zPullAddr ${zDeployPath}/sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
         if [[ 0 -ne $? ]];then exit 255; fi
     cd ${zDeployPath}/sync_svn_to_git
         if [[ 0 -ne $? ]];then exit 255; fi
@@ -41,6 +67,10 @@ if [[ "svn" == $zRemoteVcsType ]]; then
     git commit --allow-empty -m "__init__"
         if [[ 0 -ne $? ]];then exit 255; fi
 fi
+
+rm -rf ${zDeployPath}/.git_shadow 2>/dev/null
+mkdir ${zDeployPath}/.git_shadow
+    if [[ 0 -ne $? ]];then exit 255; fi
 
 cp -rf ${zShadowPath}/bin ${zDeployPath}/.git_shadow/
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -61,25 +91,9 @@ git add --all .
 git commit --allow-empty -m "__init__"
     if [[ 0 -ne $? ]];then exit 255; fi
 
-#Init Deploy Git Env
-cd $zDeployPath
+if [[ 0 -eq $zExistMark ]];then
+    echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
     if [[ 0 -ne $? ]];then exit 255; fi
-git init .
-    if [[ 0 -ne $? ]];then exit 255; fi
-git config user.name "$zProjNo"
-    if [[ 0 -ne $? ]];then exit 255; fi
-git config user.email "${zProjNo}@${zProjPath}"
-    if [[ 0 -ne $? ]];then exit 255; fi
-printf ".git_shadow" > .gitignore  # 项目 git 库设置忽略 .git_shadow 目录
-    if [[ 0 -ne $? ]];then exit 255; fi
-git add --all .
-    if [[ 0 -ne $? ]];then exit 255; fi
-git commit --allow-empty -m "__init__"
-    if [[ 0 -ne $? ]];then exit 255; fi
-git branch CURRENT
-    if [[ 0 -ne $? ]];then exit 255; fi
-git branch server  #Act as Git server
-    if [[ 0 -ne $? ]];then exit 255; fi
+fi
 
-echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
 exit 0
