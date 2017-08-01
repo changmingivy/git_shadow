@@ -568,9 +568,16 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zShellBuf[128], zJsonBuf[128];
     sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpMetaIf->p_data);
 
-    if (255 == system(zShellBuf)) {
-        return -14;
-    }
+	pid_t zPid= fork();
+	if (-1 == zPid) {
+	    system(zShellBuf);
+	} else {
+		waitpid(zPid, NULL, 0);
+	}
+
+//    if (255 == system(zShellBuf)) {
+//        return -14;
+//    }
 
     sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
     zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
