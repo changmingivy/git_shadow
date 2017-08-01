@@ -565,7 +565,7 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -14;
     }
 
-    zPCREInitInfo *zpInitIf = zpcre_init("\\S+");
+    zPCREInitInfo *zpInitIf = zpcre_init("([[:punct:]]|\\w)+");  // 匹配标点符号、字母、数字或下划线
     zPCRERetInfo *zpRetIf = zpcre_match(zpInitIf, zpMetaIf->p_data, 1);
     if (5 != zpRetIf->cnt) {
         return -15;
@@ -574,7 +574,6 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zJsonBuf[128];
     char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
     char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-    fprintf(stderr, "DEBUG: %s %s %s %s %s\n", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4]);
     zfork_do_exec(zpCmd, zppArgv);
 
     sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
