@@ -1194,7 +1194,7 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (3 == zMetaIf.OpsId || 4 == zMetaIf.OpsId) {
+    if (1 == zMetaIf.OpsId || 3 == zMetaIf.OpsId || 4 == zMetaIf.OpsId) {
         zjson_obj_free(zpJsonRootObj);
     }
 

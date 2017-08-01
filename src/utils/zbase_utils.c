@@ -422,8 +422,8 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         }
     }
 
-    /* 仅在更新集群IP地址数据库时，需要此项 */
-    if (4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
+    /* 仅在创建新项目及更新集群IP地址数据库时，需要此项 */
+    if (1 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
         zpMetaIf->p_data = zpValueObj->valuestring;
         return zpRootObj;  // 此时需要后续用完之后释放资源
