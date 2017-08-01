@@ -68,7 +68,6 @@ zMark:
     for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
         if (NULL == zppGlobRepoIf[zCnter]) { continue; }
 
-			fprintf(stderr, "DEBUG71: %s\n", zppGlobRepoIf[zCnter]->p_PullCmd);
         if (255 == system(zppGlobRepoIf[zCnter]->p_PullCmd)) {
             zPrint_Err(0, NULL, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
@@ -243,6 +242,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
         memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
+		fprintf(stderr, "DEBUG: zget_file_list_and_diff_content:%s\n", zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base);
 
         /* 进入下一层获取对应的差异内容 */
         if (zCcurOn == zpMetaIf->CcurSwitch) {
@@ -352,6 +352,8 @@ zgenerate_cache(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
         }
+
+		fprintf(stderr, "DEBUG: zgenerate_cache:%s\n", zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base);
     }
     pclose(zpShellRetHandler);
 
@@ -1171,6 +1173,14 @@ zops_route(void *zpSd) {
         zPrint_Err(0, NULL, "接收到的指令ID不存在!");
         goto zMark;
     }
+
+    if ((0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId])) {
+        zMetaIf.OpsId = -2;  // 此时代表错误码
+        zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
+        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
+        zPrint_Err(0, NULL, "项目ID不存在!");
+        goto zMark;
+	}
 
     if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
