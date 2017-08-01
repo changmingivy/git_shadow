@@ -561,7 +561,7 @@ zzero(struct zMetaInfo *_, _i __) {
 _i
 zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     /* 检测指定的项目ID是否已存在或不合法 */
-    if ((0 > zpMetaIf->RepoId) || (NULL != zppGlobRepoIf[zpMetaIf->RepoId])) {
+    if ((0 > zpMetaIf->RepoId) || ((zGlobMaxRepoId >= zpMetaIf->RepoId) && (NULL != zppGlobRepoIf[zpMetaIf->RepoId]))) {
         return -14;
     }
 
