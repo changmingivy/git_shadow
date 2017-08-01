@@ -59,7 +59,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
  * NATIVE OPS *
  **************/
 /*
- *  定时拉取远程代码
+ *  定时(10s)同步远程代码
  */
 void
 zauto_pull(void *_) {
