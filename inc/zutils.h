@@ -171,14 +171,14 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 } while(0)
 
 /*
- * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGCHLD 之外的所有信号，合计 28 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
  */
-_i zSigSet[28] = {
+_i zSigSet[26] = {
     SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-    SIGIOT, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
-    SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCONT,
+    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
     SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGPOLL, SIGIO, SIGPWR
+    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
+    SIGIOT, SIGIO
 };
 
 #define zIgnoreAllSignal() do {\
@@ -213,6 +213,4 @@ _i zSigSet[28] = {
     sigaction(zSigSet[23], &zSigActionIf, NULL);\
     sigaction(zSigSet[24], &zSigActionIf, NULL);\
     sigaction(zSigSet[25], &zSigActionIf, NULL);\
-    sigaction(zSigSet[26], &zSigActionIf, NULL);\
-    sigaction(zSigSet[27], &zSigActionIf, NULL);\
 } while(0)
