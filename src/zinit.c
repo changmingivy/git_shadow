@@ -190,12 +190,15 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         /* 检测代码库路径是否存在，不存在尝试初始化之 */
         if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
-            sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRetIf[1]->p_rets[0]);
-            if (255 == system(zShellBuf)) {
-                zPrint_Time();
-                fprintf(stderr, "\033[31m[Line %d] \"%s\": 代码库初始化失败!\033[00m\n", *zpLineNum,zpRes);
-                exit(1);
-            }
+			char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+			char *zppArgv[] = {"", zpRetIf[1]->p_rets[0], NULL};
+			zfork_do_exec(zpCmd, zppArgv);
+    //        sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRetIf[1]->p_rets[0]);
+    //        if (255 == system(zShellBuf)) {
+    //            zPrint_Time();
+    //            fprintf(stderr, "\033[31m[Line %d] \"%s\": 代码库初始化失败!\033[00m\n", *zpLineNum,zpRes);
+    //            exit(1);
+    //        }
         }
         close(zFd);
 

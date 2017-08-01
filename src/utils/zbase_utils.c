@@ -243,7 +243,7 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
     zCheck_Negative_Return(zPid,);
 
     if (0 == zPid) {
-        execvp(zpCommand, zppArgv);
+        execve(zpCommand, zppArgv, NULL);
     } else {
         waitpid(zPid, NULL, 0);
     }
