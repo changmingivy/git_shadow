@@ -242,7 +242,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
         memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
-		fprintf(stderr, "DEBUG: zget_file_list_and_diff_content:%s\n", zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base);
 
         /* 进入下一层获取对应的差异内容 */
         if (zCcurOn == zpMetaIf->CcurSwitch) {
@@ -352,8 +351,6 @@ zgenerate_cache(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
         }
-
-		fprintf(stderr, "DEBUG: zgenerate_cache:%s\n", zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base);
     }
     pclose(zpShellRetHandler);
 
