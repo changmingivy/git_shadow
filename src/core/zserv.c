@@ -1176,7 +1176,7 @@ zops_route(void *zpSd) {
         goto zMark;
     }
 
-    if ((0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId])) {
+    if ((1 != zMetaIf.OpsId) && ((0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
