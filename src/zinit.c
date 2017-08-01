@@ -120,7 +120,6 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 // TEST: PASS
     _i zRepoId, zFd;
     char zPullCmdBuf[zCommonBufSiz];
-    char zShellBuf[zCommonBufSiz];
     zPCREInitInfo *zpInitIf[7];
     zPCRERetInfo *zpRetIf[7];
 
@@ -190,15 +189,9 @@ zparse_REPO(FILE *zpFile, char *zpRes, _i *zpLineNum) {
 
         /* 检测代码库路径是否存在，不存在尝试初始化之 */
         if (-1 == (zFd = open(zpRetIf[3]->p_rets[0], O_RDONLY | O_DIRECTORY))) {
-			char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-			char *zppArgv[] = {"", zpRetIf[1]->p_rets[0], NULL};
-			zfork_do_exec(zpCmd, zppArgv);
-    //        sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRetIf[1]->p_rets[0]);
-    //        if (255 == system(zShellBuf)) {
-    //            zPrint_Time();
-    //            fprintf(stderr, "\033[31m[Line %d] \"%s\": 代码库初始化失败!\033[00m\n", *zpLineNum,zpRes);
-    //            exit(1);
-    //        }
+            char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+            char *zppArgv[] = {"", zpRetIf[2]->p_rets[0], zpRetIf[3]->p_rets[0], zpRetIf[4]->p_rets[0], zpRetIf[5]->p_rets[0], zpRetIf[6]->p_rets[0], NULL};
+            zfork_do_exec(zpCmd, zppArgv);
         }
         close(zFd);
 
@@ -233,7 +226,7 @@ zparse_conf(const char *zpConfPath) {
     char zBuf[zCommonBufSiz];
     char *zpRes = NULL;
     FILE *zpFile;
-	_i zLineNum;
+    _i zLineNum;
 
     zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
 
@@ -250,10 +243,10 @@ zparse_conf(const char *zpConfPath) {
         zparse_REPO(zpFile, zpRes, &zLineNum);
     }
 
-	if (1 == zLineNum) {
-		zPrint_Err(0, NULL, "配置文件为空!");
-		exit(1);
-	}
+    if (1 == zLineNum) {
+        zPrint_Err(0, NULL, "配置文件为空!");
+        exit(1);
+    }
 
     fclose(zpFile);
 }

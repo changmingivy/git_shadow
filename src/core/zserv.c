@@ -307,7 +307,7 @@ zgenerate_cache(void *zpIf) {
         strcat(zLogPathBuf, zLogPath);
         sprintf(zShellBuf, "cat %s", zLogPathBuf);
     }
-	
+    
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     // zCacheSiz - 1 :留一个空间给json需要 ']'
@@ -565,12 +565,17 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -14;
     }
 
-    char zShellBuf[128], zJsonBuf[128];
-    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpMetaIf->p_data);
-
-    if (255 == system(zShellBuf)) {
-        return -14;
+    zPCREInitInfo *zpInitIf = zpcre_init("\\b\\S+\\b");
+    zPCRERetInfo *zpRetIf = zpcre_match(zpInitIf, zpMetaIf->p_data, 1);
+    if (5 != zpRetIf->cnt) {
+        return -15;
     }
+
+    char zJsonBuf[128];
+    char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+    char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
+	fprintf(stderr, "DEBUG: %s %s %s %s %s\n", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4]);
+    zfork_do_exec(zpCmd, zppArgv);
 
     sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
     zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
@@ -1177,7 +1182,7 @@ zops_route(void *zpSd) {
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
         zPrint_Err(0, NULL, "项目ID不存在!");
         goto zMark;
-	}
+    }
 
     if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
@@ -1220,7 +1225,8 @@ zMark:
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  * -14：项目代码已存在或不合法（创建项目代码库时出错）
- * -15：集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ * -15：新项目信息格式错误（合法字段数量不是5个）
+ * -16：集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
 void
