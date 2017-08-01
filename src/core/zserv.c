@@ -565,7 +565,7 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -14;
     }
 
-    zPCREInitInfo *zpInitIf = zpcre_init("\\b\\S+\\b");
+    zPCREInitInfo *zpInitIf = zpcre_init("\\S+");
     zPCRERetInfo *zpRetIf = zpcre_match(zpInitIf, zpMetaIf->p_data, 1);
     if (5 != zpRetIf->cnt) {
         return -15;

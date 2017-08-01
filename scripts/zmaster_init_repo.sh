@@ -20,12 +20,13 @@ then
     exit 255
 fi
 
-zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^${zProjNo}\s"`
+zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
 if [[ 0 -lt $zExistMark && 0 -lt `ls -d $zDeployPath 2>/dev/null | wc -l` ]];then
     exit 255
 fi
 
 #Init Deploy Git Env
+rm -rf $zDeployPath 2>/dev/null
 git clone $zPullAddr $zDeployPath
     if [[ 0 -ne $? ]];then exit 255; fi
 cd $zDeployPath

@@ -248,7 +248,7 @@ zclient(char *zpX) {
             fprintf(stderr, "Connect to server failed \n");
             exit(1);
         }
-        char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":88,\"CommitId\":1007,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"88 /home/git/N~repo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+        char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":898,\"CommitId\":1007,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"898 /home/git/NNNNrepo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
         zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
         char zBuf[4096];
