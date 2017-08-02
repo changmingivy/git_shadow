@@ -990,7 +990,7 @@ zupdate_ipv4_db(void *zpIf) {
         if (0 == zpPCREResIf->cnt) {
             zpcre_free_tmpsource(zpPCREResIf);
             zPrint_Time();
-            fprintf(stderr, "\033[31;01m[%s]-[Line %d]: Invalid entry!\033[00m\n", zAllIpPath, i);
+            fprintf(stderr, "\033[31;01m[%s]-[Line %d]: Invalid entry!\033[00m\n", zAllIpTxtPath, i);
             exit(1);
         }
 
@@ -1035,7 +1035,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 将接收到的IP地址库写入文件 */
     zCheck_Negative_Exit( zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
-    zStrDbLen = 1 + strlen(zpMetaIf->p_data);
+    zStrDbLen = strlen(zpMetaIf->p_data);  // 不能把最后的 '\0' 写入文件
     if (zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)) {
         zpMetaIf->p_data = "";
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );

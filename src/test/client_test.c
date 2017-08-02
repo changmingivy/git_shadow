@@ -171,40 +171,32 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 #define zRepoIdPath ".git_shadow/info/repo_id"
 #define zLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
 
-// Used by client.
 _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
-// TEST: PASS
     if (zSockType == 0) { zSockType = SOCK_STREAM; }
     if (zProto == 0) { zProto = IPPROTO_TCP; }
 
     _i zSd = socket(AF_INET, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
     for (_i i = 4; i > 0; --i) {
-        if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
-        close(zSd);
-        sleep(i);
+    if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
+    close(zSd);
+    sleep(i);
     }
 
     return -1;
 }
 
-/*
- * Functions for socket connection.
- */
 struct addrinfo *
 zgenerate_hint(_i zFlags) {
-// TEST: PASS
     static struct addrinfo zHints;
     zHints.ai_flags = zFlags;
     zHints.ai_family = AF_INET;
     return &zHints;
 }
 
-// Used by client.
 _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
-// TEST: PASS
     struct addrinfo *zpRes, *zpTmp, *zpHints;
     _i zSockD, zErr;
 
@@ -214,10 +206,10 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
     if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
 
     for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
-        if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
-            freeaddrinfo(zpRes);
-            return zSockD;
-        }
+    if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
+        freeaddrinfo(zpRes);
+        return zSockD;
+    }
     }
 
     freeaddrinfo(zpRes);
@@ -226,7 +218,6 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 
 _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
     _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
     zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
@@ -234,40 +225,83 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 
 _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
     socklen_t zAddrLen;
     _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr, &zAddrLen);
     zCheck_Negative_Return(zRecvSiz, -1);
     return zRecvSiz;
 }
 
+#define zBufSiz 1024
 void
-zclient(char *zpX) {
-        _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);  // 以点分格式的ipv4地址连接服务端
-           if (-1 == zSd) {
-            fprintf(stderr, "Connect to server failed \n");
-            exit(1);
-        }
-        char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":10,\"CommitId\":1007,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"192.168.0.1\n1.1.1.1\"}";
-        zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
+zclient(void) {
+    _i zSd = ztcp_connect("10.30.2.126", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
+    if (-1 == zSd) {
+        fprintf(stderr, "Connect to server failed \n");
+        exit(1);
+    }
 
-        char zBuf[4096];
-        recv(zSd, &zBuf, 4096, MSG_WAITALL);
-        fprintf(stderr, "%s\n", zBuf);
+    // 创建新项目
+    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/99repo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
-        memset(zBuf, 0, 4096);
-        recv(zSd, &zBuf, 4096, MSG_WAITALL);
-        fprintf(stderr, "\n2:-------%s\n", zBuf);
-//        for (_ui i = 0; i < 4096; i++) {
-//            printf("%c", zBuf[i]);
-//        }
-        //fprintf(stderr, "%s", zBuf + 1 + strlen(zBuf));
-        //fprintf(stderr, "%s", zBuf + 1 + strlen(zBuf + 1 + strlen(zBuf)));
+    // 锁定
+    //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
-        shutdown(zSd, SHUT_RDWR);
+    // 解锁
+    //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+
+    // 更新major IP数据
+    char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\"}";
+
+    // 更新all IP数据
+    //char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\n172.16.0.3\n172.16.0.4\n\"}";
+
+    // 查询提交版本号列表
+    // char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
+
+    // 查询已布署版本号列表
+    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
+
+    // 查询尚未布署成功的主机列表
+    //char zStrBuf[] = "{\"OpsId\":7,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+
+    // 打印差异文件列表
+    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+
+    // 打印差异文件内容
+    //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":2,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+
+    // 布署
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":-1,\"Data\":\"\"}";
+
+    // 撤销
+    //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":-1,\"Data\":\"\"}";
+
+    zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
+
+    char zBuf[zBufSiz] = {'\0'};
+
+    recv(zSd, &zBuf, zBufSiz, 0);
+    fprintf(stderr, "<+=[0]=+>\n");
+//    fprintf(stderr, "STR: %s\n", zBuf);
+    for (_i i = 0; i < zBufSiz; i++) {
+        fprintf(stderr, "%c", zBuf[i]);
+    }
+
+    memset(zBuf, 0, zBufSiz);
+    recv(zSd, &zBuf, zBufSiz, 0);
+    fprintf(stderr, "\n\n<+=[1]=+>\n");
+//    fprintf(stderr, "STR: %s\n", zBuf);
+    for (_i i = 0; i < zBufSiz; i++) {
+        fprintf(stderr, "%c", zBuf[i]);
+    }
+
+    shutdown(zSd, SHUT_RDWR);
 }
 
 _i
 main(_i zArgc, char **zppArgv) {
-        zclient(zppArgv[1]);
+    zArgc = 0;
+    zppArgv = NULL;
+    zclient();
+    return 0;
 }
