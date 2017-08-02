@@ -1154,7 +1154,10 @@ zops_route(void *zpSd) {
         zMem_Re_Alloc(zpJsonBuf, char, zRecvdLen, zpJsonBuf);
     }
 
-    if (zBytes(6) > zRecvdLen) { return; }
+    if (zBytes(6) > zRecvdLen) {
+        shutdown(zSd, SHUT_RDWR);
+        return;
+    }
 
     if (NULL == (zpJsonRootObj = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         // 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
@@ -1256,7 +1259,7 @@ zstart_server(void *zpIf) {
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
     zEpollSd = epoll_create1(0);
-    zCheck_Negative_Return(zEpollSd,);
+    zCheck_Negative_Exit(zEpollSd);
 
     zEv.events = EPOLLIN;
     zEv.data.fd = zMajorSd;

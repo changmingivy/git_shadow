@@ -179,9 +179,9 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
     _i zSd = socket(AF_INET, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
     for (_i i = 4; i > 0; --i) {
-    if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
-    close(zSd);
-    sleep(i);
+	    if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
+	    shutdown(zSd, SHUT_RDWR);
+	    sleep(i);
     }
 
     return -1;
@@ -250,13 +250,13 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 更新major IP数据
-    char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\"}";
+    char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n1.1.1.1\"}";
 
     // 更新all IP数据
     //char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\n172.16.0.3\n172.16.0.4\n\"}";
 
     // 查询提交版本号列表
-    // char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
 
     // 查询已布署版本号列表
     //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
