@@ -1123,6 +1123,7 @@ void
 zops_route(void *zpSd) {
 // TEST:PASS
     _i zSd = *((_i *)zpSd);
+    pthread_mutex_unlock(&zNetServLock);
     _i zBufSiz = zSizMark;
     _i zRecvdLen;
     _i zErrNo;
@@ -1252,34 +1253,15 @@ zstart_server(void *zpIf) {
     zNetServ[12] = zdeploy;  // 布署(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
     zNetServ[13] = zdeploy;  // 撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机)
 
-    /* 如下部分配置 epoll 环境 */
+    /* 如下部分配置网络服务 */
     struct zNetServInfo *zpNetServIf = (struct zNetServInfo *)zpIf;
-    struct epoll_event zEv, zEvents[zMaxEvents];
-    _i zMajorSd, zConnSd, zEvNum, zEpollSd;
-
+    _i zMajorSd, zConnSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
-    zEpollSd = epoll_create1(0);
-    zCheck_Negative_Exit(zEpollSd);
-
-    zEv.events = EPOLLIN | EPOLLET;  /* 边缘触发 */
-    zEv.data.fd = zMajorSd;
-    zset_nonblocking(zMajorSd);  /* 非阻塞 */
-    zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv) );
-
     for (;;) {
-        zCheck_Negative_Exit( zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1) );  // 阻塞等待事件发生
-
-        for (_i i = 0; i < zEvNum; i++) {
-           if (zEvents[i].data.fd == zMajorSd) {
-                zCheck_Negative_Exit( zConnSd = accept4(zMajorSd, NULL, 0, O_NONBLOCK) ); /* 非阻塞 */
-                zEv.events = EPOLLIN | EPOLLET;  /* 边缘触发 */
-                zEv.data.fd = zConnSd;
-                zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv) );
-            } else {
-                zAdd_To_Thread_Pool(zops_route, &zEvents[i].data.fd);
-            }
-        }
+        zCheck_Negative_Exit( zConnSd = accept(zMajorSd, NULL, 0) );
+        pthread_mutex_lock(&zNetServLock);
+        zAdd_To_Thread_Pool(zops_route, &zConnSd);
     }
 #undef zMaxEvents
 }

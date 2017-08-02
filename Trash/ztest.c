@@ -197,7 +197,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
-	zPCREInitInfo *zpTestInitIf = zpcre_init("([[:punct:]]|\\w)+");
-	zPCRERetInfo *zpTestRetIf = zpcre_match(zpTestInitIf, zppArgv[1], 1);
-	printf("%s %s %s", zpTestRetIf->p_rets[0], zpTestRetIf->p_rets[1],zpTestRetIf->p_rets[2]);
+    zPCREInitInfo *zpTestInitIf = zpcre_init("([[:punct:]]|\\w)+");
+    zPCRERetInfo *zpTestRetIf = zpcre_match(zpTestInitIf, zppArgv[1], 1);
+    printf("%s %s %s", zpTestRetIf->p_rets[0], zpTestRetIf->p_rets[1],zpTestRetIf->p_rets[2]);
 }

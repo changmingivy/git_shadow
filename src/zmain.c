@@ -170,6 +170,8 @@ _i zGlobMaxRepoId;  // 总共有多少个代码库
 _i zInotifyFD;   // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
+pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
+
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
 zNetOpsFunc zNetServ[zServHashSiz];

@@ -117,7 +117,7 @@ zstate_reply(char *zpHost, char *zpPort) {
             zPrint_Err(0, NULL, "布署状态回复失败！");
         }
 
-		memset(zBuf, 0, INET_ADDRSTRLEN);
+        memset(zBuf, 0, INET_ADDRSTRLEN);
         memset(zJsonBuf, 0, zCommonBufSiz);
     }
 

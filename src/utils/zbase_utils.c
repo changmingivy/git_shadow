@@ -48,10 +48,10 @@
  */
 void
 zset_nonblocking(_i zSd) {
-	_i zOpts;
-	zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
-	zOpts |= O_NONBLOCK;
-	zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+    _i zOpts;
+    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zOpts |= O_NONBLOCK;
+    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
 }
 
 /*
