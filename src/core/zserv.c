@@ -41,10 +41,10 @@
 } while(0)
 
 /*
- * 0：空函数，占位
+ * 0：列出所有有效项目ID及其所在路径
  */
 _i
-zzero(struct zMetaInfo *_, _i __) {
+zlist_repo(struct zMetaInfo *_, _i zSd) {
     return 0;
 }
 
@@ -608,7 +608,7 @@ zstart_server(void *zpIf) {
 // TEST:PASS
 #define zMaxEvents 64
     // 顺序不可变
-    zNetServ[0] = zzero;  // 直接返回0，空函数，用于避免0下标冲突
+    zNetServ[0] = zlist_repo;  // 显示项目ID及其在中控机上的绝对路径
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
