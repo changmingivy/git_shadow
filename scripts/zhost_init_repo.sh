@@ -4,6 +4,7 @@ zPathOnMaster=$1
 zPathOnHost=`echo $1 | grep -oP '(?<=/home/git).*'`
 zMajorHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_major.txt"
 zAllHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_all.txt"
+zOpsRootPath="/home/git/zgit_shadow/scripts"
 
 zMajorIpList=`cat $zMajorHostAddrListPath`
 zAllIpList=`cat $zAllHostAddrListPath`
@@ -29,10 +30,10 @@ for x in $zMajorIpList; do
             git branch -f server
             "
     
-        scp zhost_post-update.sh git@${x}:${zPathOnHost}/.git/hooks/post-update &&
+        scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:${zPathOnHost}/.git/hooks/post-update &&
         scp -r $zPathOnMaster/.git_shadow/info git@${x}:${zPathOnHost}/.git_shadow/ &&
-        scp zhost_init_repo_slave.sh git@${x}:/tmp/zhost_init_repo_slave.sh &&
-        scp zhost_post-update.sh git@${x}:/tmp/zhost_post-update.sh &&
+        scp ${zOpsRootPath}/zhost_init_repo_slave.sh git@${x}:/tmp/zhost_init_repo_slave.sh &&
+        scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:/tmp/zhost_post-update.sh &&
     
         ssh $x "
             eval sed -i 's%\<PROJ_PATH\>%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
