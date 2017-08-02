@@ -668,7 +668,7 @@ zinit_one_repo_env(char *zpRepoStrIf) {
         }
         zGlobMaxRepoId = zRepoId;
     } else {
-        if (NULL == zppGlobRepoIf[zRepoId]) {
+        if (NULL != zppGlobRepoIf[zRepoId]) {
             zpcre_free_tmpsource(zpRetIf);
             zpcre_free_metasource(zpInitIf);
             return -2;

@@ -8,7 +8,7 @@ zAllHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_all.txt"
 zMajorIpList=`cat $zMajorHostAddrListPath`
 zAllIpList=`cat $zAllHostAddrListPath`
 
-for x in `cat $zMajorHostAddrListPath`; do
+for x in $zMajorIpList; do
     (\
         ssh $x "
             if [[ 0 -ne \`ls -d $zPathOnHost | wc -l\` ]];then exit; fi &&
@@ -40,7 +40,7 @@ for x in `cat $zMajorHostAddrListPath`; do
             "
     
         ssh $x "
-            PATH="/sbin:$PATH" &&
+            PATH="/sbin:\$PATH" &&
             for zAddr in \`ifconfig | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.|\.255$'\`;do
                 if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
                     zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`

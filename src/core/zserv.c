@@ -63,7 +63,6 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
             return -15;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
         case -3:
             return -16;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
-            break;
         default:
             sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
             zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
