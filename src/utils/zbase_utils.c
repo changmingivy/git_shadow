@@ -44,6 +44,17 @@
 // }
 
 /*
+ *  将指定的套接字属性设置为非阻塞
+ */
+void
+zset_nonblocking(_i zSd) {
+	_i zOpts;
+	zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+	zOpts |= O_NONBLOCK;
+	zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+}
+
+/*
  * Functions for socket connection.
  */
 struct addrinfo *

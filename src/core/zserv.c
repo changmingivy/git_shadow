@@ -1271,7 +1271,7 @@ zstart_server(void *zpIf) {
         for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {
                 zCheck_Negative_Exit( zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0) );
-                zCheck_Negative_Exit( fcntl(zConnSd, F_SETFL, O_NONBLOCK) );  // 一定要是非阻塞的
+                zset_nonblocking(zConnSd);
                 zEv.events = EPOLLIN | EPOLLET;  /* 边缘触发 */
                 zEv.data.fd = zConnSd;
                 zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv) );
