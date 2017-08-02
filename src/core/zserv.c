@@ -436,6 +436,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zlock_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 // TEST:PASS
+    char zJsonBuf[64];
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
     if (2 == zpMetaIf->OpsId) {
@@ -445,6 +446,10 @@ zlock_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+    sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
+    zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+
     return 0;
 }
 
