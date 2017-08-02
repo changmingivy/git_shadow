@@ -283,7 +283,7 @@ zclient(void) {
 
     recv(zSd, &zBuf, zBufSiz, 0);
     fprintf(stderr, "<+=[0]=+>\n");
-//    fprintf(stderr, "STR: %s\n", zBuf);
+   // fprintf(stderr, "STR: %s\n", zBuf);
     for (_i i = 0; i < zBufSiz; i++) {
         fprintf(stderr, "%c", zBuf[i]);
     }
@@ -291,12 +291,12 @@ zclient(void) {
     memset(zBuf, 0, zBufSiz);
     recv(zSd, &zBuf, zBufSiz, 0);
     fprintf(stderr, "\n\n<+=[1]=+>\n");
-//    fprintf(stderr, "STR: %s\n", zBuf);
+  //  fprintf(stderr, "STR: %s\n", zBuf);
     for (_i i = 0; i < zBufSiz; i++) {
         fprintf(stderr, "%c", zBuf[i]);
     }
 
-    shutdown(zSd, SHUT_RDWR);
+    close(zSd);
 }
 
 _i

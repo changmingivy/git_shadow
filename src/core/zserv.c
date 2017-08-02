@@ -1255,12 +1255,12 @@ zstart_server(void *zpIf) {
 
     /* 如下部分配置网络服务 */
     struct zNetServInfo *zpNetServIf = (struct zNetServInfo *)zpIf;
-    _i zMajorSd, zConnSd;
+    _i zConnSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
     for (;;) {
-        zCheck_Negative_Exit( zConnSd = accept(zMajorSd, NULL, 0) );
         pthread_mutex_lock(&zNetServLock);
+        zCheck_Negative_Exit( zConnSd = accept(zMajorSd, NULL, 0) );
         zAdd_To_Thread_Pool(zops_route, &zConnSd);
     }
 #undef zMaxEvents

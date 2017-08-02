@@ -167,10 +167,11 @@ struct zRepoInfo **zppGlobRepoIf;
  ************/
 _i zGlobMaxRepoId;  // 总共有多少个代码库
 
-_i zInotifyFD;   // inotify 主描述符
-struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
-
+_i zMajorSd;  // 网络服务套接字
 pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
+
+_i zInotifyFD;  // inotify 主描述符
+struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
@@ -255,6 +256,10 @@ zReLoad:;
         pthread_rwlock_wrlock(&(zppGlobRepoIf[i]->RwLock));
         pthread_mutex_lock(&(zppGlobRepoIf[i]->MutexLock));
     }
+
+    /* 关联全局服务描述符 */
+    close(zInotifyFD);
+    close(zMajorSd);
 
     /* 父进程退出，子进程按新的主配置文件内容重新初始化 */
     pid_t zPid = fork();
