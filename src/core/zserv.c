@@ -1154,7 +1154,8 @@ zops_route(void *zpSd) {
         zMem_Re_Alloc(zpJsonBuf, char, zRecvdLen, zpJsonBuf);
     }
 
-    if (zBytes(6) > zRecvdLen) {
+    if (zBytes(4) > zRecvdLen) {
+        shutdown(zSd, SHUT_RDWR);
         return;
     }
 
@@ -1230,6 +1231,7 @@ zMark:
  * -16：集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
+
 void
 zstart_server(void *zpIf) {
 // TEST:PASS
@@ -1260,18 +1262,17 @@ zstart_server(void *zpIf) {
     zEpollSd = epoll_create1(0);
     zCheck_Negative_Exit(zEpollSd);
 
-    zEv.events = EPOLLIN;
+    zEv.events = EPOLLIN | EPOLLET;  /* 边缘触发 */
     zEv.data.fd = zMajorSd;
+    zset_nonblocking(zMajorSd);  /* 非阻塞 */
     zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zMajorSd, &zEv) );
 
     for (;;) {
-        zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1);  // 阻塞等待事件发生
-        zCheck_Negative_Exit(zEvNum);
+        zCheck_Negative_Exit( zEvNum = epoll_wait(zEpollSd, zEvents, zMaxEvents, -1) );  // 阻塞等待事件发生
 
         for (_i i = 0; i < zEvNum; i++) {
            if (zEvents[i].data.fd == zMajorSd) {
-                zCheck_Negative_Exit( zConnSd = accept(zMajorSd, (struct sockaddr *) NULL, 0) );
-                zset_nonblocking(zConnSd);
+                zCheck_Negative_Exit( zConnSd = accept4(zMajorSd, NULL, 0, O_NONBLOCK) ); /* 非阻塞 */
                 zEv.events = EPOLLIN | EPOLLET;  /* 边缘触发 */
                 zEv.data.fd = zConnSd;
                 zCheck_Negative_Exit( epoll_ctl(zEpollSd, EPOLL_CTL_ADD, zConnSd, &zEv) );

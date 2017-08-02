@@ -1,7 +1,6 @@
 #define _Z
 #define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
+#define _GNU_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
