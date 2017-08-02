@@ -242,7 +242,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/99repo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/99repo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -251,7 +251,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 更新major IP数据
-    char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n1.1.1.1\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n1.1.1.1\"}";
 
     // 更新all IP数据
     //char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\n172.16.0.3\n172.16.0.4\n\"}";
@@ -281,6 +281,7 @@ zclient(void) {
 
     char zBuf[zBufSiz] = {'\0'};
 
+   fprintf(stderr, "before recv\n");
     recv(zSd, &zBuf, zBufSiz, 0);
     fprintf(stderr, "<+=[0]=+>\n");
    // fprintf(stderr, "STR: %s\n", zBuf);

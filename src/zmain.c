@@ -165,9 +165,8 @@ struct zRepoInfo **zppGlobRepoIf;
 /************
  * 全局变量 *
  ************/
-_i zGlobMaxRepoId;  // 总共有多少个代码库
+_i zGlobMaxRepoId;  // 所有项目ID中的最大值
 
-_i zMajorSd;  // 网络服务套接字
 pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
 
 _i zInotifyFD;  // inotify 主描述符
@@ -197,8 +196,8 @@ zNetOpsFunc zNetServ[zServHashSiz];
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
+#include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
-#include "zinit.c"
 
 /***************************
  * +++___ main 函数 ___+++ *
@@ -235,39 +234,13 @@ main(_i zArgc, char **zppArgv) {
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
-zReLoad:;
     zthread_poll_init();  // 初始化线程池
-
     zInotifyFD = inotify_init();  // 生成inotify master fd
     zCheck_Negative_Exit(zInotifyFD);
 
-    zparse_conf(zpConfFilePath); // 解析配置文件
-    zinit_env();  // 代码库信息读取完毕后，初始化整体运行环境
+    zinit_env(zpConfFilePath);  // 运行环境初始化
 
-    zAdd_To_Thread_Pool( zstart_server, &zNetServIf );  // 启动网络服务
     zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
-
     zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
-
-    zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
-
-    /* 取所有代码库的写锁，确保服务重启不会造成数据紊乱 */
-    for (_i i = 0; (i < zGlobMaxRepoId) && (NULL != zppGlobRepoIf[i]); i++) {
-        pthread_rwlock_wrlock(&(zppGlobRepoIf[i]->RwLock));
-        pthread_mutex_lock(&(zppGlobRepoIf[i]->MutexLock));
-    }
-
-    /* 关联全局服务描述符 */
-    close(zInotifyFD);
-    close(zMajorSd);
-
-    /* 父进程退出，子进程按新的主配置文件内容重新初始化 */
-    pid_t zPid = fork();
-    zCheck_Negative_Exit(zPid);
-
-    if (0 < zPid) {
-        exit(0);
-    } else {
-        goto zReLoad;
-    }
+    zstart_server(&zNetServIf);  // 启动网络服务
 }
