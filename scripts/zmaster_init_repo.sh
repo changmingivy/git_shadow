@@ -21,11 +21,12 @@ then
 fi
 
 zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
-if [[ 0 -lt $zExistMark && 0 -lt `ls -d $zDeployPath 2>/dev/null | wc -l` ]];then
+# 若配置文件与实现路径都已存在，则拒绝新建项目请求
+if [[ 0 -ne $zExistMark && 0 -ne `ls -d $zDeployPath 2>/dev/null | wc -l` ]];then
     exit 255
 fi
 
-#Init Deploy Git Env
+# 环境初始化
 rm -rf $zDeployPath 2>/dev/null
 git clone $zPullAddr $zDeployPath
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -35,7 +36,7 @@ git config user.name "$zProjNo"
     if [[ 0 -ne $? ]];then exit 255; fi
 git config user.email "${zProjNo}@${zProjPath}"
     if [[ 0 -ne $? ]];then exit 255; fi
-printf ".git_shadow\nsync_svn_to_git" > .gitignore  # 项目 git 库设置忽略 .git_shadow 目录
+printf ".git_shadow\nsync_svn_to_git" > .gitignore  # 忽略<.git_shadow>目录
     if [[ 0 -ne $? ]];then exit 255; fi
 git add --all .
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -43,9 +44,10 @@ git commit --allow-empty -m "__init__"
     if [[ 0 -ne $? ]];then exit 255; fi
 git branch -f CURRENT
     if [[ 0 -ne $? ]];then exit 255; fi
-git branch -f server  #Act as Git server
+git branch -f server  # 远程代码接收到server分支
     if [[ 0 -ne $? ]];then exit 255; fi
 
+# 专用于远程库VCS是svn的场景
 rm -rf ${zDeployPath}/sync_svn_to_git 2>/dev/null
 mkdir ${zDeployPath}/sync_svn_to_git
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -69,6 +71,7 @@ if [[ "svn" == $zRemoteVcsType ]]; then
         if [[ 0 -ne $? ]];then exit 255; fi
 fi
 
+# <.git_shadow>以子库的形式内嵌于主库之中
 rm -rf ${zDeployPath}/.git_shadow 2>/dev/null
 mkdir ${zDeployPath}/.git_shadow
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -78,7 +81,6 @@ cp -rf ${zShadowPath}/bin ${zDeployPath}/.git_shadow/
 cp -rf ${zShadowPath}/scripts ${zDeployPath}/.git_shadow/
     if [[ 0 -ne $? ]];then exit 255; fi
 
-# 初始化 git_shadow 自身的库，不需要建 CURRENT 与 server 分支
 cd $zDeployPath/.git_shadow
     if [[ 0 -ne $? ]];then exit 255; fi
 git init .
@@ -92,6 +94,7 @@ git add --all .
 git commit --allow-empty -m "__init__"
     if [[ 0 -ne $? ]];then exit 255; fi
 
+# 防止添加重复条目
 if [[ 0 -eq $zExistMark ]];then
     echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
     if [[ 0 -ne $? ]];then exit 255; fi

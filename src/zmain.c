@@ -102,7 +102,7 @@ struct zRefDataInfo {
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
 struct zVecWrapInfo {
     _i VecSiz;
-    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_SendIf 字段
+    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
     struct zRefDataInfo *p_RefDataIf;
 };
 
