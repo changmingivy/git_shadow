@@ -415,7 +415,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     /* 8 - 9：确认主机布署状态时，需要IP */
     if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-        zpMetaIf->HostId = zpValueObj->valueint;
+        zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
     }
 
     /* 10 - 13：查文件列表、查差异内容、布署、撤销 */
