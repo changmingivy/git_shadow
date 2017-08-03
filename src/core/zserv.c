@@ -506,7 +506,7 @@ zops_route(void *zpSd) {
     cJSON *zpJsonRootObj;
 
     /* 用于接收IP地址列表的场景 */
-    if (zBufSiz == (zRecvdLen = zrecv_nohang(zSd, zpJsonBuf, zBufSiz, 0, NULL))) {
+    if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
         zRecvSiz = zOffSet = zBufSiz;
         zBufSiz = 8192;

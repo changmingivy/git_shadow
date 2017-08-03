@@ -179,17 +179,17 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
     return zRecvSiz;
 }
 
-_i
-zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
-    socklen_t zAddrLen;
-    _i zRecvSiz;
-    if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen)))
-            && (EAGAIN == errno)) {
-        zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
-    }
-    return zRecvSiz;
-}
+//_i
+//zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
+//// TEST: PASS
+//    socklen_t zAddrLen;
+//    _i zRecvSiz;
+//    if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen)))
+//            && (EAGAIN == errno)) {
+//        zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
+//    }
+//    return zRecvSiz;
+//}
 
 /*
  * Daemonize a linux process to daemon.
