@@ -14,6 +14,8 @@ export HOME="/home/git"
 export GIT_DIR="${zCodePath}/.git_shadow/.git"
 # git_shadow 代码作为内联库存在
 cd $zCodePath/.git_shadow &&
+git stash &&
+git stash clear &&
 git checkout server &&
 git checkout -b TMP &&
 git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
@@ -21,6 +23,8 @@ git branch -M master &&
 
 export GIT_DIR="${zCodePath}/.git"
 cd $zCodePath &&  # 必须首先切换路径，否则 reset 不会执行
+git stash &&
+git stash clear &&
 git checkout server &&
 git checkout -b TMP &&
 git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径

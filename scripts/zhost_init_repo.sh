@@ -1,7 +1,7 @@
 #!/bin/sh
 # TEST:PASS
 zPathOnMaster=$1
-zPathOnHost=`echo $1 | grep -oP '(?<=/home/git).*'`
+zPathOnHost=`echo $zPathOnMaster | sed -n 's%/home/git/\+%/%p'`
 zMajorHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_major.txt"
 zAllHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_all.txt"
 zOpsRootPath="/home/git/zgit_shadow/scripts"
@@ -12,7 +12,7 @@ zAllIpList=`cat $zAllHostAddrListPath`
 for x in $zMajorIpList; do
     (\
         ssh $x "
-            if [[ 0 -ne \`ls -d $zPathOnHost | wc -l\` ]];then exit; fi &&
+            if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
             mkdir -p $zPathOnHost/.git_shadow &&
 \
             cd $zPathOnHost/.git_shadow &&
