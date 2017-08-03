@@ -11,9 +11,10 @@
 void
 zinotify_add_sub_watch(void *zpIf) {
 // TEST: PASS
-    struct zObjInfo *zpCurIf = (struct zObjInfo *) zpIf;
+    struct zObjInfo *zpCurIf, *zpSubIf;
+	zpCurIf = (struct zObjInfo *) zpIf;
 
-    _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->path, zBaseWatchBit | IN_DONT_FOLLOW);
+    _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW);
     zCheck_Negative_Exit(zWid);
     if (0 > zpCurIf->UpperWid) {
         zpCurIf->UpperWid = zWid;
@@ -27,15 +28,17 @@ zinotify_add_sub_watch(void *zpIf) {
         return;  // 如果不需要递归监控子目录，到此返回，不再往下执行
     }
 
-    DIR *zpDir = opendir(zpCurIf->path);
+    DIR *zpDir = opendir(zpCurIf->p_path);
     zCheck_Null_Return(zpDir,);
 
-    size_t zLen = strlen(zpCurIf->path);
+    size_t zLen = strlen(zpCurIf->p_path);
     struct dirent *zpEntry;
 
     zPCRERetInfo *zpRetIf = NULL;
     // 忽略'.'与'..'，暂时在此处编译正则表达式，后续优化，当前效率较低
     zPCREInitInfo *zpPCREInitIf = zpcre_init(zpCurIf->zpRegexPattern);
+
+//	struct zObjInfo zSubIf = {.Cond = PTHREAD_COND_INITIALIZER, .CondLock = PTHREAD_MUTEX_INITIALIZER, .SelfCnter = 0, .ThreadCnter = 0};
     while (NULL != (zpEntry = readdir(zpDir))) {
         if (DT_DIR == zpEntry->d_type) {
             zpRetIf = zpcre_match(zpPCREInitIf, zpEntry->d_name, 0);
@@ -46,9 +49,37 @@ zinotify_add_sub_watch(void *zpIf) {
                 continue;
             }
 
+#define zCond_Init() do {\
+	_i zMasterCnter, zSlaveCnter;\
+	zMasterCnter = zSlaveCnter = 0;\
+	pthread_cond_t zCondVar;\
+	pthread_cond_init(&zCondVar, NULL);\
+	pthread_mutex_t zCondLock;\
+	pthread_mutex_init(&zCondLock, NULL);\
+} while(0)
+
+#define zCond_Config(zpIf, zMasterCnter, zSlaveCnter, zCondVar, zCondLock) do {\
+	zpIf->p_SelfCnter = &zMasterCnter;\
+	zpIf->p_ThreadCnter = &zSlaveCnter;\
+	zpIf->p_CondVar = &zCondVar;\
+	zpIf->p_CondLock = &zCondLock;\
+} while(0)
+
+#define zCond_Destroy() do {\
+	pthread_mutex_destroy(&zCondLock);\
+	pthread_cond_destroy(&zCondVar);\
+} while(0)
+
+#define zCond_Wait() do {
+
+} while(0)
+
+#define zCond_Signal() {
+
+} while(0)
             // Must do "malloc" here.
-            struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
-            zCheck_Null_Return(zpSubIf,);
+			zMem_Alloc(zpSubIf, char, sizeof(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
+			zCcur_Cond_Init(zpSubIf);
 
             // 为新监控目标填充基本信息
             zpSubIf->RepoId = zpCurIf->RepoId;
@@ -57,14 +88,14 @@ zinotify_add_sub_watch(void *zpIf) {
             zpSubIf->CallBack = zpCurIf->CallBack;
             zpSubIf->RecursiveMark = zpCurIf->RecursiveMark;
 
-            strcpy(zpSubIf->path, zpCurIf->path);
-            strcat(zpSubIf->path, "/");
-            strcat(zpSubIf->path, zpEntry->d_name);
+            strcpy(zpSubIf->p_path, zpCurIf->p_path);
+            strcat(zpSubIf->p_path, "/");
+            strcat(zpSubIf->p_path, zpEntry->d_name);
 
             zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
         }
     }
-//  free(zpCurIf);  // Can safely free, but NOT free it!
+
     closedir(zpDir);
 }
 
