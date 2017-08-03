@@ -18,7 +18,7 @@
 #include <sys/mman.h>
 
 #include <sys/inotify.h>
-#include <sys/epoll.h>
+//#include <sys/epoll.h>
 
 #include <stdio.h>
 #include <stdlib.h>
