@@ -48,15 +48,16 @@ if [[ 0 -ne $? ]]; then exit 255; fi
 
 i=0
 j=0
+zRepoPathOnHost=`echo $zRepoPath | sed -n 's%/home/git/\+%/%p'`
 for zHostAddr in $zHostList; do
     let i++
     # 必须首先切换目录
     ( \
         cd $zRepoPath/.git_shadow \
-        && git push --force git@${zHostAddr}:${zRepoPath}/.git_shadow/.git master:server \
+        && git push --force git@${zHostAddr}:${zRepoPathOnHost}/.git_shadow/.git master:server \
         \
         && cd .. \
-        && git push --force git@${zHostAddr}:${zRepoPath}/.git master:server \
+        && git push --force git@${zHostAddr}:${zRepoPathOnHost}/.git master:server \
     ) &
 
     if [[ $? -ne 0 ]]; then let j++; fi
