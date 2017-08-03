@@ -241,7 +241,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/Xrepo https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/FUCK https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
