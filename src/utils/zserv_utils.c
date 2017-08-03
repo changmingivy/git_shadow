@@ -1,5 +1,5 @@
 #ifndef _Z
-    #include "zmain.c"
+    #include "../zmain.c"
 #endif
 
 /************
@@ -633,13 +633,16 @@ zupdate_ipv4_db(void *zpIf) {
  * INIT OPS *
  ************/
 /*
+ * 参数：
+ *   新建项目基本信息五个字段
+ *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
  * 返回值:
  *   -1：信息错误，无法解析
  *   -2：指定的项目ID已存在
  *   -3：指定的源版本控制系统(VCS)类型错误
  */
 _i
-zinit_one_repo_env(char *zpRepoStrIf) {
+zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
     char zPullCmdBuf[zCommonBufSiz];
@@ -666,7 +669,6 @@ zinit_one_repo_env(char *zpRepoStrIf) {
         for (_i i = zGlobMaxRepoId + 1; i < zRepoId; i++) {
             zppGlobRepoIf[i] = NULL;
         }
-        zGlobMaxRepoId = zRepoId;
     } else {
         if (NULL != zppGlobRepoIf[zRepoId]) {
             zpcre_free_tmpsource(zpRetIf);
@@ -685,7 +687,7 @@ zinit_one_repo_env(char *zpRepoStrIf) {
                 zpRetIf->p_rets[1]);
     } else {
         zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
-        return -3;
+        return -4;
     }
     /* 分配项目信息的存储空间 */
     zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
@@ -694,15 +696,22 @@ zinit_one_repo_env(char *zpRepoStrIf) {
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
     strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
     strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
+    /* 检测代码库路径是否存在，根据是否是初始化时被调用，进行创建或报错 */
+    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) {
+        if (0 == zInitMark) {
+            zMem_Re_Alloc(zppGlobRepoIf, struct zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);
+            free(zppGlobRepoIf[zRepoId]);
+            free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+            return -3;
+        } else {
+            char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+            char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
+            zfork_do_exec(zpCmd, zppArgv);
+        }
+    }
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
-    /* 检测代码库路径是否存在，不存在尝试初始化之 */
-    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) {
-        char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-        char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-        zfork_do_exec(zpCmd, zppArgv);
-    }
     /* 清理资源占用 */
     close(zFd[0]);
     zpcre_free_tmpsource(zpRetIf);
@@ -774,7 +783,7 @@ zinit_one_repo_env(char *zpRepoStrIf) {
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
     /* 用于标记提交记录缓存中的下一个可写位置 */
-    zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz;
+    zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->CommitRefDataIf;
@@ -796,6 +805,7 @@ zinit_one_repo_env(char *zpRepoStrIf) {
     zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
+    zGlobMaxRepoId = zRepoId;
     return 0;
 }
 
@@ -807,7 +817,7 @@ zinit_env(const char *zpConfPath) {
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
-        zinit_one_repo_env(zRes);
+        zadd_one_repo_env(zRes, 1);
     }
 
     if (0 > zGlobMaxRepoId) {

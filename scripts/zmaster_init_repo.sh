@@ -20,12 +20,6 @@ then
     exit 255
 fi
 
-zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
-# 若配置文件与实现路径都已存在，则拒绝新建项目请求
-if [[ 0 -ne $zExistMark && 0 -ne `ls -d $zDeployPath 2>/dev/null | wc -l` ]];then
-    exit 255
-fi
-
 # 环境初始化
 rm -rf $zDeployPath 2>/dev/null
 git clone $zPullAddr $zDeployPath
@@ -95,6 +89,7 @@ git commit --allow-empty -m "__init__"
     if [[ 0 -ne $? ]];then exit 255; fi
 
 # 防止添加重复条目
+zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
 if [[ 0 -eq $zExistMark ]];then
     echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
     if [[ 0 -ne $? ]];then exit 255; fi

@@ -235,8 +235,7 @@ main(_i zArgc, char **zppArgv) {
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
     zthread_poll_init();  // 初始化线程池
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-    zCheck_Negative_Exit(zInotifyFD);
+    zCheck_Negative_Exit( zInotifyFD = inotify_init() );  // 生成inotify master fd
 
     zinit_env(zpConfFilePath);  // 运行环境初始化
 

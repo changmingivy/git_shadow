@@ -477,3 +477,21 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
             (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
             );
 }
+
+/*
+ *  检查一个目录是否已存在
+ *  返回：1表示已存在，0表示不存在，-1表示出错
+ */
+_i
+zCheck_Dir_Existence(char *zpDirPath) {
+    _i zFd;
+    if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
+        if (EEXIST == errno) {
+            return 1;
+        } else {
+            return -1;
+        }
+    }
+    close(zFd);
+    return 0;
+}

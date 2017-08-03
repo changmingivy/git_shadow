@@ -54,7 +54,7 @@ zlist_repo(struct zMetaInfo *_, _i zSd) {
 _i
 zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zJsonBuf[128];
-    _i zErrNo = zinit_one_repo_env(zpMetaIf->p_data);
+    _i zErrNo = zadd_one_repo_env(zpMetaIf->p_data, 0);
 
     switch (zErrNo) {
         case -1:
@@ -62,7 +62,9 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
         case -2:
             return -15;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
         case -3:
-            return -16;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
+            return -16;  // 请求创建的项目路径已存在
+        case -4:
+            return -17;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
         default:
             sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
             zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
@@ -407,7 +409,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
         zpMetaIf->p_data = "";
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)!");
-        return -17;
+        return (4 == zpMetaIf->OpsId) ? -27 : -28;
     }
     close(zFd);
 
@@ -419,7 +421,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     if ((5 == zpMetaIf->OpsId) && (255 == system(zShellBuf))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         zPrint_Err(errno, NULL, "集群主机布署环境初始化失败!");
-        return -18;
+        return -29;
     }
 
     zupdate_ipv4_db( &(zpMetaIf->RepoId) );
@@ -602,9 +604,11 @@ zMark:
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  * -14：请求创建的新项目信息格式错误（合法字段数量不是5个）
  * -15：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
- * -16：请求创建项目时指定的源版本控制系统错误（非git与svn）
- * -17：IP数据库更新失败
- * -18：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ * -16：请求创建的项目路径已存在
+ * -17：请求创建项目时指定的源版本控制系统错误（非git与svn）
+ * -27：主节虚IP数据库更新失败
+ * -28：全量节点IP数据库更新失败
+ * -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
 

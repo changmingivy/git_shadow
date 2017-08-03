@@ -37,6 +37,8 @@ fi
 
 git reset ${zCommitSig} -- $zFilePath
     if [[ 0 -ne $? ]]; then exit 255; fi
+git commit --allow-empty -m "__DP__"
+    if [[ 0 -ne $? ]]; then exit 255; fi
 
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
 cd $zRepoPath/.git_shadow
