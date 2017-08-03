@@ -224,14 +224,22 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     zCheck_Negative_Exit( zFd = open(zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, O_RDONLY) );
-    zCheck_Negative_Exit( fstatat(zFd, zAllIpPath, &zStatIf, 0) );
 
+    zCheck_Negative_Exit( fstatat(zFd, zMajorIpTxtPath, &zStatIf, 0) );
+    if (0 == zStatIf.st_size) {
+        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
+        zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在!");
+        return -25;
+    }
+
+    zCheck_Negative_Exit( fstatat(zFd, zAllIpPath, &zStatIf, 0) );
+    close(zFd);
     if (0 == zStatIf.st_size
             || (0 != (zStatIf.st_size % sizeof(_ui)))
             || (zStatIf.st_size / zSizeOf(_ui)) != zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "集群 IP 地址数据库异常!");
-        return -9;
+        zPrint_Err(0, NULL, "集群全量IP地址数据库异常!");
+        return -26;
     }
 
     /* 重置布署状态 */
@@ -267,7 +275,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         //zsleep(0.2);
 
         fprintf(stderr, "DEBUG: TOTAL HOST: %d, Reply Cnt: %d\n",zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost, zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt);
-
         if (10 < zTimeCnter) {
             // 如果布署失败，代码库状态置为 "损坏" 状态
             zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
@@ -295,14 +302,12 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsDeployDataType;
-    zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);  // 数据一致性问题？？？
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -597,7 +602,6 @@ zMark:
  * -6：项目布署／撤销／更新ip数据库的权限被锁定
  * -7：后端接收到的数据无法解析，要求前端重发
  * -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
- * -9：集群 ip 地址数据库不存在或数据异常，需要更新
  * -10：前端请求的数据类型错误
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
@@ -606,7 +610,9 @@ zMark:
  * -15：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
  * -16：请求创建的项目路径已存在
  * -17：请求创建项目时指定的源版本控制系统错误（非git与svn）
- * -27：主节虚IP数据库更新失败
+ * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
+ * -26：集群全量节点(所有主机)IP地址数据库不存在或数据异常，需要更新
+ * -27：主节点IP数据库更新失败
  * -28：全量节点IP数据库更新失败
  * -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）

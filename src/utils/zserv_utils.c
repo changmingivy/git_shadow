@@ -230,7 +230,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->HostId = -1;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
         zpSubMetaIf->p_TimeStamp = "";
         zpSubMetaIf->p_data = zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data;
 
@@ -243,11 +242,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
         /* 进入下一层获取对应的差异内容 */
-        if (zCcurOn == zpMetaIf->CcurSwitch) {
-            zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
-        } else {
-            zget_diff_content(zpSubMetaIf);
-        }
+        zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
     }
     pclose(zpShellRetHandler);
 
@@ -325,7 +320,6 @@ zgenerate_cache(void *zpIf) {
         zpSubMetaIf->HostId = -1;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->CcurSwitch = zpMetaIf->CcurSwitch;
         zpSubMetaIf->p_TimeStamp = &(zRes[41]);
         zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data;
 
@@ -339,11 +333,7 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
         /* 生成下一级缓存 */
-        if (zCcurOn == zpMetaIf->CcurSwitch) {
-            zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
-        } else {
-            zget_file_list_and_diff_content(zpSubMetaIf);
-        }
+        zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
 
         /* 新生成的缓存本来就是有序的，不需要额外排序 */
         if (zIsCommitDataType ==zpMetaIf->DataType) {
@@ -434,7 +424,6 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->HostId = -1;
     zpSubMetaIf->CacheId = zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
     zpSubMetaIf->DataType = zIsCommitDataType;
-    zpSubMetaIf->CcurSwitch = zCcurOn;  // 并发执行
     zpSubMetaIf->p_TimeStamp = &(zRes[41]);
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
 
@@ -795,14 +784,12 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zpMetaIf->RepoId = zRepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
     /* 生成布署记录缓存 */
     zpMetaIf = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
     zpMetaIf->RepoId = zRepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf->DataType = zIsDeployDataType;
-    zpMetaIf->CcurSwitch = zCcurOn;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
 
     zGlobMaxRepoId = zRepoId;

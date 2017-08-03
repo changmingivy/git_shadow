@@ -46,9 +46,6 @@
 #define UDP 0
 #define TCP 1
 
-#define zCcurOff 0
-#define zCcurOn 1
-
 #define zDeployUnLock 0
 #define zDeployLocked 1
 
@@ -69,6 +66,8 @@ struct zObjInfo {
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
     char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
+    pthread_cond_t *zpCondVar;  // 条件变量
+    pthread_mutex_t *zpMutexLock; // 与条件变量配对的互斥锁
     char path[];  // 被监控对象的绝对路径名称
 };
 
@@ -87,8 +86,9 @@ struct zMetaInfo {
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
-    _i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
     char *p_TimeStamp;  // 字符串形式的UNIX时间戳
+    pthread_cond_t *zpCondVar;  // 条件变量
+    pthread_mutex_t *zpMutexLock; // 与条件变量配对的互斥锁
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
 };
 
