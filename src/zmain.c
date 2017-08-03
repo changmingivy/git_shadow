@@ -165,7 +165,7 @@ struct zRepoInfo **zppGlobRepoIf;
 /************
  * 全局变量 *
  ************/
-_i zGlobMaxRepoId;  // 所有项目ID中的最大值
+_i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 
 pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
 

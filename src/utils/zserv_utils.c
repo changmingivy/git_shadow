@@ -805,14 +805,13 @@ zinit_env(const char *zpConfPath) {
     FILE *zpFile;
     char zRes[zCommonBufSiz];
 
-    zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
+    zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
         zinit_one_repo_env(zRes);
     }
 
     if (0 > zGlobMaxRepoId) {
         zPrint_Err(0, NULL, "未读取到有效代码库信息!");
-        exit(1);
     }
     fclose(zpFile);
 }
