@@ -183,8 +183,11 @@ _i
 zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
     socklen_t zAddrLen;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
-    zCheck_Negative_Return(zRecvSiz, -1);
+    _i zRecvSiz;
+    if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen)))
+            && (EAGAIN == errno)) {
+        zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
+    }
     return zRecvSiz;
 }
 
