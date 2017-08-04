@@ -125,18 +125,6 @@ zMark:
 }
 
 /*
- *  传入的是一个包含单次 commit 信息的额外malloc出来的 zVerWrapInfo 结构体指针，需要释放其下的文件列表结构及其内部的文件内容结构
- */
-void
-zfree_one_commit_cache(void *zpIf) {  // zpIf本体在代码库内存池中，不需要释放
-    struct zVecWrapInfo *zpVecWrapIf = (struct zVecWrapInfo *) zpIf;
-    for (_i zFileId = 0; zFileId < zpVecWrapIf->VecSiz; zFileId++) {
-        free(zGet_SubVecWrapIf(zpVecWrapIf, zFileId)->p_VecIf);
-    }
-    free(zpVecWrapIf->p_VecIf);
-}
-
-/*
  * 功能：生成单个文件的差异内容缓存
  */
 void
@@ -218,7 +206,9 @@ void
 zget_file_list_and_diff_content(void *zpIf) {
 // TEST:PASS
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
-    struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf, *zpOldVecWrapIf;
+    struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf;
+    struct iovec *zpIoVecIf;
+    struct zRefDataInfo *zpRefDataIf;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], *zpRes, zRes[zBytes(1024)];
@@ -236,23 +226,12 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     }
 
-    // 检查是否有旧数据，有则释放空间
-    if (NULL != zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
-        zpOldVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
-
-        zpOldVecWrapIf->p_VecIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
-        zpOldVecWrapIf->VecSiz = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;
-
-        zAdd_To_Thread_Pool(zfree_one_commit_cache, zpOldVecWrapIf);  // +
-        zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
-    }
-
     zpCurVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
     /* 关联到上一级数据结构 */
     zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpCurVecWrapIf;
 
-    zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
-    zMem_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zAllocSiz);
+    zMem_Alloc(zpIoVecIf, struct iovec, zAllocSiz);
+    zMem_Alloc(zpRefDataIf, struct zRefDataInfo, zAllocSiz);
 
     /* 必须在shell命令中切换到正确的工作路径 */
     sprintf(zShellBuf, "cd %s && git diff --name-only %s CURRENT",
@@ -267,14 +246,14 @@ zget_file_list_and_diff_content(void *zpIf) {
     for (zVecCnter = 0;  NULL != zpRes; zVecCnter++) {
         if (zVecCnter > (zAllocSiz - 2)) {  // For json ']'
             zAllocSiz *= 2;
-            zMem_Re_Alloc( zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf );
-            zMem_Re_Alloc( zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zAllocSiz, zpCurVecWrapIf->p_RefDataIf );
+            zMem_Re_Alloc( zpIoVecIf, struct iovec, zAllocSiz, zpIoVecIf );
+            zMem_Re_Alloc( zpRefDataIf, struct zRefDataInfo, zAllocSiz, zpRefDataIf );
         }
 
         zDataLen = strlen(zRes);
         zRes[zDataLen - 1] = '\0';
-        zCheck_Null_Exit( zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
-        strcpy(zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
+        zCheck_Null_Exit( zpRefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
+        strcpy(zpRefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
 
         /* >>>>填充必要的线程间同步数据 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
@@ -288,15 +267,15 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->p_TimeStamp = "";
-        zpSubMetaIf->p_data = zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data;
+        zpSubMetaIf->p_data = zpRefDataIf[zVecCnter].p_data;
 
         /* 将zMetaInfo转换为JSON文本 */
         zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
 
         zVecDataLen = strlen(zJsonBuf);
-        zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-        memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
-        zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
+        zpIoVecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+        memcpy(zpIoVecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
+        zpIoVecIf[zVecCnter].iov_len = zVecDataLen;
 
         /* 必须在上一个 zRes 使用完之后才能执行 */
         zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
@@ -319,9 +298,13 @@ zget_file_list_and_diff_content(void *zpIf) {
     } else {
         zpCurVecWrapIf->VecSiz = zVecCnter + 1;  // 最后有一个额外的成员存放 json ']'
 
-        /* 将分配的空间缩减为最终的实际成员数量 */
-        zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf);  // 多留一项用于存放二维json最后的']'
-        zMem_Re_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_RefDataIf);
+        /* 将已确定数量的对象指针复制到本项目内存池中，之后释放临时资源 */
+        zpCurVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);  // 多留一项用于存放二维json最后的']'
+        zpCurVecWrapIf->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
+        memcpy(zpCurVecWrapIf->p_VecIf, zpIoVecIf, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
+        memcpy(zpCurVecWrapIf->p_RefDataIf, zpRefDataIf, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
+        free(zpIoVecIf);
+        free(zpRefDataIf);
 
         /* 修饰第一项，添加最后一项，形成二维json格式 */
         ((char *)(zpCurVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
@@ -587,29 +570,20 @@ zupdate_one_commit_cache(void *zpIf) {
 void
 zwrite_log(_i zRepoId) {
 // TEST:PASS
-    struct stat zStatIf;
     char zShellBuf[128], zRes[zCommonBufSiz];
     FILE *zpFile;
-    _i zFd, zLen;
+    _i zLen;
 
-    zCheck_Negative_Exit(zFd = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY));
-    zCheck_Negative_Exit(fstatat(zFd, zLogPath, &zStatIf, 0));  // 获取当前sig日志文件属性
-    close(zFd);
-
-    // 将 CURRENT 标签的40位sig字符串及10位时间戳追加写入.git_shadow/log/sig
+    // 将 CURRENT 标签的40位sig字符串及10位时间戳追加写入.git_shadow/log/meta
     sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=\"%%H_%%ct\"", zppGlobRepoIf[zRepoId]->p_RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = 1 + strlen(zRes);  // 此处不能去掉换行符，保证与直接从命令行读出的数据格式一致
 
-    if (zLen != pwrite(zppGlobRepoIf[zRepoId]->LogFd, zRes, zLen, zppGlobRepoIf[zRepoId]->zDeployLogOffSet)) {
-        //zCheck_Negative_Exit(ftruncate(zppGlobRepoIf[zRepoId]->LogFd, zStatIf.st_size));
-        zPrint_Err(0, NULL, "日志写入失败： <.git_shadow/log/deploy/sig> !");
+    if (zLen != write(zppGlobRepoIf[zRepoId]->LogFd, zRes, zLen)) {
+        zPrint_Err(0, NULL, "日志写入失败： <.git_shadow/log/deploy/meta> !");
         exit(1);
     }
-
-    // 更新下一次日志的写入位置
-    zppGlobRepoIf[zRepoId]->zDeployLogOffSet += zBytes(52);
 }
 
 /*

@@ -241,7 +241,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -271,7 +271,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":5,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
-    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":-1,\"Data\":\"\"}";
