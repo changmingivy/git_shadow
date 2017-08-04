@@ -78,9 +78,9 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     zpSubIf->p_SelfCnter = zpSelfCnter;\
     zpSubIf->p_ThreadCnter = zpThreadCnter;\
     zpSubIf->p_CondVar = zpCondVar;\
-    zpSubIf->pp_MutexLock[0] = zpMutexLock;\
-    zpSubIf->pp_MutexLock[1] = zpMutexLock + 1;\
-    zpSubIf->pp_MutexLock[2] = zpMutexLock + 2;
+    zpSubIf->p_MutexLock[0] = zpMutexLock;\
+    zpSubIf->p_MutexLock[1] = zpMutexLock + 1;\
+    zpSubIf->p_MutexLock[2] = zpMutexLock + 2;
 
 /* 放置于调用者每次分发任务之前(即调用工作线程之前) */
 #define zCcur_Fin_Mark(zLoopObj, zFinalObj, zLoopObj_1, zFinalObj_1) do {\
@@ -103,16 +103,16 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 
 /* 放置于工作线程的回调函数末尾 */
 #define zCcur_Fin_Signal(zpIf) do {\
-        pthread_mutex_lock(zpIf->pp_MutexLock[0]);\
+        pthread_mutex_lock(zpIf->p_MutexLock[0]);\
         (*zpIf->p_ThreadCnter)++;\
-        pthread_mutex_unlock(zpIf->pp_MutexLock[0]);\
+        pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
         if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_SelfCnter) == *(zpIf->p_ThreadCnter))) {\
-            pthread_mutex_lock(zpIf->pp_MutexLock[1]);\
+            pthread_mutex_lock(zpIf->p_MutexLock[1]);\
             do {\
                 pthread_cond_signal(zpIf->p_CondVar);\
-            } while (EAGAIN == pthread_mutex_trylock(zpIf->pp_MutexLock[2]));\
-            pthread_mutex_unlock(zpIf->pp_MutexLock[1]);\
-            pthread_mutex_unlock(zpIf->pp_MutexLock[2]);\
+            } while (EAGAIN == pthread_mutex_trylock(zpIf->p_MutexLock[2]));\
+            pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
+            pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
         }\
     } while(0)
 
