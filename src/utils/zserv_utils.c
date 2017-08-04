@@ -513,7 +513,6 @@ zupdate_one_commit_cache(void *zpIf) {
     zCcur_Fin_Mark(0, 0, 0, 0);
     /* 生成下一级缓存 */
     zAdd_To_Thread_Pool( zget_file_list_and_diff_content, zpSubMetaIf );
-
     /* >>>>等待分发出去的所有任务全部完成 */
     zCcur_Wait();
 
@@ -871,13 +870,13 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zpMetaIf->RepoId = zRepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zgenerate_cache(zpMetaIf);
     /* 生成布署记录缓存 */
     zpMetaIf = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
     zpMetaIf->RepoId = zRepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf->DataType = zIsDeployDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zgenerate_cache(zpMetaIf);
 
     zGlobMaxRepoId = zRepoId;
     return 0;

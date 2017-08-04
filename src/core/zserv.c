@@ -302,13 +302,13 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
 
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsDeployDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);  // 数据一致性问题？？？
+    zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
