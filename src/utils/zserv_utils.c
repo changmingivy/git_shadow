@@ -804,11 +804,10 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath) );
     zpObjIf->RepoId = zRepoId;
     zpObjIf->RecursiveMark = 1;
-    zpObjIf->zpRegexPattern = "^\\.{1,2}$";
     zpObjIf->CallBack = zupdate_one_commit_cache;
     zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
-    strcpy(zpObjIf->path, zppGlobRepoIf[zRepoId]->p_RepoPath);
-    strcat(zpObjIf->path, "/.git/logs");
+    strcpy(zpObjIf->p_path, zppGlobRepoIf[zRepoId]->p_RepoPath);
+    strcat(zpObjIf->p_path, "/.git/logs");
     zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
     /* 必要的文件路径检测与创建 */
     #define zCheck_Status_Exit(zRet) do {\
