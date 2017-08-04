@@ -190,7 +190,10 @@ zget_diff_content(void *zpIf) {
         return;
     } else {
         /* 将分配的空间缩减为最终的实际成员数量 */
-        zMem_Re_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zpCurVecWrapIf->VecSiz, zpCurVecWrapIf->p_VecIf);
+        struct iovec *zpIoVecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
+        memcpy(zpIoVecIf, zpCurVecWrapIf->p_VecIf, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
+        free(zpCurVecWrapIf->p_VecIf);
+        zpCurVecWrapIf->p_VecIf = zpIoVecIf;
         /* 因为没有下一级数据，所以置为NULL */
         zpCurVecWrapIf->p_RefDataIf = NULL;
     }
@@ -207,8 +210,6 @@ zget_file_list_and_diff_content(void *zpIf) {
 // TEST:PASS
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf;
-    struct iovec *zpIoVecIf;
-    struct zRefDataInfo *zpRefDataIf;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], *zpRes, zRes[zBytes(1024)];
@@ -230,8 +231,8 @@ zget_file_list_and_diff_content(void *zpIf) {
     /* 关联到上一级数据结构 */
     zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpCurVecWrapIf;
 
-    zMem_Alloc(zpIoVecIf, struct iovec, zAllocSiz);
-    zMem_Alloc(zpRefDataIf, struct zRefDataInfo, zAllocSiz);
+    zMem_Alloc(zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz);
+    zMem_Alloc(zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zAllocSiz);
 
     /* 必须在shell命令中切换到正确的工作路径 */
     sprintf(zShellBuf, "cd %s && git diff --name-only %s CURRENT",
@@ -246,14 +247,14 @@ zget_file_list_and_diff_content(void *zpIf) {
     for (zVecCnter = 0;  NULL != zpRes; zVecCnter++) {
         if (zVecCnter > (zAllocSiz - 2)) {  // For json ']'
             zAllocSiz *= 2;
-            zMem_Re_Alloc( zpIoVecIf, struct iovec, zAllocSiz, zpIoVecIf );
-            zMem_Re_Alloc( zpRefDataIf, struct zRefDataInfo, zAllocSiz, zpRefDataIf );
+            zMem_Re_Alloc( zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf );
+            zMem_Re_Alloc( zpCurVecWrapIf->p_RefDataIf, struct zRefDataInfo, zAllocSiz, zpCurVecWrapIf->p_RefDataIf );
         }
 
         zDataLen = strlen(zRes);
         zRes[zDataLen - 1] = '\0';
-        zCheck_Null_Exit( zpRefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
-        strcpy(zpRefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
+        zCheck_Null_Exit( zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
+        strcpy(zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
 
         /* >>>>填充必要的线程间同步数据 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
@@ -267,15 +268,15 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->p_TimeStamp = "";
-        zpSubMetaIf->p_data = zpRefDataIf[zVecCnter].p_data;
+        zpSubMetaIf->p_data = zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data;
 
         /* 将zMetaInfo转换为JSON文本 */
         zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
 
         zVecDataLen = strlen(zJsonBuf);
-        zpIoVecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-        memcpy(zpIoVecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
-        zpIoVecIf[zVecCnter].iov_len = zVecDataLen;
+        zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+        memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
+        zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
         /* 必须在上一个 zRes 使用完之后才能执行 */
         zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
@@ -292,19 +293,20 @@ zget_file_list_and_diff_content(void *zpIf) {
     if (0 == zVecCnter) {
         /* 用于差异文件数量为0的情况，如：将 CURRENT 与其自身对比，结果将为空 */
         free(zpCurVecWrapIf->p_VecIf);
-        zpCurVecWrapIf->p_VecIf = NULL;
-        zpCurVecWrapIf->VecSiz = 0;
+        free(zpCurVecWrapIf->p_RefDataIf);
         return;
     } else {
         zpCurVecWrapIf->VecSiz = zVecCnter + 1;  // 最后有一个额外的成员存放 json ']'
 
         /* 将已确定数量的对象指针复制到本项目内存池中，之后释放临时资源 */
-        zpCurVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);  // 多留一项用于存放二维json最后的']'
-        zpCurVecWrapIf->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
-        memcpy(zpCurVecWrapIf->p_VecIf, zpIoVecIf, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
-        memcpy(zpCurVecWrapIf->p_RefDataIf, zpRefDataIf, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
-        free(zpIoVecIf);
-        free(zpRefDataIf);
+        struct iovec *zpIoVecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);  // 多留一项用于存放二维json最后的']'
+        struct zRefDataInfo *zpRefDataIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
+        memcpy(zpIoVecIf, zpCurVecWrapIf->p_VecIf, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
+        memcpy(zpRefDataIf, zpCurVecWrapIf->p_RefDataIf, sizeof(struct zRefDataInfo) * zpCurVecWrapIf->VecSiz);
+        free(zpCurVecWrapIf->p_VecIf);
+        free(zpCurVecWrapIf->p_RefDataIf);
+        zpCurVecWrapIf->p_VecIf = zpIoVecIf;
+        zpCurVecWrapIf->p_RefDataIf = zpRefDataIf;
 
         /* 修饰第一项，添加最后一项，形成二维json格式 */
         ((char *)(zpCurVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
