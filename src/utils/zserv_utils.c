@@ -774,27 +774,29 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     /* 检测代码库路径是否存在，根据是否是初始化时被调用，进行创建或报错 */
     errno = 0;
     if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) {
-        if (EEXIST == errno) {
-            if (0 == zInitMark) {
-                free(zppGlobRepoIf[zRepoId]);
-                free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-                return -3;
-            } else {
-                char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-                char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-                zfork_do_exec(zpCmd, zppArgv);
-            }
+        if (ENOENT == errno) {
+            char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+            char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
+            zfork_do_exec(zpCmd, zppArgv);
         } else {
-            zCheck_Negative_Exit(zFd[0]);
+            free(zppGlobRepoIf[zRepoId]);
+            free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+            return -3;
+        }
+    } else {
+        if (0 == zInitMark) {
+            free(zppGlobRepoIf[zRepoId]);
+            free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+            return -3;
         }
     }
-    /* 存储项目代码定期更新命令 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
-    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
     /* 清理资源占用 */
     close(zFd[0]);
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
+    /* 存储项目代码定期更新命令 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
+    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
