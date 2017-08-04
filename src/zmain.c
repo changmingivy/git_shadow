@@ -1,6 +1,7 @@
 #define _Z
 #define _XOPEN_SOURCE 700
-#define _GNU_SOURCE
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -64,13 +65,13 @@ struct zObjInfo {
     _s RepoId;  // 每个代码库对应的索引
     _s RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
 
     pthread_cond_t *p_CondVar;  // 条件变量
-	_i *p_SelfCnter;  // 调用者任务发放计数
-	_i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_CondLock; // 与条件变量配对的互斥锁
+    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
+    _i *p_SelfCnter;  // 调用者任务发放计数
+    _i *p_ThreadCnter;  // 各线程任务完成计数
+    pthread_mutex_t *p_MutexLock[3];  // 3个互斥锁：其中[0]锁用作与条件变量配对使用及各线程中原子增加任务完成计数，[1]锁用作阻塞最后一个完成任务的线程等待调用者进入等待条件变量状态，[2]锁用于通知最后一个完成任务的线程销毁相关资源占用
 
     char p_path[];  // 被监控对象的绝对路径名称
 };
@@ -94,9 +95,10 @@ struct zMetaInfo {
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
 
     pthread_cond_t *p_CondVar;  // 条件变量
-	_i *p_SelfCnter;  // 调用者任务发放计数
-	_i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_CondLock; // 与条件变量配对的互斥锁
+    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
+    _i *p_SelfCnter;  // 调用者任务发放计数
+    _i *p_ThreadCnter;  // 各线程任务完成计数
+    pthread_mutex_t *p_MutexLock[3];  // 3个互斥锁：其中[0]锁用作与条件变量配对使用及各线程中原子增加任务完成计数，[1]锁用作阻塞最后一个完成任务的线程等待调用者进入等待条件变量状态，[2]锁用于通知最后一个完成任务的线程销毁相关资源占用
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */

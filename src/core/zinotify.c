@@ -10,13 +10,12 @@
  *************/
 void
 zinotify_add_sub_watch(void *zpIf) {
-// TEST: PASS
     struct zObjInfo *zpCurIf, *zpSubIf;
-	zpCurIf = (struct zObjInfo *) zpIf;
+    zpCurIf = (struct zObjInfo *) zpIf;
 
     _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW);
     zCheck_Negative_Exit(zWid);
-    if (0 > zpCurIf->UpperWid) {
+    if (-1 == zpCurIf->UpperWid) {  // 判断是否是顶层被监控对象
         zpCurIf->UpperWid = zWid;
     }
     if (NULL != zpObjHash[zWid]) {
@@ -34,57 +33,18 @@ zinotify_add_sub_watch(void *zpIf) {
     size_t zLen = strlen(zpCurIf->p_path);
     struct dirent *zpEntry;
 
-    zPCRERetInfo *zpRetIf = NULL;
-    // 忽略'.'与'..'，暂时在此处编译正则表达式，后续优化，当前效率较低
-    zPCREInitInfo *zpPCREInitIf = zpcre_init(zpCurIf->zpRegexPattern);
-
-//	struct zObjInfo zSubIf = {.Cond = PTHREAD_COND_INITIALIZER, .CondLock = PTHREAD_MUTEX_INITIALIZER, .SelfCnter = 0, .ThreadCnter = 0};
     while (NULL != (zpEntry = readdir(zpDir))) {
-        if (DT_DIR == zpEntry->d_type) {
-            zpRetIf = zpcre_match(zpPCREInitIf, zpEntry->d_name, 0);
-            if (0 == zpRetIf->cnt) {
-                zpcre_free_tmpsource(zpRetIf);
-            } else {
-                zpcre_free_tmpsource(zpRetIf);
-                continue;
+        if (DT_DIR == zpEntry->d_type) {  // _BSD_SOURCE
+            if (0 == strcmp(".", zpEntry->d_name) || 0 == strcmp("..", zpEntry->d_name)) {
+                continue;  /* 忽略 '.' 与 '..' 两个路径，否则会陷入死循环 */
             }
 
-#define zCond_Init() do {\
-	_i zMasterCnter, zSlaveCnter;\
-	zMasterCnter = zSlaveCnter = 0;\
-	pthread_cond_t zCondVar;\
-	pthread_cond_init(&zCondVar, NULL);\
-	pthread_mutex_t zCondLock;\
-	pthread_mutex_init(&zCondLock, NULL);\
-} while(0)
-
-#define zCond_Config(zpIf, zMasterCnter, zSlaveCnter, zCondVar, zCondLock) do {\
-	zpIf->p_SelfCnter = &zMasterCnter;\
-	zpIf->p_ThreadCnter = &zSlaveCnter;\
-	zpIf->p_CondVar = &zCondVar;\
-	zpIf->p_CondLock = &zCondLock;\
-} while(0)
-
-#define zCond_Destroy() do {\
-	pthread_mutex_destroy(&zCondLock);\
-	pthread_cond_destroy(&zCondVar);\
-} while(0)
-
-#define zCond_Wait() do {
-
-} while(0)
-
-#define zCond_Signal() {
-
-} while(0)
             // Must do "malloc" here.
-			zMem_Alloc(zpSubIf, char, sizeof(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
-			zCcur_Cond_Init(zpSubIf);
+            zMem_Alloc(zpSubIf, char, sizeof(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
 
             // 为新监控目标填充基本信息
             zpSubIf->RepoId = zpCurIf->RepoId;
             zpSubIf->UpperWid = zpCurIf->UpperWid;
-            zpSubIf->zpRegexPattern = zpCurIf->zpRegexPattern;
             zpSubIf->CallBack = zpCurIf->CallBack;
             zpSubIf->RecursiveMark = zpCurIf->RecursiveMark;
 
@@ -95,7 +55,6 @@ zinotify_add_sub_watch(void *zpIf) {
             zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
         }
     }
-
     closedir(zpDir);
 }
 
@@ -119,42 +78,34 @@ zinotify_wait(void *_) {
             zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
             zpEv = (struct inotify_event *)zpOffset;
 
+            if (NULL != zpObjHash[zpEv->wd]->CallBack) {
+                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
+            }
+
+            /* If a new subdir is created or moved in, add it to the watch list */
             if (1 == zpObjHash[zpEv->wd]->RecursiveMark
                 && (zpEv->mask & IN_ISDIR)
                 && ((zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO))) {
 
-                // If a new subdir is created or moved in, add it to the watch list.
-                zPCRERetInfo *zpRetIf = NULL;  // 首先检测是否在被忽略的范围之内
-                zPCREInitInfo *zpPCREInitIf = zpcre_init(zpObjHash[zpEv->wd]->zpRegexPattern);  // 暂时在此处编译正则表达式，后续优化，当前效率较低
-                zpRetIf = zpcre_match(zpPCREInitIf, zpEv->name, 0);
-                if (0 == zpRetIf->cnt) {
-                    zpcre_free_tmpsource(zpRetIf);
-                } else {
-                    zpcre_free_tmpsource(zpRetIf);
-                    continue;
+                if (0 == strcmp(".", zpEv->name) || 0 == strcmp("..", zpEv->name)) {
+                    continue;  /* 忽略 '.' 与 '..' 两个路径，否则会陷入死循环 */
                 }
 
-                // Must do "malloc" here.
-                // 分配的内存包括路径名称长度
-                struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->path) + zpEv->len);
+                // Must do "malloc" here; 分配的内存包括路径名称长度
+                struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->p_path) + zpEv->len);
                 zCheck_Null_Return(zpSubIf,);
 
                 // 为新监控目标填冲基本信息
                 zpSubIf->RepoId = zpObjHash[zpEv->wd]->RepoId;
                 zpSubIf->UpperWid = zpObjHash[zpEv->wd]->UpperWid;
-                zpSubIf->zpRegexPattern = zpObjHash[zpEv->wd]->zpRegexPattern;
                 zpSubIf->CallBack = zpObjHash[zpEv->wd]->CallBack;
                 zpSubIf->RecursiveMark = zpObjHash[zpEv->wd]->RecursiveMark;
 
-                strcpy(zpSubIf->path, zpObjHash[zpEv->wd]->path);
-                strcat(zpSubIf->path, "/");
-                strcat(zpSubIf->path, zpEv->name);
+                strcpy(zpSubIf->p_path, zpObjHash[zpEv->wd]->p_path);
+                strcat(zpSubIf->p_path, "/");
+                strcat(zpSubIf->p_path, zpEv->name);
 
                 zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
-            }
-
-            if (NULL != zpObjHash[zpEv->wd]->CallBack) {
-                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
             }
         }
     }

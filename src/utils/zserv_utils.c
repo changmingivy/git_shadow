@@ -52,6 +52,55 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 /**************
  * NATIVE OPS *
  **************/
+/* 在任务分发之前执行：定义必要的计数器、锁、条件变量等 */
+#define zCcur_Init() \
+    _i zFinMark = 0, zSelfCnter = 0, zThreadCnter = 0;\
+    pthread_cond_t zCondVar = PTHREAD_COND_INITIALIZER;\
+    pthread_mutex_t zMutexLock[3] = {PTHREAD_MUTEX_INITIALIZER};\
+    pthread_mutex_lock(&(zMutexLock[1]));\
+    pthread_mutex_lock(&(zMutexLock[2]));
+
+/* 配置将要传递给工作线程的参数(结构体) */
+#define zCcur_Sub_Config(zpSubIf) \
+    zpSubIf->p_FinMark = &zFinMark;\
+    zpSubIf->p_SelfCnter = &zSelfCnter;\
+    zpSubIf->p_ThreadCnter = &zThreadCnter;\
+    zpSubIf->p_CondVar = &zCondVar;\
+    zpSubIf->p_MutexLock[0] = &(zMutexLock[0]);\
+    zpSubIf->p_MutexLock[1] = &(zMutexLock[1]);\
+    zpSubIf->p_MutexLock[2] = &(zMutexLock[2]);
+
+/* 放置于调用者每次分发任务之前(即调用工作线程之前) */
+#define zCcur_Fin_Mark(zLoopObj, zFinalObj, zLoopObj_1, zFinalObj_1) do {\
+        if (zLoopObj == zFinalObj && zLoopObj_1 == zFinalObj_1 ) {\
+            zFinMark = 1;\
+        }\
+    } while(0)
+
+/* 当调用者任务分发完成之后执行 */
+#define zCcur_Wait() do {\
+        pthread_mutex_lock(&(zMutexLock[0]));\
+        pthread_mutex_unlock(&(zMutexLock[1]));\
+        while (zSelfCnter != zThreadCnter) {\
+            pthread_cond_wait(&zCondVar, &(zMutexLock[0]));\
+        }\
+        pthread_mutex_unlock(&(zMutexLock[2]));\
+        pthread_mutex_unlock(&(zMutexLock[0]));\
+    } while(0)
+
+/* 放置于工作线程的回调函数末尾 */
+#define zCcur_Fin_Signal(zpIf) do {\
+        if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_SelfCnter) == *(zpIf->p_ThreadCnter))) {\
+            pthread_mutex_lock(zpIf->p_MutexLock[1]);\
+            do {\
+                pthread_cond_signal(zpIf->p_CondVar);\
+            } while (EAGAIN == pthread_mutex_trylock(zpIf->p_MutexLock[2]));\
+            pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
+            pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
+        }\
+    } while(0)
+
+/* 用于提取深层对象 */
 #define zGet_JsonStr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
 #define zGet_SubVecWrapIf(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_SubVecWrapIf)
 #define zGet_NativeData(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_data)
@@ -157,6 +206,9 @@ zget_diff_content(void *zpIf) {
         /* 因为没有下一级数据，所以置为NULL */
         zpCurVecWrapIf->p_RefDataIf = NULL;
     }
+
+    /* >>>>任务完成，尝试通知上层调用者 */
+    zCcur_Fin_Signal(zpMetaIf);
 }
 
 /*
@@ -169,7 +221,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     struct zVecWrapInfo *zpTopVecWrapIf, *zpCurVecWrapIf, *zpOldVecWrapIf;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zBytes(1024)];
+    char zShellBuf[128], *zpRes, zRes[zBytes(1024)];
 
     char zJsonBuf[zBytes(256)];
     _i zVecCnter;
@@ -209,7 +261,10 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zVecCnter = 0;  NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zVecCnter++) {
+    /* >>>>初始化线程同步环境 */
+    zCcur_Init();
+    zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
+    for (zVecCnter = 0;  NULL != zpRes; zVecCnter++) {
         if (zVecCnter > (zAllocSiz - 2)) {  // For json ']'
             zAllocSiz *= 2;
             zMem_Re_Alloc( zpCurVecWrapIf->p_VecIf, struct iovec, zAllocSiz, zpCurVecWrapIf->p_VecIf );
@@ -221,8 +276,10 @@ zget_file_list_and_diff_content(void *zpIf) {
         zCheck_Null_Exit( zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zDataLen) );
         strcpy(zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);  // 信息正文实际存放的位置
 
-        /* 用于转换成JsonStr以及传向下一级函数 */
+        /* >>>>填充必要的线程间同步数据 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+        zCcur_Sub_Config(zpSubMetaIf);
+        /* 用于转换成JsonStr以及传向下一级函数 */
         zpSubMetaIf->OpsId = 0;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
@@ -241,9 +298,16 @@ zget_file_list_and_diff_content(void *zpIf) {
         memcpy(zpCurVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpCurVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
+        /* 必须在上一个 zRes 使用完之后才能执行 */
+        zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
+        /* >>>>检测是否是最后一次循环 */
+        zCcur_Fin_Mark(NULL, zpRes, zCacheSiz - 1, zVecCnter);
         /* 进入下一层获取对应的差异内容 */
         zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
     }
+    /* >>>>等待分发出去的所有任务全部完成 */
+    zCcur_Wait();
+
     pclose(zpShellRetHandler);
 
     if (0 == zVecCnter) {
@@ -268,6 +332,9 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_data = NULL;
         zpCurVecWrapIf->p_RefDataIf[zVecCnter].p_SubVecWrapIf = NULL;
     }
+
+    /* >>>>任务完成，尝试通知上层调用者 */
+    zCcur_Fin_Signal(zpMetaIf);
 }
 
 /*
@@ -284,7 +351,7 @@ zgenerate_cache(void *zpIf) {
     _i zVecDataLen, zVecCnter;
 
     FILE *zpShellRetHandler;
-    char zRes[zCommonBufSiz], zShellBuf[128], zLogPathBuf[128];
+    char *zpRes, zRes[zCommonBufSiz], zShellBuf[128], zLogPathBuf[128];
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -304,15 +371,20 @@ zgenerate_cache(void *zpIf) {
     
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    // zCacheSiz - 1 :留一个空间给json需要 ']'
-    for (zVecCnter = 0; (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) && (zVecCnter < (zCacheSiz - 1)); zVecCnter++) {
+    /* >>>>初始化线程同步环境 */
+    zCcur_Init();
+    /* zCacheSiz - 1 :留一个空间给json需要 ']' */
+    zpRes = zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
+    for (zVecCnter = 0; (NULL != zpRes) && (zVecCnter < (zCacheSiz - 1)); zVecCnter++) {
         zRes[strlen(zRes) - 1] = '\0';
         zRes[40] = '\0';
         zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(41)) );
         strcpy(zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);
 
-        /* 用于转换成JsonStr以及传向下一级函数 */
         zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+        /* >>>>填充必要的线程间同步数据 */
+        zCcur_Sub_Config(zpSubMetaIf);
+        /* 转换成JsonStr以及传向下一级函数 */
         zpSubMetaIf->OpsId = 0;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zVecCnter;
@@ -332,16 +404,23 @@ zgenerate_cache(void *zpIf) {
         memcpy(zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
         zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
 
-        /* 生成下一级缓存 */
-        zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
-
         /* 新生成的缓存本来就是有序的，不需要额外排序 */
         if (zIsCommitDataType ==zpMetaIf->DataType) {
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
             zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
         }
+
+        /* 必须在上一个 zRes 使用完之后才能执行 */
+        zpRes = zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
+        /* >>>>检测是否是最后一次循环 */
+        zCcur_Fin_Mark(NULL, zpRes, zCacheSiz - 1, zVecCnter);
+        /* 生成下一级缓存 */
+        zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
     }
-    pclose(zpShellRetHandler);
+    /* >>>>等待分发出去的所有任务全部完成 */
+    zCcur_Wait();
+
+    pclose(zpShellRetHandler);  // 关闭popen打开的FILE指针
 
     /* 存储的是实际的对象数量 */
     zpTopVecWrapIf->VecSiz = zVecCnter + 1;
@@ -415,8 +494,12 @@ zupdate_one_commit_cache(void *zpIf) {
     zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41)) );
     strcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zRes);
 
-    /* 用于转换成JsonStr以及传向下一级函数 */
+    /* >>>>初始化线程同步环境 */
+    zCcur_Init();
+    /* >>>>填充必要的线程间同步数据 */
     zpSubMetaIf = zalloc_cache(zpObjIf->RepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpSubMetaIf);
+    /* 转换成JsonStr以及传向下一级函数 */
     zpSubMetaIf->OpsId = 0;
     zpSubMetaIf->RepoId = zpObjIf->RepoId;
     zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
@@ -426,9 +509,13 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->DataType = zIsCommitDataType;
     zpSubMetaIf->p_TimeStamp = &(zRes[41]);
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
-
+    /* >>>>通知工作线程是最后一次循环 */
+    zCcur_Fin_Mark(0, 0, 0, 0);
     /* 生成下一级缓存 */
     zAdd_To_Thread_Pool( zget_file_list_and_diff_content, zpSubMetaIf );
+
+    /* >>>>等待分发出去的所有任务全部完成 */
+    zCcur_Wait();
 
     /* 将zMetaInfo转换为JSON文本 */
     zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
@@ -720,7 +807,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zpObjIf->RecursiveMark = 1;
     zpObjIf->zpRegexPattern = "^\\.{1,2}$";
     zpObjIf->CallBack = zupdate_one_commit_cache;
-    zpObjIf->UpperWid = -1; /* 填充负数，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
+    zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
     strcpy(zpObjIf->path, zppGlobRepoIf[zRepoId]->p_RepoPath);
     strcat(zpObjIf->path, "/.git/logs");
     zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
