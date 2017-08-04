@@ -772,9 +772,9 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
     strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
     /* 检测代码库路径是否存在，根据是否是初始化时被调用，进行创建或报错 */
-    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) {
+    errno = 0;
+    if ((-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) && (EEXIST == errno)) {
         if (0 == zInitMark) {
-            zMem_Re_Alloc(zppGlobRepoIf, struct zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);
             free(zppGlobRepoIf[zRepoId]);
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             return -3;
@@ -783,6 +783,8 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
             char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
             zfork_do_exec(zpCmd, zppArgv);
         }
+    } else {
+        zCheck_Negative_Exit(zFd[0]);
     }
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
