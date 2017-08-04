@@ -241,7 +241,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -259,7 +259,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":0,\"Data\":\"\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
 
     // 查询尚未布署成功的主机列表
     //char zStrBuf[] = "{\"OpsId\":7,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -271,7 +271,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":5,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":-1,\"Data\":\"\"}";

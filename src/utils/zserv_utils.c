@@ -779,14 +779,14 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
             char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
             zfork_do_exec(zpCmd, zppArgv);
         } else {
-            free(zppGlobRepoIf[zRepoId]);
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+            free(zppGlobRepoIf[zRepoId]);
             return -3;
         }
     } else {
         if (0 == zInitMark) {
-            free(zppGlobRepoIf[zRepoId]);
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+            free(zppGlobRepoIf[zRepoId]);
             return -3;
         }
     }
