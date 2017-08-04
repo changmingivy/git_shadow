@@ -62,15 +62,12 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     *zpThreadCnter = 0;\
 \
     pthread_cond_t *zpCondVar = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
+    pthread_mutex_t *zpMutexLock = zalloc_cache(zRepoId, 2 * sizeof(pthread_mutex_t));\
     pthread_cond_init(zpCondVar, NULL);\
-\
-    pthread_mutex_t *zpMutexLock = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
     pthread_mutex_init(zpMutexLock, NULL);\
     pthread_mutex_init(zpMutexLock + 1, NULL);\
-    pthread_mutex_init(zpMutexLock + 2, NULL);\
 \
-    pthread_mutex_lock(zpMutexLock + 1);\
-    pthread_mutex_lock(zpMutexLock + 2);
+    pthread_mutex_lock(zpMutexLock);
 
 /* 配置将要传递给工作线程的参数(结构体) */
 #define zCcur_Sub_Config(zpSubIf) \
@@ -80,7 +77,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     zpSubIf->p_CondVar = zpCondVar;\
     zpSubIf->p_MutexLock[0] = zpMutexLock;\
     zpSubIf->p_MutexLock[1] = zpMutexLock + 1;\
-    zpSubIf->p_MutexLock[2] = zpMutexLock + 2;
 
 /* 放置于调用者每次分发任务之前(即调用工作线程之前) */
 #define zCcur_Fin_Mark(zLoopObj, zFinalObj, zLoopObj_1, zFinalObj_1) do {\
@@ -92,31 +88,24 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 
 /* 当调用者任务分发完成之后执行 */
 #define zCcur_Wait() do {\
-        pthread_mutex_lock(zpMutexLock);\
-        pthread_mutex_unlock(zpMutexLock + 1);\
         while (*zpSelfCnter != *zpThreadCnter) {\
             pthread_cond_wait(zpCondVar, zpMutexLock);\
         }\
-        pthread_mutex_unlock(zpMutexLock + 2);\
         pthread_mutex_unlock(zpMutexLock);\
+        pthread_cond_destroy(zpCondVar);\
+        pthread_mutex_destroy(zpMutexLock + 1);\
+        pthread_mutex_destroy(zpMutexLock);\
     } while(0)
 
 /* 放置于工作线程的回调函数末尾，最后所有的锁都会在这里锁定，之后锁毁之 */
 #define zCcur_Fin_Signal(zpIf) do {\
-        pthread_mutex_lock(zpIf->p_MutexLock[0]);\
+        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
         (*zpIf->p_ThreadCnter)++;\
-        pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
+        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
         if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_SelfCnter) == *(zpIf->p_ThreadCnter))) {\
-            pthread_mutex_lock(zpIf->p_MutexLock[1]);\
-            do {\
-                pthread_cond_signal(zpIf->p_CondVar);\
-            } while (EAGAIN == pthread_mutex_trylock(zpIf->p_MutexLock[2]));\
             pthread_mutex_lock(zpIf->p_MutexLock[0]);\
-\
-            pthread_cond_destroy(zpIf->p_CondVar);\
-            pthread_mutex_destroy(zpIf->p_MutexLock[0]);\
-            pthread_mutex_destroy(zpIf->p_MutexLock[1]);\
-            pthread_mutex_destroy(zpIf->p_MutexLock[2]);\
+            pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
+            pthread_cond_signal(zpIf->p_CondVar);\
         }\
     } while(0)
 

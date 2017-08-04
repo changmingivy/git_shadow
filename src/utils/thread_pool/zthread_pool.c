@@ -22,8 +22,8 @@
     pthread_mutex_unlock(&(zThreadPollMutexLock[0]));\
 \
     pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
-    pthread_cond_signal(&(zThreadPoolCond[2]));\
     pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
+    pthread_cond_signal(&(zThreadPoolCond[2]));\
 } while(0)
 
 typedef struct zThreadJobInfo {
