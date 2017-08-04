@@ -85,7 +85,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 /* 放置于调用者每次分发任务之前(即调用工作线程之前) */
 #define zCcur_Fin_Mark(zLoopObj, zFinalObj, zLoopObj_1, zFinalObj_1) do {\
         (*zpSelfCnter)++;\
-        if (zLoopObj == zFinalObj && zLoopObj_1 == zFinalObj_1 ) {\
+        if (zLoopObj == zFinalObj || zLoopObj_1 == zFinalObj_1 ) {\
             *zpFinMark = 1;\
         }\
     } while(0)
@@ -101,7 +101,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         pthread_mutex_unlock(zpMutexLock);\
     } while(0)
 
-/* 放置于工作线程的回调函数末尾 */
+/* 放置于工作线程的回调函数末尾，最后所有的锁都会在这里锁定，之后锁毁之 */
 #define zCcur_Fin_Signal(zpIf) do {\
         pthread_mutex_lock(zpIf->p_MutexLock[0]);\
         (*zpIf->p_ThreadCnter)++;\
@@ -111,8 +111,12 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
             do {\
                 pthread_cond_signal(zpIf->p_CondVar);\
             } while (EAGAIN == pthread_mutex_trylock(zpIf->p_MutexLock[2]));\
-            pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
-            pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
+            pthread_mutex_lock(zpIf->p_MutexLock[0]);\
+\
+            pthread_cond_destroy(zpIf->p_CondVar);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[0]);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[1]);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[2]);\
         }\
     } while(0)
 
@@ -297,12 +301,14 @@ zget_file_list_and_diff_content(void *zpIf) {
         /* 必须在上一个 zRes 使用完之后才能执行 */
         zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
         /* >>>>检测是否是最后一次循环 */
-        zCcur_Fin_Mark(NULL, zpRes, zCacheSiz - 1, zVecCnter);
+        zCcur_Fin_Mark(NULL, zpRes, 0, 1);  // 将第二组置为不同的数字，由此只让第一组条件起作用
         /* 进入下一层获取对应的差异内容 */
         zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
     }
     /* >>>>等待分发出去的所有任务全部完成 */
-    zCcur_Wait();
+    if (0 != zVecCnter) {
+        zCcur_Wait();
+    }
 
     pclose(zpShellRetHandler);
 
@@ -419,7 +425,9 @@ zgenerate_cache(void *zpIf) {
         zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
     }
     /* >>>>等待分发出去的所有任务全部完成 */
-    zCcur_Wait();
+    if (0 != zVecCnter) {
+        zCcur_Wait();
+    }
 
     pclose(zpShellRetHandler);  // 关闭popen打开的FILE指针
 
