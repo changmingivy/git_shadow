@@ -291,10 +291,12 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     /* 将本次布署信息写入日志 */
     zwrite_log(zpMetaIf->RepoId);
 
+	fprintf(stderr, "DEBUG:deploy:mark 0\n");
     /* 重置内存池状态 */
     //zReset_Mem_Pool_State(zpMetaIf->RepoId);
     zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
 
+	fprintf(stderr, "DEBUG:deploy:mark 1\n");
     /* 更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
 
@@ -304,6 +306,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zpMetaIf->DataType = zIsCommitDataType;
     zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
 
+	fprintf(stderr, "DEBUG:deploy:mark 2\n");
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
@@ -311,6 +314,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+	fprintf(stderr, "DEBUG:deploy:mark 3\n");
 
     return 0;
 }
