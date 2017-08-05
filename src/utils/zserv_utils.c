@@ -195,8 +195,6 @@ zget_diff_content(void *zpIf) {
     zpCurVecWrapIf->VecSiz = zVecCnter;
     if (0 == zpCurVecWrapIf->VecSiz) {
         free(zpCurVecWrapIf->p_VecIf);
-        zpCurVecWrapIf->p_VecIf = NULL;
-        return;
     } else {
         /* 将分配的空间缩减为最终的实际成员数量 */
         struct iovec *zpIoVecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec) * zpCurVecWrapIf->VecSiz);
@@ -295,9 +293,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
     }
     /* >>>>等待分发出去的所有任务全部完成 */
-    if (0 != zVecCnter) {
-        zCcur_Wait();
-    }
+    zCcur_Wait();
 
     pclose(zpShellRetHandler);
 
@@ -305,7 +301,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         /* 用于差异文件数量为0的情况，如：将 CURRENT 与其自身对比，结果将为空 */
         free(zpCurVecWrapIf->p_VecIf);
         free(zpCurVecWrapIf->p_RefDataIf);
-        return;
     } else {
         zpCurVecWrapIf->VecSiz = zVecCnter + 1;  // 最后有一个额外的成员存放 json ']'
 
@@ -414,9 +409,7 @@ zgenerate_cache(void *zpIf) {
         zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
     }
     /* >>>>等待分发出去的所有任务全部完成 */
-    if (0 != zVecCnter) {
-        zCcur_Wait();
-    }
+    zCcur_Wait();
 
     pclose(zpShellRetHandler);  // 关闭popen打开的FILE指针
 
