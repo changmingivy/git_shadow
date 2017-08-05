@@ -51,11 +51,11 @@ for zAddr in $(ifconfig | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\
     fi
 done
 
-killall -9 git_shadow
-${zProjPath}/.git_shadow/bin/git_shadow_client -h 10.30.2.126 -p 20000
+killall -9 git_shadow_client 2>/dev/null
+${zProjPath}/.git_shadow/bin/git_shadow_client -h <MASTER_ADDR> -p <MASTER_PORT>
 i=0
 while [[ 10 -gt $i ]]; do
     sleep 1
-    ${zProjPath}/.git_shadow/bin/git_shadow_client -h 10.30.2.126 -p 20000
+    ${zProjPath}/.git_shadow/bin/git_shadow_client -h <MASTER_ADDR> -p <MASTER_PORT>
     let i++
 done
