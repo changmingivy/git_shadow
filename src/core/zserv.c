@@ -295,20 +295,30 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     //zReset_Mem_Pool_State(zpMetaIf->RepoId);
     zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
 
-    /* 更新全局缓存 */
+    /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
-
+    /* 初始化任务分发环境 */
+    zCcur_Init(zpMetaIf->RepoId, A);  //___
+    zCcur_Init(zpMetaIf->RepoId, B);  //___
+    /* 生成提交记录缓存 */
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpMetaIf, A);  //___
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
-
+    zCcur_Fin_Mark(1 == 1, A);  //___
+    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    /* 生成布署记录缓存 */
     zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpMetaIf, B);  //___
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpMetaIf->DataType = zIsDeployDataType;
-    zgenerate_cache(zpMetaIf);  // 此处暂时串行执行，如何优雅地解决同一函数内存在多轮任务的并发分别控制问题？
+    zCcur_Fin_Mark(1 == 1, B);  //___
+    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    /* 等待两批任务完成，之后释放相关资源占用 */
+    zCcur_Wait(A);  //___
+    zCcur_Wait(B);  //___
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
