@@ -24,8 +24,8 @@ ssh $zSlaveAddr "
 scp /tmp/zhost_post-update.sh git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
 
 ssh $zSlaveAddr "
-    eval sed -i 's%\<PROJ_PATH\>%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
-    eval sed -i 's%\<MASTER_ADDR\>%\[MASTER_ADDR\]%g' ${zPathOnHost}/.git/hooks/post-update &&
-    eval sed -i 's%\<MASTER_PORT\>%\[MASTER_PORT\]%g' ${zPathOnHost}/.git/hooks/post-update &&
+    eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
+    eval sed -i 's%_MASTER_ADDR%__MASTER_ADDR%g' ${zPathOnHost}/.git/hooks/post-update &&
+    eval sed -i 's%_MASTER_PORT%__MASTER_PORT%g' ${zPathOnHost}/.git/hooks/post-update &&
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update
     "

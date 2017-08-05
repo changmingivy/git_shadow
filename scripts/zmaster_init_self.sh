@@ -3,10 +3,12 @@ zServAddr=$1
 zServPort=$2
 zShadowPath="/home/git/zgit_shadow"
 
-eval sed -i 's%\[MASTER_ADDR\]%${zServAddr}%g' ./zhost_init_repo.sh
-eval sed -i 's%\[MASTER_PORT\]%${zServPort}%g' ./zhost_init_repo.sh
-eval sed -i 's%\[MASTER_ADDR\]%${zServAddr}%g' ./zhost_init_repo_slave.sh
-eval sed -i 's%\[MASTER_PORT\]%${zServPort}%g' ./zhost_init_repo_slave.sh
+git stash
+git pull
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./zhost_init_repo.sh
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./zhost_init_repo.sh
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./zhost_init_repo_slave.sh
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./zhost_init_repo_slave.sh
 
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null

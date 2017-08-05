@@ -3,7 +3,7 @@
 # 拉取server分支分代码到master分支；
 # 通知中控机已收到代码；
 # 判断自身是否是ECS分发节点，如果是，则向同一项目下的所有其它ECS推送最新收到的代码
-export zProjPath="<PROJ_PATH>"
+export zProjPath="_PROJ_PATH"
 export zEcsAddrMajorListPath="${zProjPath}/.git_shadow/info/host_ip_major.txt"
 export zEcsAddrListPath="${zProjPath}/.git_shadow/info/host_ip_all.txt"
 
