@@ -780,12 +780,6 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
 
-    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
-    zMap_Alloc( zppGlobRepoIf[zRepoId]->p_MemPool, char, zMemPoolSiz );
-    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
-    zppPrev[0] = NULL;
     /* 打开代码库顶层目录，生成目录fd供接下来的openat使用 */
     zCheck_Negative_Exit( zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY) );
     /* inotify */
@@ -842,6 +836,12 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     close(zFd[1]);
     close(zFd[0]);
 
+    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
+    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+    zMap_Alloc( zppGlobRepoIf[zRepoId]->p_MemPool, char, zMemPoolSiz );
+    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
+    zppPrev[0] = NULL;
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
     /* 用于标记提交记录缓存中的下一个可写位置 */
