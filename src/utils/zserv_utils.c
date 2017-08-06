@@ -196,7 +196,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     char zJsonBuf[zBytes(256)];
     _i zVecDataLen, zDataLen, zCnter, zInnerCnter, zUnitCnter;
-    _i zAllocSiz = 24;
+    _i zAllocSiz = zUnitSiz;  // 固定设置为此值，不能轻易改动，否则会有连锁影响
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -220,16 +220,6 @@ zget_file_list_and_diff_content(void *zpIf) {
     for (zUnitCnter = zCnter = 0;  NULL != zpRes; zCnter++) {
         zInnerCnter = zCnter % zUnitSiz;
         if (0 == zInnerCnter) {
-            if (0 == zCnter) {
-                /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-                ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
-                /* 头指针 */
-                zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) =
-                    zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[0];
-            } else {
-                zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;
-            }
-
             zpTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
             zpTmpVecWrapIf->VecSiz = zUnitSiz;
             zpTmpVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zUnitSiz * sizeof(struct iovec));
@@ -248,6 +238,7 @@ zget_file_list_and_diff_content(void *zpIf) {
                         zAllocSiz,
                         zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf
                         );
+                zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;  // 与内存再分配同步
             }
         }
 
@@ -292,11 +283,17 @@ zget_file_list_and_diff_content(void *zpIf) {
     zCcur_Wait(A);
     pclose(zpShellRetHandler);
 
-    /* 移动至项目内存池 */
-    zppTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, zUnitCnter * sizeof(struct zVecWrapInfo *));
-    memcpy(zppTmpVecWrapIf, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf, zUnitCnter * sizeof(struct zVecWrapInfo *));
-    free(zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf);
-    zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf = zppTmpVecWrapIf;
+    if (0 != zCnter) {
+        /* 移动至项目内存池 */
+        zppTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, zUnitCnter * sizeof(struct zVecWrapInfo *));
+        memcpy(zppTmpVecWrapIf, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf, zUnitCnter * sizeof(struct zVecWrapInfo *));
+        free(zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf);
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf = zppTmpVecWrapIf;
+        /* 为头指针赋值 */
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[0];
+        /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
+        ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
+    }
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
