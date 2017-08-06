@@ -168,7 +168,7 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_FileId();  // 宏内部会解锁
 
     /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
-    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
+    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
         zsendmsg(zSd, zpTmp, 0, NULL);
     }
 

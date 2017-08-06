@@ -168,7 +168,7 @@ zget_diff_content(void *zpIf) {
         zpTmpVecWrapIf->p_RefDataIf = NULL;
         zpTmpVecWrapIf->p_next = NULL;
         if (0 == zCnter) {
-            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId) = zpTmpVecWrapIf;
+            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf = zpTmpVecWrapIf;
             zCnter = 1;
         }
 
