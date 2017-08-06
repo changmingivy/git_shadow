@@ -43,6 +43,8 @@
 
 #define zServHashSiz 14
 
+#define zUnitSiz 8  // 分散聚离IO分段数量大于8时，效率会降低
+
 #define UDP 0
 #define TCP 1
 
@@ -96,6 +98,7 @@ struct zMetaInfo {
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
+    struct zVecWrapInfo **pp_UnitVecWrapIf;  // 按 UnitSiz 分块索引
     char *p_data;  // 实际存放数据正文的地方
 };
 
@@ -162,12 +165,11 @@ struct zRepoInfo {
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
-struct zRepoInfo **zppGlobRepoIf;
-
 /************
  * 全局变量 *
  ************/
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
+struct zRepoInfo **zppGlobRepoIf;
 
 pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
 

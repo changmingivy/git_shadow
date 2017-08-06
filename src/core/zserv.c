@@ -220,7 +220,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zPrint_Err(0, NULL, "差异文件ID不存在!");\
         return -4;\
     } else {
-        zpFilePath = zGet_NativeData(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId), zpMetaIf->FileId);
+        zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId);
     }
 
     zCheck_Negative_Exit( zFd = open(zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, O_RDONLY) );

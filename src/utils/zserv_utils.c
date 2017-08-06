@@ -110,10 +110,11 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     } while(0)
 
 /* 用于提取深层对象 */
-#define zGet_JsonStr(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_VecIf[zSelfId].iov_base)
-#define zGet_SubVecWrapIf(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_SubVecWrapIf)
-#define zGet_NativeData(zpUpperVecWrapIf, zSelfId) ((zpUpperVecWrapIf)->p_RefDataIf[zSelfId].p_data)
-#define zGet_OneCommitSig(zpTopVecWrapIf, zCommitId) zGet_NativeData(zpTopVecWrapIf, zCommitId)
+#define zGet_CommitVecWrapIf(zpTopVecWrapIf, zCommitId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf)
+#define zGet_FileVecWrapIf(zpTopVecWrapIf, zCommitId, zFileId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].pp_UnitVecWrapIf[(zFileId) / zUnitSiz][(zFileId) % zUnitSiz])
+
+#define zGet_OneCommitSig(zpTopVecWrapIf, zCommitId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_data)
+#define zGet_OneFilePath(zpTopVecWrapIf, zCommitId, zFileId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].pp_UnitVecWrapIf[(zFileId) / zUnitSiz][(zFileId) % zUnitSiz].p_RefDataIf->p_data)
 
 /*
  *  定时(10s)同步远程代码
@@ -139,15 +140,11 @@ zMark:
 void
 zget_diff_content(void *zpIf) {
 // TEST:PASS
-    struct zMetaInfo *zpMetaIf;
-    struct zVecWrapInfo *zpTopVecWrapIf, *zpUpperVecWrapIf, *zpTmpVecWrapIf;
-
     FILE *zpShellRetHandler;
     char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
-
     _i zVecDataLen;
-
-    zpMetaIf = (struct zMetaInfo *)zpIf;
+    struct zVecWrapInfo *zpTopVecWrapIf, *zpTmpVecWrapIf;
+    struct zMetaInfo *zpMetaIf = (struct zMetaInfo *)zpIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -155,13 +152,11 @@ zget_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     }
 
-    zpUpperVecWrapIf = zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId);
-
     /* 必须在shell命令中切换到正确的工作路径 */
     sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
-            zGet_NativeData(zpUpperVecWrapIf, zpMetaIf->FileId));
+            zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
@@ -173,7 +168,8 @@ zget_diff_content(void *zpIf) {
         zpTmpVecWrapIf->p_RefDataIf = NULL;
         zpTmpVecWrapIf->p_next = NULL;
         if (0 == zCnter) {
-            zpUpperVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf = zpTmpVecWrapIf;
+            zGet_FileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId).p_RefDataIf->p_SubVecWrapIf = zpTmpVecWrapIf;
+            zGet_FileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId).p_RefDataIf->pp_UnitVecWrapIf = NULL;
             zCnter = 1;
         }
 
@@ -202,8 +198,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     char zShellBuf[128], *zpRes, zRes[zBytes(1024)];
 
     char zJsonBuf[zBytes(256)];
-    _i zVecDataLen, zDataLen, zCnter, zInnerCnter;
-    _i zUnitSiz = 8;  // 分散聚离IO分段数量大于8时，效率会降低
+    _i zVecDataLen, zDataLen, zCnter, zInnerCnter, zUnitCnter;
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -223,7 +218,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     /* >>>>初始化线程同步环境 */
     zCcur_Init(zpMetaIf->RepoId, A);
     zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
-    for (zCnter = 0;  NULL != zpRes; zCnter++, zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+    for (zUnitCnter = zCnter = 0;  NULL != zpRes; zCnter++, zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
         zInnerCnter = zCnter % zUnitSiz;
         if (0 == zInnerCnter) {
             zpTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
@@ -233,8 +228,9 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpTmpVecWrapIf->p_next = NULL;
             if (0 == zCnter) {
                 /* 关联到上层数据结构 */
-                zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpTmpVecWrapIf;
+                zGet_CommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpTmpVecWrapIf;
             }
+            zUnitCnter++;
         }
 
         zDataLen = strlen(zRes);
@@ -249,7 +245,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->OpsId = 0;
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
-        zpSubMetaIf->FileId = zInnerCnter;
+        zpSubMetaIf->FileId = zCnter;  // 注意：不是 zInnerCnter
         zpSubMetaIf->HostId = -1;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
@@ -278,10 +274,18 @@ zget_file_list_and_diff_content(void *zpIf) {
     zCcur_Wait(A);
     pclose(zpShellRetHandler);
 
-	if (0 != zCnter) {
+    if (0 != zCnter) {
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-        ((char *)(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
-	}
+        ((char *)(zGet_CommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
+    }
+
+    /* 建立分块索引 */
+    zpTopVecWrapIf->p_RefDataIf->pp_UnitVecWrapIf = zalloc_cache(zpMetaIf->RepoId, zUnitCnter * sizeof(struct zVecWrapInfo *));
+    zpTmpVecWrapIf = zGet_CommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId);
+    for (zCnter = 0; zCnter < zUnitCnter; zCnter++) {
+        zpTopVecWrapIf->p_RefDataIf->pp_UnitVecWrapIf[zCnter] = zpTmpVecWrapIf;
+        zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;
+    }
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
