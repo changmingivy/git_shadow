@@ -298,7 +298,7 @@ zgenerate_cache(void *zpIf) {
     _i zVecDataLen, zVecCnter;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zRes[zCommonBufSiz], zShellBuf[128], zLogPathBuf[128];
+    char *zpRes, zRes[zCommonBufSiz], zShellBuf[128];
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -311,9 +311,9 @@ zgenerate_cache(void *zpIf) {
     } else {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
 
-        strcpy(zLogPathBuf, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
-        strcat(zLogPathBuf, "/");
-        strcat(zLogPathBuf, zLogPath);
+        strcpy(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+        strcat(zShellBuf, "/");
+        strcat(zShellBuf, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
     }
     

@@ -241,7 +241,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"99 /home/git/HuaMeiMei https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -268,7 +268,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":99,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1501942578,\"DataType\":1,\"Data\":\"\"}";
 
     // 打印差异文件内容
-    char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1501942578,\"DataType\":1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1501942578,\"DataType\":1,\"Data\":\"\"}";
 
     // 布署
     //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1501942287,\"DataType\":0,\"Data\":\"\"}";
@@ -287,15 +287,15 @@ zclient(void) {
         fprintf(stderr, "%c", zBuf[i]);
     }
 
-    memset(zBuf, 0, zBufSiz);
-    recv(zSd, &zBuf, zBufSiz, 0);
-    fprintf(stderr, "\n\n<+=[1]=+>\n");
-  //  fprintf(stderr, "STR: %s\n", zBuf);
-    for (_i i = 0; i < zBufSiz; i++) {
-        fprintf(stderr, "%c", zBuf[i]);
-    }
+//    memset(zBuf, 0, zBufSiz);
+//    recv(zSd, &zBuf, zBufSiz, 0);
+//    fprintf(stderr, "\n\n<+=[1]=+>\n");
+//  //  fprintf(stderr, "STR: %s\n", zBuf);
+//    for (_i i = 0; i < zBufSiz; i++) {
+//        fprintf(stderr, "%c", zBuf[i]);
+//    }
 
-    close(zSd);
+    shutdown(zSd, SHUT_RDWR);
 }
 
 _i
