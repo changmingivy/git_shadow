@@ -93,7 +93,7 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-	/* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX，不使用链表 */
+    /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX，不使用链表 */
     zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
     zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
 
