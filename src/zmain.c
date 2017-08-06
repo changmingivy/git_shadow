@@ -13,19 +13,18 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
-#include <pwd.h>
-
 #include <pthread.h>
 #include <sys/mman.h>
+#include <pwd.h>
+#include <time.h>
+#include <errno.h>
+#include <limits.h>
 
 #include <sys/inotify.h>
-//#include <sys/epoll.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <errno.h>
 #include <dirent.h>
 #include <libgen.h>
 #include <ctype.h>
@@ -38,7 +37,7 @@
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
-#define zCacheSiz 1009
+#define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
@@ -105,6 +104,7 @@ struct zVecWrapInfo {
     _i VecSiz;
     struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
     struct zRefDataInfo *p_RefDataIf;
+    struct zVecWrapInfo *p_next;
 };
 
 struct zDeployResInfo {

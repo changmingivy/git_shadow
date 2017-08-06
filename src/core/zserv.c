@@ -79,7 +79,6 @@ _i
 zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
 // TEST:PASS
     struct zVecWrapInfo *zpSortedTopVecWrapIf;
-//    char zJsonBuf[256];
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -94,14 +93,9 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-//    /* 若上一次布署是失败的，则提醒前端此时对比的数据可能是不准确的 */
-//    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
-//        zpMetaIf->OpsId = -13;  // 此时代表错误码
-//        zconvert_struct_to_json_str(zJsonBuf, zpMetaIf);
-//        zsendto(zSd, &(zJsonBuf[1]), strlen(zJsonBuf) - 1, 0, NULL);  // 不发送第一个字符 ','
-//    }
-
+	/* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX，不使用链表 */
     zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
+    zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -135,7 +129,10 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
-    zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf, 0, NULL);
+    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
+        zsendmsg(zSd, zpTmp, 0, NULL);
+    }
+    zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -170,7 +167,10 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CommitId();  // 宏内部会解锁
     zCheck_FileId();  // 宏内部会解锁
 
-    zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
+    /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
+    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
+        zsendmsg(zSd, zpTmp, 0, NULL);
+    }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -292,8 +292,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zwrite_log(zpMetaIf->RepoId);
 
     /* 重置内存池状态 */
-    //zReset_Mem_Pool_State(zpMetaIf->RepoId);
-    zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
+    zReset_Mem_Pool_State(zpMetaIf->RepoId);
+    //zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
@@ -595,7 +595,7 @@ zMark:
         free(zpJsonBuf);
     }
 
-    shutdown(zSd, SHUT_RDWR);
+//    shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
 #undef zCheck_Errno_12

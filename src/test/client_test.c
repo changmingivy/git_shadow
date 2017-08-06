@@ -265,13 +265,13 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":7,\"RepoId\":99,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":99,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":99,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1501942578,\"DataType\":1,\"Data\":\"\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":3,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":99,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1501942578,\"DataType\":1,\"Data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1501942287,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":99,\"CommitId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":-1,\"Data\":\"\"}";

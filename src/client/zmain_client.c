@@ -101,25 +101,26 @@ zstate_reply(char *zpHost, char *zpPort) {
     zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
     close(zFd);
+
+    if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+        zPrint_Err(0, NULL, "无法与中控机建立连接！");
+        exit(1);
+    }
+
     /* 读取本机的所有常规IPv4地址，依次发送状态确认信息至服务端 */
     zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
     while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
         zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
 
-        /* 每发送一次重新连接一次，因为服务器每次只收到次数据就会断开连接 */
-        if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
-            zPrint_Err(0, NULL, "无法与中控机建立连接！");
-            exit(1);
-        }
-
         sprintf(zJsonBuf, "{\"OpsId\":9,\"RepoId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);
         if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态回复失败！");
         }
 
-        shutdown(zSd, SHUT_RDWR);
     }
+
+    shutdown(zSd, SHUT_RDWR);
     fclose(zpFileHandler);
 }
 
