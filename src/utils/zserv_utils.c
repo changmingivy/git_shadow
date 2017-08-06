@@ -295,14 +295,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
     }
 
-    /* 建立分块索引 */
-    zpTopVecWrapIf->p_RefDataIf->pp_UnitVecWrapIf = zalloc_cache(zpMetaIf->RepoId, zUnitCnter * sizeof(struct zVecWrapInfo *));
-    zpTmpVecWrapIf = zGet_CommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId);
-    for (zCnter = 0; zCnter < zUnitCnter; zCnter++) {
-        zpTopVecWrapIf->p_RefDataIf->pp_UnitVecWrapIf[zCnter] = zpTmpVecWrapIf;
-        zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;
-    }
-
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
 }
