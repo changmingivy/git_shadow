@@ -161,7 +161,7 @@ zget_diff_content(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
-    for (_i zCnter = 0; 0 < zget_str_content(zRes, zBytes(1448), zpShellRetHandler); zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+    for (_i zCnter = 0; 0 < (zVecDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
         zpTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
         zpTmpVecWrapIf->VecSiz = 1;
         zpTmpVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
@@ -173,9 +173,7 @@ zget_diff_content(void *zpIf) {
             zCnter = 1;
         }
 
-        zVecDataLen = 1 + strlen(zRes);
         zpTmpVecWrapIf->p_VecIf->iov_len = zVecDataLen;
-
         zCheck_Null_Exit( zpTmpVecWrapIf->p_VecIf->iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen) );
         strcpy((char *)(zpTmpVecWrapIf->p_VecIf->iov_base), zRes);
     }
@@ -264,7 +262,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         /* 必须在上一个 zRes 使用完之后才能执行 */
         zpRes = zget_one_line(zRes, zBytes(1024), zpShellRetHandler);
         /* 将最后一段数据的 VecSiz 修正为实际的大小 */
-        if (NULL == zpRes) { zpTmpVecWrapIf->VecSiz = zInnerCnter; }
+        if (NULL == zpRes) { zpTmpVecWrapIf->VecSiz = zInnerCnter + 1; }
         /* >>>>检测是否是最后一次循环 */
         zCcur_Fin_Mark(NULL == zpRes, A);
         /* 进入下一层获取对应的差异内容 */
