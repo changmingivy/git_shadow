@@ -34,16 +34,16 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     return zpX;
 }
 
-/* 重置内存池状态 */
+/* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zReset_Mem_Pool_State(zRepoId) do {\
     pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));\
     \
     void **zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;\
-    do {\
+    while(NULL != zppPrev[0]) {\
         zppPrev = zppPrev[0];\
         munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);\
         zppGlobRepoIf[zRepoId]->p_MemPool = zppPrev;\
-    } while(NULL != zppPrev);\
+    }\
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);\
     \
     pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));\

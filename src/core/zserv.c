@@ -297,7 +297,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
-    /* 初始化任务分发环境 */
+    /* 同步锁初始化 */
     zCcur_Init(zpMetaIf->RepoId, A);  //___
     zCcur_Init(zpMetaIf->RepoId, B);  //___
     /* 生成提交记录缓存 */
