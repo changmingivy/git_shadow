@@ -234,8 +234,6 @@ zget_file_list_and_diff_content(void *zpIf) {
             if (0 == zCnter) {
                 /* 关联到上层数据结构 */
                 zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zpTmpVecWrapIf;
-                /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-                ((char *)(zpTmpVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
             }
         }
 
@@ -279,6 +277,11 @@ zget_file_list_and_diff_content(void *zpIf) {
     /* >>>>等待分发出去的所有任务全部完成 */
     zCcur_Wait(A);
     pclose(zpShellRetHandler);
+
+	if (0 != zCnter) {
+        /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
+        ((char *)(zGet_SubVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
+	}
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
@@ -358,7 +361,7 @@ zgenerate_cache(void *zpIf) {
         /* 必须在上一个 zRes 使用完之后才能执行 */
         zpRes = zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
         /* >>>>检测是否是最后一次循环 */
-        zCcur_Fin_Mark(NULL == zpRes || (zCacheSiz - 1) == zVecCnter, A);
+        zCcur_Fin_Mark(((NULL == zpRes) || ((zCacheSiz - 1) == zVecCnter)), A);
         /* 生成下一级缓存 */
         zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
     }
