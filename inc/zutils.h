@@ -5,7 +5,10 @@
     #include <errno.h>
     #include <pthread.h>
     #include <sys/signal.h>
-    #define zCommonBufSiz 4096
+#endif
+
+#ifndef zCommonBufSiz
+#define zCommonBufSiz 1024
 #endif
 
 #define zBytes(zNum) ((_i)(zNum * sizeof(char)))
@@ -136,15 +139,15 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
  */
 
 #define zMem_Alloc(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = (zType *) malloc((zCnt) * sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMem_Re_Alloc(zpRet, zType, zCnt, zpOldAddr) do {\
-    zCheck_Null_Exit( zpRet = (zType *) realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMem_C_Alloc(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = (zType *) calloc(zCnt, sizeof(zType)) );\
+    zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 #define zFree_Memory_Common(zpObjToFree, zpBridgePointer) do {\
@@ -156,15 +159,26 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
     zpObjToFree = zpBridgePointer = NULL;\
 } while(0)
 
+#define zMap_Alloc(zpRet, zType, zCnt) do {\
+	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {\
+		zPrint_Err(0, NULL, "mmap failed!");\
+		exit(1);\
+	}\
+} while(0)
+
+#define zMap_Free(zpRet, zType, zCnt) do {\
+	munmap(zpRet, (zCnt) * sizeof(zType));\
+} while(0)
+
 /*
- * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV 之外的所有信号，合计 29 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
  */
-_i zSigSet[30] = {
+_i zSigSet[26] = {
     SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-    SIGIOT, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
-    SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCHLD, SIGCONT,
+    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
     SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGPOLL, SIGIO, SIGPWR, SIGSEGV
+    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
+    SIGIOT, SIGIO
 };
 
 #define zIgnoreAllSignal() do {\
@@ -199,8 +213,4 @@ _i zSigSet[30] = {
     sigaction(zSigSet[23], &zSigActionIf, NULL);\
     sigaction(zSigSet[24], &zSigActionIf, NULL);\
     sigaction(zSigSet[25], &zSigActionIf, NULL);\
-    sigaction(zSigSet[26], &zSigActionIf, NULL);\
-    sigaction(zSigSet[27], &zSigActionIf, NULL);\
-    sigaction(zSigSet[28], &zSigActionIf, NULL);\
 } while(0)
-

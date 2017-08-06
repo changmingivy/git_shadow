@@ -1,8 +1,7 @@
-log
 a.out
-git_shadow
 ISOs/
 images/
+Trash/
 
 # Prerequisites
 *.d
