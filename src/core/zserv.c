@@ -293,7 +293,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 重置内存池状态 */
     //zReset_Mem_Pool_State(zpMetaIf->RepoId);
-    zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
+    //zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
