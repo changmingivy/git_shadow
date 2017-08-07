@@ -545,7 +545,7 @@ zops_route(void *zpSd) {
     }
 
     if (zBytes(4) > zRecvdLen) {
-        //shutdown(zSd, SHUT_RDWR);
+        shutdown(zSd, SHUT_RDWR);
         return;
     }
 
@@ -555,7 +555,7 @@ zops_route(void *zpSd) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        //shutdown(zSd, SHUT_RDWR);
+        shutdown(zSd, SHUT_RDWR);
         zPrint_Err(0, NULL, "接收到的数据无法解析!");
         goto zMark;
     }
@@ -595,7 +595,7 @@ zMark:
         free(zpJsonBuf);
     }
 
-    //shutdown(zSd, SHUT_RDWR);
+    shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
 #undef zCheck_Errno_12
