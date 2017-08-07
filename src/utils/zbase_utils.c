@@ -44,6 +44,17 @@
 // }
 
 /*
+ *  将指定的套接字属性设置为非阻塞
+ */
+void
+zset_nonblocking(_i zSd) {
+    _i zOpts;
+    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zOpts |= O_NONBLOCK;
+    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+}
+
+/*
  * Functions for socket connection.
  */
 struct addrinfo *
@@ -168,14 +179,17 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
     return zRecvSiz;
 }
 
-_i
-zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
-    socklen_t zAddrLen;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
-    zCheck_Negative_Return(zRecvSiz, -1);
-    return zRecvSiz;
-}
+//_i
+//zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
+//// TEST: PASS
+//    socklen_t zAddrLen;
+//    _i zRecvSiz;
+//    if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen)))
+//            && (EAGAIN == errno)) {
+//        zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
+//    }
+//    return zRecvSiz;
+//}
 
 /*
  * Daemonize a linux process to daemon.
@@ -243,7 +257,7 @@ zfork_do_exec(const char *zpCommand, char **zppArgv) {
     zCheck_Negative_Return(zPid,);
 
     if (0 == zPid) {
-        execvp(zpCommand, zppArgv);
+        execve(zpCommand, zppArgv, NULL);
     } else {
         waitpid(zPid, NULL, 0);
     }
@@ -383,25 +397,31 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 
     zCheck_Json_Ret( zpRootObj = cJSON_Parse(zpJsonStr) );  // 返回NULL表示异常
 
+    /* 置为NULL，防止野指针问题 */
+    zpMetaIf->p_TimeStamp = NULL;
+
     /* 操作指令、代码库ID，所有操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
 
+    /* 查询版本记录时，需要指定是提交记录还是布署记录 */
+    if (6 == zpMetaIf->OpsId) {
+        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+        zpMetaIf->DataType = zpValueObj->valueint;
+    }
+
     /* 8 - 9：确认主机布署状态时，需要IP */
     if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-        zpMetaIf->HostId = zpValueObj->valueint;
+        zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
     }
 
     /* 10 - 13：查文件列表、查差异内容、布署、撤销 */
     if (9 < zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
         zpMetaIf->CacheId = zpValueObj->valueint;
-
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-        zpMetaIf->DataType = zpValueObj->valueint;
 
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
         zpMetaIf->CommitId = zpValueObj->valueint;
@@ -419,8 +439,8 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         }
     }
 
-    /* 仅在更新集群IP地址数据库时，需要此项 */
-    if (4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
+    /* 仅在创建新项目及更新集群IP地址数据库时，需要此项 */
+    if (1 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
         zpMetaIf->p_data = zpValueObj->valuestring;
         return zpRootObj;  // 此时需要后续用完之后释放资源
@@ -456,4 +476,22 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
             (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
             (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
             );
+}
+
+/*
+ *  检查一个目录是否已存在
+ *  返回：1表示已存在，0表示不存在，-1表示出错
+ */
+_i
+zCheck_Dir_Existence(char *zpDirPath) {
+    _i zFd;
+    if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
+        if (EEXIST == errno) {
+            return 1;
+        } else {
+            return -1;
+        }
+    }
+    close(zFd);
+    return 0;
 }

@@ -13,19 +13,18 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/signal.h>
-#include <pwd.h>
-
 #include <pthread.h>
 #include <sys/mman.h>
+#include <pwd.h>
+#include <time.h>
+#include <errno.h>
+#include <limits.h>
 
 #include <sys/inotify.h>
-#include <sys/epoll.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <errno.h>
 #include <dirent.h>
 #include <libgen.h>
 #include <ctype.h>
@@ -38,17 +37,16 @@
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
-#define zCacheSiz 1009
+#define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 #define zServHashSiz 14
 
+#define zUnitSiz 8  // 分散聚离IO分段数量大于8时，效率会降低
+
 #define UDP 0
 #define TCP 1
-
-#define zCcurOff 0
-#define zCcurOn 1
 
 #define zDeployUnLock 0
 #define zDeployLocked 1
@@ -68,9 +66,8 @@ struct zObjInfo {
     _s RepoId;  // 每个代码库对应的索引
     _s RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char path[];  // 被监控对象的绝对路径名称
+    char p_path[];  // 被监控对象的绝对路径名称
 };
 
 struct zNetServInfo {
@@ -88,22 +85,29 @@ struct zMetaInfo {
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
-    _i CcurSwitch;  // 并发开关，用于决定是否采用多线程并发执行
     char *p_TimeStamp;  // 字符串形式的UNIX时间戳
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
+
+    pthread_cond_t *p_CondVar;  // 条件变量
+    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
+    _i *p_SelfCnter;  // 调用者任务发放计数
+    _i *p_ThreadCnter;  // 各线程任务完成计数
+    pthread_mutex_t *p_MutexLock[2];  // 2个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程计数
 };
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
+    struct zVecWrapInfo **pp_UnitVecWrapIf;  // 按 UnitSiz 分块索引
     char *p_data;  // 实际存放数据正文的地方
 };
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
 struct zVecWrapInfo {
     _i VecSiz;
-    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_SendIf 字段
+    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
     struct zRefDataInfo *p_RefDataIf;
+    struct zVecWrapInfo *p_next;
 };
 
 struct zDeployResInfo {
@@ -116,7 +120,7 @@ struct zDeployResInfo {
 /* 用于存放每个项目的元信息 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    char RepoPath[64];  // 项目路径，如："/home/git/miaopai_TEST"
+    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
@@ -130,6 +134,8 @@ struct zRepoInfo {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
+
+    char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -159,14 +165,15 @@ struct zRepoInfo {
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 };
 
-struct zRepoInfo *zpGlobRepoIf;
-
 /************
  * 全局变量 *
  ************/
-_i zGlobRepoNum;  // 总共有多少个代码库
+_i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
+struct zRepoInfo **zppGlobRepoIf;
 
-_i zInotifyFD;   // inotify 主描述符
+pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
+
+_i zInotifyFD;  // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 /* 服务接口 */
@@ -182,7 +189,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
 #define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
 #define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
+#define zLogPath ".git_shadow/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 
 /**********
  * 子模块 *
@@ -193,9 +200,8 @@ zNetOpsFunc zNetServ[zServHashSiz];
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
+#include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
-#include "zinit.c"
-//#include "test/zprint_test.c"
 
 /***************************
  * +++___ main 函数 ___+++ *
@@ -232,33 +238,12 @@ main(_i zArgc, char **zppArgv) {
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 
-zReLoad:;
     zthread_poll_init();  // 初始化线程池
+    zCheck_Negative_Exit( zInotifyFD = inotify_init() );  // 生成inotify master fd
 
-    zInotifyFD = inotify_init();  // 生成inotify master fd
-    zCheck_Negative_Exit(zInotifyFD);
+    zinit_env(zpConfFilePath);  // 运行环境初始化
 
-    zparse_conf(zpConfFilePath); // 解析配置文件
-    zinit_env();  // 代码库信息读取完毕后，初始化整体运行环境
-
-    zAdd_To_Thread_Pool( zstart_server, &zNetServIf );  // 启动网络服务
     zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
-
-    zconfig_file_monitor(zpConfFilePath);  // 主线程监控自身主配置文件的内容变动
-
-    /* 取所有代码库的写锁，确保服务重启不会造成数据紊乱 */
-    for (_i i = 0; i < zGlobRepoNum; i++) {
-        pthread_rwlock_wrlock(&(zpGlobRepoIf[i].RwLock));
-        pthread_mutex_lock(&(zpGlobRepoIf[i].MutexLock));
-    }
-
-    /* 父进程退出，子进程按新的主配置文件内容重新初始化 */
-    pid_t zPid = fork();
-    zCheck_Negative_Exit(zPid);
-
-    if (0 < zPid) {
-        exit(0);
-    } else {
-        goto zReLoad;
-    }
+    zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
+    zstart_server(&zNetServIf);  // 启动网络服务
 }
