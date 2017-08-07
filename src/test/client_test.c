@@ -234,7 +234,7 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 #define zBufSiz 1024
 void
 zclient(void) {
-    _i zSd = ztcp_connect("10.30.3.190", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
+    _i zSd = ztcp_connect("10.10.80.94", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
     if (-1 == zSd) {
         fprintf(stderr, "Connect to server failed \n");
         exit(1);
