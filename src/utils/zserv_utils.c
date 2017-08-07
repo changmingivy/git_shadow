@@ -86,7 +86,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         }\
     } while(0)
 
-/* 当调用者任务分发完成之后执行 */
+/* 当调用者任务分发完成之后执行，之后释放资源占用 */
 #define zCcur_Wait(zSuffix) do {\
         while (*zpSelfCnter##zSuffix != *zpThreadCnter##zSuffix) {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
@@ -97,7 +97,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         pthread_mutex_destroy(zpMutexLock##zSuffix);\
     } while(0)
 
-/* 放置于工作线程的回调函数末尾，最后所有的锁都会在这里锁定，之后锁毁之 */
+/* 放置于工作线程的回调函数末尾 */
 #define zCcur_Fin_Signal(zpIf) do {\
         pthread_mutex_lock(zpIf->p_MutexLock[1]);\
         (*zpIf->p_ThreadCnter)++;\
@@ -558,7 +558,7 @@ zwrite_log(_i zRepoId) {
     sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=\"%%H_%%ct\"", zppGlobRepoIf[zRepoId]->p_RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
-    zLen = 1 + strlen(zRes);  // 此处不能去掉换行符，保证与直接从命令行读出的数据格式一致
+    zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
 
     if (zLen != write(zppGlobRepoIf[zRepoId]->LogFd, zRes, zLen)) {
         zPrint_Err(0, NULL, "日志写入失败： <.git_shadow/log/deploy/meta> !");
