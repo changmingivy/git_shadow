@@ -271,7 +271,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":88,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":88,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":88,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":88,\"CommitId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502031376,\"DataType\":1,\"Data\":\"\"}";
