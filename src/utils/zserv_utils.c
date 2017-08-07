@@ -44,7 +44,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);\
         zppGlobRepoIf[zRepoId]->p_MemPool = zppPrev;\
     }\
-    memset(zppGlobRepoIf[zRepoId]->p_MemPool, 0, zMemPoolSiz);\
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);\
     \
     pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));\
@@ -388,7 +387,7 @@ zgenerate_cache(void *zpIf) {
     }
 
     /* 存储的是实际的对象数量 */
-    zpTopVecWrapIf->VecSiz = zVecCnter + 1;
+    zpTopVecWrapIf->VecSiz = zVecCnter;
 
     /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
     if (0 != zVecCnter) {
@@ -403,8 +402,6 @@ zgenerate_cache(void *zpIf) {
 
     if (zIsCommitDataType ==zpMetaIf->DataType) {
         zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.VecSiz = zpTopVecWrapIf->VecSiz;
-        zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
-        zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
     }
 
     // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
