@@ -44,6 +44,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);\
         zppGlobRepoIf[zRepoId]->p_MemPool = zppPrev;\
     }\
+    memset(zppGlobRepoIf[zRepoId]->p_MemPool, 0, zMemPoolSiz);\
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);\
     \
     pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));\
