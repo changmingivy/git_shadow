@@ -19,7 +19,7 @@ rm -rf ${zShadowPath}/bin/*
 
 cc -O2 -Wall -Wextra -std=c99 \
     -I ${zShadowPath}/inc \
-    -L ../lib/pcre2\
+    -L ${zShadowPath}/lib/pcre2 \
     -lm \
     -lpthread \
     -lpcre2-8 \
