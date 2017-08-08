@@ -24,7 +24,8 @@ git stash
 git stash clear
 git pull --force ./.git server:master
 
-if [[ '' == $zHostIp ]]; then
+# 非单台布署情况下，host ip会被指定为0
+if [[ '0' == $zHostIp ]]; then
     zHostList=`cat ${zProjPath}/${zHostListPath}`
 else
     zHostList=$zHostIp
