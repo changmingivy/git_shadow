@@ -130,7 +130,7 @@ zMark:
             zPrint_Err(0, NULL, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
     }
-    sleep(30);
+    sleep(10);
     goto zMark;
 }
 

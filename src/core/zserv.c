@@ -7,7 +7,7 @@
  ***********/
 /* 检查 CommitId 是否合法，宏内必须解锁 */
 #define zCheck_CommitId() do {\
-    if (0 > zpMetaIf->CommitId || (zCacheSiz - 1) < zpMetaIf->CommitId || NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {\
+    if ((0 > zpMetaIf->CommitId) || ((zCacheSiz - 1) < zpMetaIf->CommitId) || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf)) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
         zPrint_Err(0, NULL, "Commit ID 不存在!");\
         return -3;\
@@ -118,7 +118,7 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpMetaIf->DataType = zIsCommitDataType;
-    } else if (zIsDeployDataType == zpMetaIf->DataType){
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpMetaIf->DataType = zIsDeployDataType;
     } else {
@@ -157,7 +157,7 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpMetaIf->DataType = zIsCommitDataType;
-    } else if (zIsDeployDataType == zpMetaIf->DataType){
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpMetaIf->DataType = zIsDeployDataType;
     } else {
@@ -175,8 +175,8 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
     for (struct zVecWrapInfo *zpTmpVecWrapIf = zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf;
-			NULL != zpTmpVecWrapIf;
-			zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+            NULL != zpTmpVecWrapIf;
+            zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
         zsendmsg(zSd, zpTmpVecWrapIf, 0, NULL);
     }
 
@@ -204,7 +204,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         zpMetaIf->DataType = zIsCommitDataType;
-    } else if (zIsDeployDataType == zpMetaIf->DataType){
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpMetaIf->DataType = zIsDeployDataType;
     } else {
