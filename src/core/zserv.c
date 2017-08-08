@@ -191,7 +191,7 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 // TEST:PASS
-    struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
+    struct zVecWrapInfo *zpTopVecWrapIf;
     struct stat zStatIf;
     _i zFd;
 
@@ -202,11 +202,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
-        zpMetaIf->DataType = zIsCommitDataType;
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-        zpMetaIf->DataType = zIsDeployDataType;
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
@@ -220,7 +217,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
-    // 减 2 是为适应 json 二维结构，最后有一个 ']' 也会计入 VecSiz
     if (0 > zpMetaIf->FileId) {
         zpFilePath = "";
     } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
