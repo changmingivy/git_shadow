@@ -26,13 +26,13 @@ cd pcre2-10.23
 ./configure --prefix=$HOME/zgit_shadow/lib/pcre2
 make && make install
 
-# 编译主程序
+# 编译主程序，静态库文件路径一定要放在源文件之后
 cc -Wall -Wextra -std=c99 -O2 -lm -lpthread \
     -D_XOPEN_SOURCE=700 \
     -I${zShadowPath}/inc \
     -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/lib/pcre2/lib/libpcre2-8.a \
-    ${zShadowPath}/src/zmain.c
+    ${zShadowPath}/src/zmain.c \
+    ${zShadowPath}/lib/pcre2/lib/libpcre2-8.a
 
 strip ${zShadowPath}/bin/git_shadow
 
