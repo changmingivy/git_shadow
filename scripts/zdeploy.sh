@@ -35,9 +35,9 @@ git reset ${zCommitSig} -- $zFilePath
 echo "$zFilePath $zCommitSig" >> DP_LOG
 git add DP_LOG
 if [[ "" == $zFilePath ]]; then
-    git commit -m "单文件布署：$zFilePath $zCommitSig"
-else
     git commit -m "版本布署：$zCommitSig"
+else
+    git commit -m "单文件布署：$zFilePath $zCommitSig"
 fi
 
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
