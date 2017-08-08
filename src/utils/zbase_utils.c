@@ -254,7 +254,7 @@ void
 zfork_do_exec(const char *zpCommand, char **zppArgv) {
 // TEST: PASS
     pid_t zPid = fork();
-    zCheck_Negative_Return(zPid,);
+    zCheck_Negative_Exit(zPid);
 
     if (0 == zPid) {
         execve(zpCommand, zppArgv, NULL);

@@ -286,8 +286,6 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     if (0 == zCnter) {
         zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf = NULL;
-        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data = NULL;
-
         zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf = NULL;
         zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt = 0;
     } else {
