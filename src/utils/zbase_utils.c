@@ -400,47 +400,22 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     /* 置为NULL，防止野指针问题 */
     zpMetaIf->p_TimeStamp = NULL;
 
-    /* 操作指令、代码库ID，所有操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
-
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
+    zpMetaIf->CacheId = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
+    zpMetaIf->CommitId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
+    zpMetaIf->FileId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+    zpMetaIf->DataType = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+    zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
 
-    /* 7/8：确认主机布署状态时，需要IP */
-       /* 1/4/5：在创建新项目及更新集群IP地址数据库时，需要Data字段 */
     switch (zpMetaIf->OpsId) {
-        case 9:
-            goto zMark_9;
-        case 10:
-            goto zMark_10;
-        case 11:
-            goto zMark_11;
-        case 12:
-        case 13:
-            goto zMark_12_13;
-        case 999999999:
-zMark_12_13:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-            zpMetaIf->HostId = zpValueObj->valueint;
-zMark_11:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
-            zpMetaIf->FileId = zpValueObj->valueint;
-zMark_10:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
-            zpMetaIf->CacheId = zpValueObj->valueint;
-
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
-            zpMetaIf->CommitId = zpValueObj->valueint;
-zMark_9:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-            zpMetaIf->DataType = zpValueObj->valueint;
-            break;
-        case 7:
-        case 8:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-            zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
-            break;
         case 1:
         case 4:
         case 5:
