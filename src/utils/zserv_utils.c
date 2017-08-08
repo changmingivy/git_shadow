@@ -750,16 +750,16 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
             return -3;
         }
     }
+    /* 清理资源占用 */
+    close(zFd[0]);
+    zpcre_free_tmpsource(zpRetIf);
+    zpcre_free_metasource(zpInitIf);
     /* 打开代码库顶层目录，生成目录fd供后续的openat使用 */
     if(-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY))) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
         return -38;
     }
-    /* 清理资源占用 */
-    close(zFd[0]);
-    zpcre_free_tmpsource(zpRetIf);
-    zpcre_free_metasource(zpInitIf);
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
