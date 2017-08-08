@@ -221,6 +221,17 @@ zget_file_list_and_diff_content(void *zpIf) {
     for (zUnitCnter = zCnter = 0;  NULL != zpRes; zCnter++) {
         zInnerCnter = zCnter % zUnitSiz;
         if (0 == zInnerCnter) {
+            if (0 != zCnter) {
+                zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;
+                /* 扩充内存 */
+                zAllocSiz += zUnitSiz;
+                zMem_Re_Alloc(
+                        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf,
+                        struct zVecWrapInfo *,
+                        zAllocSiz,
+                        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf
+                        );
+            }
             zpTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
             zpTmpVecWrapIf->VecSiz = zUnitSiz;
             zpTmpVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zUnitSiz * sizeof(struct iovec));
@@ -230,17 +241,6 @@ zget_file_list_and_diff_content(void *zpIf) {
             /* 关联到上层数据结构 */
             zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zUnitCnter] = zpTmpVecWrapIf;
             zUnitCnter++;
-
-            if (zAllocSiz == zUnitSiz) {
-                zAllocSiz *= 2;
-                zMem_Re_Alloc(
-                        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf,
-                        struct zVecWrapInfo *,
-                        zAllocSiz,
-                        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf
-                        );
-                zpTmpVecWrapIf = zpTmpVecWrapIf->p_next;  // 与内存再分配同步
-            }
         }
 
         zDataLen = strlen(zRes);
@@ -561,7 +561,7 @@ zwrite_log(_i zRepoId) {
     _i zLen;
 
     // 将 CURRENT 标签的40位sig字符串及10位时间戳追加写入.git_shadow/log/meta
-    sprintf(zShellBuf, "cd %s && git log -1 CURRENT --format=\"%%H_%%ct\"", zppGlobRepoIf[zRepoId]->p_RepoPath);
+    sprintf(zShellBuf, "cd %s && git log CURRENT -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zRepoId]->p_RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
