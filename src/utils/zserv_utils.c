@@ -142,7 +142,7 @@ zget_diff_content(void *zpIf) {
 // TEST:PASS
     FILE *zpShellRetHandler;
     char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
-    _i zVecDataLen;
+    _i zVecDataLen, zCnter;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpTmpVecWrapIf;
     struct zMetaInfo *zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -161,7 +161,7 @@ zget_diff_content(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
-    for (_i zCnter = 0; 0 < (zVecDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+    for (zCnter = 0; 0 < (zVecDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
         zpTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
         zpTmpVecWrapIf->VecSiz = 1;
         zpTmpVecWrapIf->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
@@ -177,6 +177,7 @@ zget_diff_content(void *zpIf) {
         strcpy((char *)(zpTmpVecWrapIf->p_VecIf->iov_base), zRes);
     }
     pclose(zpShellRetHandler);
+    zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].zUnitCnt = zCnter;
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
@@ -230,7 +231,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zUnitCnter] = zpTmpVecWrapIf;
             zUnitCnter++;
 
-            if (zAllocSiz == zUnitCnter) {
+            if (zAllocSiz == zUnitSiz) {
                 zAllocSiz *= 2;
                 zMem_Re_Alloc(
                         zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf,
@@ -283,7 +284,14 @@ zget_file_list_and_diff_content(void *zpIf) {
     zCcur_Wait(A);
     pclose(zpShellRetHandler);
 
-    if (0 != zCnter) {
+    if (0 == zCnter) {
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf = NULL;
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data = NULL;
+
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf = NULL;
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt = 0;
+    } else {
+        zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt = zUnitCnter;
         /* 移动至项目内存池 */
         zppTmpVecWrapIf = zalloc_cache(zpMetaIf->RepoId, zUnitCnter * sizeof(struct zVecWrapInfo *));
         memcpy(zppTmpVecWrapIf, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf, zUnitCnter * sizeof(struct zVecWrapInfo *));
@@ -742,6 +750,12 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
             return -3;
         }
     }
+    /* 打开代码库顶层目录，生成目录fd供后续的openat使用 */
+    if(-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY))) {
+        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        free(zppGlobRepoIf[zRepoId]);
+        return -38;
+    }
     /* 清理资源占用 */
     close(zFd[0]);
     zpcre_free_tmpsource(zpRetIf);
@@ -749,9 +763,6 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
-
-    /* 打开代码库顶层目录，生成目录fd供接下来的openat使用 */
-    zCheck_Negative_Exit( zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY) );
     /* inotify */
     zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath) );
     zpObjIf->RepoId = zRepoId;
