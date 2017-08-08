@@ -595,14 +595,8 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (1 == zMetaIf.OpsId || 3 == zMetaIf.OpsId || 4 == zMetaIf.OpsId) {
-        zjson_obj_free(zpJsonRootObj);
-    }
-
-    if (zSizMark < zBufSiz) {
-        free(zpJsonBuf);
-    }
-
+    if (zSizMark < zBufSiz) { free(zpJsonBuf); }
+    zjson_obj_free(zpJsonRootObj);
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark

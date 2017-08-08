@@ -406,26 +406,18 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpMetaIf->CacheId = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+    zpMetaIf->DataType = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
     zpMetaIf->CommitId = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
     zpMetaIf->FileId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-    zpMetaIf->DataType = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
     zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
+    zpMetaIf->p_data = zpValueObj->valuestring;
 
-    switch (zpMetaIf->OpsId) {
-        case 1:
-        case 4:
-        case 5:
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
-            zpMetaIf->p_data = zpValueObj->valuestring;
-            return zpRootObj;  // 此时需要后续用完之后释放资源
-    }
-
-    cJSON_Delete(zpRootObj);
-    return (void *)-1;  // 正常状态返回，区别于NULL，否则无法识别错误
+    return zpRootObj;  // 调用者用完之后需要释放资源
 }
 
 /*
