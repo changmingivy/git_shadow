@@ -9,7 +9,7 @@
 #define zCheck_CommitId() do {\
     if ((0 > zpMetaIf->CommitId) || ((zCacheSiz - 1) < zpMetaIf->CommitId) || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf)) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
-        zPrint_Err(0, NULL, "Commit ID 不存在!");\
+        zPrint_Err(0, NULL, "CommitId 不存在或内容为空（空提交）");\
         return -3;\
     }\
 } while(0)
@@ -20,7 +20,7 @@
             || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))\
             || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
-        zPrint_Err(0, NULL, "差异文件ID不存在!");\
+        zPrint_Err(0, NULL, "差异文件ID不存在");\
         return -4;\
     }\
 } while(0)
@@ -29,7 +29,7 @@
 #define zCheck_CacheId() do {\
     if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
-        zPrint_Err(0, NULL, "前端发送的缓存ID已失效!");\
+        zPrint_Err(0, NULL, "前端发送的缓存ID已失效");\
         return -8;\
     }\
 } while(0)
@@ -196,7 +196,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     _i zFd;
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
-    char zIpv4AddrStr[INET_ADDRSTRLEN] = "\0";
     char zJsonBuf[64];
     char *zpFilePath;
 
@@ -222,7 +221,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
             || ((zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "差异文件ID不存在!");\
+        zPrint_Err(0, NULL, "差异文件ID不存在");\
         return -4;\
     } else {
         zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId);
@@ -233,7 +232,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_Negative_Exit( fstatat(zFd, zMajorIpTxtPath, &zStatIf, 0) );
     if (0 == zStatIf.st_size) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在!");
+        zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在");
         return -25;
     }
 
@@ -243,7 +242,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
             || (0 != (zStatIf.st_size % sizeof(_ui)))
             || (zStatIf.st_size / zSizeOf(_ui)) != zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "集群全量IP地址数据库异常!");
+        zPrint_Err(0, NULL, "集群全量IP地址数据库异常");
         return -26;
     }
 
@@ -253,24 +252,19 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResList[i].DeployState = 0;
     }
 
-    /* 若前端指定了HostId，则本次操作为单主机布署 */
-    if (0 != zpMetaIf->HostId) {
-        zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4AddrStr);
-    }
-
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -h %s -P %s",
+    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -h %u -P %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zpFilePath,  // 指定目标文件相对于代码库的路径
-            zIpv4AddrStr,  // 点分格式的ipv4地址
+            zpMetaIf->HostId,  // 数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
             zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
 
     /* 调用 git 命令执行布署，脚本中设定的异常退出码均为 255 */
     if (255 == system(zShellBuf)) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "Shell 布署命令执行错误!");
+        zPrint_Err(0, NULL, "Shell 布署命令执行错误");
         return -12;
     }
 
@@ -284,7 +278,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
             // 如果布署失败，代码库状态置为 "损坏" 状态
             zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-            zPrint_Err(0, NULL, "布署超时(>10s)!");
+            zPrint_Err(0, NULL, "布署超时(>10s)");
             return -12;
         }
     }
@@ -428,7 +422,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)) {
         zpMetaIf->p_data = "";
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)!");
+        zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)");
         return (4 == zpMetaIf->OpsId) ? -27 : -28;
     }
     close(zFd);
@@ -440,7 +434,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
     if ((5 == zpMetaIf->OpsId) && (255 == system(zShellBuf))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        zPrint_Err(errno, NULL, "集群主机布署环境初始化失败!");
+        zPrint_Err(errno, NULL, "集群主机布署环境初始化失败");
         return -29;
     }
 
@@ -561,7 +555,7 @@ zops_route(void *zpSd) {
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
         shutdown(zSd, SHUT_RDWR);
-        zPrint_Err(0, NULL, "接收到的数据无法解析!");
+        zPrint_Err(0, NULL, "接收到的数据无法解析");
         goto zMark;
     }
 
@@ -569,7 +563,7 @@ zops_route(void *zpSd) {
         zMetaIf.OpsId = -1;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        zPrint_Err(0, NULL, "接收到的指令ID不存在!");
+        zPrint_Err(0, NULL, "接收到的指令ID不存在");
         goto zMark;
     }
 
@@ -578,7 +572,7 @@ zops_route(void *zpSd) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        zPrint_Err(0, NULL, "项目ID不存在!");
+        zPrint_Err(0, NULL, "项目ID不存在");
         goto zMark;
     }
 
