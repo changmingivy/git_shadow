@@ -244,37 +244,37 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":888,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"Data\":\"888 /home/git/888_X https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\"}";
 
     // 更新all IP数据
-    //char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\"}";
+    //char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\"}";
 
     // 查询提交版本号列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":-1,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":-1,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":7,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":7,\"RepoId\":888,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":88,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":888,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 打印差异文件内容
-    char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":88,\"CommitId\":1,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":888,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
-    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":88,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":888,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":88,\"CommitId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502031376,\"DataType\":1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":888,\"CommitId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502031376,\"DataType\":1,\"Data\":\"\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 

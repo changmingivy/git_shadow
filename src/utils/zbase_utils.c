@@ -400,17 +400,15 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     /* 置为NULL，防止野指针问题 */
     zpMetaIf->p_TimeStamp = NULL;
 
-    /* 操作指令、代码库ID，所有操作都需要指定 */
+    /* 操作指令、代码库ID、数据类型，大多数操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
+
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
 
-    /* 查询版本记录时，需要指定是提交记录还是布署记录 */
-//    if (6 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-        zpMetaIf->DataType = zpValueObj->valueint;
-//    }
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+    zpMetaIf->DataType = zpValueObj->valueint;
 
     /* 8 - 9：确认主机布署状态时，需要IP */
     if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {

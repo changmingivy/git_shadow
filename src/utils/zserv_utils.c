@@ -177,7 +177,6 @@ zget_diff_content(void *zpIf) {
         strcpy((char *)(zpTmpVecWrapIf->p_VecIf->iov_base), zRes);
     }
     pclose(zpShellRetHandler);
-    zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].zUnitCnt = zCnter;
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);

@@ -174,8 +174,10 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_FileId();  // 宏内部会解锁
 
     /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
-    for (_i i = 0; i < zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].zUnitCnt; i++) {
-        zsendmsg(zSd, zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].pp_UnitVecWrapIf[i], 0, NULL);
+    for (struct zVecWrapInfo *zpTmpVecWrapIf = zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf;
+			NULL != zpTmpVecWrapIf;
+			zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+        zsendmsg(zSd, zpTmpVecWrapIf, 0, NULL);
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
