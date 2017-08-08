@@ -241,7 +241,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":888,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"Data\":\"888 /home/git/888_X https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":888,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"Data\":\"888 /home/git/888_X https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":88,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
@@ -268,7 +268,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":88,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":88,\"CommitId\":1,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":88,\"CommitId\":1,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
     //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":88,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";

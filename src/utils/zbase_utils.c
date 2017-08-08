@@ -407,10 +407,10 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpMetaIf->RepoId = zpValueObj->valueint;
 
     /* 查询版本记录时，需要指定是提交记录还是布署记录 */
-    if (6 == zpMetaIf->OpsId) {
+//    if (6 == zpMetaIf->OpsId) {
         zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
         zpMetaIf->DataType = zpValueObj->valueint;
-    }
+//    }
 
     /* 8 - 9：确认主机布署状态时，需要IP */
     if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
