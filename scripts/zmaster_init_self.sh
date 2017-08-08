@@ -17,18 +17,28 @@ mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
 rm -rf ${zShadowPath}/bin/*
 
+# 编译正则库
+cd ${zShadowPath}/lib/
+rm -rf pcre2 pcre2-10.23
+mkdir pcre2
+tar -xf pcre2-10.23.tar.gz
+cd pcre2-10.23
+./configure --prefix=$HOME/zgit_shadow/lib/pcre2
+make && make install
+
+# 编译主程序
 cc -O2 -Wall -Wextra -std=c99 \
     -I ${zShadowPath}/inc \
-    -L ${zShadowPath}/lib/pcre2 \
     -lm \
     -lpthread \
-    -lpcre2-8 \
     -D_XOPEN_SOURCE=700 \
     -o ${zShadowPath}/bin/git_shadow \
+    ${zShadowPath}/lib/pcre2/libpcre2-8.a \
     ${zShadowPath}/src/zmain.c
 
 strip ${zShadowPath}/bin/git_shadow
 
+# 编译客户端
 cc -O2 -Wall -Wextra -std=c99 \
     -I ${zShadowPath}/inc \
     -D_XOPEN_SOURCE=700 \

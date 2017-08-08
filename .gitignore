@@ -2,6 +2,7 @@ a.out
 ISOs/
 images/
 Trash/
+pcre2/
 
 # Prerequisites
 *.d
