@@ -16,7 +16,9 @@
 
 /* 检查 FileId 是否合法，宏内必须解锁 */
 #define zCheck_FileId() do {\
-    if (0 > zpMetaIf->FileId || (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) {\
+    if ((0 > zpMetaIf->FileId)\
+            || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))\
+            || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
         zPrint_Err(0, NULL, "差异文件ID不存在!");\
         return -4;\
@@ -58,13 +60,13 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     switch (zErrNo) {
         case -1:
-            return -14;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
+            return -34;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
         case -2:
-            return -15;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
+            return -35;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
         case -3:
-            return -16;  // 请求创建的项目路径已存在
+            return -36;  // 请求创建的项目路径已存在
         case -4:
-            return -17;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
+            return -37;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
         default:
             sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
             zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
@@ -94,8 +96,10 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
     };
 
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX，不使用链表 */
-    zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
-    zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+    if (0 < zpSortedTopVecWrapIf->VecSiz) {
+        zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
+        zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+    }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -129,10 +133,12 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
-    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
-        zsendmsg(zSd, zpTmp, 0, NULL);
+    if (0 < zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt) {
+        for (_i i = 0; i < zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt; i++) {
+            zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[i], 0, NULL);
+        }
+        zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
     }
-    zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -168,8 +174,10 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_FileId();  // 宏内部会解锁
 
     /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
-    for (struct zVecWrapInfo *zpTmp = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf; NULL != zpTmp; zpTmp = zpTmp->p_next) {
-        zsendmsg(zSd, zpTmp, 0, NULL);
+    for (struct zVecWrapInfo *zpTmpVecWrapIf = zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf;
+			NULL != zpTmpVecWrapIf;
+			zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
+        zsendmsg(zSd, zpTmpVecWrapIf, 0, NULL);
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -587,15 +595,9 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (1 == zMetaIf.OpsId || 3 == zMetaIf.OpsId || 4 == zMetaIf.OpsId) {
-        zjson_obj_free(zpJsonRootObj);
-    }
-
-    if (zSizMark < zBufSiz) {
-        free(zpJsonBuf);
-    }
-
-//    shutdown(zSd, SHUT_RDWR);
+    if (zSizMark < zBufSiz) { free(zpJsonBuf); }
+    zjson_obj_free(zpJsonRootObj);
+    shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
 #undef zCheck_Errno_12
@@ -606,7 +608,7 @@ zMark:
 /* 执行结果状态码对应表
  * -1：操作指令不存在（未知／未定义）
  * -2：项目ID不存在
- * -3：代码版本ID不存在
+ * -3：代码版本ID不存在或与其相关联的内容为空（空提交记录）
  * -4：差异文件ID不存在
  * -5：指定的主机 IP 不存在
  * -6：项目布署／撤销／更新ip数据库的权限被锁定
@@ -616,15 +618,19 @@ zMark:
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
- * -14：请求创建的新项目信息格式错误（合法字段数量不是5个）
- * -15：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
- * -16：请求创建的项目路径已存在
- * -17：请求创建项目时指定的源版本控制系统错误（非git与svn）
+ *
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
  * -26：集群全量节点(所有主机)IP地址数据库不存在或数据异常，需要更新
  * -27：主节点IP数据库更新失败
  * -28：全量节点IP数据库更新失败
  * -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ *
+ * -34：请求创建的新项目信息格式错误（合法字段数量不是5个）
+ * -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
+ * -36：请求创建的项目路径已存在
+ * -37：请求创建项目时指定的源版本控制系统错误（非git与svn）
+ * -38：拉取远程代码失败
+ *
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
 
@@ -639,10 +645,10 @@ zstart_server(void *zpIf) {
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_glob;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zupdate_ipv4_db_glob;  // 更新集群中所有主机的 ip 列表
-    zNetServ[6] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
-    zNetServ[7] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
-    zNetServ[8] = zstate_confirm;  // 布署成功状态人工确认
-    zNetServ[9] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[6] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[7] = zstate_confirm;  // 布署成功状态人工确认
+    zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)

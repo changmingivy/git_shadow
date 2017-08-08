@@ -98,8 +98,10 @@ struct zMetaInfo {
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
-    struct zVecWrapInfo **pp_UnitVecWrapIf;  // 按 UnitSiz 分块索引
     char *p_data;  // 实际存放数据正文的地方
+
+    struct zVecWrapInfo **pp_UnitVecWrapIf;  // 按 UnitSiz 分块索引
+    _i zUnitCnt;  // 总共有多少个分块
 };
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
