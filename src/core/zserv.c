@@ -223,7 +223,8 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     // 减 2 是为适应 json 二维结构，最后有一个 ']' 也会计入 VecSiz
     if (0 > zpMetaIf->FileId) {
         zpFilePath = "";
-    } else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 2) < zpMetaIf->FileId) {
+    } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
+            || ((zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
         zPrint_Err(0, NULL, "差异文件ID不存在!");\
         return -4;\
