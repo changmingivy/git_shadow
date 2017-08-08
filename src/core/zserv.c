@@ -651,10 +651,10 @@ zstart_server(void *zpIf) {
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_glob;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zupdate_ipv4_db_glob;  // 更新集群中所有主机的 ip 列表
-    zNetServ[6] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
-    zNetServ[7] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
-    zNetServ[8] = zstate_confirm;  // 布署成功状态人工确认
-    zNetServ[9] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[6] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[7] = zstate_confirm;  // 布署成功状态人工确认
+    zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
+    zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)

@@ -400,48 +400,53 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     /* 置为NULL，防止野指针问题 */
     zpMetaIf->p_TimeStamp = NULL;
 
-    /* 操作指令、代码库ID、数据类型，大多数操作都需要指定 */
+    /* 操作指令、代码库ID，所有操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
 
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
 
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-    zpMetaIf->DataType = zpValueObj->valueint;
-
-    /* 8 - 9：确认主机布署状态时，需要IP */
-    if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-        zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
-    }
-
-    /* 10 - 13：查文件列表、查差异内容、布署、撤销 */
-    if (9 < zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
-        zpMetaIf->CacheId = zpValueObj->valueint;
-
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
-        zpMetaIf->CommitId = zpValueObj->valueint;
-
-        /* 11 - 13：查差异内容、布署、撤销 */
-        if (10 < zpMetaIf->OpsId) {
+    /* 7/8：确认主机布署状态时，需要IP */
+       /* 1/4/5：在创建新项目及更新集群IP地址数据库时，需要Data字段 */
+    switch (zpMetaIf->OpsId) {
+        case 9:
+            goto zMark_9;
+        case 10:
+            goto zMark_10;
+        case 11:
+            goto zMark_11;
+        case 12:
+        case 13:
+            goto zMark_12_13;
+        case 999999999:
+zMark_12_13:
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+            zpMetaIf->HostId = zpValueObj->valueint;
+zMark_11:
             zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
             zpMetaIf->FileId = zpValueObj->valueint;
+zMark_10:
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
+            zpMetaIf->CacheId = zpValueObj->valueint;
 
-            /*12 - 13：布署、撤销，单主机布署时需要指定IP */
-            if (11 < zpMetaIf->OpsId) {
-                zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-                zpMetaIf->HostId = zpValueObj->valueint;
-            }
-        }
-    }
-
-    /* 仅在创建新项目及更新集群IP地址数据库时，需要此项 */
-    if (1 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
-        zpMetaIf->p_data = zpValueObj->valuestring;
-        return zpRootObj;  // 此时需要后续用完之后释放资源
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
+            zpMetaIf->CommitId = zpValueObj->valueint;
+zMark_9:
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+            zpMetaIf->DataType = zpValueObj->valueint;
+            break;
+        case 7:
+        case 8:
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+            zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
+            break;
+        case 1:
+        case 4:
+        case 5:
+            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
+            zpMetaIf->p_data = zpValueObj->valuestring;
+            return zpRootObj;  // 此时需要后续用完之后释放资源
     }
 
     cJSON_Delete(zpRootObj);
