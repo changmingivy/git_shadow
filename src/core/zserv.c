@@ -514,8 +514,8 @@ zops_route(void *zpSd) {
     char zJsonBuf[zBufSiz];
     char *zpJsonBuf = zJsonBuf;
 
-    struct zMetaInfo zMetaIf;
     cJSON *zpJsonRootObj;
+    struct zMetaInfo zMetaIf;
 
     /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
@@ -583,7 +583,7 @@ zops_route(void *zpSd) {
 
 zMark:
     if (zSizMark < zBufSiz) { free(zpJsonBuf); }
-    zjson_obj_free(zpJsonRootObj);
+    if (NULL != zpJsonRootObj) { zjson_obj_free(zpJsonRootObj); }
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
