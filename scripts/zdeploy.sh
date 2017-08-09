@@ -1,4 +1,5 @@
 #!/bin/sh
+zShadowPath=$HOME/zgit_shadow
 
 zProjPath=
 zCommitSig=
@@ -20,39 +21,36 @@ done
 shift $[$OPTIND - 1]
 
 cd $zProjPath
-    if [[ 0 -ne $? ]]; then exit 255; fi
 git stash
-    if [[ 0 -ne $? ]]; then exit 255; fi
 git stash clear
-    if [[ 0 -ne $? ]]; then exit 255; fi
 git pull --force ./.git server:master
-    if [[ 0 -ne $? ]]; then exit 255; fi
+printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" >> .gitignore
 
-if [[ '' == $zHostIp ]]; then
+# 非单台布署情况下，host ip会被指定为0
+if [[ '0' == $zHostIp ]]; then
     zHostList=`cat ${zProjPath}/${zHostListPath}`
 else
     zHostList=$zHostIp
 fi
-    if [[ 0 -ne $? ]]; then exit 255; fi
 
 git reset ${zCommitSig} -- $zFilePath
-    if [[ 0 -ne $? ]]; then exit 255; fi
-git commit --allow-empty -m "__DP__"
-    if [[ 0 -ne $? ]]; then exit 255; fi
+if [[ "" == $zFilePath ]]; then
+    git commit --allow-empty -m "版本布署：$zCommitSig"
+else
+    git commit --allow-empty -m "单文件布署：$zFilePath $zCommitSig"
+fi
 
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
 cd $zProjPath/.git_shadow
-    if [[ 0 -ne $? ]]; then exit 255; fi
+rm -rf ./bin ./scripts
 git add --all .
-    if [[ 0 -ne $? ]]; then exit 255; fi
+git commit --allow-empty -m "_"
+cp -rf ${zShadowPath}/bin ${zShadowPath}/scripts ${zProjPath}/.git_shadow/
+git add --all .
 git commit --allow-empty -m "__DP__"
-    if [[ 0 -ne $? ]]; then exit 255; fi
 
-i=0
-j=0
 zProjPathOnHost=`echo $zProjPath | sed -n 's%/home/git/\+%/%p'`
 for zHostAddr in $zHostList; do
-    let i++
     # 必须首先切换目录
     ( \
         cd $zProjPath/.git_shadow \
@@ -62,17 +60,9 @@ for zHostAddr in $zHostList; do
         && git push --force git@${zHostAddr}:${zProjPathOnHost}/.git master:server \
     ) &
 
-    if [[ $? -ne 0 ]]; then let j++; fi
 done
-    if [[ $i -eq $j ]]; then exit 255; fi
 
 cd $zProjPath
-    if [[ 0 -ne $? ]]; then exit 255; fi
 zOldSig=`git log CURRENT -1 --format=%H`
-    if [[ 0 -ne $? ]]; then exit 255; fi
 git branch -f $zOldSig  # 创建一个以 CURRENT 分支的 SHA1 sig 命名的分支
-    if [[ 0 -ne $? ]]; then exit 255; fi
 git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
-    if [[ 0 -ne $? ]]; then exit 255; fi
-
-exit 0

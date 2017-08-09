@@ -43,16 +43,16 @@
 //     return zRes;
 // }
 
-/*
- *  将指定的套接字属性设置为非阻塞
- */
-void
-zset_nonblocking(_i zSd) {
-    _i zOpts;
-    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
-    zOpts |= O_NONBLOCK;
-    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
-}
+// /*
+//  *  将指定的套接字属性设置为非阻塞
+//  */
+// void
+// zset_nonblocking(_i zSd) {
+//     _i zOpts;
+//     zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+//     zOpts |= O_NONBLOCK;
+//     zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+// }
 
 /*
  * Functions for socket connection.
@@ -254,7 +254,7 @@ void
 zfork_do_exec(const char *zpCommand, char **zppArgv) {
 // TEST: PASS
     pid_t zPid = fork();
-    zCheck_Negative_Return(zPid,);
+    zCheck_Negative_Exit(zPid);
 
     if (0 == zPid) {
         execve(zpCommand, zppArgv, NULL);
@@ -290,60 +290,60 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     return zCnt;
 }
 
-// 注意：fread 版的实现会将行末的换行符处理掉
-_i
-zget_str_content_1(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
-    size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
-    if (zCnt < zSiz && (0 == feof(zpFile))) {
-        zPrint_Err(0, NULL, "<fread> ERROR!");
-        exit(1);
-    }
-    return zCnt;
-}
+// // 注意：fread 版的实现会将行末的换行符处理掉
+// _i
+// zget_str_content_1(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
+//     size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
+//     if (zCnt < zSiz && (0 == feof(zpFile))) {
+//         zPrint_Err(0, NULL, "<fread> ERROR!");
+//         exit(1);
+//     }
+//     return zCnt;
+// }
 
-/*
- * 纳秒级sleep，小数点形式赋值
- */
-void
-zsleep(_d zSecs) {
-    struct timespec zNanoSecIf;
-    zNanoSecIf.tv_sec = (_i) zSecs;
-    zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
-    nanosleep( &zNanoSecIf, NULL );
-}
+// /*
+//  * 纳秒级sleep，小数点形式赋值
+//  */
+// void
+// zsleep(_d zSecs) {
+//     struct timespec zNanoSecIf;
+//     zNanoSecIf.tv_sec = (_i) zSecs;
+//     zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
+//     nanosleep( &zNanoSecIf, NULL );
+// }
 
-/*
- * 用于在单独线程中执行外部命令
- */
-void
-zthread_system(void *zpCmd) {
-    if (0 != system((char *) zpCmd)) {
-        zPrint_Err(0, NULL, "[system]: shell command failed!");
-    }
-}
+// /*
+//  * 用于在单独线程中执行外部命令
+//  */
+// void
+// zthread_system(void *zpCmd) {
+//     if (0 != system((char *) zpCmd)) {
+//         zPrint_Err(0, NULL, "[system]: shell command failed!");
+//     }
+// }
 
-/*
- * 用途：
- *   从字符串取按指定分割符逐一取出每个字段
- * 返回值:
- *   下一个字段的第一个字符在源字符串中的下标（index）
- * 参数：
- *   zpOffSet：定义一个整型变量赋值为0，之后循环传入此同一个变量即可
- *   zpBufOUT：每一次循环后，存放的是取出的字段（子字符串，将原分割符替换为了'\0'）
- *   zStrLen：是使用 strlen() 函数获得的源字符串的长度（不含 '\0'）
- * 取值完毕判断条件：
- *   以返回值大于 (zStrLen + 1) 为条件终止循环取字段
- */
-_i
-zget_str_field(char *zpBufOUT, char *zpStr, _i zStrLen, char zDelimiter, _i *zpOffSet) {
-    _i i = 0;
-    for (; (*zpOffSet < zStrLen) && (zpStr[*zpOffSet] != zDelimiter); (*zpOffSet)++) {
-        zpBufOUT[i++] = zpStr[*zpOffSet];
-    }
-    zpBufOUT[i] = '\0';
-    (*zpOffSet)++;
-    return *zpOffSet;
-}
+// /*
+//  * 用途：
+//  *   从字符串取按指定分割符逐一取出每个字段
+//  * 返回值:
+//  *   下一个字段的第一个字符在源字符串中的下标（index）
+//  * 参数：
+//  *   zpOffSet：定义一个整型变量赋值为0，之后循环传入此同一个变量即可
+//  *   zpBufOUT：每一次循环后，存放的是取出的字段（子字符串，将原分割符替换为了'\0'）
+//  *   zStrLen：是使用 strlen() 函数获得的源字符串的长度（不含 '\0'）
+//  * 取值完毕判断条件：
+//  *   以返回值大于 (zStrLen + 1) 为条件终止循环取字段
+//  */
+// _i
+// zget_str_field(char *zpBufOUT, char *zpStr, _i zStrLen, char zDelimiter, _i *zpOffSet) {
+//     _i i = 0;
+//     for (; (*zpOffSet < zStrLen) && (zpStr[*zpOffSet] != zDelimiter); (*zpOffSet)++) {
+//         zpBufOUT[i++] = zpStr[*zpOffSet];
+//     }
+//     zpBufOUT[i] = '\0';
+//     (*zpOffSet)++;
+//     return *zpOffSet;
+// }
 
 /*
  * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
@@ -362,23 +362,23 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
     inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
 }
 
-/*
- * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
- */
-_ui
-zconvert_ipv4_str_to_bin_1(char *zpStrAddr) {
-    char zBuf[INET_ADDRSTRLEN];
-    _uc zRes[4];
-    _i zOffSet = 0, zLen;
-
-    if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
-
-    for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
-        zRes[i] = (char)strtol(zBuf, NULL, 10);
-    }
-
-    return *((_ui *)zRes);
-}
+// /*
+//  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
+//  */
+// _ui
+// zconvert_ipv4_str_to_bin_1(char *zpStrAddr) {
+//     char zBuf[INET_ADDRSTRLEN];
+//     _uc zRes[4];
+//     _i zOffSet = 0, zLen;
+// 
+//     if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
+// 
+//     for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
+//         zRes[i] = (char)strtol(zBuf, NULL, 10);
+//     }
+// 
+//     return *((_ui *)zRes);
+// }
 
 /*
  *  接收数据时使用
@@ -400,54 +400,24 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     /* 置为NULL，防止野指针问题 */
     zpMetaIf->p_TimeStamp = NULL;
 
-    /* 操作指令、代码库ID，所有操作都需要指定 */
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
     zpMetaIf->OpsId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
+    zpMetaIf->CacheId = zpValueObj->valueint;
     zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
     zpMetaIf->RepoId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
+    zpMetaIf->DataType = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
+    zpMetaIf->CommitId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
+    zpMetaIf->FileId = zpValueObj->valueint;
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
+    zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
+    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
+    zpMetaIf->p_data = zpValueObj->valuestring;
 
-    /* 查询版本记录时，需要指定是提交记录还是布署记录 */
-    if (6 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-        zpMetaIf->DataType = zpValueObj->valueint;
-    }
-
-    /* 8 - 9：确认主机布署状态时，需要IP */
-    if (8 == zpMetaIf->OpsId || 9 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-        zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
-    }
-
-    /* 10 - 13：查文件列表、查差异内容、布署、撤销 */
-    if (9 < zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
-        zpMetaIf->CacheId = zpValueObj->valueint;
-
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
-        zpMetaIf->CommitId = zpValueObj->valueint;
-
-        /* 11 - 13：查差异内容、布署、撤销 */
-        if (10 < zpMetaIf->OpsId) {
-            zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
-            zpMetaIf->FileId = zpValueObj->valueint;
-
-            /*12 - 13：布署、撤销，单主机布署时需要指定IP */
-            if (11 < zpMetaIf->OpsId) {
-                zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-                zpMetaIf->HostId = zpValueObj->valueint;
-            }
-        }
-    }
-
-    /* 仅在创建新项目及更新集群IP地址数据库时，需要此项 */
-    if (1 == zpMetaIf->OpsId || 4 == zpMetaIf->OpsId || 5 == zpMetaIf->OpsId) {
-        zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
-        zpMetaIf->p_data = zpValueObj->valuestring;
-        return zpRootObj;  // 此时需要后续用完之后释放资源
-    }
-
-    cJSON_Delete(zpRootObj);
-    return (void *)-1;  // 正常状态返回，区别于NULL，否则无法识别错误
+    return zpRootObj;  // 调用者用完之后需要释放资源
 }
 
 /*
