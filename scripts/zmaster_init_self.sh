@@ -44,6 +44,5 @@ cc -O2 -Wall -Wextra -std=c99 \
     ${zShadowPath}/src/client/zmain_client.c
 
 strip ${zShadowPath}/bin/git_shadow_client
-printf "`date +%s`_${RANDOM}" >> ${zShadowPath}/bin/git_shadow_client  # 末尾追加随机字符，防止git不识别二进制文件变动
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2

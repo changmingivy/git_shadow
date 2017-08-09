@@ -588,26 +588,26 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     zppGlobRepoIf[zRepoId]->TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_DpResList, struct zDeployResInfo, zppGlobRepoIf[zRepoId]->TotalHost);  // 分配数组空间，用于顺序读取
 
-    for (_i j = 0; j < zppGlobRepoIf[zRepoId]->TotalHost; j++) {
-        zppGlobRepoIf[zRepoId]->p_DpResList[j].RepoId = zRepoId;  // 写入代码库索引值
-        zppGlobRepoIf[zRepoId]->p_DpResList[j].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
-        zppGlobRepoIf[zRepoId]->p_DpResList[j].p_next = NULL;
+    for (_i zCnter = 0; zCnter < zppGlobRepoIf[zRepoId]->TotalHost; zCnter++) {
+        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].RepoId = zRepoId;  // 写入代码库索引值
+        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].p_next = NULL;
 
         errno = 0;
-        if (zSizeOf(_ui) != read(zFd[1], &(zppGlobRepoIf[zRepoId]->p_DpResList[j].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+        if (zSizeOf(_ui) != read(zFd[1], &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
             zPrint_Err(errno, NULL, "read client info failed!");
             return -1;
         }
 
-        zpTmpIf = zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[j].ClientAddr) % zDeployHashSiz];  // HASH 定位
+        zpTmpIf = zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz];  // HASH 定位
         if (NULL == zpTmpIf) {
-            zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[j].ClientAddr) % zDeployHashSiz] = &(zppGlobRepoIf[zRepoId]->p_DpResList[j]);  // 若顶层为空，直接指向数组中对应的位置
+            zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz] = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);  // 若顶层为空，直接指向数组中对应的位置
         } else {
             while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
                 zpTmpIf = zpTmpIf->p_next;
             }
 
-            zpTmpIf->p_next = &(zppGlobRepoIf[zRepoId]->p_DpResList[j]);
+            zpTmpIf->p_next = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);
         }
     }
 
