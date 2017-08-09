@@ -210,7 +210,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CommitId();  // 宏内部会解锁
 
     if (0 > zpMetaIf->FileId) {
-        zpFilePath = "";
+        zpFilePath = "_";
     } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
             || ((zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
@@ -246,13 +246,13 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
+    sprintf(zShellBuf, "sh -x %s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
-            zpFilePath,  // 指定目标文件相对于代码库的路径
+            zMajorIpTxtPath,  // Host 主节点 IP 列表相对于代码库的路径
             zpMetaIf->HostId,  // 数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
-            zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
+            zpFilePath); // 指定目标文件相对于代码库的路径
 
     /* 调用 git 命令执行布署，脚本中设定的异常退出码均为 255 */
     if (255 == system(zShellBuf)) {
@@ -514,8 +514,8 @@ zops_route(void *zpSd) {
     char zJsonBuf[zBufSiz];
     char *zpJsonBuf = zJsonBuf;
 
-    struct zMetaInfo zMetaIf;
     cJSON *zpJsonRootObj;
+    struct zMetaInfo zMetaIf;
 
     /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
@@ -583,7 +583,7 @@ zops_route(void *zpSd) {
 
 zMark:
     if (zSizMark < zBufSiz) { free(zpJsonBuf); }
-    zjson_obj_free(zpJsonRootObj);
+    if (NULL != zpJsonRootObj) { zjson_obj_free(zpJsonRootObj); }
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
@@ -617,7 +617,7 @@ zMark:
  * -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
  * -36：请求创建的项目路径已存在
  * -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
- * -38：拉取远程代码失败(git clone)
+ * -38：无法创建新项目路径（如：git clone失败等原因）
  * -39：项目ID写入配置文件失败(repo_id)
  *
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）

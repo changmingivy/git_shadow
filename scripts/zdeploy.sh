@@ -27,14 +27,14 @@ git pull --force ./.git server:master
 printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" >> .gitignore
 
 # 非单台布署情况下，host ip会被指定为0
-if [[ '0' == $zHostIp ]]; then
+if [[ "0" == $zHostIp ]]; then
     zHostList=`cat ${zProjPath}/${zHostListPath}`
 else
     zHostList=$zHostIp
 fi
 
 git reset ${zCommitSig} -- $zFilePath
-if [[ "" == $zFilePath ]]; then
+if [[ "_" == $zFilePath ]]; then
     git commit --allow-empty -m "版本布署：$zCommitSig"
 else
     git commit --allow-empty -m "单文件布署：$zFilePath $zCommitSig"
