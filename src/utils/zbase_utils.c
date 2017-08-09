@@ -435,18 +435,22 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
  */
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
-    sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
-            zpMetaIf->OpsId,
-            zpMetaIf->RepoId,
-            zpMetaIf->CommitId,
-            zpMetaIf->FileId,
-            zpMetaIf->HostId,
-            zpMetaIf->CacheId,
-            zpMetaIf->DataType,
-            (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
-            (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
-            );
+    if (0 > zpMetaIf->OpsId) {
+        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d}", zpMetaIf->OpsId);
+    } else {
+        sprintf(
+                zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
+                zpMetaIf->OpsId,
+                zpMetaIf->RepoId,
+                zpMetaIf->CommitId,
+                zpMetaIf->FileId,
+                zpMetaIf->HostId,
+                zpMetaIf->CacheId,
+                zpMetaIf->DataType,
+                (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
+                (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
+                );
+    }
 }
 
 // /*

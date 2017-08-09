@@ -540,10 +540,11 @@ zops_route(void *zpSd) {
 
     if (zBytes(6) > zRecvdLen) {
         shutdown(zSd, SHUT_RDWR);
-        goto zMark;
+        return;
     }
 
-    zMetaIf.p_data = zpJsonBuf;
+    char zDataBuf[zRecvdLen];  // 使用动态栈空间
+    zMetaIf.p_data = zDataBuf;
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
