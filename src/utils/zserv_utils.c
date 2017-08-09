@@ -573,7 +573,7 @@ zwrite_log(_i zRepoId) {
  * 内部函数，无需直接调用
  * 更新ipv4 地址缓存
  */
-void
+_i
 zupdate_ipv4_db_hash(_i zRepoId) {
 // TEST:PASS
     struct stat zStatIf;
@@ -596,7 +596,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         errno = 0;
         if (zSizeOf(_ui) != read(zFd[1], &(zppGlobRepoIf[zRepoId]->p_DpResList[j].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
             zPrint_Err(errno, NULL, "read client info failed!");
-            exit(1);
+            return -1;
         }
 
         zpTmpIf = zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[j].ClientAddr) % zDeployHashSiz];  // HASH 定位
@@ -612,15 +612,15 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     }
 
     close(zFd[1]);
+    return 0;
 }
 
 /*
  * 除初始化时独立执行一次外，此函数仅会被 zupdate_ipv4_db_glob 函数调用
  */
-void
-zupdate_ipv4_db(void *zpIf) {
+_i
+zupdate_ipv4_db(_i zRepoId) {
 // TEST:PASS
-    _i zRepoId = *((_i *)zpIf);
     FILE *zpFileHandler = NULL;
     char zBuf[zCommonBufSiz];
     _ui zIpv4Addr = 0;
@@ -639,8 +639,8 @@ zupdate_ipv4_db(void *zpIf) {
         if (0 == zpPCREResIf->cnt) {
             zpcre_free_tmpsource(zpPCREResIf);
             zPrint_Time();
-            fprintf(stderr, "\033[31;01m[%s]-[Line %d]: Invalid entry!\033[00m\n", zAllIpTxtPath, i);
-            exit(1);
+            fprintf(stderr, "\033[31;01m[%s]-[Line %d]: 无效的IPv4地址!\033[00m\n", zAllIpTxtPath, i);
+            return -1;
         }
 
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[0]);
@@ -648,7 +648,7 @@ zupdate_ipv4_db(void *zpIf) {
 
         if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
             zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
-            exit(1);
+            return -1;
         }
     }
     zpcre_free_metasource(zpPCREInitIf);
@@ -658,7 +658,11 @@ zupdate_ipv4_db(void *zpIf) {
     close(zFd[0]);
 
     // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
-    zupdate_ipv4_db_hash(zRepoId);
+    if (-1 == zupdate_ipv4_db_hash(zRepoId)) {
+        return -1;
+    }
+
+    return 0;
 }
 
 /************
@@ -715,7 +719,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
                 zpRetIf->p_rets[2],
                 zpRetIf->p_rets[3]);
     } else if (0 == strcmp("svn", zpRetIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd /home/git/%s/sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
+        sprintf(zPullCmdBuf, "cd /home/git/%s/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zpRetIf->p_rets[1]);
     } else {
         zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
@@ -803,7 +807,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[zRepoId]->MutexLock, NULL) );
     /* 更新 TotalHost、zpppDpResHash、zppDpResList */
-    zupdate_ipv4_db(&zRepoId);
+    zupdate_ipv4_db(zRepoId);
     /* 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_FailingList, _ui, 1 + zppGlobRepoIf[zRepoId]->TotalHost);
     /* 初始化日志下一次写入偏移量并找开日志文件 */

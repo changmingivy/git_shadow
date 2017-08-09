@@ -30,11 +30,11 @@ git config user.name "$zProjNo"
     if [[ 0 -ne $? ]];then exit 255; fi
 git config user.email "${zProjNo}@${zProjPath}"
     if [[ 0 -ne $? ]];then exit 255; fi
-printf ".git_shadow\nsync_svn_to_git" > .gitignore  # 忽略<.git_shadow>目录
+printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" > .gitignore  # 忽略<.git_shadow>目录
     if [[ 0 -ne $? ]];then exit 255; fi
 git add --all .
     if [[ 0 -ne $? ]];then exit 255; fi
-git commit --allow-empty -m "__init__"
+git commit -m "__init__"
     if [[ 0 -ne $? ]];then exit 255; fi
 git branch -f CURRENT
     if [[ 0 -ne $? ]];then exit 255; fi
@@ -42,14 +42,14 @@ git branch -f server  # 远程代码接收到server分支
     if [[ 0 -ne $? ]];then exit 255; fi
 
 # 专用于远程库VCS是svn的场景
-rm -rf ${zDeployPath}/sync_svn_to_git 2>/dev/null
-mkdir ${zDeployPath}/sync_svn_to_git
+rm -rf ${zDeployPath}/.sync_svn_to_git 2>/dev/null
+mkdir ${zDeployPath}/.sync_svn_to_git
     if [[ 0 -ne $? ]];then exit 255; fi
 
 if [[ "svn" == $zRemoteVcsType ]]; then
-    svn co $zPullAddr ${zDeployPath}/sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
+    svn co $zPullAddr ${zDeployPath}/.sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
         if [[ 0 -ne $? ]];then exit 255; fi
-    cd ${zDeployPath}/sync_svn_to_git
+    cd ${zDeployPath}/.sync_svn_to_git
         if [[ 0 -ne $? ]];then exit 255; fi
     git init .
         if [[ 0 -ne $? ]];then exit 255; fi
@@ -57,11 +57,11 @@ if [[ "svn" == $zRemoteVcsType ]]; then
         if [[ 0 -ne $? ]];then exit 255; fi
     git config user.email "sync_svn_to_git@${zProjNo}"
         if [[ 0 -ne $? ]];then exit 255; fi
-    printf ".svn" > .gitignore
+    printf ".svn/" > .gitignore
         if [[ 0 -ne $? ]];then exit 255; fi
     git add --all .
         if [[ 0 -ne $? ]];then exit 255; fi
-    git commit --allow-empty -m "__init__"
+    git commit -m "__init__"
         if [[ 0 -ne $? ]];then exit 255; fi
 fi
 
