@@ -514,14 +514,15 @@ zops_route(void *zpSd) {
     char zJsonBuf[zBufSiz];
     char *zpJsonBuf = zJsonBuf;
 
-    cJSON *zpJsonRootObj;
     struct zMetaInfo zMetaIf;
+    zMetaIf.p_data = zpJsonBuf;
+    //memset(&zMetaIf, 0, sizeof(struct zMetaInfo));
 
     /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
         zRecvSiz = zOffSet = zBufSiz;
-        zBufSiz = 8192;
+        zBufSiz = 4096;
         zMem_Alloc(zpJsonBuf, char, zBufSiz);
         strcpy(zpJsonBuf, zJsonBuf);
 
@@ -536,15 +537,14 @@ zops_route(void *zpSd) {
         }
 
         zRecvdLen = zOffSet;
-        zMem_Re_Alloc(zpJsonBuf, char, zRecvdLen, zpJsonBuf);
     }
 
-    if (zBytes(4) > zRecvdLen) {
+    if (zBytes(6) > zRecvdLen) {
         shutdown(zSd, SHUT_RDWR);
-        return;
+        goto zMark;
     }
 
-    if (NULL == (zpJsonRootObj = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
+    if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         // 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
         memset(&zMetaIf, 0, sizeof(zMetaIf));
         zMetaIf.OpsId = -7;  // 此时代表错误码
@@ -582,8 +582,7 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (zSizMark < zBufSiz) { free(zpJsonBuf); }
-    if (NULL != zpJsonRootObj) { zjson_obj_free(zpJsonRootObj); }
+    if (zSizMark <= zBufSiz) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark

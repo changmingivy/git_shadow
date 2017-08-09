@@ -30,7 +30,6 @@
 #include <ctype.h>
 
 #include "../inc/zutils.h"
-#include "../inc/cJSON.h"
 
 #define zCommonBufSiz 1024
 
@@ -182,6 +181,10 @@ struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
 zNetOpsFunc zNetServ[zServHashSiz];
 
+/* 以 ANSI 字符集中的前 128 位成员作为索引 */
+typedef void (* zJsonParseFunc) (void *, void *);
+zJsonParseFunc zParseOps[128];
+
 /************
  * 配置文件 *
  ************/
@@ -195,7 +198,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /**********
  * 子模块 *
  **********/
-#include "json/cJSON.c"
 #include "utils/zbase_utils.c"
 #include "utils/pcre2/zpcre.c"
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
@@ -246,5 +248,18 @@ main(_i zArgc, char **zppArgv) {
 
     zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
     zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
+
+    /* json 解析时的回调函数索引 */
+    zParseOps['O']  // OpsId
+        = zParseOps['P']  // ProjId
+        = zParseOps['R']  // RevId
+        = zParseOps['F']  // FileId
+        = zParseOps['H']  // HostId
+        = zParseOps['C']  // CacheId
+        = zParseOps['D']  // DataType
+        = zParseDigit;
+    zParseOps['d']  // data
+        = zParseStr;
+
     zstart_server(&zNetServIf);  // 启动网络服务
 }

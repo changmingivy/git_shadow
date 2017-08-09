@@ -20,8 +20,8 @@ then
     exit 255
 fi
 
+if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then exit 0; fi
 # 环境初始化
-rm -rf $zDeployPath 2>/dev/null
 git clone $zPullAddr $zDeployPath
 cd $zDeployPath
 git config user.name "$zProjNo"
