@@ -580,7 +580,7 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (zSizMark <= zBufSiz) { free(zpJsonBuf); }
+    if (zSizMark <= zRecvdLen) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark
