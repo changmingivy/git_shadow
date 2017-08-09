@@ -67,4 +67,9 @@ if [[ 0 -eq $zExistMark ]];then
     echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
 fi
 
-exit 0
+# 创建必要的目录与文件
+cd $zDeployPath
+mkdir -p ${zDeployPath}/.git_shadow/{info,log/deploy}
+touch ${zDeployPath}/.git_shadow/info/{host_ip_all.bin,host_ip_all.txt,host_ip_major.txt,repo_id}
+touch ${zDeployPath}/.git_shadow/log/deploy/meta
+chmod -R 0755 ${zDeployPath}/.git_shadow

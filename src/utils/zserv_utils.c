@@ -743,7 +743,6 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
             char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
             char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
             zfork_do_exec(zpCmd, zppArgv);
-            zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY);
         } else {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
@@ -764,32 +763,31 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     /* 清理资源占用 */
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
-    /* 必要的文件路径检测与创建 */
-    #define zCheck_Status_Exit(zRet) do {\
-        if (-1 == (zRet) && errno != EEXIST) {\
-            zPrint_Err(errno, NULL, "Can't create directory!");\
-            exit(1);\
-        }\
-    } while(0)
-    zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow", 0755) );
-    zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/info", 0755) );
-    zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/log", 0755) );
-    zCheck_Status_Exit( mkdirat(zFd[0], ".git_shadow/log/deploy", 0755) );
-    zCheck_Status_Exit( zFd[1] = openat(zFd[0], zAllIpTxtPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
-    close(zFd[1]);
-    zCheck_Status_Exit( zFd[1] = openat(zFd[0], zMajorIpTxtPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
-    close(zFd[1]);
-    zCheck_Status_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
-    close(zFd[1]);
-    zCheck_Status_Exit( zFd[1] = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_EXCL, 0644) );
-    close(zFd[1]);
-    #undef zCheck_Dir_Status_Exit
+    /* 初始化日志下一次写入偏移量并找开日志文件 */
+    zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY);
+    zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    _i zStatRes = fstatat(zFd[0], zLogPath, &zStatIf, 0);
+    _i zOpenRes = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755);
+    if (-1 == zFd[0] || -1 == zFd[1] || -1 == zStatRes || -1 == zOpenRes) {
+        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        free(zppGlobRepoIf[zRepoId]);
+        close(zFd[1]);
+        close(zFd[0]);
+        return -38;
+    }
+    zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
+    zppGlobRepoIf[zRepoId]->LogFd = zOpenRes;
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
-    zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644) );
     if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
+        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        free(zppGlobRepoIf[zRepoId]);
+        close(zFd[1]);
+        close(zFd[0]);
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
+    close(zFd[1]);
+    close(zFd[0]);
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
@@ -813,13 +811,6 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zupdate_ipv4_db(zRepoId);
     /* 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_FailingList, _ui, 1 + zppGlobRepoIf[zRepoId]->TotalHost);
-    /* 初始化日志下一次写入偏移量并找开日志文件 */
-    zCheck_Negative_Exit( fstatat(zFd[0], zLogPath, &zStatIf, 0) );
-    zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
-    zCheck_Negative_Exit( zppGlobRepoIf[zRepoId]->LogFd = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755) );
-
-    close(zFd[1]);
-    close(zFd[0]);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
