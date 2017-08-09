@@ -746,25 +746,23 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
         } else {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
-            return -33;  // 排除目标不存在原因之后，绝大多数情况都是权限问题
+            zpcre_free_tmpsource(zpRetIf);
+            zpcre_free_metasource(zpInitIf);
+            return (EACCES == errno) ? -33 : -38;  // 权限问题或拉取远程代码失败
         }
     } else {
         if (0 == zInitMark) {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
-            return -36;
+            zpcre_free_tmpsource(zpRetIf);
+            zpcre_free_metasource(zpInitIf);
+            close(zFd[0]);
+            return -36;  // 创建新项目时若已存在同名路径，则报错
         }
     }
     /* 清理资源占用 */
-    close(zFd[0]);
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
-    /* 打开代码库顶层目录，生成目录fd供后续的openat使用 */
-    if(-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY))) {
-        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-        free(zppGlobRepoIf[zRepoId]);
-        return -38;  // 如果路径不存在，说明git clone没有成功
-    }
     /* 必要的文件路径检测与创建 */
     #define zCheck_Status_Exit(zRet) do {\
         if (-1 == (zRet) && errno != EEXIST) {\
