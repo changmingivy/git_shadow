@@ -390,7 +390,9 @@ zParseDigit(void *zpIn, void *zpOut) {
 
 void
 zParseStr(void *zpIn, void *zpOut) {
-    strcpy(zpOut, zpIn);
+    if (NULL != zpIn) {
+        strcpy(zpOut, zpIn);
+    }
 }
 
 /*
