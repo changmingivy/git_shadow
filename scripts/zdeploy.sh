@@ -23,6 +23,7 @@ cd $zProjPath
 git stash
 git stash clear
 git pull --force ./.git server:master
+printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" >> .gitignore
 
 # 非单台布署情况下，host ip会被指定为0
 if [[ '0' == $zHostIp ]]; then
@@ -32,22 +33,19 @@ else
 fi
 
 git reset ${zCommitSig} -- $zFilePath
-echo "$zFilePath $zCommitSig" >> .git_shadow/DP_LOG
-git add .git_shadow/DP_LOG
 if [[ "" == $zFilePath ]]; then
-    git commit -m "版本布署：$zCommitSig"
+    git commit --allow-empty -m "版本布署：$zCommitSig"
 else
-    git commit -m "单文件布署：$zFilePath $zCommitSig"
+    git commit --allow-empty -m "单文件布署：$zFilePath $zCommitSig"
 fi
 
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
 cd $zProjPath/.git_shadow
 git add --all .
-git commit -m "__DP__"
+git commit --allow-empty -m "__DP__"
 
 zProjPathOnHost=`echo $zProjPath | sed -n 's%/home/git/\+%/%p'`
 for zHostAddr in $zHostList; do
-    let i++
     # 必须首先切换目录
     ( \
         cd $zProjPath/.git_shadow \
