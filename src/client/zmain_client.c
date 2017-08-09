@@ -113,8 +113,8 @@ zstate_reply(char *zpHost, char *zpPort) {
             exit(1);
         }
 
-        sprintf(zJsonBuf, "{\"OpsId\":8,\"RepoId\":%d,\"CommitId\":-1,\"FileId\":-1,\"HostId\":%u,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}", zRepoId, zIpv4Bin);
-        if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
+        sprintf(zJsonBuf, "{\"OpsId\":8,\"ProjId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);
+        if ((_i)strlen(zJsonBuf) != zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态回复失败！");
         }
 
