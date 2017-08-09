@@ -253,7 +253,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -f %s -h %u -P %s",
+    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig

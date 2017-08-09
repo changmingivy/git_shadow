@@ -32,8 +32,8 @@ else
 fi
 
 git reset ${zCommitSig} -- $zFilePath
-echo "$zFilePath $zCommitSig" >> DP_LOG
-git add DP_LOG
+echo "$zFilePath $zCommitSig" >> .git_shadow/DP_LOG
+git add .git_shadow/DP_LOG
 if [[ "" == $zFilePath ]]; then
     git commit -m "版本布署：$zCommitSig"
 else
