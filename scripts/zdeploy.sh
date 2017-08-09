@@ -44,7 +44,7 @@ fi
 cd $zProjPath/.git_shadow
 rm -rf ./bin ./scripts
 cp -rf ${zShadowPath}/bin ${zShadowPath}/scripts ./
-printf "                %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM" >> ${zProjPath}/bin/git_shadow_client
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ${zProjPath}/bin/git_shadow_client
 git add --all .
 git commit --allow-empty -m "__DP__"
 
