@@ -691,7 +691,7 @@ zupdate_ipv4_db(_i zRepoId) {
         -39;  // 项目ID写入失败
  */
 _i
-zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
+zadd_one_repo_env(char *zpRepoStrIf) {
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
     char zPullCmdBuf[zCommonBufSiz];
@@ -856,7 +856,7 @@ zinit_env(const char *zpConfPath) {
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
-        zadd_one_repo_env(zRes, 1);
+        zadd_one_repo_env(zRes);
     }
 
     if (0 > zGlobMaxRepoId) {

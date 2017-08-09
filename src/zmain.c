@@ -183,7 +183,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
 
 /* 以 ANSI 字符集中的前 128 位成员作为索引 */
 typedef void (* zJsonParseFunc) (void *, void *);
-zJsonParseFunc zParseOps[128];
+zJsonParseFunc zJsonParseOps[128];
 
 /************
  * 配置文件 *
@@ -198,8 +198,8 @@ zJsonParseFunc zParseOps[128];
 /**********
  * 子模块 *
  **********/
-#include "utils/zbase_utils.c"
 #include "utils/pcre2/zpcre.c"
+#include "utils/zbase_utils.c"
 #include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
@@ -250,15 +250,15 @@ main(_i zArgc, char **zppArgv) {
     zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
 
     /* json 解析时的回调函数索引 */
-    zParseOps['O']  // OpsId
-        = zParseOps['P']  // ProjId
-        = zParseOps['R']  // RevId
-        = zParseOps['F']  // FileId
-        = zParseOps['H']  // HostId
-        = zParseOps['C']  // CacheId
-        = zParseOps['D']  // DataType
+    zJsonParseOps['O']  // OpsId
+        = zJsonParseOps['P']  // ProjId
+        = zJsonParseOps['R']  // RevId
+        = zJsonParseOps['F']  // FileId
+        = zJsonParseOps['H']  // HostId
+        = zJsonParseOps['C']  // CacheId
+        = zJsonParseOps['D']  // DataType
         = zParseDigit;
-    zParseOps['d']  // data
+    zJsonParseOps['d']  // data
         = zParseStr;
 
     zstart_server(&zNetServIf);  // 启动网络服务

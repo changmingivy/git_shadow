@@ -385,7 +385,7 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  */
 void
 zParseDigit(void *zpIn, void *zpOut) {
-    *zpOut = strtol(zpIn, NULL, 10);
+    *((_ui *)zpOut) = strtol(zpIn, NULL, 10);
 }
 
 void
@@ -400,7 +400,7 @@ zParseStr(void *zpIn, void *zpOut) {
  */
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^\{\}\[\]\"\,\:]");
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^{}[]\",:]");
     zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
     
     // if (0 != (zpPcreRetIf->cnt % 2)) {
@@ -420,7 +420,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
-        zJsonParseFunc[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i+1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
+        zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i+1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
     }
 
     zpcre_free_tmpsource(zpPcreRetIf);

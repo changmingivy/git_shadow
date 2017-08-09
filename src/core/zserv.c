@@ -56,7 +56,7 @@ zlist_repo(struct zMetaInfo *_, _i zSd) {
 _i
 zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zJsonBuf[128];
-    _i zErrNo = zadd_one_repo_env(zpMetaIf->p_data, 0);
+    _i zErrNo = zadd_one_repo_env(zpMetaIf->p_data);
 
     if (0 > zErrNo) {
         return zErrNo;
