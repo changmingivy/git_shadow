@@ -246,13 +246,13 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "%s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
+    sprintf(zShellBuf, "sh -x %s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
-            zpFilePath,  // 指定目标文件相对于代码库的路径
+            zMajorIpTxtPath,  // Host 主节点 IP 列表相对于代码库的路径
             zpMetaIf->HostId,  // 数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
-            zMajorIpTxtPath);  // Host 主节点 IP 列表相对于代码库的路径
+            zpFilePath); // 指定目标文件相对于代码库的路径
 
     /* 调用 git 命令执行布署，脚本中设定的异常退出码均为 255 */
     if (255 == system(zShellBuf)) {

@@ -738,11 +738,12 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
     /* 检测代码库路径是否存在，根据是否是初始化时被调用，进行创建或报错 */
     errno = 0;
-    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY))) {
+    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDWR | O_DIRECTORY))) {
         if (ENOENT == errno) {
             char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
             char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
             zfork_do_exec(zpCmd, zppArgv);
+            zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY);
         } else {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
