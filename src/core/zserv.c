@@ -58,19 +58,12 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zJsonBuf[128];
     _i zErrNo = zadd_one_repo_env(zpMetaIf->p_data, 0);
 
-    switch (zErrNo) {
-        case -1:
-            return -34;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
-        case -2:
-            return -35;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
-        case -3:
-            return -36;  // 请求创建的项目路径已存在
-        case -4:
-            return -37;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
-        default:
-            sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
-            zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
-            return 0;
+    if (0 > zErrNo) {
+        return zErrNo;
+    } else {
+        sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
+        zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+        return 0;
     }
 }
 
@@ -622,8 +615,9 @@ zMark:
  * -34：请求创建的新项目信息格式错误（合法字段数量不是5个）
  * -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
  * -36：请求创建的项目路径已存在
- * -37：请求创建项目时指定的源版本控制系统错误（非git与svn）
- * -38：拉取远程代码失败
+ * -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
+ * -38：拉取远程代码失败(git clone)
+ * -39：项目ID写入配置文件失败(repo_id)
  *
  * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
