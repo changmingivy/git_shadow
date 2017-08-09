@@ -515,8 +515,7 @@ zops_route(void *zpSd) {
     char *zpJsonBuf = zJsonBuf;
 
     struct zMetaInfo zMetaIf;
-    zMetaIf.p_data = zpJsonBuf;
-    //memset(&zMetaIf, 0, sizeof(struct zMetaInfo));
+    memset(&zMetaIf, 0, sizeof(struct zMetaInfo));
 
     /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
@@ -544,9 +543,8 @@ zops_route(void *zpSd) {
         goto zMark;
     }
 
+    zMetaIf.p_data = zpJsonBuf;
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
-        // 此时因为解析失败，zMetaIf处于未初始化状态，需要手动赋值
-        memset(&zMetaIf, 0, sizeof(zMetaIf));
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);

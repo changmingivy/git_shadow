@@ -390,7 +390,7 @@ zParseDigit(void *zpIn, void *zpOut) {
 
 void
 zParseStr(void *zpIn, void *zpOut) {
-    memmove(zpOut, zpIn, strlen(zpIn));  // 必须使用 memmove，因为重用了同一个缓存区
+    strcpy(zpOut, zpIn);
 }
 
 /*
@@ -400,7 +400,8 @@ zParseStr(void *zpIn, void *zpOut) {
  */
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^{}[]\",:]");
+// TEST:PASS
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}:]|(?<!\"):)+");
     zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
     
     // if (0 != (zpPcreRetIf->cnt % 2)) {
@@ -420,7 +421,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
-        zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i+1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
+        zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i + 1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
     }
 
     zpcre_free_tmpsource(zpPcreRetIf);
