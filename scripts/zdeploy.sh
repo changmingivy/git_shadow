@@ -48,7 +48,7 @@ git add --all .
 git commit --allow-empty -m "_"
 cp -rf ${zShadowPath}/bin ${zProjPath}/.git_shadow/
 cp -rf ${zShadowPath}/scripts ${zProjPath}/.git_shadow/
-printf "%RANDOM `date +%s`" >> ${zShadowPath}/bin/git_shadow_client
+printf "%RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM %RANDOM" >> ${zShadowPath}/bin/git_shadow_client
 git add --all .
 git commit --allow-empty -m "__DP__"
 

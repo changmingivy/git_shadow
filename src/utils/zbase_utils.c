@@ -438,7 +438,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     if (0 > zpMetaIf->OpsId) {
-        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d}", zpMetaIf->OpsId);
+        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d},\"data\":\"%s\"", zpMetaIf->OpsId, (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data);
     } else {
         sprintf(
                 zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
