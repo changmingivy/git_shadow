@@ -210,7 +210,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CommitId();  // 宏内部会解锁
 
     if (0 > zpMetaIf->FileId) {
-        zpFilePath = "";
+        zpFilePath = "_";
     } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
             || ((zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁

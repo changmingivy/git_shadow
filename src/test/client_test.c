@@ -262,7 +262,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":9,\"RepoId\":555,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"RepoId\":555,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":9,\"RepoId\":555,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
 
     // 打印差异文件列表
     //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":555,\"CommitId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
@@ -271,7 +271,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":555,\"CommitId\":1023,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":555,\"CommitId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":555,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502258904,\"DataType\":0,\"Data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":555,\"CommitId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502238530,\"DataType\":1,\"Data\":\"\"}";
