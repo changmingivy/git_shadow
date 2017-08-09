@@ -24,7 +24,7 @@ mkdir pcre2
 tar -xf pcre2-10.23.tar.gz
 cd pcre2-10.23
 ./configure --prefix=$HOME/zgit_shadow/lib/pcre2
-make && make install
+make -j 9 && make install
 
 # 编译主程序，静态库文件路径一定要放在源文件之后
 cc -Wall -Wextra -std=c99 -O2 -lm -lpthread \
