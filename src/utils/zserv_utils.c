@@ -691,7 +691,7 @@ zupdate_ipv4_db(_i zRepoId) {
         -39;  // 项目ID写入失败
  */
 _i
-zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
+zadd_one_repo_env(char *zpRepoStrIf) {
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
     char zPullCmdBuf[zCommonBufSiz];
@@ -745,58 +745,37 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
     strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
     strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
-    /* 检测代码库路径是否存在，根据是否是初始化时被调用，进行创建或报错 */
-    errno = 0;
-    if (-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDWR | O_DIRECTORY))) {
-        if (ENOENT == errno) {
-            char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-            char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-            zfork_do_exec(zpCmd, zppArgv);
-        } else {
-            free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-            free(zppGlobRepoIf[zRepoId]);
-            zpcre_free_tmpsource(zpRetIf);
-            zpcre_free_metasource(zpInitIf);
-            return (EACCES == errno) ? -33 : -38;  // 权限问题或拉取远程代码失败
-        }
-    } else {
-        if (0 == zInitMark) {
-            free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-            free(zppGlobRepoIf[zRepoId]);
-            zpcre_free_tmpsource(zpRetIf);
-            zpcre_free_metasource(zpInitIf);
-            close(zFd[0]);
-            return -36;  // 创建新项目时若已存在同名路径，则报错
-        }
-    }
+    /* 调用SHELL执行检查和创建 */
+    char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+    char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
+    zfork_do_exec(zpCmd, zppArgv);
     /* 清理资源占用 */
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
-    /* 初始化日志下一次写入偏移量并找开日志文件 */
+    /* 打开日志文件 */
     zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY);
     zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     _i zStatRes = fstatat(zFd[0], zLogPath, &zStatIf, 0);
     _i zOpenRes = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755);
+    close(zFd[0]);
     if (-1 == zFd[0] || -1 == zFd[1] || -1 == zStatRes || -1 == zOpenRes) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
         close(zFd[1]);
-        close(zFd[0]);
         return -38;
     }
-    zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
-    zppGlobRepoIf[zRepoId]->LogFd = zOpenRes;
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
     if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
         close(zFd[1]);
-        close(zFd[0]);
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
     close(zFd[1]);
-    close(zFd[0]);
+    /* 初始化日志下一次写入偏移量 */
+    zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
+    zppGlobRepoIf[zRepoId]->LogFd = zOpenRes;
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
@@ -877,7 +856,7 @@ zinit_env(const char *zpConfPath) {
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
-        zadd_one_repo_env(zRes, 1);
+        zadd_one_repo_env(zRes);
     }
 
     if (0 > zGlobMaxRepoId) {

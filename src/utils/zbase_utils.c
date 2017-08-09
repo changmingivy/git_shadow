@@ -381,51 +381,51 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
 // }
 
 /*
- *  接收数据时使用
- *  将json文本转换为zMetaInfo结构体
- *  返回：用完data字段的内容后，需要释放资源的json对象指针
+ * json 解析回调：数字与字符串
  */
-#define zCheck_Json_Ret(zJsonRet) do {\
-    void *zpXXXXXXXXX = (zJsonRet);\
-    if (NULL == zpXXXXXXXXX) { return NULL; }\
-} while(0)
+void
+zParseDigit(void *zpIn, void *zpOut) {
+    *((_ui *)zpOut) = strtol(zpIn, NULL, 10);
+}
 
-cJSON *
-zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-    cJSON *zpRootObj;
-    cJSON *zpValueObj;
-
-    zCheck_Json_Ret( zpRootObj = cJSON_Parse(zpJsonStr) );  // 返回NULL表示异常
-
-    /* 置为NULL，防止野指针问题 */
-    zpMetaIf->p_TimeStamp = NULL;
-
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "OpsId") );
-    zpMetaIf->OpsId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CacheId") );
-    zpMetaIf->CacheId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "RepoId") );
-    zpMetaIf->RepoId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "DataType") );
-    zpMetaIf->DataType = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "CommitId") );
-    zpMetaIf->CommitId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "FileId") );
-    zpMetaIf->FileId = zpValueObj->valueint;
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "HostId") );
-    zpMetaIf->HostId = zpValueObj->valuedouble;  //不能使用<valueint>提取，int型不足以容纳uint
-    zCheck_Json_Ret( zpValueObj = cJSON_GetObjectItem(zpRootObj, "Data") );
-    zpMetaIf->p_data = zpValueObj->valuestring;
-
-    return zpRootObj;  // 调用者用完之后需要释放资源
+void
+zParseStr(void *zpIn, void *zpOut) {
+    memmove(zpOut, zpIn, strlen(zpIn));  // 必须使用 memmove，因为重用了同一个缓存区
 }
 
 /*
- * 若用到p_data字段，使用完json后释放顶层对象
+ *  接收数据时使用
+ *  将json文本转换为zMetaInfo结构体
+ *  返回：出错返回-1，正常返回0
  */
-void
-zjson_obj_free(cJSON *zpJsonRootObj) {
-    cJSON_Delete(zpJsonRootObj);
+_i
+zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^{}[]\",:]");
+    zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
+    
+    // if (0 != (zpPcreRetIf->cnt % 2)) {
+    //     zpcre_free_tmpsource(zpPcreRetIf);
+    //     zpcre_free_metasource(zpPcreInitIf);
+    //     return -1;
+    // }
+
+    void *zpBuf[128];
+    zpBuf['O'] = &(zpMetaIf->OpsId);
+    zpBuf['P'] = &(zpMetaIf->RepoId);
+    zpBuf['R'] = &(zpMetaIf->CommitId);
+    zpBuf['F'] = &(zpMetaIf->FileId);
+    zpBuf['H'] = &(zpMetaIf->HostId);
+    zpBuf['C'] = &(zpMetaIf->CacheId);
+    zpBuf['D'] = &(zpMetaIf->DataType);
+    zpBuf['d'] = zpMetaIf->p_data;
+
+    for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
+        zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i+1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
+    }
+
+    zpcre_free_tmpsource(zpPcreRetIf);
+    zpcre_free_metasource(zpPcreInitIf);
+    return 0;
 }
 
 /*
@@ -435,7 +435,7 @@ zjson_obj_free(cJSON *zpJsonRootObj) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"RepoId\":%d,\"CommitId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"Data\":\"%s\"}",
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
             zpMetaIf->OpsId,
             zpMetaIf->RepoId,
             zpMetaIf->CommitId,
@@ -448,20 +448,20 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
             );
 }
 
-/*
- *  检查一个目录是否已存在
- *  返回：1表示已存在，0表示不存在，-1表示出错
- */
-_i
-zCheck_Dir_Existence(char *zpDirPath) {
-    _i zFd;
-    if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
-        if (EEXIST == errno) {
-            return 1;
-        } else {
-            return -1;
-        }
-    }
-    close(zFd);
-    return 0;
-}
+// /*
+//  *  检查一个目录是否已存在
+//  *  返回：1表示已存在，0表示不存在，-1表示出错
+//  */
+// _i
+// zCheck_Dir_Existence(char *zpDirPath) {
+//     _i zFd;
+//     if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
+//         if (EEXIST == errno) {
+//             return 1;
+//         } else {
+//             return -1;
+//         }
+//     }
+//     close(zFd);
+//     return 0;
+// }
