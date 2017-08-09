@@ -673,6 +673,7 @@ zupdate_ipv4_db(_i zRepoId) {
  *   新建项目基本信息五个字段
  *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
  * 返回值:
+        -33;  // 请求创建的新项目路径无权访问
         -34;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
         -35;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
         -36;  // 请求创建的项目路径已存在
@@ -745,7 +746,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
         } else {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
-            return -36;
+            return -33;  // 排除目标不存在原因之后，绝大多数情况都是权限问题
         }
     } else {
         if (0 == zInitMark) {
