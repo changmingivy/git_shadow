@@ -148,8 +148,11 @@ zget_diff_content(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-    } else {
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+    } else {
+        zPrint_Err(0, NULL, "数据类型错误!");
+        exit(1);
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -202,8 +205,11 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-    } else {
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+    } else {
+        zPrint_Err(0, NULL, "数据类型错误!");
+        exit(1);
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -328,13 +334,16 @@ zgenerate_cache(void *zpIf) {
         sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"",
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
-    } else {
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
 
         strcpy(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
         strcat(zShellBuf, "/");
         strcat(zShellBuf, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
+    } else {
+        zPrint_Err(0, NULL, "数据类型错误!");
+        exit(1);
     }
     
     /* >>>>初始化线程同步环境 */
