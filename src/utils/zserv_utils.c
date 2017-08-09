@@ -673,9 +673,12 @@ zupdate_ipv4_db(_i zRepoId) {
  *   新建项目基本信息五个字段
  *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
  * 返回值:
- *   -1：信息错误，无法解析
- *   -2：指定的项目ID已存在
- *   -3：指定的源版本控制系统(VCS)类型错误
+        -34;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
+        -35;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
+        -36;  // 请求创建的项目路径已存在
+        -37;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
+        -38;  // 拉取(git clone)远程代码失败
+        -39;  // 项目ID写入失败
  */
 _i
 zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
@@ -696,7 +699,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     if (5 != zpRetIf->cnt) {
         zPrint_Time();
         fprintf(stderr, "\033[31m\"%s\": 新项目信息错误!\033[00m\n", zpRepoStrIf);
-        return -1;
+        return -34;
     }
     /* 提取项目ID */
     zRepoId = strtol(zpRetIf->p_rets[0], NULL, 10);
@@ -709,7 +712,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
         if (NULL != zppGlobRepoIf[zRepoId]) {
             zpcre_free_tmpsource(zpRetIf);
             zpcre_free_metasource(zpInitIf);
-            return -2;
+            return -35;
         }
     }
     /* 检测并生成项目代码定期更新命令 */
@@ -723,7 +726,7 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
                 zpRetIf->p_rets[1]);
     } else {
         zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
-        return -4;
+        return -37;
     }
     /* 分配项目信息的存储空间 */
     zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
@@ -742,13 +745,13 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
         } else {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
-            return -3;
+            return -36;
         }
     } else {
         if (0 == zInitMark) {
             free(zppGlobRepoIf[zRepoId]->p_RepoPath);
             free(zppGlobRepoIf[zRepoId]);
-            return -3;
+            return -36;
         }
     }
     /* 清理资源占用 */
@@ -759,20 +762,8 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     if(-1 == (zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY))) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
-        return -38;
+        return -38;  // 如果路径不存在，说明git clone没有成功
     }
-    /* 存储项目代码定期更新命令 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
-    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
-    /* inotify */
-    zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath) );
-    zpObjIf->RepoId = zRepoId;
-    zpObjIf->RecursiveMark = 1;
-    zpObjIf->CallBack = zupdate_one_commit_cache;
-    zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
-    strcpy(zpObjIf->p_path, zppGlobRepoIf[zRepoId]->p_RepoPath);
-    strcat(zpObjIf->p_path, "/.git/logs");
-    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
     /* 必要的文件路径检测与创建 */
     #define zCheck_Status_Exit(zRet) do {\
         if (-1 == (zRet) && errno != EEXIST) {\
@@ -796,9 +787,21 @@ zadd_one_repo_env(char *zpRepoStrIf, _i zInitMark) {
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
     zCheck_Negative_Exit( zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644) );
     if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
-        zPrint_Err(0, NULL, "项目ID写入失败!");
-        exit(1);
+        zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
+        return -39;
     }
+    /* 存储项目代码定期更新命令 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
+    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
+    /* inotify */
+    zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath) );
+    zpObjIf->RepoId = zRepoId;
+    zpObjIf->RecursiveMark = 1;
+    zpObjIf->CallBack = zupdate_one_commit_cache;
+    zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
+    strcpy(zpObjIf->p_path, zppGlobRepoIf[zRepoId]->p_RepoPath);
+    strcat(zpObjIf->p_path, "/.git/logs");
+    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
     /* 为每个代码库生成一把读写锁，锁属性设置写者优先 */
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[zRepoId]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
