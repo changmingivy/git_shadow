@@ -385,7 +385,7 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  */
 void
 zParseDigit(void *zpIn, void *zpOut) {
-    *((_ui *)zpOut) = strtol(zpIn, NULL, 10);
+    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
 }
 
 void
@@ -423,6 +423,11 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
+        if (NULL == zJsonParseOps[zpPcreRetIf->p_rets[i][0]]) {
+            zpcre_free_tmpsource(zpPcreRetIf);
+            zpcre_free_metasource(zpPcreInitIf);
+            return -1;
+        }
         zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i + 1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
     }
 

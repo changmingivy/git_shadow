@@ -297,7 +297,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
     zCcur_Sub_Config(zpSubMetaIf, A);  //___
     zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf->CacheId = zppGlobRepoIf[zpSubMetaIf->RepoId]->CacheId;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpSubMetaIf->DataType = zIsCommitDataType;
     zCcur_Fin_Mark(1 == 1, A);  //___
     zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf);
@@ -305,7 +305,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
     zCcur_Sub_Config(zpSubMetaIf, B);  //___
     zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf->CacheId = zppGlobRepoIf[zpSubMetaIf->RepoId]->CacheId;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpSubMetaIf->DataType = zIsDeployDataType;
     zCcur_Fin_Mark(1 == 1, B);  //___
     zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf);
