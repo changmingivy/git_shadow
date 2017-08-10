@@ -508,7 +508,6 @@ void
 zops_route(void *zpSd) {
 // TEST:PASS
     _i zSd = *((_i *)zpSd);
-    pthread_mutex_unlock(&zNetServLock);
     _i zBufSiz = zSizMark;
     _i zRecvdLen;
     _i zErrNo;
@@ -625,7 +624,6 @@ zMark:
 void
 zstart_server(void *zpIf) {
 // TEST:PASS
-#define zMaxEvents 64
     // 顺序不可变
     zNetServ[0] = zlist_repo;  // 显示项目ID及其在中控机上的绝对路径
     zNetServ[1] = zadd_repo;  // 添加新代码库
@@ -648,9 +646,8 @@ zstart_server(void *zpIf) {
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
     for (;;) {
-        pthread_mutex_lock(&zNetServLock);
-        zCheck_Negative_Exit( zConnSd = accept(zMajorSd, NULL, 0) );
-        zAdd_To_Thread_Pool(zops_route, &zConnSd);
+        if (-1 != (zConnSd = accept(zMajorSd, NULL, 0))) {
+            zAdd_To_Thread_Pool(zops_route, &zConnSd);
+        }
     }
-#undef zMaxEvents
 }

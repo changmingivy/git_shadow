@@ -172,8 +172,6 @@ struct zRepoInfo {
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
 
-pthread_mutex_t zNetServLock = PTHREAD_MUTEX_INITIALIZER;
-
 _i zInotifyFD;  // inotify 主描述符
 struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
