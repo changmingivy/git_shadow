@@ -512,18 +512,17 @@ zops_route(void *zpSd) {
     _i zBufSiz = zSizMark;
     _i zRecvdLen;
     _i zErrNo;
-    char zJsonBuf[zBufSiz];
+    char zJsonBuf[zSizMark] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
 
     struct zMetaInfo zMetaIf;
-    memset(&zMetaIf, 0, sizeof(struct zMetaInfo));
 
     /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
         zRecvSiz = zOffSet = zBufSiz;
         zBufSiz = 4096;
-        zMem_Alloc(zpJsonBuf, char, zBufSiz);
+        zMem_C_Alloc(zpJsonBuf, char, zBufSiz);
         strcpy(zpJsonBuf, zJsonBuf);
 
         while(0 < (zRecvdLen = recv(zSd, zpJsonBuf + zOffSet, zBufSiz - zRecvSiz, 0))) {
@@ -546,6 +545,7 @@ zops_route(void *zpSd) {
 
     char zDataBuf[zRecvdLen];  // 使用动态栈空间
     zMetaIf.p_data = zDataBuf;
+    memset(zDataBuf, 0, zRecvdLen);
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
