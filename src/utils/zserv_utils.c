@@ -696,7 +696,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zPCRERetInfo *zpRetIf;
     char zPullCmdBuf[zCommonBufSiz];
 
-    struct zMetaInfo *zpMetaIf;
+    struct zMetaInfo *zpMetaIf[2];
     struct zObjInfo *zpObjIf;
     struct stat zStatIf;
     void **zppPrev;
@@ -824,21 +824,21 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zCcur_Init(zRepoId, A);  //___
     zCcur_Init(zRepoId, B);  //___
     /* 生成提交记录缓存 */
-    zpMetaIf = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf, A);  //___
-    zpMetaIf->RepoId = zRepoId;
-    zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
-    zpMetaIf->DataType = zIsCommitDataType;
+    zpMetaIf[0] = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpMetaIf[0], A);  //___
+    zpMetaIf[0]->RepoId = zRepoId;
+    zpMetaIf[0]->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
+    zpMetaIf[0]->DataType = zIsCommitDataType;
     zCcur_Fin_Mark(1 == 1, A);  //___
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[0]);
     /* 生成布署记录缓存 */
-    zpMetaIf = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf, B);  //___
-    zpMetaIf->RepoId = zRepoId;
-    zpMetaIf->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
-    zpMetaIf->DataType = zIsDeployDataType;
+    zpMetaIf[1] = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpMetaIf[1], B);  //___
+    zpMetaIf[1]->RepoId = zRepoId;
+    zpMetaIf[1]->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
+    zpMetaIf[1]->DataType = zIsDeployDataType;
     zCcur_Fin_Mark(1 == 1, B);  //___
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[1]);
 
     /* 等待两批任务完成，之后释放相关资源占用 */
     zCcur_Wait(A);  //___
