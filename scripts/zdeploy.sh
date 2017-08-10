@@ -43,9 +43,8 @@ fi
 # git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
 cd $zProjPath/.git_shadow
 rm -rf ./bin ./scripts
-git add --all .
-git commit --allow-empty -m "_"
-cp -rf ${zShadowPath}/bin ${zShadowPath}/scripts ${zProjPath}/.git_shadow/
+cp -rf ${zShadowPath}/bin ${zShadowPath}/scripts ./
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
 git add --all .
 git commit --allow-empty -m "__DP__"
 

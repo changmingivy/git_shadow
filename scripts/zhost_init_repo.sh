@@ -44,7 +44,7 @@ for x in $zMajorIpList; do
     
         ssh $x "
             PATH="/sbin:\$PATH" &&
-            for zAddr in \`ifconfig | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.|\.255$'\`;do
+            for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
                 if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
                     zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`
                     for zEcsAddr in \$zEcsAddrList;do

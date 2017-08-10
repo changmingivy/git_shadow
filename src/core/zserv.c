@@ -185,6 +185,7 @@ _i
 zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 // TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf;
+    struct zMetaInfo *zpSubMetaIf;
     struct stat zStatIf;
     _i zFd;
 
@@ -293,21 +294,21 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCcur_Init(zpMetaIf->RepoId, A);  //___
     zCcur_Init(zpMetaIf->RepoId, B);  //___
     /* 生成提交记录缓存 */
-    zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf, A);  //___
-    zpMetaIf->RepoId = zpMetaIf->RepoId;
-    zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-    zpMetaIf->DataType = zIsCommitDataType;
+    zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpSubMetaIf, A);  //___
+    zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+    zpSubMetaIf->DataType = zIsCommitDataType;
     zCcur_Fin_Mark(1 == 1, A);  //___
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf);
     /* 生成布署记录缓存 */
-    zpMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf, B);  //___
-    zpMetaIf->RepoId = zpMetaIf->RepoId;
-    zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-    zpMetaIf->DataType = zIsDeployDataType;
+    zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+    zCcur_Sub_Config(zpSubMetaIf, B);  //___
+    zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+    zpSubMetaIf->DataType = zIsDeployDataType;
     zCcur_Fin_Mark(1 == 1, B);  //___
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+    zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf);
     /* 等待两批任务完成，之后释放相关资源占用 */
     zCcur_Wait(A);  //___
     zCcur_Wait(B);  //___
@@ -540,10 +541,11 @@ zops_route(void *zpSd) {
 
     if (zBytes(6) > zRecvdLen) {
         shutdown(zSd, SHUT_RDWR);
-        goto zMark;
+        return;
     }
 
-    zMetaIf.p_data = zpJsonBuf;
+    char zDataBuf[zRecvdLen];  // 使用动态栈空间
+    zMetaIf.p_data = zDataBuf;
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
@@ -562,7 +564,7 @@ zops_route(void *zpSd) {
     }
 
     // 应对初始化配置为空或指定的ID不合法等场景
-    if ((1 != zMetaIf.OpsId) && ((-1 == zGlobMaxRepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
+    if ((1 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
@@ -580,7 +582,7 @@ zops_route(void *zpSd) {
     }
 
 zMark:
-    if (zSizMark <= zBufSiz) { free(zpJsonBuf); }
+    if (zSizMark <= zRecvdLen) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
 }
 #undef zSizMark

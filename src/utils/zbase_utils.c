@@ -385,12 +385,14 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  */
 void
 zParseDigit(void *zpIn, void *zpOut) {
-    *((_ui *)zpOut) = strtol(zpIn, NULL, 10);
+    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
 }
 
 void
 zParseStr(void *zpIn, void *zpOut) {
-    strcpy(zpOut, zpIn);
+    if (NULL != zpIn) {
+        strcpy(zpOut, zpIn);
+    }
 }
 
 /*
@@ -421,6 +423,11 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
+        if (NULL == zJsonParseOps[zpPcreRetIf->p_rets[i][0]]) {
+            zpcre_free_tmpsource(zpPcreRetIf);
+            zpcre_free_metasource(zpPcreInitIf);
+            return -1;
+        }
         zJsonParseOps[zpPcreRetIf->p_rets[i][0]](zpPcreRetIf->p_rets[i + 1], zpBuf[zpPcreRetIf->p_rets[i][0]]);
     }
 
@@ -435,18 +442,22 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
  */
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
-    sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
-            zpMetaIf->OpsId,
-            zpMetaIf->RepoId,
-            zpMetaIf->CommitId,
-            zpMetaIf->FileId,
-            zpMetaIf->HostId,
-            zpMetaIf->CacheId,
-            zpMetaIf->DataType,
-            (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
-            (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
-            );
+    if (0 > zpMetaIf->OpsId) {
+        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d},\"data\":\"%s\"", zpMetaIf->OpsId, (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data);
+    } else {
+        sprintf(
+                zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"TimeStamp\":\"%s\",\"data\":\"%s\"}",
+                zpMetaIf->OpsId,
+                zpMetaIf->RepoId,
+                zpMetaIf->CommitId,
+                zpMetaIf->FileId,
+                zpMetaIf->HostId,
+                zpMetaIf->CacheId,
+                zpMetaIf->DataType,
+                (NULL == zpMetaIf->p_TimeStamp) ? "" : zpMetaIf->p_TimeStamp,
+                (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data
+                );
+    }
 }
 
 // /*

@@ -19,15 +19,15 @@ rm -rf ${zShadowPath}/bin/*
 
 # 编译正则库
 cd ${zShadowPath}/lib/
-rm -rf pcre2 pcre2-10.21
+rm -rf pcre2 pcre2-10.23
 mkdir pcre2
-tar -xf pcre2-10.21.tar.gz
-cd pcre2-10.21
+tar -xf pcre2-10.23.tar.gz
+cd pcre2-10.23
 ./configure --prefix=$HOME/zgit_shadow/lib/pcre2
 make -j 9 && make install
 
 # 编译主程序，静态库文件路径一定要放在源文件之后
-cc -Wall -Wextra -std=c99 -O2 -lm -lpthread \
+cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -D_XOPEN_SOURCE=700 \
     -I${zShadowPath}/inc \
     -o ${zShadowPath}/bin/git_shadow \

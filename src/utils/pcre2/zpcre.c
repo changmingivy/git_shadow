@@ -86,10 +86,11 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
         }
 
         PCRE2_SPTR zSubStringStart = zSubject + zpRetVector[0];
-        size_t zSubStringLen = zpRetVector[1] - zpRetVector[0];  // Maybe add 1?
+        size_t zSubStringLen = zpRetVector[1] - zpRetVector[0];
 
-        zMem_C_Alloc(zpRetIf->p_rets[i], char, zSubStringLen);  // Must use calloc !!!
+        zMem_C_Alloc(zpRetIf->p_rets[i], char, zSubStringLen + 1);  // Must use calloc !!!
         strncpy(zpRetIf->p_rets[i], (char *)zSubStringStart, zSubStringLen);
+        zpRetIf->p_rets[i][zSubStringLen] = '\0';  // 需要手动加一个 '\0'
         zpRetIf->cnt += 1;
         zSubject += zpRetVector[1];
     }
