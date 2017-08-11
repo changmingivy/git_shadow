@@ -166,6 +166,9 @@ struct zRepoInfo {
     struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
     struct iovec DeployVecIf[zCacheSiz];
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
+
+    struct zVecWrapInfo SortedDeployVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    struct iovec SortedDeployVecIf[zCacheSiz];
 };
 
 /************

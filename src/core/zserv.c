@@ -76,7 +76,7 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;

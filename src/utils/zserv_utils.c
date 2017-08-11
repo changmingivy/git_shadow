@@ -382,6 +382,14 @@ zgenerate_cache(void *zpIf) {
     /* 存储的是实际的对象数量 */
     zpTopVecWrapIf->VecSiz = zVecCnter;
 
+    /* 将布署记录按逆向时间排序（新的显示在前面） */
+    if (zIsDeployDataType == zpMetaIf->DataType) {
+        for (_i i = 0; i < zVecCnter; i++) {
+            zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter - i - 1].iov_base;
+            zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter - i - 1].iov_len;
+        }
+    }
+
     /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
     if (0 != zVecCnter) {
         ((char *)(zpTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
@@ -794,6 +802,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zppGlobRepoIf[zRepoId]->SortedCommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedCommitVecIf;
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DeployVecIf;
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
+    zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
     /* 初始化任务分发环境 */
     zCcur_Init(zRepoId, A);  //___
     zCcur_Init(zRepoId, B);  //___
