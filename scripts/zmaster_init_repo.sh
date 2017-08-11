@@ -26,19 +26,19 @@ git clone $zPullAddr $zDeployPath
 cd $zDeployPath
 git config user.name "$zProjNo"
 git config user.email "${zProjNo}@${zProjPath}"
-printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" > .gitignore  # 忽略<.git_shadow>目录
+printf ".svn/" > .gitignore  # 忽略<.svn>目录
 git add --all .
 git commit -m "__init__"
 git branch -f CURRENT
 git branch -f server  # 远程代码接收到server分支
 
 # 专用于远程库VCS是svn的场景
-rm -rf ${zDeployPath}/.sync_svn_to_git 2>/dev/null
-mkdir ${zDeployPath}/.sync_svn_to_git
+rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT 2>/dev/null
+mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
 
 if [[ "svn" == $zRemoteVcsType ]]; then
-    svn co $zPullAddr ${zDeployPath}/.sync_svn_to_git  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
-    cd ${zDeployPath}/.sync_svn_to_git
+    svn co $zPullAddr ${zDeployPath}_SYNC_SVN_TO_GIT  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
+    cd ${zDeployPath}_SYNC_SVN_TO_GIt
     git init .
     git config user.name "sync_svn_to_git"
     git config user.email "sync_svn_to_git@${zProjNo}"
@@ -47,14 +47,14 @@ if [[ "svn" == $zRemoteVcsType ]]; then
     git commit -m "__init__"
 fi
 
-# <.git_shadow>以子库的形式内嵌于主库之中
-rm -rf ${zDeployPath}/.git_shadow 2>/dev/null
-mkdir ${zDeployPath}/.git_shadow
+# 创建以 <项目名称>_SHADOW 命名的目录
+rm -rf ${zDeployPath}_SHADOW 2>/dev/null
+mkdir ${zDeployPath}_SHADOW
 
-cp -rf ${zShadowPath}/bin ${zDeployPath}/.git_shadow/
-cp -rf ${zShadowPath}/scripts ${zDeployPath}/.git_shadow/
+cp -rf ${zShadowPath}/bin ${zDeployPath}_SHADOW/
+cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
 
-cd $zDeployPath/.git_shadow
+cd $zDeployPath_SHADOW
 git init .
 git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjNo}"
@@ -69,7 +69,7 @@ fi
 
 # 创建必要的目录与文件
 cd $zDeployPath
-mkdir -p ${zDeployPath}/.git_shadow/{info,log/deploy}
-touch ${zDeployPath}/.git_shadow/info/{host_ip_all.bin,host_ip_all.txt,host_ip_major.txt,repo_id}
-touch ${zDeployPath}/.git_shadow/log/deploy/meta
-chmod -R 0755 ${zDeployPath}/.git_shadow
+mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
+touch ${zDeployPath}_SHADOW/info/{host_ip_all.bin,host_ip_all.txt,host_ip_major.txt,repo_id}
+touch ${zDeployPath}_SHADOW/log/deploy/meta
+chmod -R 0755 ${zDeployPath}_SHADOW

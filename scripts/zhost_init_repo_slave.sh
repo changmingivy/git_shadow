@@ -4,9 +4,9 @@ zPathOnHost=$2
 
 ssh $zSlaveAddr "
     if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
-    mkdir -p $zPathOnHost/.git_shadow &&
+    mkdir -p ${zPathOnHost}_SHADOW &&
 \
-    cd $zPathOnHost/.git_shadow &&
+    cd ${zPathOnHost}_SHADOW &&
     git init . &&
     git config user.name "git_shadow" &&
     git config user.email "git_shadow@$x" &&

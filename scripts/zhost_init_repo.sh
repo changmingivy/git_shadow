@@ -2,8 +2,8 @@
 # TEST:PASS
 zPathOnMaster=$1
 zPathOnHost=`echo $zPathOnMaster | sed -n 's%/home/git/\+%/%p'`
-zMajorHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_major.txt"
-zAllHostAddrListPath="${zPathOnMaster}/.git_shadow/info/host_ip_all.txt"
+zMajorHostAddrListPath="${zPathOnMaster}_SHADOW/info/host_ip_major.txt"
+zAllHostAddrListPath="${zPathOnMaster}_SHADOW/info/host_ip_all.txt"
 zOpsRootPath="/home/git/zgit_shadow/scripts"
 
 zMajorIpList=`cat $zMajorHostAddrListPath`
@@ -13,9 +13,9 @@ for x in $zMajorIpList; do
     (\
         ssh $x "
             if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
-            mkdir -p $zPathOnHost/.git_shadow &&
+            mkdir -p ${zPathOnHost}_SHADOW &&
 \
-            cd $zPathOnHost/.git_shadow &&
+            cd ${zPathOnHost}_SHADOW &&
             git init . &&
             git config user.name "git_shadow" &&
             git config user.email "git_shadow@$x" &&
@@ -31,7 +31,7 @@ for x in $zMajorIpList; do
             "
     
         scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:${zPathOnHost}/.git/hooks/post-update &&
-        scp -r $zPathOnMaster/.git_shadow/info git@${x}:${zPathOnHost}/.git_shadow/ &&
+        scp -r ${zPathOnMaster}_SHADOW/info git@${x}:${zPathOnHost}_SHADOW/ &&
         scp ${zOpsRootPath}/zhost_init_repo_slave.sh git@${x}:/tmp/zhost_init_repo_slave.sh &&
         scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:/tmp/zhost_post-update.sh &&
     

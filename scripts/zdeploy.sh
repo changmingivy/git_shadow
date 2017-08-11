@@ -24,7 +24,7 @@ cd $zProjPath
 git stash
 git stash clear
 git pull --force ./.git server:master
-printf ".svn/\n.git_shadow/\n.sync_svn_to_git/" >> .gitignore
+printf ".svn/" >> .gitignore
 
 # 非单台布署情况下，host ip会被指定为0
 if [[ "0" == $zHostIp ]]; then
@@ -40,8 +40,8 @@ else
     git commit --allow-empty -m "单文件布署：$zFilePath $zCommitSig"
 fi
 
-# git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
-cd $zProjPath/.git_shadow
+#
+cd ${zProjPath}_SHADOW
 rm -rf ./bin ./scripts
 cp -rf ${zShadowPath}/bin ${zShadowPath}/scripts ./
 printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
@@ -52,8 +52,8 @@ zProjPathOnHost=`echo $zProjPath | sed -n 's%/home/git/\+%/%p'`
 for zHostAddr in $zHostList; do
     # 必须首先切换目录
     ( \
-        cd $zProjPath/.git_shadow \
-        && git push --force git@${zHostAddr}:${zProjPathOnHost}/.git_shadow/.git master:server \
+        cd ${zProjPath}_SHADOW \
+        && git push --force git@${zHostAddr}:${zProjPathOnHost}_SHADOW/.git master:server \
         \
         && cd $zProjPath \
         && git push --force git@${zHostAddr}:${zProjPathOnHost}/.git master:server \
