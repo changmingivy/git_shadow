@@ -31,7 +31,7 @@ git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需
 git branch -M master &&
 
 # 检测自身是否是负责对接中控机的主HOST，若是，则向集群主机推送代码
-for zAddr in $(/usr/sbin/ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'); do
+for zAddr in $(ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'); do
     if [[ 0 -lt $(cat $zEcsAddrMajorListPath | grep -c $zAddr) ]]; then
         zEcsAddrList=$(cat $zEcsAddrListPath | tr '\n' ' ')
         for zEcsAddr in $zEcsAddrList; do

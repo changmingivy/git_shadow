@@ -43,7 +43,8 @@ for x in $zMajorIpList; do
         "
     
     ssh $x "
-        for zAddr in \`/usr/sbin/ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
+        export PATH=/sbin:/usr/sbin:$PATH && \
+        for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
             if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
                 zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`
                 for zEcsAddr in \$zEcsAddrList;do
