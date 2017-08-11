@@ -301,7 +301,7 @@ void
 zgenerate_cache(void *zpIf) {
 // TEST:PASS
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
-    struct zVecWrapInfo *zpTopVecWrapIf;
+    struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
 
     char zJsonBuf[zBytes(256)];  // iov_base
     _i zVecDataLen, zVecCnter;
@@ -313,11 +313,13 @@ zgenerate_cache(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedCommitVecWrapIf);
         // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
         sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedDeployVecWrapIf);
         sprintf(zShellBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
     } else {
@@ -359,8 +361,8 @@ zgenerate_cache(void *zpIf) {
 
         /* 新生成的缓存本来就是有序的，不需要额外排序 */
         if (zIsCommitDataType ==zpMetaIf->DataType) {
-            zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
-            zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
+            zpSortedTopVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
+            zpSortedTopVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
         }
 
         /* 必须在上一个 zRes 使用完之后才能执行 */
@@ -373,36 +375,23 @@ zgenerate_cache(void *zpIf) {
     /* >>>>等待分发出去的所有任务全部完成 */
     zCcur_Wait(A);
 
-    if (zIsCommitDataType == zpMetaIf->DataType) {
-        pclose(zpShellRetHandler);
-    } else {
+    /* 将布署记录按逆向时间排序（新记录显示在前面） */
+    if (zIsDeployDataType == zpMetaIf->DataType) {
+        for (_i i = 0; i < zVecCnter; i++) {
+            zpSortedTopVecWrapIf.p_VecIf[--zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
+            zpSortedTopVecWrapIf.p_VecIf[--zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+        }
         fclose(zpShellRetHandler);
+    } else {
+        pclose(zpShellRetHandler);
     }
 
     /* 存储的是实际的对象数量 */
-    zpTopVecWrapIf->VecSiz = zVecCnter;
-
-    /* 将布署记录按逆向时间排序（新的显示在前面） */
-    if (zIsDeployDataType == zpMetaIf->DataType) {
-        for (_i i = 0; i < zVecCnter; i++) {
-            zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter - i - 1].iov_base;
-            zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter - i - 1].iov_len;
-        }
-    }
+    zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zVecCnter;
 
     /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-    if (0 != zVecCnter) {
+    if (0 != zpTopVecWrapIf->VecSiz) {
         ((char *)(zpTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
-    }
-
-    // 防止意外访问
-    for (_i i = zVecCnter; i < zCacheSiz; i++) {
-        zpTopVecWrapIf->p_RefDataIf[i].p_data = NULL;
-        zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
-    }
-
-    if (zIsCommitDataType ==zpMetaIf->DataType) {
-        zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf.VecSiz = zpTopVecWrapIf->VecSiz;
     }
 
     // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
@@ -410,6 +399,12 @@ zgenerate_cache(void *zpIf) {
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
+
+//    // 防止意外访问
+//    for (_i i = zpTopVecWrapIf->VecSiz; i < zCacheSiz; i++) {
+//        zpTopVecWrapIf->p_RefDataIf[i].p_data = NULL;
+//        zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
+//    }
 }
 
 /*
