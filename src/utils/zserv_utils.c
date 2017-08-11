@@ -381,9 +381,10 @@ zgenerate_cache(void *zpIf) {
     /* 将布署记录按逆向时间排序（新记录显示在前面） */
     if (zIsDeployDataType == zpMetaIf->DataType) {
         fclose(zpShellRetHandler);
-        for (_i i = 0; i < zVecCnter; i++) {
-            zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
-            zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+        for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
+            zVecCnter--;
+            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
+            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
         }
     } else {
         pclose(zpShellRetHandler);

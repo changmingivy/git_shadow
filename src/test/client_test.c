@@ -259,10 +259,10 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
 
     // 查询提交版本号列表
-    char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
 
     // 打印差异文件列表
     //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":977,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430401,\"DataType\":0,\"data\":\"\"}";
