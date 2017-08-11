@@ -267,7 +267,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpSubMetaIf->CacheId = zpMetaIf->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_TimeStamp = NULL;
-            zpSubMetaIf->p_data = zpTmpBaseDataIf[1]->p_data;
+            zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
     
             /* 将zMetaInfo转换为JSON文本 */
             zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
