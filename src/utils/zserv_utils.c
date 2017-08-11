@@ -276,12 +276,12 @@ zget_file_list_and_diff_content(void *zpIf) {
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
         }
 
+        /* >>>>等待分发出去的所有任务全部完成 */
+        zCcur_Wait(A);
+
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
     }
-
-    /* >>>>等待分发出去的所有任务全部完成 */
-    zCcur_Wait(A);
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
