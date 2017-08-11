@@ -253,7 +253,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":119,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 更新all IP数据
-    char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":119,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
+    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":119,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 查询尚未布署成功的主机列表
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":119,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
@@ -271,7 +271,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":119,\"RevId\":4,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 布署
-    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":119,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":119,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":119,\"RevId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502231190,\"DataType\":1,\"data\":\"\"}";

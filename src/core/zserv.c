@@ -418,10 +418,11 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 更新集群整体IP数据库时，检测新机器并进行初始化 */
     sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
-    if ((5 == zpMetaIf->OpsId) && (255 == system(zShellBuf))) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        zPrint_Err(errno, NULL, "集群主机布署环境初始化失败");
-        return -29;
+    if (5 == zpMetaIf->OpsId) {
+        if (255 == system(zShellBuf)) {
+            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+            return -29;
+        }
 
         /* 若生成二进制IPv4数据库出错，返回错误到前端 */
         if (0 > zupdate_ipv4_db(zpMetaIf->RepoId)) {
