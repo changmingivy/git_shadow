@@ -272,7 +272,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
     
             /* >>>>检测是否是最后一次循环 */
-            zCcur_Fin_Mark(i == zCnter - 1, A);
+            zCcur_Fin_Mark(NULL == zpTmpBaseDataIf[1]->p_next, A);
 
             /* 进入下一层获取对应的差异内容 */
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
