@@ -33,10 +33,10 @@ git branch -f CURRENT
 git branch -f server  # 远程代码接收到server分支
 
 # 专用于远程库VCS是svn的场景
-rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT
-mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
-
 if [[ "svn" == $zRemoteVcsType ]]; then
+    rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT
+    mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
+
     svn co $zPullAddr ${zDeployPath}_SYNC_SVN_TO_GIT  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
     cd ${zDeployPath}_SYNC_SVN_TO_GIt
     git init .
@@ -68,7 +68,7 @@ if [[ 0 -eq $zExistMark ]];then
 fi
 
 # 创建必要的目录与文件
-cd $zDeployPath
+cd ${zDeployPath}_SHADOW
 mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
 touch ${zDeployPath}_SHADOW/info/{host_ip_all.bin,host_ip_all.txt,host_ip_major.txt,repo_id}
 touch ${zDeployPath}_SHADOW/log/deploy/meta

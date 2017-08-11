@@ -250,10 +250,10 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
 
     // 更新major IP数据
-    char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 更新all IP数据
-    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
+    char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 查询尚未布署成功的主机列表
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":674,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
