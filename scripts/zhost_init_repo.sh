@@ -13,10 +13,8 @@ for x in $zMajorIpList; do
     (\
         ssh $x "
             if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
-            rm -rf ${zPathOnHost} &&
-            mkdir ${zPathOnHost} &&
-            rm -rf ${zPathOnHost}_SHADOW &&
-            mkdir ${zPathOnHost}_SHADOW &&
+            mkdir -p ${zPathOnHost} &&
+            mkdir -p ${zPathOnHost}_SHADOW &&
 \
             cd ${zPathOnHost}_SHADOW &&
             git init . &&
@@ -35,8 +33,8 @@ for x in $zMajorIpList; do
     
         scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:${zPathOnHost}/.git/hooks/post-update &&
         scp -r ${zPathOnMaster}_SHADOW/info git@${x}:${zPathOnHost}_SHADOW/ &&
-        scp ${zOpsRootPath}/zhost_init_repo_slave.sh git@${x}:/tmp/zhost_init_repo_slave.sh &&
-        scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:/tmp/zhost_post-update.sh &&
+        scp ${zOpsRootPath}/zhost_init_repo_slave.sh git@${x}:/home/git/zhost_init_repo_slave.sh &&
+        scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:/home/git/zhost_post-update.sh &&
     
         ssh $x "
             eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
@@ -46,13 +44,12 @@ for x in $zMajorIpList; do
             "
     
         ssh $x "
-            PATH="/sbin:\$PATH" &&
             for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
                 if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
                     zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`
                     for zEcsAddr in \$zEcsAddrList;do
                         if [[ \$zAddr == \$zEcsAddr ]];then continue; fi &&
-                        sh /tmp/zhost_init_repo_slave.sh \$zEcsAddr $zPathOnHost
+                        sh /home/git/zhost_init_repo_slave.sh \$zEcsAddr $zPathOnHost
                     done
                     break
                 fi

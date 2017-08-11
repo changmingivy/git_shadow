@@ -4,10 +4,8 @@ zPathOnHost=$2
 
 ssh $zSlaveAddr "
     if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
-    rm -rf ${zPathOnHost} &&
-    mkdir ${zPathOnHost} &&
-    rm -rf ${zPathOnHost}_SHADOW &&
-    mkdir ${zPathOnHost}_SHADOW &&
+    mkdir -p ${zPathOnHost} &&
+    mkdir -p ${zPathOnHost}_SHADOW &&
 \
     cd ${zPathOnHost}_SHADOW &&
     git init . &&
@@ -24,7 +22,7 @@ ssh $zSlaveAddr "
     git branch -f server
     " &&
 
-scp /tmp/zhost_post-update.sh git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
+scp /home/git/zhost_post-update.sh git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
 
 ssh $zSlaveAddr "
     eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
