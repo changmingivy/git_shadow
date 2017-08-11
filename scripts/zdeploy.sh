@@ -28,7 +28,7 @@ printf ".svn/" >> .gitignore
 
 # 非单台布署情况下，host ip会被指定为0
 if [[ "0" == $zHostIp ]]; then
-    zHostList=`cat ${zProjPath}${zHostListPath} | grep -oP '(\d{1,3}\.)\d{1,3}'`
+    zHostList=`cat ${zProjPath}${zHostListPath} | grep -oP '(\d{1,3}\.){3}\d{1,3}'`
 else
     zHostList=$zHostIp
 fi

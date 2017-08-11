@@ -46,8 +46,7 @@ for x in $zMajorIpList; do
         export PATH=/sbin:/usr/sbin:$PATH && \
         for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
             if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
-                zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`
-                for zEcsAddr in \$zEcsAddrList;do
+                for zEcsAddr in ${zAllIpList};do
                     if [[ \$zAddr == \$zEcsAddr ]];then continue; fi &&
                     sh /home/git/zhost_init_repo_slave.sh \$zEcsAddr $zPathOnHost
                 done
