@@ -22,11 +22,5 @@ ssh $zSlaveAddr "
     git branch -f server
     " &&
 
-scp /home/git/zhost_post-update.sh git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
-
-ssh $zSlaveAddr "
-    eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
-    eval sed -i 's%_MASTER_ADDR%__MASTER_ADDR%g' ${zPathOnHost}/.git/hooks/post-update &&
-    eval sed -i 's%_MASTER_PORT%__MASTER_PORT%g' ${zPathOnHost}/.git/hooks/post-update &&
-    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
-    "
+scp ${zPathOnHost}/.git/hooks/post-update git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
+ssh $zSlaveAddr " chmod 0755 ${zPathOnHost}/.git/hooks/post-update "

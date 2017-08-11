@@ -30,19 +30,16 @@ for x in $zMajorIpList; do
         git branch -f server
         "
     
-    scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:${zPathOnHost}/.git/hooks/post-update &&
+    cp ${zOpsRootPath}/zhost_post-update.sh /home/git/post-update &&
+    eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' /home/git/post-update &&
+    eval sed -i 's%_MASTER_ADDR%__MASTER_ADDR%g' /home/git/post-update &&
+    eval sed -i 's%_MASTER_PORT%__MASTER_PORT%g' /home/git/post-update &&
+    scp /home/git/post-update git@${x}:${zPathOnHost}/.git/hooks/post-update &&
     scp -r ${zPathOnMaster}_SHADOW/info git@${x}:${zPathOnHost}_SHADOW/ &&
     scp ${zOpsRootPath}/zhost_init_repo_slave.sh git@${x}:/home/git/zhost_init_repo_slave.sh &&
-    scp ${zOpsRootPath}/zhost_post-update.sh git@${x}:/home/git/zhost_post-update.sh &&
     
     ssh $x "
-        eval sed -i 's%_PROJ_PATH%${zPathOnHost}%g' ${zPathOnHost}/.git/hooks/post-update &&
-        eval sed -i 's%_MASTER_ADDR%__MASTER_ADDR%g' ${zPathOnHost}/.git/hooks/post-update &&
-        eval sed -i 's%_MASTER_PORT%__MASTER_PORT%g' ${zPathOnHost}/.git/hooks/post-update &&
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update
-        "
-    
-    ssh $x "
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update && \
         export PATH=/sbin:/usr/sbin:$PATH && \
         for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
             if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
