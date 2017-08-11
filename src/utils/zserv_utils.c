@@ -308,15 +308,11 @@ zgenerate_cache(void *zpIf) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
-        sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"",
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+        sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-
-        strcpy(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
-        strcat(zShellBuf, "/");
-        strcat(zShellBuf, zLogPath);
+        sprintf(zShellBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
