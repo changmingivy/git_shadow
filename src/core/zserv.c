@@ -388,9 +388,15 @@ zstate_confirm(struct zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
     char zShellBuf[256], zPathBuf[zCommonBufSiz], *zpWritePath;
-    _i zFd, zStrDbLen;
+    _i zFd, zStrDbLen, zErrNo;
 
-    zpWritePath = (4 == zpMetaIf->OpsId) ? zMajorIpTxtPath : zAllIpTxtPath;
+    if (4 == zpMetaIf->OpsId) {
+        zpWritePath = zMajorIpTxtPath;
+        zErrNo = -27;
+    } else {
+        zpWritePath = zAllIpTxtPath;
+        zErrNo = -28;
+    }
 
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpWritePath);
 
@@ -400,19 +406,15 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-    /* 将接收到的IP地址库写入文件 */
-    zCheck_Negative_Exit( zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600) );
     zStrDbLen = strlen(zpMetaIf->p_data);  // 不能把最后的 '\0' 写入文件
-    if (zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)) {
-        zpMetaIf->p_data = "";
+    /* 将接收到的IP地址库写入文件 */
+    if ((0 > (zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600))) 
+            || ((zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)))) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)");
-        return (4 == zpMetaIf->OpsId) ? -27 : -28;
+        return zErrNo;
     }
     close(zFd);
-
-    /* 生成 MD5_checksum 作为data回发给前端 */
-    zpMetaIf->p_data = zgenerate_file_sig_md5(zPathBuf);
 
     /* 更新集群整体IP数据库时，检测新机器并进行初始化 */
     sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
@@ -420,12 +422,15 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         zPrint_Err(errno, NULL, "集群主机布署环境初始化失败");
         return -29;
+
+        /* 若生成二进制IPv4数据库出错，返回错误到前端 */
+        if (0 > zupdate_ipv4_db(zpMetaIf->RepoId)) {
+            return -28;
+        }
     }
 
-    /* 若生成二进制IPv4数据库出错，返回错误到前端 */
-    if (-1 == zupdate_ipv4_db(zpMetaIf->RepoId)) {
-        return -28;
-    }
+    /* 生成 MD5_checksum 作为data回发给前端 */
+    zpMetaIf->p_data = zgenerate_file_sig_md5(zPathBuf);
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return -100;  // 提示前端验证 MD5_checksum
