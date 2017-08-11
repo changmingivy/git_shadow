@@ -313,13 +313,13 @@ zgenerate_cache(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedCommitVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
         sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedDeployVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
         sprintf(zShellBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
     } else {
