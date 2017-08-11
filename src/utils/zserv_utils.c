@@ -564,12 +564,12 @@ zupdate_ipv4_db_hash(_i zRepoId) {
 // TEST:PASS
     struct stat zStatIf;
     struct zDeployResInfo *zpTmpIf;
+    char zPathBuf[zCommonBufSiz];
+    _i zFd;
 
-    _i zFd[2] = {-100};
-    zCheck_Negative_Exit(zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpPath, O_RDONLY));  // 打开客户端ip地址数据库文件
-    zCheck_Negative_Exit(fstat(zFd[1], &zStatIf));
-    close(zFd[0]);
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
+    zCheck_Negative_Exit( zFd = open(zAllIpPath, O_RDONLY) );  // 打开客户端ip地址数据库文件
+    zCheck_Negative_Exit( fstat(zFd, &zStatIf) );
 
     zppGlobRepoIf[zRepoId]->TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_DpResList, struct zDeployResInfo, zppGlobRepoIf[zRepoId]->TotalHost);  // 分配数组空间，用于顺序读取
@@ -580,7 +580,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].p_next = NULL;
 
         errno = 0;
-        if (zSizeOf(_ui) != read(zFd[1], &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+        if (zSizeOf(_ui) != read(zFd, &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
             zPrint_Err(errno, NULL, "read client info failed!");
             return -1;
         }
@@ -597,7 +597,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
         }
     }
 
-    close(zFd[1]);
+    close(zFd);
     return 0;
 }
 
@@ -608,16 +608,15 @@ _i
 zupdate_ipv4_db(_i zRepoId) {
 // TEST:PASS
     FILE *zpFileHandler = NULL;
-    char zBuf[zCommonBufSiz];
+    char zBuf[zCommonBufSiz], zPathBuf[zCommonBufSiz];
     _ui zIpv4Addr = 0;
-    _i zFd[3] = {0};
+    _i zFd;
 
-    zCheck_Negative_Exit(zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY));
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpTxtPath);
+    zCheck_Null_Exit(zpFileHandler = fopen(zPathBuf, "r"));
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
+    zCheck_Negative_Exit(zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
-    zCheck_Negative_Exit(zFd[1] = openat(zFd[0], zAllIpTxtPath, O_RDONLY));
-    zCheck_Negative_Exit(zFd[2] = openat(zFd[0], zAllIpPath, O_WRONLY | O_TRUNC | O_CREAT, 0600));
-
-    zCheck_Null_Exit(zpFileHandler = fdopen(zFd[1], "r"));
     zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
     zPCRERetInfo *zpPCREResIf;
     for (_i i = 1; NULL != zget_one_line(zBuf, zCommonBufSiz, zpFileHandler); i++) {
@@ -632,21 +631,18 @@ zupdate_ipv4_db(_i zRepoId) {
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[0]);
         zpcre_free_tmpsource(zpPCREResIf);
 
-        if (sizeof(_ui) != write(zFd[2], &zIpv4Addr, sizeof(_ui))) {
+        if (sizeof(_ui) != write(zFd, &zIpv4Addr, sizeof(_ui))) {
             zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
             return -1;
         }
     }
-    zpcre_free_metasource(zpPCREInitIf);
-    fclose(zpFileHandler);
-    close(zFd[2]);
-    close(zFd[1]);
-    close(zFd[0]);
 
     // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
-    if (-1 == zupdate_ipv4_db_hash(zRepoId)) {
-        return -1;
-    }
+    if (-1 == zupdate_ipv4_db_hash(zRepoId)) { return -1; }
+
+    zpcre_free_metasource(zpPCREInitIf);
+    fclose(zpFileHandler);
+    close(zFd);
 
     return 0;
 }
@@ -678,7 +674,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     struct stat zStatIf;
     void **zppPrev;
 
-    _i zRepoId,zFd[2];
+    _i zRepoId,zFd;
 
     /* 正则匹配项目基本信息（5个字段） */
     zpInitIf = zpcre_init("(\\w|[[:punct:]])+");
@@ -730,26 +726,26 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
     /* 打开日志文件 */
-    zFd[0] = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_RDONLY | O_DIRECTORY);
-    zFd[1] = openat(zFd[0], zRepoIdPath, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-    _i zStatRes = fstatat(zFd[0], zLogPath, &zStatIf, 0);
-    _i zOpenRes = openat(zFd[0], zLogPath, O_WRONLY | O_CREAT | O_APPEND, 0755);
-    close(zFd[0]);
-    if (-1 == zFd[0] || -1 == zFd[1] || -1 == zStatRes || -1 == zOpenRes) {
+    char zPathBuf[zCommonBufSiz];
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    zppGlobRepoIf[zRepoId]->LogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
+    zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
         close(zFd[1]);
         return -38;
     }
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
-    if (sizeof(zRepoId) != write(zFd[1], &zRepoId, sizeof(zRepoId))) {
+    if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
-        close(zFd[1]);
+        close(zFd);
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
-    close(zFd[1]);
+    close(zFd);
     /* 初始化日志下一次写入偏移量 */
     zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
     zppGlobRepoIf[zRepoId]->LogFd = zOpenRes;

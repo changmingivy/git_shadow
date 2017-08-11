@@ -33,7 +33,7 @@ git branch -f CURRENT
 git branch -f server  # 远程代码接收到server分支
 
 # 专用于远程库VCS是svn的场景
-rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT 2>/dev/null
+rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT
 mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
 
 if [[ "svn" == $zRemoteVcsType ]]; then

@@ -181,7 +181,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zMetaInfo *zpSubMetaIf[2];
     struct stat zStatIf;
-    _i zFd;
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char zJsonBuf[64];
@@ -214,17 +213,17 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId);
     }
 
-    zCheck_Negative_Exit( zFd = open(zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, O_RDONLY) );
-
-    zCheck_Negative_Exit( fstatat(zFd, zMajorIpTxtPath, &zStatIf, 0) );
+    char zPathBuf[zCommonBufSiz];
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zMajorIpTxtPath);
+    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
     if (0 == zStatIf.st_size) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
         zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在");
         return -25;
     }
 
-    zCheck_Negative_Exit( fstatat(zFd, zAllIpPath, &zStatIf, 0) );
-    close(zFd);
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zAllIpPath);
+    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
     if (0 == zStatIf.st_size
             || (0 != (zStatIf.st_size % sizeof(_ui)))
             || (zStatIf.st_size / zSizeOf(_ui)) != zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {

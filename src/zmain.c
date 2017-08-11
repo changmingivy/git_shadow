@@ -189,11 +189,11 @@ zJsonParseFunc zJsonParseOps[128];
  * 配置文件 *
  ************/
 // 以下路径均是相对于所属代码库的顶级路径
-#define zAllIpPath ".git_shadow/info/host_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
-#define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
-#define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
-#define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zAllIpPath "_SHADOW/info/host_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
+#define zAllIpTxtPath "_SHADOW/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
+#define zMajorIpTxtPath "_SHADOW/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
+#define zRepoIdPath "_SHADOW/info/repo_id"
+#define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 
 /**********
  * 子模块 *
