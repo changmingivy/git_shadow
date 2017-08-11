@@ -239,7 +239,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "sh -x %s/.git_shadow/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
@@ -248,11 +248,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
             zpFilePath); // 指定目标文件相对于代码库的路径
 
     /* 调用 git 命令执行布署，脚本中设定的异常退出码均为 255 */
-    if (255 == system(zShellBuf)) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "Shell 布署命令执行错误");
-        return -12;
-    }
+    system(zShellBuf);
 
     //等待所有主机的状态都得到确认，10 秒超时
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
