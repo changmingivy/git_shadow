@@ -94,13 +94,16 @@ struct zMetaInfo {
     pthread_mutex_t *p_MutexLock[2];  // 2个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程计数
 };
 
+struct zBaseDataInfo {
+    struct zBaseDataInfo *p_next;
+    _i DataLen;
+    char p_data[];
+};
+
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
-
-    struct zVecWrapInfo **pp_UnitVecWrapIf;  // 按 UnitSiz 分块索引
-    _i zUnitCnt;  // 总共有多少个分块
 };
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
@@ -108,7 +111,6 @@ struct zVecWrapInfo {
     _i VecSiz;
     struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
     struct zRefDataInfo *p_RefDataIf;
-    struct zVecWrapInfo *p_next;
 };
 
 struct zDeployResInfo {

@@ -16,9 +16,7 @@
 
 /* 检查 FileId 是否合法，宏内必须解锁 */
 #define zCheck_FileId() do {\
-    if ((0 > zpMetaIf->FileId)\
-            || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))\
-            || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[zpMetaIf->FileId / zUnitSiz]->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {\
+    if ((0 > zpMetaIf->FileId) || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId)) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
         zPrint_Err(0, NULL, "差异文件ID不存在");\
         return -4;\
@@ -126,10 +124,8 @@ zprint_diff_files(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
-    if (0 < zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt) {
-        for (_i i = 0; i < zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt; i++) {
-            zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].pp_UnitVecWrapIf[i], 0, NULL);
-        }
+    if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {
+        zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf, 0, NULL);
         zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
     }
 
@@ -167,10 +163,8 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_FileId();  // 宏内部会解锁
 
     /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
-    for (struct zVecWrapInfo *zpTmpVecWrapIf = zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf[zpMetaIf->FileId % zUnitSiz].p_SubVecWrapIf;
-            NULL != zpTmpVecWrapIf;
-            zpTmpVecWrapIf = zpTmpVecWrapIf->p_next) {
-        zsendmsg(zSd, zpTmpVecWrapIf, 0, NULL);
+    if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
+        zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -212,13 +206,12 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     if (0 > zpMetaIf->FileId) {
         zpFilePath = "_";
-    } else if (((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].zUnitCnt - 1) < (zpMetaIf->FileId / zUnitSiz))
-            || ((zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) < (zpMetaIf->FileId % zUnitSiz))) {
+    } else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
         zPrint_Err(0, NULL, "差异文件ID不存在");\
         return -4;\
     } else {
-        zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId);
+        zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId);
     }
 
     zCheck_Negative_Exit( zFd = open(zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, O_RDONLY) );
