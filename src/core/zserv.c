@@ -422,6 +422,7 @@ zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 若生成二进制IPv4数据库出错，返回错误到前端 */
         if (0 > zupdate_ipv4_db(zpMetaIf->RepoId)) {
+            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
             return -28;
         }
     }
