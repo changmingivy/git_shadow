@@ -265,16 +265,16 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":119,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":119,\"RevId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":119,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430401,\"DataType\":0,\"data\":\"\"}";
 
     // 打印差异文件内容
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":119,\"RevId\":4,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":119,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":119,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430365,\"DataType\":0,\"data\":\"\"}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":119,\"RevId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502231190,\"DataType\":1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":119,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430401,\"DataType\":1,\"data\":\"\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
