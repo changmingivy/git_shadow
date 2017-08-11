@@ -6,8 +6,8 @@ zMajorHostAddrListPath="${zPathOnMaster}_SHADOW/info/host_ip_major.txt"
 zAllHostAddrListPath="${zPathOnMaster}_SHADOW/info/host_ip_all.txt"
 zOpsRootPath="/home/git/zgit_shadow/scripts"
 
-zMajorIpList=`cat $zMajorHostAddrListPath`
-zAllIpList=`cat $zAllHostAddrListPath`
+zMajorIpList=`cat $zMajorHostAddrListPath | grep -oP '(\d{1,3}\.){3}\d{1,3}'`
+zAllIpList=`cat $zAllHostAddrListPath | grep -oP '(\d{1,3}\.){3}\d{1,3}'`
 
 for x in $zMajorIpList; do
     ssh $x "
@@ -43,7 +43,7 @@ for x in $zMajorIpList; do
         "
     
     ssh $x "
-        for zAddr in \`ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
+        for zAddr in \`/usr/sbin/ip addr | grep -oP '(\d+\.){3}\d+' | grep -vE '^(169|127|0|255)\.$'\`;do
             if [[ 0 -ne \`echo \"${zMajorIpList}\" | grep -c \$zAddr\` ]];then
                 zEcsAddrList=\`echo \"${zAllIpList}\" | tr '\n' ' '\`
                 for zEcsAddr in \$zEcsAddrList;do

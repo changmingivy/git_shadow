@@ -613,9 +613,10 @@ zupdate_ipv4_db_hash(_i zRepoId) {
 _i
 zupdate_ipv4_db(_i zRepoId) {
 // TEST:PASS
-    FILE *zpFileHandler = NULL;
-    char zBuf[zCommonBufSiz], zPathBuf[zCommonBufSiz];
-    _ui zIpv4Addr = 0;
+    char zPathBuf[zCommonBufSiz];
+    char zResBuf[zBytes(8192)] = {'\0'};
+    FILE *zpFileHandler;
+    _ui zIpv4Addr;
     _i zFd;
 
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpTxtPath);
@@ -623,19 +624,13 @@ zupdate_ipv4_db(_i zRepoId) {
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
     zCheck_Negative_Exit(zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600));
 
-    zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
-    zPCRERetInfo *zpPCREResIf;
-    for (_i i = 1; NULL != zget_one_line(zBuf, zCommonBufSiz, zpFileHandler); i++) {
-        zpPCREResIf = zpcre_match(zpPCREInitIf, zBuf, 0);
-        if (0 == zpPCREResIf->cnt) {
-            zpcre_free_tmpsource(zpPCREResIf);
-            zPrint_Time();
-            fprintf(stderr, "\033[31;01m[%s]-[Line %d]: 无效的IPv4地址!\033[00m\n", zAllIpTxtPath, i);
-            return -1;
-        }
+    zget_one_line(zResBuf, zBytes(8192), zpFileHandler);
+    fclose(zpFileHandler);
 
-        zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[0]);
-        zpcre_free_tmpsource(zpPCREResIf);
+    zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
+    zPCRERetInfo *zpPCREResIf = zpcre_match(zpPCREInitIf, zResBuf, 1);
+    for (_i i = 0; i < zpPCREResIf->cnt; i++) {
+        zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[i]);
 
         if (sizeof(_ui) != write(zFd, &zIpv4Addr, sizeof(_ui))) {
             zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
@@ -643,12 +638,12 @@ zupdate_ipv4_db(_i zRepoId) {
         }
     }
 
+    close(zFd);
+    zpcre_free_tmpsource(zpPCREResIf);
+    zpcre_free_metasource(zpPCREInitIf);
+
     // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
     if (-1 == zupdate_ipv4_db_hash(zRepoId)) { return -1; }
-
-    zpcre_free_metasource(zpPCREInitIf);
-    fclose(zpFileHandler);
-    close(zFd);
 
     return 0;
 }
