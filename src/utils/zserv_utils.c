@@ -166,6 +166,7 @@ zget_diff_content(void *zpIf) {
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+        zpTmpBaseDataIf[0]->p_next = NULL;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
         zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
     }
@@ -227,6 +228,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+        zpTmpBaseDataIf[0]->p_next = NULL;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
         zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
         zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
