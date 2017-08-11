@@ -249,17 +249,5 @@ main(_i zArgc, char **zppArgv) {
     zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
     zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
 
-    /* json 解析时的回调函数索引 */
-    zJsonParseOps['O']  // OpsId
-        = zJsonParseOps['P']  // ProjId
-        = zJsonParseOps['R']  // RevId
-        = zJsonParseOps['F']  // FileId
-        = zJsonParseOps['H']  // HostId
-        = zJsonParseOps['C']  // CacheId
-        = zJsonParseOps['D']  // DataType
-        = zParseDigit;
-    zJsonParseOps['d']  // data
-        = zParseStr;
-
     zstart_server(&zNetServIf);  // 启动网络服务
 }

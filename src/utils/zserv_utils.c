@@ -820,6 +820,18 @@ zinit_env(const char *zpConfPath) {
     FILE *zpFile;
     char zRes[zCommonBufSiz];
 
+    /* json 解析时的回调函数索引 */
+    zJsonParseOps['O']  // OpsId
+        = zJsonParseOps['P']  // ProjId
+        = zJsonParseOps['R']  // RevId
+        = zJsonParseOps['F']  // FileId
+        = zJsonParseOps['H']  // HostId
+        = zJsonParseOps['C']  // CacheId
+        = zJsonParseOps['D']  // DataType
+        = zParseDigit;
+    zJsonParseOps['d']  // data
+        = zParseStr;
+
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
         zadd_one_repo_env(zRes);
