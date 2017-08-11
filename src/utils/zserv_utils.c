@@ -375,23 +375,23 @@ zgenerate_cache(void *zpIf) {
     /* >>>>等待分发出去的所有任务全部完成 */
     zCcur_Wait(A);
 
+    /* 存储的是实际的对象数量 */
+    zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zVecCnter;
+
     /* 将布署记录按逆向时间排序（新记录显示在前面） */
     if (zIsDeployDataType == zpMetaIf->DataType) {
+        fclose(zpShellRetHandler);
         for (_i i = 0; i < zVecCnter; i++) {
             zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
             zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
         }
-        fclose(zpShellRetHandler);
     } else {
         pclose(zpShellRetHandler);
     }
 
-    /* 存储的是实际的对象数量 */
-    zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zVecCnter;
-
     /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
     if (0 != zpTopVecWrapIf->VecSiz) {
-        ((char *)(zpTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
+        ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
     }
 
     // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
