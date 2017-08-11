@@ -141,7 +141,7 @@ zget_diff_content(void *zpIf) {
     char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
     _i zBaseDataLen, zCnter;
     struct zVecWrapInfo *zpTopVecWrapIf;
-    struct zBaseDataInfo *zpTmpBaseDataIf[2];
+    struct zBaseDataInfo *zpTmpBaseDataIf[3];
     struct zMetaInfo *zpMetaIf = (struct zMetaInfo *)zpIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
@@ -164,10 +164,12 @@ zget_diff_content(void *zpIf) {
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     for (zCnter = 0; 0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
+        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
-        zpTmpBaseDataIf[0]->p_next = NULL;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+
+        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
         zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
     }
     pclose(zpShellRetHandler);
@@ -179,9 +181,10 @@ zget_diff_content(void *zpIf) {
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz = zCnter;
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_RefDataIf = NULL;
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
-        for (_i i = 0; NULL != zpTmpBaseDataIf[1]; i++, zpTmpBaseDataIf[1] = zpTmpBaseDataIf[1]->p_next) {
-            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf[i].iov_base = zpTmpBaseDataIf[1]->p_data;
-            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf[i].iov_len = zpTmpBaseDataIf[1]->DataLen;
+        for (_i i = 0; i < zCnter; i++) {
+            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf[i].iov_base = zpTmpBaseDataIf[2]->p_data;
+            zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf[i].iov_len = zpTmpBaseDataIf[2]->DataLen;
+            zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next;
         }
     }
 
@@ -197,7 +200,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 // TEST:PASS
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf;
-    struct zBaseDataInfo *zpTmpBaseDataIf[2];
+    struct zBaseDataInfo *zpTmpBaseDataIf[3];
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], zRes[zBytes(1024)];
@@ -226,11 +229,13 @@ zget_file_list_and_diff_content(void *zpIf) {
     for (zCnter = 0; NULL != zget_one_line(zRes, zBytes(zBytes(1024)), zpShellRetHandler); zCnter++) {
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
+        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
-        zpTmpBaseDataIf[0]->p_next = NULL;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
         zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
+
+        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
         zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
     }
     pclose(zpShellRetHandler);
@@ -246,8 +251,9 @@ zget_file_list_and_diff_content(void *zpIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct zRefDataInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
 
-        for (_i i = 0; NULL != zpTmpBaseDataIf[1]; i++, zpTmpBaseDataIf[1] = zpTmpBaseDataIf[1]->p_next) {
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[1]->p_data;
+        for (_i i = 0; i < zCnter; i++) {
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
+            zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next;
 
             zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
             /* >>>>填充必要的线程间同步数据 */
@@ -272,7 +278,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
     
             /* >>>>检测是否是最后一次循环 */
-            zCcur_Fin_Mark(NULL == zpTmpBaseDataIf[1]->p_next, A);
+            zCcur_Fin_Mark(i == zCnter - 1, A);
 
             /* 进入下一层获取对应的差异内容 */
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
