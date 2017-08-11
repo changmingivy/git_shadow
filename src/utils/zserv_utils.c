@@ -627,7 +627,7 @@ zupdate_ipv4_db(_i zRepoId) {
     zget_one_line(zResBuf, zBytes(8192), zpFileHandler);
     fclose(zpFileHandler);
 
-    zPCREInitInfo *zpPCREInitIf = zpcre_init("^(\\d{1,3}\\.){3}\\d{1,3}$");
+    zPCREInitInfo *zpPCREInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
     zPCRERetInfo *zpPCREResIf = zpcre_match(zpPCREInitIf, zResBuf, 1);
     for (_i i = 0; i < zpPCREResIf->cnt; i++) {
         zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[i]);

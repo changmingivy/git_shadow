@@ -253,7 +253,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 更新all IP数据
-    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
+    char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"|10.10.40.49&\"}";
 
     // 查询尚未布署成功的主机列表
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
@@ -262,7 +262,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"\"}";
 
     // 查询已布署版本号列表
-    char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":977,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
 
     // 打印差异文件列表
     //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":977,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502443989,\"DataType\":1,\"data\":\"\"}";
