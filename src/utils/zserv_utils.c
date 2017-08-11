@@ -240,6 +240,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     if (0 == zCnter) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
+        zCcur_Fin_Mark(1 == 1, A);
     } else {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zCnter;
@@ -273,6 +274,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     
             /* >>>>检测是否是最后一次循环 */
             zCcur_Fin_Mark(i == zCnter - 1, A);
+
             /* 进入下一层获取对应的差异内容 */
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
         }
