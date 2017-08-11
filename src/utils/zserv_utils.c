@@ -235,6 +235,9 @@ zget_file_list_and_diff_content(void *zpIf) {
     }
     pclose(zpShellRetHandler);
 
+    /* >>>>初始化线程同步环境 */
+    zCcur_Init(zpMetaIf->RepoId, A);
+
     if (0 == zCnter) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
     } else {
@@ -243,8 +246,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct zRefDataInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
 
-        /* >>>>初始化线程同步环境 */
-        zCcur_Init(zpMetaIf->RepoId, A);
         for (_i i = 0; NULL != zpTmpBaseDataIf[1]; i++, zpTmpBaseDataIf[1] = zpTmpBaseDataIf[1]->p_next) {
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[1]->p_data;
 
@@ -260,7 +261,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpSubMetaIf->CacheId = zpMetaIf->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_TimeStamp = NULL;
-            zpSubMetaIf->p_data = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data;
+            zpSubMetaIf->p_data = zpTmpBaseDataIf[1]->p_data;
     
             /* 将zMetaInfo转换为JSON文本 */
             zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
@@ -276,12 +277,12 @@ zget_file_list_and_diff_content(void *zpIf) {
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
         }
 
-        /* >>>>等待分发出去的所有任务全部完成 */
-        zCcur_Wait(A);
-
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
     }
+
+    /* >>>>等待分发出去的所有任务全部完成 */
+    zCcur_Wait(A);
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
