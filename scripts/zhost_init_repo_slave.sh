@@ -4,7 +4,10 @@ zPathOnHost=$2
 
 ssh $zSlaveAddr "
     if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
-    mkdir -p ${zPathOnHost}_SHADOW &&
+    rm -rf ${zPathOnHost} &&
+    mkdir ${zPathOnHost} &&
+    rm -rf ${zPathOnHost}_SHADOW &&
+    mkdir ${zPathOnHost}_SHADOW &&
 \
     cd ${zPathOnHost}_SHADOW &&
     git init . &&
