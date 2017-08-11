@@ -28,15 +28,16 @@ printf ".svn/" >> .gitignore
 
 # 非单台布署情况下，host ip会被指定为0
 if [[ "0" == $zHostIp ]]; then
-    zHostList=`cat ${zProjPath}/${zHostListPath}`
+    zHostList=`cat ${zProjPath}${zHostListPath}`
 else
     zHostList=$zHostIp
 fi
 
-git reset ${zCommitSig} -- $zFilePath
 if [[ "_" == $zFilePath ]]; then
+    git reset ${zCommitSig}
     git commit --allow-empty -m "版本布署：$zCommitSig"
 else
+    git reset ${zCommitSig} -- $zFilePath
     git commit --allow-empty -m "单文件布署：$zFilePath $zCommitSig"
 fi
 
