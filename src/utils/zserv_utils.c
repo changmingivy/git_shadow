@@ -734,7 +734,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
         free(zppGlobRepoIf[zRepoId]->p_RepoPath);
         free(zppGlobRepoIf[zRepoId]);
-        close(zFd[1]);
+        close(zFd);
         return -38;
     }
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
@@ -748,7 +748,6 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     close(zFd);
     /* 初始化日志下一次写入偏移量 */
     zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
-    zppGlobRepoIf[zRepoId]->LogFd = zOpenRes;
     /* 存储项目代码定期更新命令 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
