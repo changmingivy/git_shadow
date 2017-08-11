@@ -10,7 +10,7 @@
 #define zCommonBufSiz 1024
 #define UDP 0
 #define TCP 1
-#define zRepoIdPath ".git_shadow/info/repo_id"
+#define zRelativeRepoIdPath "info/repo_id"
 
 struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
@@ -98,7 +98,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     _i zRepoId, zFd, zSd;
     _ui zIpv4Bin;
 
-    zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
+    zCheck_Negative_Exit( zFd = open(zRelativeRepoIdPath, O_RDONLY) );
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
     close(zFd);
 
