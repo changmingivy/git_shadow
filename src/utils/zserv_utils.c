@@ -361,8 +361,8 @@ zgenerate_cache(void *zpIf) {
 
         /* 新生成的缓存本来就是有序的，不需要额外排序 */
         if (zIsCommitDataType ==zpMetaIf->DataType) {
-            zpSortedTopVecWrapIf.p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
-            zpSortedTopVecWrapIf.p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
+            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
+            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
         }
 
         /* 必须在上一个 zRes 使用完之后才能执行 */
@@ -378,8 +378,8 @@ zgenerate_cache(void *zpIf) {
     /* 将布署记录按逆向时间排序（新记录显示在前面） */
     if (zIsDeployDataType == zpMetaIf->DataType) {
         for (_i i = 0; i < zVecCnter; i++) {
-            zpSortedTopVecWrapIf.p_VecIf[--zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
-            zpSortedTopVecWrapIf.p_VecIf[--zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+            zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
+            zpSortedTopVecWrapIf->p_VecIf[--zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
         }
         fclose(zpShellRetHandler);
     } else {
