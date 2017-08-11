@@ -387,14 +387,12 @@ zstate_confirm(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
-    char zShellBuf[256], zPathBuf[128], *zpWritePath;
+    char zShellBuf[256], zPathBuf[zCommonBufSiz], *zpWritePath;
     _i zFd, zStrDbLen;
 
     zpWritePath = (4 == zpMetaIf->OpsId) ? zMajorIpTxtPath : zAllIpTxtPath;
 
-    strcpy(zPathBuf, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
-    strcat(zPathBuf, "/");
-    strcat(zPathBuf, zpWritePath);
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpWritePath);
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
