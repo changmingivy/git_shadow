@@ -234,47 +234,47 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 #define zBufSiz 1024
 void
 zclient(void) {
-    _i zSd = ztcp_connect("10.10.80.94", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
+    _i zSd = ztcp_connect("10.10.40.49", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
     if (-1 == zSd) {
         fprintf(stderr, "Connect to server failed \n");
         exit(1);
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":991,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"991 /home/git/991_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":189,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"189 /home/git/189_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.80.94\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 更新all IP数据
-    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.80.94\"}";
+    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"\"}";
 
     // 查询提交版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":991,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":189,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":991,\"RevId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":189,\"RevId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":991,\"RevId\":1023,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":189,\"RevId\":1023,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":991,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":189,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"\"}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":991,\"RevId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502239910,\"DataType\":1,\"data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":189,\"RevId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502231890,\"DataType\":1,\"data\":\"\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
