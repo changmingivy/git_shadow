@@ -568,7 +568,7 @@ zupdate_ipv4_db_hash(_i zRepoId) {
     _i zFd;
 
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
-    zCheck_Negative_Exit( zFd = open(zAllIpPath, O_RDONLY) );  // 打开客户端ip地址数据库文件
+    zCheck_Negative_Exit( zFd = open(zPathBuf, O_RDONLY) );  // 打开客户端ip地址数据库文件
     zCheck_Negative_Exit( fstat(zFd, &zStatIf) );
 
     zppGlobRepoIf[zRepoId]->TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
