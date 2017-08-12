@@ -597,42 +597,42 @@ zwrite_log(_i zRepoId) {
 _i
 zupdate_ipv4_db_hash(_i zRepoId) {
 // TEST:PASS
-    struct stat zStatIf;
-    struct zDeployResInfo *zpTmpIf;
-    char zPathBuf[zCommonBufSiz];
-    _i zFd;
-
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
-    zCheck_Negative_Exit( zFd = open(zPathBuf, O_RDONLY) );  // 打开客户端ip地址数据库文件
-    zCheck_Negative_Exit( fstat(zFd, &zStatIf) );
-
-    zppGlobRepoIf[zRepoId]->TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_DpResList, struct zDeployResInfo, zppGlobRepoIf[zRepoId]->TotalHost);  // 分配数组空间，用于顺序读取
-
-    for (_i zCnter = 0; zCnter < zppGlobRepoIf[zRepoId]->TotalHost; zCnter++) {
-        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].RepoId = zRepoId;  // 写入代码库索引值
-        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
-        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].p_next = NULL;
-
-        errno = 0;
-        if (zSizeOf(_ui) != read(zFd, &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
-            zPrint_Err(errno, NULL, "read client info failed!");
-            return -1;
-        }
-
-        zpTmpIf = zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz];  // HASH 定位
-        if (NULL == zpTmpIf) {
-            zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz] = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);  // 若顶层为空，直接指向数组中对应的位置
-        } else {
-            while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
-                zpTmpIf = zpTmpIf->p_next;
-            }
-
-            zpTmpIf->p_next = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);
-        }
-    }
-
-    close(zFd);
+//    struct stat zStatIf;
+//    struct zDeployResInfo *zpTmpIf;
+//    char zPathBuf[zCommonBufSiz];
+//    _i zFd;
+//
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
+//    zCheck_Negative_Exit( zFd = open(zPathBuf, O_RDONLY) );  // 打开客户端ip地址数据库文件
+//    zCheck_Negative_Exit( fstat(zFd, &zStatIf) );
+//
+//    zppGlobRepoIf[zRepoId]->TotalHost = zStatIf.st_size / zSizeOf(_ui);  // 主机总数
+//    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_DpResList, struct zDeployResInfo, zppGlobRepoIf[zRepoId]->TotalHost);  // 分配数组空间，用于顺序读取
+//
+//    for (_i zCnter = 0; zCnter < zppGlobRepoIf[zRepoId]->TotalHost; zCnter++) {
+//        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].RepoId = zRepoId;  // 写入代码库索引值
+//        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].DeployState = 0;  // 初始化布署状态为0（即：未接收到确认时的状态）
+//        zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].p_next = NULL;
+//
+//        errno = 0;
+//        if (zSizeOf(_ui) != read(zFd, &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr), zSizeOf(_ui))) { // 读入二进制格式的ipv4地址
+//            zPrint_Err(errno, NULL, "read client info failed!");
+//            return -1;
+//        }
+//
+//        zpTmpIf = zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz];  // HASH 定位
+//        if (NULL == zpTmpIf) {
+//            zppGlobRepoIf[zRepoId]->p_DpResHash[(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter].ClientAddr) % zDeployHashSiz] = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);  // 若顶层为空，直接指向数组中对应的位置
+//        } else {
+//            while (NULL != zpTmpIf->p_next) {  // 将线性数组影射成 HASH 结构
+//                zpTmpIf = zpTmpIf->p_next;
+//            }
+//
+//            zpTmpIf->p_next = &(zppGlobRepoIf[zRepoId]->p_DpResList[zCnter]);
+//        }
+//    }
+//
+//    close(zFd);
     return 0;
 }
 
@@ -642,38 +642,38 @@ zupdate_ipv4_db_hash(_i zRepoId) {
 _i
 zupdate_ipv4_db(_i zRepoId) {
 // TEST:PASS
-    char zPathBuf[zCommonBufSiz];
-    char zResBuf[zBytes(8192)] = {'\0'};
-    FILE *zpFileHandler;
-    _ui zIpv4Addr;
-    _i zFd;
-
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpTxtPath);
-    zCheck_Null_Exit(zpFileHandler = fopen(zPathBuf, "r"));
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
-    zCheck_Negative_Exit(zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600));
-
-    zget_one_line(zResBuf, zBytes(8192), zpFileHandler);
-    fclose(zpFileHandler);
-
-    zPCREInitInfo *zpPCREInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
-    zPCRERetInfo *zpPCREResIf = zpcre_match(zpPCREInitIf, zResBuf, 1);
-    for (_i i = 0; i < zpPCREResIf->cnt; i++) {
-        zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[i]);
-
-        if (sizeof(_ui) != write(zFd, &zIpv4Addr, sizeof(_ui))) {
-            zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
-            return -1;
-        }
-    }
-
-    close(zFd);
-    zpcre_free_tmpsource(zpPCREResIf);
-    zpcre_free_metasource(zpPCREInitIf);
-
-    // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
-    if (-1 == zupdate_ipv4_db_hash(zRepoId)) { return -1; }
-
+//    char zPathBuf[zCommonBufSiz];
+//    char zResBuf[zBytes(8192)] = {'\0'};
+//    FILE *zpFileHandler;
+//    _ui zIpv4Addr;
+//    _i zFd;
+//
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpTxtPath);
+//    zCheck_Null_Exit(zpFileHandler = fopen(zPathBuf, "r"));
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zAllIpPath);
+//    zCheck_Negative_Exit(zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600));
+//
+//    zget_one_line(zResBuf, zBytes(8192), zpFileHandler);
+//    fclose(zpFileHandler);
+//
+//    zPCREInitInfo *zpPCREInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
+//    zPCRERetInfo *zpPCREResIf = zpcre_match(zpPCREInitIf, zResBuf, 1);
+//    for (_i i = 0; i < zpPCREResIf->cnt; i++) {
+//        zIpv4Addr = zconvert_ipv4_str_to_bin(zpPCREResIf->p_rets[i]);
+//
+//        if (sizeof(_ui) != write(zFd, &zIpv4Addr, sizeof(_ui))) {
+//            zPrint_Err(0, NULL, "Write to $zAllIpPath failed!");
+//            return -1;
+//        }
+//    }
+//
+//    close(zFd);
+//    zpcre_free_tmpsource(zpPCREResIf);
+//    zpcre_free_metasource(zpPCREInitIf);
+//
+//    // ipv4 数据文件更新后，立即更新对应的缓存中的列表与HASH
+//    if (-1 == zupdate_ipv4_db_hash(zRepoId)) { return -1; }
+//
     return 0;
 }
 

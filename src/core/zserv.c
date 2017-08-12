@@ -188,7 +188,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 // TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zMetaInfo *zpSubMetaIf[2];
-    struct stat zStatIf;
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
     char zJsonBuf[64];
@@ -221,24 +220,25 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId);
     }
 
-    char zPathBuf[zCommonBufSiz];
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zMajorIpTxtPath);
-    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
-    if (0 == zStatIf.st_size) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在");
-        return -25;
-    }
-
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zAllIpPath);
-    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
-    if (0 == zStatIf.st_size
-            || (0 != (zStatIf.st_size % sizeof(_ui)))
-            || (zStatIf.st_size / zSizeOf(_ui)) != zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "集群全量IP地址数据库异常");
-        return -26;
-    }
+//    struct stat zStatIf;
+//    char zPathBuf[zCommonBufSiz];
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zMajorIpTxtPath);
+//    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
+//    if (0 == zStatIf.st_size) {
+//        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
+//        zPrint_Err(0, NULL, "集群主节点IP地址数据库不存在");
+//        return -25;
+//    }
+//
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zAllIpPath);
+//    zCheck_Negative_Exit( stat(zPathBuf, &zStatIf) );
+//    if (0 == zStatIf.st_size
+//            || (0 != (zStatIf.st_size % sizeof(_ui)))
+//            || (zStatIf.st_size / zSizeOf(_ui)) != zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
+//        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
+//        zPrint_Err(0, NULL, "集群全量IP地址数据库异常");
+//        return -26;
+//    }
 
     /* 重置布署状态 */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
@@ -247,13 +247,13 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh -p %s -i %s -P %s -h %u -f %s",
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh %s %s %s %u %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
-            zMajorIpTxtPath,  // Host 主节点 IP 列表相对于代码库的路径
-            zpMetaIf->HostId,  // 数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
-            zpFilePath); // 指定目标文件相对于代码库的路径
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+            zpFilePath,  // 指定目标文件相对于代码库的路径
+            zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,  // Major机的数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
+            zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 调用 git 命令执行布署，脚本中设定的异常退出码均为 255 */
     system(zShellBuf);
@@ -263,7 +263,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         sleep(1);
         //zsleep(0.2);
 
-        fprintf(stderr, "DEBUG: TOTAL HOST: %d, Reply Cnt: %d\n",zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost, zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt);
+        fprintf(stderr, "DEBUG: Total Host: %d, Reply Cnt: %d\n",zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost, zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt);
         if (10 < zTimeCnter) {
             // 如果布署失败，代码库状态置为 "损坏" 状态
             zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
@@ -282,7 +282,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 重置内存池状态 */
     zReset_Mem_Pool_State(zpMetaIf->RepoId);
-    //zppGlobRepoIf[zpMetaIf->RepoId]->MemPoolOffSet = sizeof(void *);
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
@@ -391,54 +390,54 @@ zstate_confirm(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_glob(struct zMetaInfo *zpMetaIf, _i zSd) {
-    char zShellBuf[256], zPathBuf[zCommonBufSiz], *zpWritePath;
-    _i zFd, zStrDbLen, zErrNo;
-
-    if (4 == zpMetaIf->OpsId) {
-        zpWritePath = zMajorIpTxtPath;
-        zErrNo = -27;
-    } else {
-        zpWritePath = zAllIpTxtPath;
-        zErrNo = -28;
-    }
-
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpWritePath);
-
-    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        zpMetaIf->p_data = "";
-        return -11;
-    };
-
-    zStrDbLen = strlen(zpMetaIf->p_data);  // 不能把最后的 '\0' 写入文件
-    /* 将接收到的IP地址库写入文件 */
-    if ((0 > (zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600))) 
-            || ((zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)))) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)");
-        return zErrNo;
-    }
-    close(zFd);
-
-    /* 更新集群整体IP数据库时，检测新机器并进行初始化 */
-    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
-    if (5 == zpMetaIf->OpsId) {
-        if (255 == system(zShellBuf)) {
-            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-            return -29;
-        }
-
-        /* 若生成二进制IPv4数据库出错，返回错误到前端 */
-        if (0 > zupdate_ipv4_db(zpMetaIf->RepoId)) {
-            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-            return -28;
-        }
-    }
-
-    /* 生成 MD5_checksum 作为data回发给前端 */
-    zpMetaIf->p_data = zgenerate_file_sig_md5(zPathBuf);
-
-    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+//    char zShellBuf[256], zPathBuf[zCommonBufSiz], *zpWritePath;
+//    _i zFd, zStrDbLen, zErrNo;
+//
+//    if (4 == zpMetaIf->OpsId) {
+//        zpWritePath = zMajorIpTxtPath;
+//        zErrNo = -27;
+//    } else {
+//        zpWritePath = zAllIpTxtPath;
+//        zErrNo = -28;
+//    }
+//
+//    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpWritePath);
+//
+//    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+//    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+//        zpMetaIf->p_data = "";
+//        return -11;
+//    };
+//
+//    zStrDbLen = strlen(zpMetaIf->p_data);  // 不能把最后的 '\0' 写入文件
+//    /* 将接收到的IP地址库写入文件 */
+//    if ((0 > (zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0600))) 
+//            || ((zStrDbLen != write(zFd, zpMetaIf->p_data, zStrDbLen)))) {
+//        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+//        zPrint_Err(errno, NULL, "写入IPv4数据库失败(点分格式，文本文件)");
+//        return zErrNo;
+//    }
+//    close(zFd);
+//
+//    /* 更新集群整体IP数据库时，检测新机器并进行初始化 */
+//    sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+//    if (5 == zpMetaIf->OpsId) {
+//        if (255 == system(zShellBuf)) {
+//            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+//            return -29;
+//        }
+//
+//        /* 若生成二进制IPv4数据库出错，返回错误到前端 */
+//        if (0 > zupdate_ipv4_db(zpMetaIf->RepoId)) {
+//            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+//            return -28;
+//        }
+//    }
+//
+//    /* 生成 MD5_checksum 作为data回发给前端 */
+//    zpMetaIf->p_data = zgenerate_file_sig_md5(zPathBuf);
+//
+//    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return -100;  // 提示前端验证 MD5_checksum
 }
 

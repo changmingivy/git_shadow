@@ -124,10 +124,17 @@ struct zDeployResInfo {
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
-    _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
+    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
+
+    _ui zDeployLogOffSet;  // 标记日志文件的下一次写入位置
 
     _i TotalHost;  // 每个项目的集群的主机数量
     _ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
+
+    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
+    pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
+
+    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
@@ -136,9 +143,8 @@ struct zRepoInfo {
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 
-    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
-
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
+    char *p_PostDeployCmd;  // 布署完成之后需要在集群主机上执行的命令
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -147,12 +153,8 @@ struct zRepoInfo {
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
 
-    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
-    pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
-
-    _ui zDeployLogOffSet;  // 标记日志文件的下一次写入位置
-
-    struct zDeployResInfo *p_DpResList;  // 布署状态收集
+    _ui MajorHostAddr;  // 以无符号整型格式存放的中转机(即实际执行分发的节点)IPv4地址
+    struct zDeployResInfo *p_DpResList;  // 存储全量IPv4地址库信息，同时用作布署状态收集
     struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
     _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
