@@ -241,9 +241,6 @@ zget_file_list_and_diff_content(void *zpIf) {
     }
     pclose(zpShellRetHandler);
 
-    /* >>>>初始化线程同步环境 */
-    zCcur_Init(zpMetaIf->RepoId, A);
-
     if (0 == zCnter) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zVecWrapInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
@@ -273,6 +270,9 @@ zget_file_list_and_diff_content(void *zpIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zCnter;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct zRefDataInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
+
+        /* >>>>初始化线程同步环境 */
+        zCcur_Init(zpMetaIf->RepoId, A);
 
         for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
@@ -689,16 +689,24 @@ zupdate_ipv4_db(_i zRepoId) {
         -38;  // 拉取(git clone)远程代码失败
         -39;  // 项目ID写入失败
  */
+#define zFree_Source() do {\
+    close(zFd);\
+    close(zppGlobRepoIf[zRepoId]->LogFd);\
+    free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
+    free(zppGlobRepoIf[zRepoId]);\
+    zMem_Re_Alloc(zppGlobRepoIf, struct zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
+    zpcre_free_tmpsource(zpRetIf);\
+    zpcre_free_metasource(zpInitIf);\
+} while(0)
+
 _i
 zadd_one_repo_env(char *zpRepoStrIf) {
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
-    char zPullCmdBuf[zCommonBufSiz];
 
     struct zMetaInfo *zpMetaIf[2];
     struct zObjInfo *zpObjIf;
     struct stat zStatIf;
-    void **zppPrev;
 
     _i zRepoId,zFd;
 
@@ -748,26 +756,21 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 
     if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
-        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-        free(zppGlobRepoIf[zRepoId]);
-        close(zFd);
-        close(zppGlobRepoIf[zRepoId]->LogFd);
+        zFree_Source();
         zPrint_Err(0, NULL, "项目日志文件或repo_id路径不存在!");
         return -38;
     }
 
-    /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
+    /* 在每个代码库的<_SHADOW/info/repo_id>文件中写入所属代码库的ID */
     if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
-        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
-        free(zppGlobRepoIf[zRepoId]);
-        close(zFd);
-        close(zppGlobRepoIf[zRepoId]->LogFd);
+        zFree_Source();
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
     close(zFd);
 
     /* 检测并生成项目代码定期更新命令 */
+    char zPullCmdBuf[zCommonBufSiz];
     if (0 == strcmp("git", zpRetIf->p_rets[4])) {
         sprintf(zPullCmdBuf, "cd /home/git/%s && git pull --force %s %s:server",
                 zpRetIf->p_rets[1],
@@ -777,6 +780,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         sprintf(zPullCmdBuf, "cd /home/git/%s/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zpRetIf->p_rets[1]);
     } else {
+        zFree_Source();
         zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
         return -37;
     }
@@ -794,7 +798,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         zPrint_Err(0, NULL, "mmap failed!");
         exit(1);
     }
-    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
+    void **zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
     zppPrev[0] = NULL;
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
@@ -829,8 +833,8 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
 
-    /* 用于标记提交记录缓存中的下一个可写位置 */
-    zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
+//    /* 用于标记提交记录缓存中的下一个可写位置 */
+//    zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
 
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
@@ -869,6 +873,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zGlobMaxRepoId = zRepoId;
     return 0;
 }
+#undef zFree_Source
 
 /* 读取项目信息 */
 void
