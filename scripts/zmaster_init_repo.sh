@@ -21,6 +21,7 @@ then
 fi
 
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then exit 0; fi
+
 # 环境初始化
 git clone $zPullAddr $zDeployPath
 cd $zDeployPath
@@ -48,8 +49,7 @@ if [[ "svn" == $zRemoteVcsType ]]; then
 fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录
-rm -rf ${zDeployPath}_SHADOW 2>/dev/null
-mkdir ${zDeployPath}_SHADOW
+mkdir -p ${zDeployPath}_SHADOW
 
 cp -rf ${zShadowPath}/bin ${zDeployPath}_SHADOW/
 cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
@@ -70,6 +70,6 @@ fi
 # 创建必要的目录与文件
 cd ${zDeployPath}_SHADOW
 mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
-touch ${zDeployPath}_SHADOW/info/{host_ip_all.bin,host_ip_all.txt,host_ip_major.txt,repo_id}
+touch ${zDeployPath}_SHADOW/info/repo_id
 touch ${zDeployPath}_SHADOW/log/deploy/meta
 chmod -R 0755 ${zDeployPath}_SHADOW

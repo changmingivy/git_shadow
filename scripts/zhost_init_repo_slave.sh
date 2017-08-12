@@ -1,9 +1,9 @@
 #!/bin/sh
-zSlaveAddr=$1
-zPathOnHost=$2
+zMajorAddr=$1
+zSlaveAddr=$2
+zPathOnHost=$3
 
-ssh $zSlaveAddr "
-    if [[ 0 -ne \`ls -d $zPathOnHost 2>/dev/null | wc -l\` ]];then exit; fi &&
+ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     mkdir -p ${zPathOnHost} &&
     mkdir -p ${zPathOnHost}_SHADOW &&
 \
@@ -16,11 +16,11 @@ ssh $zSlaveAddr "
 \
     cd $zPathOnHost &&
     git init . &&
-    git config user.name "`basename $zPathOnHost`" &&
-    git config user.email "`basename ${zPathOnHost}`@$x" &&
+    git config user.name "_" &&
+    git config user.email "_@$x" &&
     git commit --allow-empty -m "__init__" &&
-    git branch -f server
-    " &&
-
-scp ${zPathOnHost}/.git/hooks/post-update git@${zSlaveAddr}:${zPathOnHost}/.git/hooks/post-update &&
-ssh $zSlaveAddr " chmod 0755 ${zPathOnHost}/.git/hooks/post-update "
+    git branch -f server &&
+\
+	cat > .git/hooks/post-update &&
+	chmod 0755 .git/hooks/post-update
+    \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update_slave
