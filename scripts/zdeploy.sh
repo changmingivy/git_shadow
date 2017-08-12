@@ -28,9 +28,11 @@ printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bi
 git add --all .
 git commit --allow-empty -m "__DP__"
 
-# 更新中转机
+# 更新中转机(MajorHost)
 cd ${zProjPath}_SHADOW
 git push --force git@${zMajorAddr}:${zProjPath}_SHADOW/.git master:server
+cd ${zProjPath}
+git push --force git@${zMajorAddr}:${zProjPath}/.git master:server
 
 # 通过中转机布署
 ssh $zMajorAddr "
