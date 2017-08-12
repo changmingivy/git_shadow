@@ -197,6 +197,7 @@ zJsonParseFunc zJsonParseOps[128];
 #define zMajorIpTxtPath "_SHADOW/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath "_SHADOW/info/repo_id"
 #define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zInotifyObjRelativePath "/.git/logs/refs/heads/server"  // inotify 监控每个项目的server分支变动，用以动态追加提交记录缓存（最前面加一个 '/' ，省去每次使用时单独拼一个字符的麻烦）
 
 /**********
  * 子模块 *

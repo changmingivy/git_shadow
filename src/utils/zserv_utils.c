@@ -17,7 +17,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
         void **zppPrev, *zpCur;
         /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {
+        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
             zPrint_Err(0, NULL, "mmap failed!");
             exit(1);
         }
@@ -434,9 +434,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zpHeadId = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitCacheQueueHeadId);
 
     // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
-    sprintf(zShellBuf, "cd %s && git log server -1 --format=\"%%H_%%ct\"",
-            zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath);
-
+    sprintf(zShellBuf, "cd %s && git log server -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath);
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
     pclose(zpShellRetHandler);
@@ -685,6 +683,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         fprintf(stderr, "\033[31m\"%s\": 新项目信息错误!\033[00m\n", zpRepoStrIf);
         return -34;
     }
+
     /* 提取项目ID */
     zRepoId = strtol(zpRetIf->p_rets[0], NULL, 10);
     if (zRepoId > zGlobMaxRepoId) {
@@ -699,6 +698,22 @@ zadd_one_repo_env(char *zpRepoStrIf) {
             return -35;
         }
     }
+
+    /* 分配项目信息的存储空间 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
+    zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
+
+    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
+    if (MAP_FAILED ==
+            (zppGlobRepoIf[zRepoId]->p_MemPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+        zPrint_Err(0, NULL, "mmap failed!");
+        exit(1);
+    }
+    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
+    zppPrev[0] = NULL;
+    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+
     /* 检测并生成项目代码定期更新命令 */
     if (0 == strcmp("git", zpRetIf->p_rets[4])) {
         sprintf(zPullCmdBuf, "cd /home/git/%s && git pull --force %s %s:server",
@@ -712,81 +727,83 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
         return -37;
     }
-    /* 分配项目信息的存储空间 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
-    zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
+
+    zppGlobRepoIf[zRepoId]->p_PullCmd = zalloc_cache(zRepoId, 1 + strlen(zPullCmdBuf));
+    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
+
     /* 提取项目绝对路径 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
+    zppGlobRepoIf[zRepoId]->p_RepoPath = zalloc_cache(zRepoId, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
     strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
     strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
+
     /* 调用SHELL执行检查和创建 */
     char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
     char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
     zfork_do_exec(zpCmd, zppArgv);
+
     /* 清理资源占用 */
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
+
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     zppGlobRepoIf[zRepoId]->LogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
+
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
     zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+
     if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
-        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);
         free(zppGlobRepoIf[zRepoId]);
         close(zFd);
+        zPrint_Err(0, NULL, "项目日志文件或repo_id路径不存在!");
         return -38;
     }
+
     /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
     if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
-        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);
         free(zppGlobRepoIf[zRepoId]);
         close(zFd);
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
     close(zFd);
+
     /* 初始化日志下一次写入偏移量 */
     zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
-    /* 存储项目代码定期更新命令 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
-    strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
+
     /* inotify */
-    zMem_Alloc( zpObjIf, char, sizeof(struct zObjInfo) + 1 + strlen("/.git/logs") + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath) );
+    zpObjIf = zalloc_cache(zRepoId, sizeof(struct zObjInfo) + 1 + strlen(zInotifyObjRelativePath) + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath));
     zpObjIf->RepoId = zRepoId;
-    zpObjIf->RecursiveMark = 1;
+    zpObjIf->RecursiveMark = 0;  // 不必递归监控
     zpObjIf->CallBack = zupdate_one_commit_cache;
     zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
-    strcpy(zpObjIf->p_path, zppGlobRepoIf[zRepoId]->p_RepoPath);
-    strcat(zpObjIf->p_path, "/.git/logs");
+    sprintf(zpObjIf->p_path, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zInotifyObjRelativePath);
     zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
+
     /* 为每个代码库生成一把读写锁，锁属性设置写者优先 */
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[zRepoId]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
     zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), &(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
+
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[zRepoId]->MutexLock, NULL) );
+
     /* 更新 TotalHost、zpppDpResHash、zppDpResList */
     zupdate_ipv4_db(zRepoId);
-    /* 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_FailingList, _ui, 1 + zppGlobRepoIf[zRepoId]->TotalHost);
 
-    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
-    if (MAP_FAILED ==
-            (zppGlobRepoIf[zRepoId]->p_MemPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {
-        zPrint_Err(0, NULL, "mmap failed!");
-        exit(1);
-    }
-    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
-    zppPrev[0] = NULL;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+    /* 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间 */
+    zppGlobRepoIf[zRepoId]->p_FailingList = zalloc_cache(zRepoId, 1 + zppGlobRepoIf[zRepoId]->TotalHost);
+
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
+
     /* 用于标记提交记录缓存中的下一个可写位置 */
     zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
+
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->CommitRefDataIf;
@@ -794,9 +811,11 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DeployVecIf;
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
+
     /* 初始化任务分发环境 */
     zCcur_Init(zRepoId, A);  //___
     zCcur_Init(zRepoId, B);  //___
+
     /* 生成提交记录缓存 */
     zpMetaIf[0] = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
     zCcur_Sub_Config(zpMetaIf[0], A);  //___
@@ -805,6 +824,7 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     zpMetaIf[0]->DataType = zIsCommitDataType;
     zCcur_Fin_Mark(1 == 1, A);  //___
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[0]);
+
     /* 生成布署记录缓存 */
     zpMetaIf[1] = zalloc_cache(zRepoId, sizeof(struct zMetaInfo));
     zCcur_Sub_Config(zpMetaIf[1], B);  //___

@@ -11,21 +11,21 @@
 void
 zinotify_add_sub_watch(void *zpIf) {
     struct zObjInfo *zpCurIf, *zpSubIf;
-    zpCurIf = (struct zObjInfo *) zpIf;
+    _i zWid;
 
-    _i zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW);
-    zCheck_Negative_Exit(zWid);
-    if (-1 == zpCurIf->UpperWid) {  // 判断是否是顶层被监控对象
-        zpCurIf->UpperWid = zWid;
-    }
-    if (NULL != zpObjHash[zWid]) {
-        free(zpObjHash[zWid]);  // Free old memory before using the same index again.
-    }
+    zCheck_Negative_Exit( zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW) );
+
+    zpCurIf = (struct zObjInfo *) zpIf;
     zpObjHash[zWid] = zpCurIf;
 
-    if (0 == zpCurIf->RecursiveMark) {
-        return;  // 如果不需要递归监控子目录，到此返回，不再往下执行
-    }
+    // 判断是否是顶层被监控对象
+    if (-1 == zpCurIf->UpperWid) { zpCurIf->UpperWid = zWid; }
+
+    // Free old memory before using the same index again.
+    if (NULL != zpObjHash[zWid]) { free(zpObjHash[zWid]); }
+
+    // 如果不需要递归监控子目录，到此返回，不再往下执行
+    if (0 == zpCurIf->RecursiveMark) { return; }
 
     DIR *zpDir = opendir(zpCurIf->p_path);
     zCheck_Null_Return(zpDir,);
@@ -64,8 +64,7 @@ zinotify_add_sub_watch(void *zpIf) {
 void
 zinotify_wait(void *_) {
 // TEST: PASS
-    char zBuf[zCommonBufSiz]
-    __attribute__ ((aligned(__alignof__(struct inotify_event))));
+    char zBuf[zCommonBufSiz] __attribute__ ((aligned(__alignof__(struct inotify_event))));
     ssize_t zLen;
 
     const struct inotify_event *zpEv;
