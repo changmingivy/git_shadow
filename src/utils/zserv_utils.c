@@ -124,10 +124,13 @@ zauto_pull(void *_) {
     _i zCnter;
     while (1) {
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
-            if (NULL == zppGlobRepoIf[zCnter]) { continue; }
-            system(zppGlobRepoIf[zCnter]->p_PullCmd);
+            if (NULL == zppGlobRepoIf[zCnter] || NULL == zppGlobRepoIf[zCnter]->p_PullCmd) {
+                continue;
+            }
+
+            zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
-        sleep(10);
+        sleep(8);
     }
 }
 
@@ -201,7 +204,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zBaseDataInfo *zpTmpBaseDataIf[3];
-    _i zVecDataLen, zBaseDataLen, zDataLen, zCnter;
+    _i zVecDataLen, zBaseDataLen, zCnter;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
@@ -723,20 +726,46 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         }
     }
 
-    /* 分配项目信息的存储空间 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
+    /* 分配项目信息的存储空间，务必使用 calloc */
+    zMem_C_Alloc(zppGlobRepoIf[zRepoId], struct zRepoInfo, 1);
     zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
 
-    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
-    if (MAP_FAILED ==
-            (zppGlobRepoIf[zRepoId]->p_MemPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-        zPrint_Err(0, NULL, "mmap failed!");
-        exit(1);
+    /* 提取项目绝对路径 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
+    sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zpRetIf->p_rets[1]);
+
+    /* 调用SHELL执行检查和创建 */
+    char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
+    char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
+    zfork_do_exec(zpCmd, zppArgv);
+
+    /* 打开日志文件 */
+    char zPathBuf[zCommonBufSiz];
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    zppGlobRepoIf[zRepoId]->LogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
+
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
+    zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+
+    if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
+        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        free(zppGlobRepoIf[zRepoId]);
+        close(zFd);
+        close(zppGlobRepoIf[zRepoId]->LogFd);
+        zPrint_Err(0, NULL, "项目日志文件或repo_id路径不存在!");
+        return -38;
     }
-    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
-    zppPrev[0] = NULL;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+
+    /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
+    if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
+        free(zppGlobRepoIf[zRepoId]->p_RepoPath);
+        free(zppGlobRepoIf[zRepoId]);
+        close(zFd);
+        close(zppGlobRepoIf[zRepoId]->LogFd);
+        zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
+        return -39;
+    }
+    close(zFd);
 
     /* 检测并生成项目代码定期更新命令 */
     if (0 == strcmp("git", zpRetIf->p_rets[4])) {
@@ -752,48 +781,23 @@ zadd_one_repo_env(char *zpRepoStrIf) {
         return -37;
     }
 
-    zppGlobRepoIf[zRepoId]->p_PullCmd = zalloc_cache(zRepoId, 1 + strlen(zPullCmdBuf));
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
-
-    /* 提取项目绝对路径 */
-    zppGlobRepoIf[zRepoId]->p_RepoPath = zalloc_cache(zRepoId, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
-    strcpy(zppGlobRepoIf[zRepoId]->p_RepoPath, "/home/git/");
-    strcat(zppGlobRepoIf[zRepoId]->p_RepoPath, zpRetIf->p_rets[1]);
-
-    /* 调用SHELL执行检查和创建 */
-    char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-    char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-    zfork_do_exec(zpCmd, zppArgv);
 
     /* 清理资源占用 */
     zpcre_free_tmpsource(zpRetIf);
     zpcre_free_metasource(zpInitIf);
 
-    /* 打开日志文件 */
-    char zPathBuf[zCommonBufSiz];
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
-    zppGlobRepoIf[zRepoId]->LogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
-
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
-    zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-
-    if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
-        munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);
-        free(zppGlobRepoIf[zRepoId]);
-        close(zFd);
-        zPrint_Err(0, NULL, "项目日志文件或repo_id路径不存在!");
-        return -38;
+    /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
+    if (MAP_FAILED ==
+            (zppGlobRepoIf[zRepoId]->p_MemPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+        zPrint_Err(0, NULL, "mmap failed!");
+        exit(1);
     }
-
-    /* 在每个代码库的<.git_shadow/info/repo_id>文件中写入所属代码库的ID */
-    if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
-        munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);
-        free(zppGlobRepoIf[zRepoId]);
-        close(zFd);
-        zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
-        return -39;
-    }
-    close(zFd);
+    zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
+    zppPrev[0] = NULL;
+    zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
 
     /* 初始化日志下一次写入偏移量 */
     zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;

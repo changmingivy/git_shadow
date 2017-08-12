@@ -312,15 +312,13 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
 //     nanosleep( &zNanoSecIf, NULL );
 // }
 
-// /*
-//  * 用于在单独线程中执行外部命令
-//  */
-// void
-// zthread_system(void *zpCmd) {
-//     if (0 != system((char *) zpCmd)) {
-//         zPrint_Err(0, NULL, "[system]: shell command failed!");
-//     }
-// }
+/*
+ * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
+ */
+void
+zthread_system(void *zpCmd) {
+    system((char *) zpCmd);
+}
 
 // /*
 //  * 用途：
