@@ -86,11 +86,15 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         }\
     } while(0)
 
-/* 当调用者任务分发完成之后执行，之后释放资源占用 */
+/*
+ * 当调用者任务分发完成之后执行，之后释放资源占用
+ * 不能使用while，而要使用 do...while，至少让调用者有一次收信号的机会
+ * 否则可能导致在下层通知未执行之前条件变量被销毁，从而带来不确定的后果
+ */
 #define zCcur_Wait(zSuffix) do {\
-        while (*zpSelfCnter##zSuffix != *zpThreadCnter##zSuffix) {\
+        do {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
-        }\
+        } while (*zpSelfCnter##zSuffix != *zpThreadCnter##zSuffix);\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_cond_destroy(zpCondVar##zSuffix);\
         pthread_mutex_destroy(zpMutexLock##zSuffix + 1);\
@@ -363,13 +367,13 @@ zgenerate_cache(void *zpIf) {
     }
     pclose(zpShellRetHandler);
 
-    /* >>>>初始化线程同步环境 */
-    zCcur_Init(zpMetaIf->RepoId, A);
-
     /* 存储的是实际的对象数量 */
     zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zCnter;
 
     if (0 != zCnter) {
+        /* >>>>初始化线程同步环境 */
+        zCcur_Init(zpMetaIf->RepoId, A);
+
         for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
             zpTmpBaseDataIf[2]->p_data[40] = '\0';
             zpTopVecWrapIf->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
@@ -423,10 +427,10 @@ zgenerate_cache(void *zpIf) {
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
-
-        /* 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
     }
+
+    /* 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
+    zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
 
     /* 防止意外访问导致的程序崩溃 */
     memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(struct zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
@@ -832,9 +836,6 @@ zadd_one_repo_env(char *zpRepoStrIf) {
 
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
-
-//    /* 用于标记提交记录缓存中的下一个可写位置 */
-//    zppGlobRepoIf[zRepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
 
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
