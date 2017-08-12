@@ -137,12 +137,13 @@ zauto_pull(void *_) {
 void
 zget_diff_content(void *zpIf) {
 // TEST:PASS
-    FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
-    _i zBaseDataLen, zCnter;
+    struct zMetaInfo *zpMetaIf = (struct zMetaInfo *)zpIf;
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zBaseDataInfo *zpTmpBaseDataIf[3];
-    struct zMetaInfo *zpMetaIf = (struct zMetaInfo *)zpIf;
+    _i zBaseDataLen, zCnter;
+
+    FILE *zpShellRetHandler;
+    char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -200,12 +201,10 @@ zget_file_list_and_diff_content(void *zpIf) {
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zBaseDataInfo *zpTmpBaseDataIf[3];
+    _i zVecDataLen, zBaseDataLen, zDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zBytes(1024)];
-
-    char zJsonBuf[zBytes(256)];
-    _i zVecDataLen, zBaseDataLen, zDataLen, zCnter;
+    char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
@@ -302,110 +301,113 @@ zgenerate_cache(void *zpIf) {
 // TEST:PASS
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
-
-    char zJsonBuf[zBytes(256)];  // iov_base
-    _i zVecDataLen, zVecCnter;
+    struct zBaseDataInfo *zpTmpBaseDataIf[3];
+    _i zVecDataLen, zBaseDataLen, zDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char *zpRes, zRes[zCommonBufSiz], zShellBuf[128];
+    char zRes[zCommonBufSiz], zShellBuf[128], zJsonBuf[zBytes(256)];
 
     zpMetaIf = (struct zMetaInfo *)zpIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
-        // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
-        sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+        sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
-        sprintf(zShellBuf, "%s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
-        zCheck_Null_Exit( zpShellRetHandler = fopen(zShellBuf, "r") );
+        sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
+        zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
     }
     
+    for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(zBytes(1024))), zpShellRetHandler); zCnter++) {
+        zBaseDataLen = strlen(zRes);
+        zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
+        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
+        zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+        memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+        zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
+
+        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+    }
+    pclose(zpShellRetHandler);
+
     /* >>>>初始化线程同步环境 */
     zCcur_Init(zpMetaIf->RepoId, A);
-    zpRes = zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
-    for (zVecCnter = 0; (NULL != zpRes) && (zVecCnter < zCacheSiz); zVecCnter++) {
-        zRes[strlen(zRes) - 1] = '\0';
-        zRes[40] = '\0';
-        zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(41)) );
-        strcpy(zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data, zRes);
-
-        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
-        /* >>>>填充必要的线程间同步数据 */
-        zCcur_Sub_Config(zpSubMetaIf, A);
-        /* 转换成JsonStr以及传向下一级函数 */
-        zpSubMetaIf->OpsId = 0;
-        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf->CommitId = zVecCnter;
-        zpSubMetaIf->FileId = -1;
-        zpSubMetaIf->HostId = -1;
-        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
-        zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->p_TimeStamp = &(zRes[41]);
-        zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[zVecCnter].p_data;
-
-        /* 将zMetaInfo转换为JSON文本 */
-        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-
-        /* 将JsonStr内容存放到iov_base中 */
-        zVecDataLen = strlen(zJsonBuf);
-        zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-        memcpy(zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base, zJsonBuf, zVecDataLen);
-        zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zVecDataLen;
-
-        /* 新生成的缓存本来就是有序的，不需要额外排序 */
-        if (zIsCommitDataType ==zpMetaIf->DataType) {
-            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_base;
-            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[zVecCnter].iov_len;
-        }
-
-        /* 必须在上一个 zRes 使用完之后才能执行 */
-        zpRes = zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
-        /* >>>>检测是否是最后一次循环 */
-        zCcur_Fin_Mark(((NULL == zpRes) || ((zCacheSiz - 1) == zVecCnter)), A);
-        /* 生成下一级缓存 */
-        zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
-    }
-    /* >>>>等待分发出去的所有任务全部完成 */
-    zCcur_Wait(A);
 
     /* 存储的是实际的对象数量 */
-    zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zVecCnter;
+    zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zCnter;
 
-    /* 将布署记录按逆向时间排序（新记录显示在前面） */
-    if (zIsDeployDataType == zpMetaIf->DataType) {
-        fclose(zpShellRetHandler);
-        for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
-            zVecCnter--;
-            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
-            zpSortedTopVecWrapIf->p_VecIf[zVecCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+    if (0 != zCnter) {
+        for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
+            zpTmpBaseDataIf[2]->p_data[40] = '\0';
+            zpTopVecWrapIf->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
+
+            zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zMetaInfo));
+            /* >>>>填充必要的线程间同步数据 */
+            zCcur_Sub_Config(zpSubMetaIf, A);
+            /* 用于转换成JsonStr以及传向下一级函数 */
+            zpSubMetaIf->OpsId = 0;
+            zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+            zpSubMetaIf->CommitId = i;
+            zpSubMetaIf->FileId = -1;
+            zpSubMetaIf->HostId = 0;
+            zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+            zpSubMetaIf->DataType = zpMetaIf->DataType;
+            zpSubMetaIf->p_TimeStamp = &(zpTmpBaseDataIf[2]->p_data[41]);
+            zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
+    
+            /* 将zMetaInfo转换为JSON文本 */
+            zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+    
+            zVecDataLen = strlen(zJsonBuf);
+            zpTopVecWrapIf->p_VecIf[i].iov_len = zVecDataLen;
+            zpTopVecWrapIf->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+            memcpy(zpTopVecWrapIf->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
+    
+            /* >>>>检测是否是最后一次循环 */
+            zCcur_Fin_Mark(i == zCnter - 1, A);
+
+            /* 进入下一层获取对应的差异文件列表 */
+            zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
         }
-    } else {
-        pclose(zpShellRetHandler);
-    }
 
-    /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-    if (0 != zpTopVecWrapIf->VecSiz) {
+        /* >>>>等待分发出去的所有任务全部完成 */
+        zCcur_Wait(A);
+
+        if (zIsDeployDataType == zpMetaIf->DataType) {
+            /* 将布署记录按逆向时间排序（新记录显示在前面） */
+            for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
+                zCnter--;
+                zpSortedTopVecWrapIf->p_VecIf[zCnter].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
+                zpSortedTopVecWrapIf->p_VecIf[zCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+            }
+        } else {
+            /* 新生成的提交记录缓存本来就是有序的，不需要额外排序 */
+            for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
+                zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
+                zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
+            }
+        }
+
+        /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
+
+        /* 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
+        zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
     }
 
-    // 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置
-    zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
+    /* 防止意外访问导致的程序崩溃 */
+    memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz))
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
-
-//    // 防止意外访问
-//    for (_i i = zpTopVecWrapIf->VecSiz; i < zCacheSiz; i++) {
-//        zpTopVecWrapIf->p_RefDataIf[i].p_data = NULL;
-//        zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
-//    }
 }
 
 /*
