@@ -66,6 +66,14 @@ zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
+ * 13：删除项目（代码库）
+ */
+_i
+zdelete_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
+    return 0;
+}
+
+/*
  * 6：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 _i
@@ -630,8 +638,8 @@ zstart_server(void *zpIf) {
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
-    zNetServ[12] = zdeploy;  // 布署(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
-    zNetServ[13] = zdeploy;  // 撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机)
+    zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
+    zNetServ[13] = zdelete_repo;  // 删除指定项目及其所属的所有文件
 
     /* 如下部分配置网络服务 */
     struct zNetServInfo *zpNetServIf = (struct zNetServInfo *)zpIf;
