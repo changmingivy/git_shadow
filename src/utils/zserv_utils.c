@@ -224,7 +224,7 @@ zget_file_list_and_diff_content(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-    for (zCnter = 0; NULL != zget_one_line(zRes, zBytes(zBytes(1024)), zpShellRetHandler); zCnter++) {
+    for (zCnter = 0; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
@@ -302,7 +302,7 @@ zgenerate_cache(void *zpIf) {
     struct zMetaInfo *zpMetaIf, *zpSubMetaIf;
     struct zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
     struct zBaseDataInfo *zpTmpBaseDataIf[3];
-    _i zVecDataLen, zBaseDataLen, zDataLen, zCnter;
+    _i zVecDataLen, zBaseDataLen, zCnter;
 
     FILE *zpShellRetHandler;
     char zRes[zCommonBufSiz], zShellBuf[128], zJsonBuf[zBytes(256)];
@@ -324,7 +324,7 @@ zgenerate_cache(void *zpIf) {
         exit(1);
     }
     
-    for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(zBytes(1024))), zpShellRetHandler); zCnter++) {
+    for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++)) {
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(struct zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
@@ -404,7 +404,7 @@ zgenerate_cache(void *zpIf) {
     }
 
     /* 防止意外访问导致的程序崩溃 */
-    memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz))
+    memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(struct zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz))
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
