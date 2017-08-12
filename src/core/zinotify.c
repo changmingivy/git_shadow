@@ -13,9 +13,8 @@ zinotify_add_sub_watch(void *zpIf) {
     struct zObjInfo *zpCurIf, *zpSubIf;
     _i zWid;
 
-    zCheck_Negative_Exit( zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW) );
-
     zpCurIf = (struct zObjInfo *) zpIf;
+    zCheck_Negative_Exit( zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW) );
     zpObjHash[zWid] = zpCurIf;
 
     // 判断是否是顶层被监控对象

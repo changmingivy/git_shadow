@@ -404,7 +404,7 @@ zgenerate_cache(void *zpIf) {
     }
 
     /* 防止意外访问导致的程序崩溃 */
-    memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(struct zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz))
+    memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(struct zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
