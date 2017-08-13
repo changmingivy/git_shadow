@@ -49,7 +49,7 @@ ssh $zMajorAddr "
 "
 
 # 中控机：布署后环境设置
-cd /home/git/$zPathOnHost
+cd /home/git/${zPathOnHost}
 zOldSig=`git log CURRENT -1 --format=%H`
 git branch -f $zOldSig  # 创建一个以 CURRENT 分支的 SHA1 sig 命名的分支
 git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
