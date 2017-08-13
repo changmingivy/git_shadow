@@ -223,6 +223,8 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
     char *zpIpStrList;
     _ui zOffSet = 0;
 
+    if (NULL == zpMetaIf->p_ExtraData) { return -24; }
+
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
         return -11;
@@ -603,6 +605,7 @@ zMarkEnd:
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  *
+ * -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
  * -26：集群全量节点(所有主机)IP地址数据库不存在
  * -27：主节点IP数据库更新失败
