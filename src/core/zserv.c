@@ -201,7 +201,10 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-    if (0 != system(zShellBuf)) { return -27; }
+    if (0 != system(zShellBuf)) {
+        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+        return -27;
+    }
 
     zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = strtol(zpMetaIf->p_data, NULL, 10);
 

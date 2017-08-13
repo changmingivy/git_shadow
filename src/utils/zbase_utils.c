@@ -382,14 +382,14 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  * json 解析回调：数字与字符串
  */
 void
-zParseDigit(void *zpIn, void *zpOut) {
-    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
+zParseDigit(void *zpIn, void **zppOut) {
+    **((_i **)zppOut) = strtol(zpIn, NULL, 10);
 }
 
 void
-zParseStr(void *zpIn, void *zpOut) {
-    zMem_Alloc(zpOut, char, 1 + strlen((char *)zpIn));  // 需要释放空间
-    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
+zParseStr(void *zpIn, void **zppOut) {
+    zMem_Alloc(*zppOut, char, 1 + strlen((char *)zpIn));  // 需要释放空间
+    strcpy(*zppOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
 }
 
 /*
@@ -427,7 +427,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
             return -7;
         }
 
-        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]);
+        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], &(zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]));
     }
 
     zpcre_free_tmpsource(zpPcreRetIf);
