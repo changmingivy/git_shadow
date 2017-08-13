@@ -333,6 +333,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
     zMetaInfo *zpSubMetaIf[2];
 
+    _i zErrNo;
     _ui zMajorHostAddr;
     char zMajorHostStrAddrBuf[16];
 
@@ -346,14 +347,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    /* 加写锁排斥一切相关操作 */
-    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; };
-
-    // 若检查条件成立，如下三个宏的内部会解锁
-    zCheck_Lock_State();
-    zCheck_CacheId();
-    zCheck_CommitId();
-
     /*
      * 检查中转机 IPv4 存在性
      * 优先取用传入的 HostId 字段
@@ -362,21 +355,30 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == zpMetaIf->HostId) { zMajorHostAddr = zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr; }
     else { zMajorHostAddr = zpMetaIf->HostId; }
 
-    if (0 == zMajorHostAddr) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        return -25;
-    }
+    if (0 == zMajorHostAddr) { return -25; }
 
     /* 转换成点分格式 IPv4 地址 */
     zconvert_ipv4_bin_to_str(zMajorHostAddr, zMajorHostStrAddrBuf);
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
-    if ('_' != zpMetaIf->p_data[0]) {zupdate_ipv4_db_all(zpMetaIf, zSd); }
+    if ('_' != zpMetaIf->p_data[0]) {
+        zErrNo = zupdate_ipv4_db_all(zpMetaIf, zSd);
+        if (0 > zErrNo) { return zErrNo; }
+    }
 
     if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -26;
     }
+
+    /* 加写锁排斥一切相关操作 */
+    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        return -11;
+    }
+
+    // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
+    zCheck_Lock_State();
+    zCheck_CacheId();
+    zCheck_CommitId();
 
     /* 重置布署状态 */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
