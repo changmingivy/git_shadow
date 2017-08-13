@@ -298,11 +298,11 @@ zMark:
     for (_i zCnter = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
         zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz];
         if (NULL == zpTmpDpResIf) {
-			/* 若顶层为空，直接指向数组中对应的位置 */
+            /* 若顶层为空，直接指向数组中对应的位置 */
             zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz]
-				= &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
+                = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         } else {
-			/* 将线性数组影射成 HASH 结构 */
+            /* 将线性数组影射成 HASH 结构 */
             while (NULL != zpTmpDpResIf->p_next) { zpTmpDpResIf = zpTmpDpResIf->p_next; }
             zpTmpDpResIf->p_next = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         }
@@ -325,6 +325,7 @@ _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
     zMetaInfo *zpSubMetaIf[2];
+    _ui zMajorHostAddr;
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
 
@@ -341,9 +342,17 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();
     zCheck_CommitId();
 
-    /* 检查 IPv4 地址库存在性及是否需要在布署之前更新 */
+    /*
+     * 检查中转机 IPv4 存在性
+     * 优先取用传入的 HostId 字段
+     * 与单独调用 zupdate_ipv4_db_major 函数的区别是，此处并不会去初始化中转机的环境，适合除了新建项目外的所有场景
+     */
+    if (0 == zpMetaIf->HostId) { zMajorHostAddr = zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr; }
+    else { zMajorHostAddr = zpMetaIf->HostId; }
+    if (0 == zMajorHostAddr) { return -25; }
+
+    /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {zupdate_ipv4_db_all(zpMetaIf, zSd); }
-    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) { return -25; }
     if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) { return -26; }
 
     /* 加写锁排斥一切相关操作 */
@@ -360,7 +369,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 8,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 8个字符
-            zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,  // Major机的数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
+            zMajorHostAddr,  // Major机的数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 调用 git 命令执行布署，暂不检查返回值 */
@@ -512,6 +521,9 @@ zops_route(void *zpSd) {
     zMetaInfo zMetaIf;
     char zJsonBuf[zCommonBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
+
+    /* 必须清零，以防脏栈数据导致问题 */
+    memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
