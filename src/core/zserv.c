@@ -387,10 +387,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 调用 git 命令执行布署，暂不检查返回值 */
     system(zShellBuf);
 
-    //等待所有主机的状态都得到确认，9 秒超时
+    //等待所有主机的状态都得到确认，10 秒超时
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
-        if (9 < zTimeCnter) {
+        if (50 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并更新最近一次失败的 SHA1 sig；若为全部布署失败，则不必置位 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
