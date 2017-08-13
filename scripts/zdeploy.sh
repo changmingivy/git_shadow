@@ -38,14 +38,18 @@ git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
 # 通过中转机布署到终端集群
 ssh $zMajorAddr "
     cd ${zPathOnHost}_SHADOW &&
+    git pull --force ${zPathOnHost}_SHADOW/.git server:master &&
     for zHostAddr in \"$zHostList\"; do
         ( git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git master:server ) &
     done
+    rm -rf * &&
 \
     cd ${zPathOnHost} &&
+    git pull --force ${zPathOnHost}/.git server:master &&
     for zHostAddr in \"$zHostList\"; do
         ( git push --force git@\${zHostAddr}:${zPathOnHost}/.git master:server ) &
     done
+    rm -rf *
 "
 
 # 中控机：布署后环境设置
