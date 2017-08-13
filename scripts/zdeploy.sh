@@ -41,7 +41,7 @@ ssh $zMajorAddr "
     for zHostAddr in $zHostList; do
         ( git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server ) &
     done
-    rm -rf * &&
+    rm -rf *
 \
     cd ${zPathOnHost} &&
     for zHostAddr in $zHostList; do
