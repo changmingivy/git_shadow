@@ -552,10 +552,7 @@ zops_route(void *zpSd) {
         return;
     }
 
-    char zDataBuf[zRecvdLen];  // 使用动态栈空间
-    zMetaIf.p_data = zDataBuf;
-    if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
-        zMetaIf.OpsId = -7;  // 此时代表错误码
+    if (0 > (zMetaIf.OpsId = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         goto zMarkCommonAction;
     }
 
@@ -577,15 +574,17 @@ zops_route(void *zpSd) {
 
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
 zMarkCommonAction:
-        zMetaIf.p_data = NULL;
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zpJsonBuf[0] = '[';
         zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         zsendto(zSd, "]", zBytes(1), 0, NULL);
     }
 zMarkEnd:
-    if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
+    if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
+    /* 解析 json 字符串的时候，若用到结构体的 p_data 或 p_ExtraData 字段，会 malloc 内存，须在此处释放 */
+    if (NULL != zMetaIf.p_data) { free(zMetaIf.p_data); }
+    if (NULL != zMetaIf.p_ExtraData) { free(zMetaIf.p_ExtraData); }
 }
 
 /************
@@ -600,6 +599,7 @@ zMarkEnd:
  * -6：项目布署／撤销／更新ip数据库的权限被锁定
  * -7：后端接收到的数据无法解析，要求前端重发
  * -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
+ * -9：服务端错误：接收缓冲区为空或容量不足，无法解析数据
  * -10：前端请求的数据类型错误
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）

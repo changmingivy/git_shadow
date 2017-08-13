@@ -388,7 +388,8 @@ zParseDigit(void *zpIn, void *zpOut) {
 
 void
 zParseStr(void *zpIn, void *zpOut) {
-    if (NULL != zpIn) { strcpy(zpOut, zpIn); }
+    zMem_Alloc(zpOut, char, 1 + strlen((char *)zpIn));  // 需要释放空间
+    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
 }
 
 /*
@@ -405,7 +406,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     if (0 != (zpPcreRetIf->cnt % 2)) {
         zpcre_free_tmpsource(zpPcreRetIf);
         zpcre_free_metasource(zpPcreInitIf);
-        return -1;
+        return -7;
     }
 
     void *zpBuf[128];
@@ -423,8 +424,9 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         if (NULL == zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])]) {
             zpcre_free_tmpsource(zpPcreRetIf);
             zpcre_free_metasource(zpPcreInitIf);
-            return -1;
+            return -7;
         }
+
         zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]);
     }
 

@@ -87,7 +87,7 @@ struct zMetaInfo {
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
-    char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳
+    char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
 
     pthread_cond_t *p_CondVar;  // 条件变量
     _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
