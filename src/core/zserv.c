@@ -350,6 +350,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
         zErrNo = zupdate_ipv4_db_all(zpMetaIf, zSd);
+
         if (0 > zErrNo) {
             pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
             return zErrNo;
@@ -380,13 +381,13 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zMajorHostStrAddrBuf,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList);  // 集群主机的点分格式文本 IPv4 列表
 
-    /* 调用 git 命令执行布署，暂不检查返回值 */
-    system(zShellBuf);
+    /* 调用 git 命令执行布署 */
+    zAdd_To_Thread_Pool( zthread_system, zShellBuf );
 
-    //等待所有主机的状态都得到确认，10 秒超时
+    /* 等待所有主机的状态都得到确认，15 秒超时 */
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
-        if (50 < zTimeCnter) {
+        if (75 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并更新最近一次失败的 SHA1 sig；若为全部布署失败，则不必置位 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
