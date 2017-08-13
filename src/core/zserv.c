@@ -237,12 +237,12 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
         return -28;
     }
 
-    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        zpcre_free_tmpsource(zpPcreResIf);
-        zpcre_free_metasource(zpPcreInitIf);
-        return -11;
-    };
+//    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+//    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+//        zpcre_free_tmpsource(zpPcreResIf);
+//        zpcre_free_metasource(zpPcreInitIf);
+//        return -11;
+//    };
 
     /* 更新项目目标主机总数 */
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
@@ -318,7 +318,7 @@ zMark:
     /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
     zCcur_Wait(A);
 
-    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+//    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
     zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
     return 0;
@@ -347,6 +347,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
+    /* 加写锁排斥一切相关操作 */
+    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        return -11;
+    }
+
     /*
      * 检查中转机 IPv4 存在性
      * 优先取用传入的 HostId 字段
@@ -368,11 +373,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) {
         return -26;
-    }
-
-    /* 加写锁排斥一切相关操作 */
-    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        return -11;
     }
 
     // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
