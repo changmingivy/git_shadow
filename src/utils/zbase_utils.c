@@ -388,7 +388,9 @@ zParseDigit(void *zpIn, void *zpOut) {
 
 void
 zParseStr(void *zpIn, void *zpOut) {
-    if (NULL != zpIn) {
+    if (NULL == zpIn) {
+        zpOut[0] = '_';
+    } else {
         strcpy(zpOut, zpIn);
     }
 }
@@ -404,11 +406,11 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}:]|(?<!\"):)+");
     zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
     
-    // if (0 != (zpPcreRetIf->cnt % 2)) {
-    //     zpcre_free_tmpsource(zpPcreRetIf);
-    //     zpcre_free_metasource(zpPcreInitIf);
-    //     return -1;
-    // }
+    if (0 != (zpPcreRetIf->cnt % 2)) {
+        zpcre_free_tmpsource(zpPcreRetIf);
+        zpcre_free_metasource(zpPcreInitIf);
+        return -1;
+    }
 
     void *zpBuf[128];
     zpBuf['O'] = &(zpMetaIf->OpsId);
