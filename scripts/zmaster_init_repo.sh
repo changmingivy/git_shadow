@@ -2,17 +2,17 @@
 
 ###################
 zProjNo=$1  # 项目ID
-zProjPath=$(echo $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
 zPullAddr=$3  # 拉取代码所用的完整地址
 zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的分支名称
 zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=/home/git/zgit_shadow
-zDeployPath=/home/git/$zProjPath
+zDeployPath=/home/git/$zPathOnHost
 
 if [[ "" == $zProjNo
-    || "" == $zProjPath
+    || "" == $zPathOnHost
     || "" == $zPullAddr
     || "" == $zRemoteMasterBranchName
     || "" == $zRemoteVcsType ]]
@@ -26,7 +26,7 @@ if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then exit 0; fi
 git clone $zPullAddr $zDeployPath
 cd $zDeployPath
 git config user.name "$zProjNo"
-git config user.email "${zProjNo}@${zProjPath}"
+git config user.email "${zProjNo}@${zPathOnHost}"
 printf ".svn/" > .gitignore  # 忽略<.svn>目录
 git add --all .
 git commit -m "__init__"
@@ -65,7 +65,7 @@ git commit --allow-empty -m "__init__"
 # 防止添加重复条目
 zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
 if [[ 0 -eq $zExistMark ]];then
-    echo "${zProjNo} ${zProjPath} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
+    echo "${zProjNo} ${zPathOnHost} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
 fi
 
 # 创建必要的目录与文件
