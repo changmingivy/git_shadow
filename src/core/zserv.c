@@ -228,11 +228,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
 
     if (NULL == zpMetaIf->p_ExtraData) { return -24; }
 
-    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        return -11;
-    };
-
     zpPcreInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
     zpPcreResIf = zpcre_match(zpPcreInitIf, zpMetaIf->p_data, 1);
 
@@ -241,6 +236,13 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
         zpcre_free_metasource(zpPcreInitIf);
         return -28;
     }
+
+    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        zpcre_free_tmpsource(zpPcreResIf);
+        zpcre_free_metasource(zpPcreInitIf);
+        return -11;
+    };
 
     /* 更新项目目标主机总数 */
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
