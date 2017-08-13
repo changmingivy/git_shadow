@@ -13,6 +13,8 @@ killall -9 git_shadow 2>/dev/null
 
 mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
+mkdir -p ${zShadowPath}/conf
+touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
 # 编译正则库
