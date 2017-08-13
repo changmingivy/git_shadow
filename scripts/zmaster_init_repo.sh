@@ -39,7 +39,7 @@ if [[ "svn" == $zRemoteVcsType ]]; then
     mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
 
     svn co $zPullAddr ${zDeployPath}_SYNC_SVN_TO_GIT  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
-    cd ${zDeployPath}_SYNC_SVN_TO_GIt
+    cd ${zDeployPath}_SYNC_SVN_TO_GIT
     git init .
     git config user.name "sync_svn_to_git"
     git config user.email "sync_svn_to_git@${zProjNo}"

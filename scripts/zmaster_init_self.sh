@@ -5,8 +5,8 @@ zShadowPath="${HOME}/zgit_shadow"
 
 git stash
 git pull
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./post-update_slave
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./post-update_slave
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./post-update
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./post-update
 
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
@@ -17,7 +17,8 @@ rm -rf ${zShadowPath}/bin/*
 
 # 编译正则库
 cd ${zShadowPath}/lib/
-rm -rf pcre2 pcre2-10.23
+rm -rf pcre2*
+wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
 mkdir pcre2
 tar -xf pcre2-10.23.tar.gz
 cd pcre2-10.23

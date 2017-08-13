@@ -1,12 +1,11 @@
 #!/bin/sh
 zMajorAddr=$1
-zPathOnHost=$2
+zSlaveAddr=$2
+zPathOnHost=$3
 
-eval sed -i 's%__PROJ_PATHR%${zPathOnHost}%g' ./post-update_slave
-
-ssh $zMajorAddr "
-    mkdir -p ${zPathOnHost}_SHADOW &&
+ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     mkdir -p ${zPathOnHost} &&
+    mkdir -p ${zPathOnHost}_SHADOW &&
 \
     cd ${zPathOnHost}_SHADOW &&
     git init . &&
@@ -17,8 +16,11 @@ ssh $zMajorAddr "
 \
     cd $zPathOnHost &&
     git init . &&
-    git config user.name "MajorHost" &&
-    git config user.email "MajorHost@$x" &&
+    git config user.name "_" &&
+    git config user.email "_@$x" &&
     git commit --allow-empty -m "__init__" &&
     git branch -f server &&
-    "
+\
+	cat > .git/hooks/post-update &&
+	chmod 0755 .git/hooks/post-update
+    \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
