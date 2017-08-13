@@ -44,7 +44,7 @@
  * 0：列出所有有效项目ID及其所在路径
  */
 _i
-zlist_repo(zMetaInfo *_, _i zSd) {
+zzero(zMetaInfo *_, _i zSd) {
     return 0;
 }
 
@@ -648,12 +648,12 @@ void
 zstart_server(void *zpIf) {
 // TEST:PASS
     // 顺序不可变
-    zNetServ[0] = zlist_repo;  // 显示项目ID及其在中控机上的绝对路径
+    zNetServ[0] = zzero;  // 显示项目ID及其在中控机上的绝对路径
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
-    zNetServ[5] = zupdate_ipv4_db_all;  // 更新集群中所有主机的 ip 列表
+    zNetServ[5] = zzero;  // 不再提供独立的更新全量IP列表的接口，功能内嵌至 zdeploy 中
     zNetServ[6] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
     zNetServ[7] = zstate_confirm;  // 布署成功状态人工确认
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
