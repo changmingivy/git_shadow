@@ -6,8 +6,8 @@ zShadowPath="${HOME}/zgit_shadow"
 cd $zShadowPath
 git stash
 git pull
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./post-update
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./post-update
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
 
 killall -9 git 2>/dev/null
 killall -9 git_shadow 2>/dev/null
