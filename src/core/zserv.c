@@ -231,12 +231,10 @@ zupdate_ipv4_db_all(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
-// TEST:PASS
     struct zVecWrapInfo *zpTopVecWrapIf;
     struct zMetaInfo *zpSubMetaIf[2];
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
-    char *zpFilePath;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -250,11 +248,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_Lock_State();
     zCheck_CacheId();
     zCheck_CommitId();
-
-    /* 检查是否是单文件布署 */
-    if (0 > zpMetaIf->FileId) { zpFilePath = "_"; }
-    else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) { return -4; }
-    else { zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId); }
 
     /* 检查 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {zupdate_ipv4_db_all(zpMetaIf, zSd); }
@@ -271,11 +264,10 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh %s %s %s %u %s",
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh %s %s %u %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 8,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 8个字符
-            zpFilePath,  // 指定目标文件相对于代码库的路径
             zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,  // Major机的数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
             zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 

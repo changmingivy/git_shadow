@@ -1,10 +1,9 @@
 #!/bin/sh
 zCommitSig=$1
 zProjPath=$2  # 布署目标上的绝对路径
-zFilePath=$3  # 相对于代码库的路径
-zMajorAddr=$4  # 中转机IPv4地址
+zMajorAddr=$3  # 中转机IPv4地址
 
-shift 4
+shift 3
 zHostList=$@
 zShadowPath=/home/git/zgit_shadow
 
@@ -13,11 +12,7 @@ git stash
 git stash clear
 git pull --force ./.git server:master
 
-if [[ "_" == $zFilePath ]]; then
-    git reset ${zCommitSig}
-else
-    git reset ${zCommitSig} -- $zFilePath
-fi
+git reset ${zCommitSig}
 
 # 更新中转机(MajorHost)
 cd /home/git/${zProjPath}_SHADOW
