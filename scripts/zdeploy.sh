@@ -23,10 +23,10 @@ git reset ${zCommitSig}
 # 更新中转机(MajorHost)
 cd /home/git/${zPathOnHost}_SHADOW
 
-cp -rf ${zShadowPath}/bin/* ./bin/
+cp -rf ${zShadowPath}/bin/git_shadow_client ./bin/
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
 cp -rf ${zShadowPath}/scripts/* ./scripts/
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
 git add --all .
 git commit --allow-empty -m "__DP__"
 

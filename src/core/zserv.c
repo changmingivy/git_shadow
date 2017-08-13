@@ -89,6 +89,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 若上一次布署是失败的，则返回其 SHA1 sig，提示其尝试重新布署 */
     if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
+        zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpMetaIf->p_data = zppGlobRepoIf[zpMetaIf->RepoId]->zFailDeploySig;
         return -13;
     }
@@ -606,7 +607,7 @@ zMarkEnd:
  * -10：前端请求的数据类型错误
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
- * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
+ * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
  *
  * -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
