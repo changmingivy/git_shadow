@@ -451,8 +451,8 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
                 zpMetaIf->HostId,
                 zpMetaIf->CacheId,
                 zpMetaIf->DataType,
-                (NULL == zpMetaIf->p_data) ? "" : zpMetaIf->p_data,
-                (NULL == zpMetaIf->p_ExtraData) ? "" : zpMetaIf->p_ExtraData
+                (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
+                (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
                 );
     }
 }

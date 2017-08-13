@@ -832,7 +832,7 @@ zinit_one_remote_host(void *zpIf) {
 	sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %u %u %s",
 			zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,
 			zpMetaIf->HostId,
-			zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 8);  // 去掉最前面的 "/home/git" 共计 8 个字符
+			zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 	system(zShellBuf);
 
 	zCcur_Fin_Signal(zpMetaIf);
