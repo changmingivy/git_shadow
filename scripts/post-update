@@ -5,21 +5,23 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 export zPathOnHost="__PROJ_PATH"
 
-cd ${zPathOnHost}_SHADOW &&
-export GIT_DIR="${zPathOnHost}_SHADOW/.git" &&
-rm -rf *
-git checkout server &&
-git checkout -b TMP &&
-git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
-git branch -M master &&
+cd ${zPathOnHost}_SHADOW
+export GIT_DIR="${zPathOnHost}_SHADOW/.git"
+git add --all .
+git commit -m "_"
+git checkout server
+git checkout -b TMP
+git reset -q --hard
+git branch -M master
 
-cd $zPathOnHost &&  # 必须首先切换路径，否则 reset 不会执行
-export GIT_DIR="${zPathOnHost}/.git" &&
-rm -rf *
-git checkout server &&
-git checkout -b TMP &&
-git reset -q --hard &&  # 注：代码初始状态只是接收到git库中，需要将其reset至工作区路径
-git branch -M master &&
+cd $zPathOnHost
+export GIT_DIR="${zPathOnHost}/.git"
+git add --all .
+git commit -m "_"
+git checkout server
+git checkout -b TMP
+git reset -q --hard
+git branch -M master
 
 cd ${zPathOnHost}_SHADOW
 ./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
