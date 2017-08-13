@@ -409,16 +409,16 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         return -7;
     }
 
-    void *zpBuf[128];
-    zpBuf['O'] = &(zpMetaIf->OpsId);
-    zpBuf['P'] = &(zpMetaIf->RepoId);
-    zpBuf['R'] = &(zpMetaIf->CommitId);
-    zpBuf['F'] = &(zpMetaIf->FileId);
-    zpBuf['H'] = &(zpMetaIf->HostId);
-    zpBuf['C'] = &(zpMetaIf->CacheId);
-    zpBuf['D'] = &(zpMetaIf->DataType);
-    zpBuf['d'] = zpMetaIf->p_data;
-    zpBuf['E'] = zpMetaIf->p_ExtraData;
+    void *zpBuf[128][1];
+    zpBuf['O'][0] = &(zpMetaIf->OpsId);
+    zpBuf['P'][0] = &(zpMetaIf->RepoId);
+    zpBuf['R'][0] = &(zpMetaIf->CommitId);
+    zpBuf['F'][0] = &(zpMetaIf->FileId);
+    zpBuf['H'][0] = &(zpMetaIf->HostId);
+    zpBuf['C'][0] = &(zpMetaIf->CacheId);
+    zpBuf['D'][0] = &(zpMetaIf->DataType);
+    zpBuf['d'][0] = zpMetaIf->p_data;
+    zpBuf['E'][0] = zpMetaIf->p_ExtraData;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
         if (NULL == zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])]) {
@@ -427,7 +427,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
             return -7;
         }
 
-        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], &(zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]));
+        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]);
     }
 
     zpcre_free_tmpsource(zpPcreRetIf);
