@@ -382,14 +382,13 @@ zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
  * json 解析回调：数字与字符串
  */
 void
-zParseDigit(void *zpIn, void **zppOut) {
-    **((_i **)zppOut) = strtol(zpIn, NULL, 10);
+zparse_digit(void *zpIn, void *zpOut) {
+    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
 }
 
 void
-zParseStr(void *zpIn, void **zppOut) {
-    zMem_Alloc(*zppOut, char, 1 + strlen((char *)zpIn));  // 需要释放空间
-    strcpy(*zppOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
+zparse_str(void *zpIn, void *zpOut) {
+    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
 }
 
 /*
@@ -409,16 +408,16 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
         return -7;
     }
 
-    void *zpBuf[128][1];
-    zpBuf['O'][0] = &(zpMetaIf->OpsId);
-    zpBuf['P'][0] = &(zpMetaIf->RepoId);
-    zpBuf['R'][0] = &(zpMetaIf->CommitId);
-    zpBuf['F'][0] = &(zpMetaIf->FileId);
-    zpBuf['H'][0] = &(zpMetaIf->HostId);
-    zpBuf['C'][0] = &(zpMetaIf->CacheId);
-    zpBuf['D'][0] = &(zpMetaIf->DataType);
-    zpBuf['d'][0] = zpMetaIf->p_data;
-    zpBuf['E'][0] = zpMetaIf->p_ExtraData;
+    void *zpBuf[128];
+    zpBuf['O'] = &(zpMetaIf->OpsId);
+    zpBuf['P'] = &(zpMetaIf->RepoId);
+    zpBuf['R'] = &(zpMetaIf->CommitId);
+    zpBuf['F'] = &(zpMetaIf->FileId);
+    zpBuf['H'] = &(zpMetaIf->HostId);
+    zpBuf['C'] = &(zpMetaIf->CacheId);
+    zpBuf['D'] = &(zpMetaIf->DataType);
+    zpBuf['d'] = zpMetaIf->p_data;
+    zpBuf['E'] = zpMetaIf->p_ExtraData;
 
     for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
         if (NULL == zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])]) {

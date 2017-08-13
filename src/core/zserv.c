@@ -555,6 +555,9 @@ zops_route(void *zpSd) {
         return;
     }
 
+    char zDataBuf[zRecvdLen], zExtraDataBuf[zRecvdLen];
+    zMetaIf.p_data = zDataBuf;
+    zMetaIf.p_ExtraData = zExtraDataBuf;
     if (0 > (zErrNo = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         zMetaIf.OpsId = zErrNo;
         goto zMarkCommonAction;
@@ -586,9 +589,6 @@ zMarkCommonAction:
 zMarkEnd:
     shutdown(zSd, SHUT_RDWR);
     if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
-    /* 解析 json 字符串的时候，若用到结构体的 p_data 或 p_ExtraData 字段，会 malloc 内存，须在此处释放 */
-    if (NULL != zMetaIf.p_data) { free(zMetaIf.p_data); }
-    if (NULL != zMetaIf.p_ExtraData) { free(zMetaIf.p_ExtraData); }
 }
 
 /************

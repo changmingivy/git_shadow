@@ -807,10 +807,10 @@ zinit_env(const char *zpConfPath) {
         = zJsonParseOps['H']  // HostId
         = zJsonParseOps['C']  // CacheId
         = zJsonParseOps['D']  // DataType
-        = zParseDigit;
+        = zparse_digit;
     zJsonParseOps['d']  // data
         = zJsonParseOps['E']  // ExtraData
-        = zParseStr;
+        = zparse_str;
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
