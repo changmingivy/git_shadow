@@ -552,7 +552,8 @@ zops_route(void *zpSd) {
         return;
     }
 
-    if (0 > (zMetaIf.OpsId = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
+    if (0 > (zErrNo = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
+        zMetaIf.OpsId = zErrNo;
         goto zMarkCommonAction;
     }
 
