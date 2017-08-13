@@ -3,6 +3,7 @@ zServAddr=$1
 zServPort=$2
 zShadowPath="${HOME}/zgit_shadow"
 
+cd $zShadowPath
 git stash
 git pull
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./post-update

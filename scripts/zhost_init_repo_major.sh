@@ -2,8 +2,6 @@
 zMajorAddr=$1
 zPathOnHost=$2
 
-eval sed -i 's%__PROJ_PATHR%${zPathOnHost}%g' /home/git/${zPathOnHost}_SHADOW/post-update
-
 ssh $zMajorAddr "
     mkdir -p ${zPathOnHost}_SHADOW &&
     mkdir -p ${zPathOnHost} &&
