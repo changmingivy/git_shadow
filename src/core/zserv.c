@@ -53,14 +53,12 @@ zlist_repo(struct zMetaInfo *_, _i zSd) {
  */
 _i
 zadd_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
-    char zJsonBuf[128];
     _i zErrNo;
 
     if (0 > (zErrNo = zadd_one_repo_env(zpMetaIf->p_data))) {
         return zErrNo;
     } else {
-        sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
-        zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
         return 0;
     }
 }
@@ -176,9 +174,11 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CommitId();  // 宏内部会解锁
     zCheck_FileId();  // 宏内部会解锁
 
-    /* 差异文件内容直接是文本格式，不是json，因此最后不必追加 ']' */
+    /* 差异文件内容直接是文本格式，在此处临时拼装成 json 样式 */
     if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
+        zsendto(zSd, "[{\"OpsId\":0,\"data\":\"", zBytes(20), 0, NULL);
         zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
+        zsendto(zSd, "\"}]", zBytes(3), 0, NULL);  // 前端 PHP 需要的二级json结束符
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -236,7 +236,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     struct zMetaInfo *zpSubMetaIf[2];
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
-    char zJsonBuf[64];
     char *zpFilePath;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
@@ -244,7 +243,6 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
-        zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
     }
 
@@ -299,8 +297,7 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     // 布署成功，向前端确认成功，并复位代码库状态
-    sprintf(zJsonBuf, "{\"OpsId\":0}");
-    zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
     /* 将本次布署信息写入日志 */
@@ -343,45 +340,30 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_failing_list(struct zMetaInfo *zpMetaIf, _i zSd) {
-// TEST:PASS
     _ui *zpFailingList = zppGlobRepoIf[zpMetaIf->RepoId]->p_FailingList;
     memset(zpFailingList, 0, sizeof(_ui) * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
-    /* 第一个元素写入实时时间戳 */
-    zpFailingList[0] = time(NULL);
 
     if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
-        zsendto(zSd, zpFailingList, sizeof(zpFailingList[0]), 0, NULL);
+        zsendto(zSd, "[{\"OpsId\":0,\"data\":\"\"}]", zBytes(23), 0, NULL);
     } else {
-        _i zUnReplyCnt = 1;
-
-        char *zpJsonStrBuf, *zpBasePtr;
         _i zDataLen = 16 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
-
-        zMem_Alloc(zpMetaIf->p_data, char, zDataLen);
-        zMem_Alloc(zpJsonStrBuf, char, 256 + zDataLen);
-        zpBasePtr = zpMetaIf->p_data;
+        char *zpBasePtr, zpDataBuf[zDataLen];
+        zpBasePtr = zpDataBuf;
 
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-        for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
+        for (_i i = 0, zUnReplyCnt = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResList[i].DeployState) {
                 zpFailingList[zUnReplyCnt] = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResList[i].ClientAddr;
-
-                if (0 == i) {
-                    sprintf(zpBasePtr, "%u", zpFailingList[zUnReplyCnt]);
-                } else {
-                    sprintf(zpBasePtr, "|%u", zpFailingList[zUnReplyCnt]);
-                }
-                zpBasePtr += 1 + strlen(zpBasePtr);
-
+                zpBasePtr += sprintf(zpBasePtr, "%u|", zpFailingList[zUnReplyCnt]);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strle() 取得的值相同
                 zUnReplyCnt++;
             }
         }
+        (--zpBasePtr)[0] = '\0';  // 去掉最后一根竖线
 
-        zconvert_struct_to_json_str(zpJsonStrBuf, zpMetaIf);
-        zsendto(zSd, &(zpJsonStrBuf[1]), strlen(zpJsonStrBuf) - 1, 0, NULL);  // 不发送开头的逗号
-
-        free(zpMetaIf->p_data);
-        free(zpJsonStrBuf);
+        /* 拼装二维 json */
+        zsendto(zSd, "[{\"OpsId\":-12,\"data\":\"", zBytes(22), 0, NULL);
+        zsendto(zSd, zpDataBuf, strlen(zpDataBuf), 0, NULL);
+        zsendto(zSd, "\"}]", zBytes(3), 0, NULL);
     }
 
     return 0;
@@ -480,8 +462,8 @@ zlock_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
-    zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
+    sprintf(zJsonBuf, "[{\"OpsId\":0}]");
+    zsendto(zSd, zJsonBuf, zBytes(13), 0, NULL);
 
     return 0;
 }
@@ -489,60 +471,22 @@ zlock_repo(struct zMetaInfo *zpMetaIf, _i zSd) {
 /*
  * 网络服务路由函数
  */
-#define zCheck_Errno_12() do {\
-    if (-12 == zErrNo) {\
-        char *zpJsonStrBuf, *zpBasePtr;\
-        _i zUnReplyCnt = 0;\
-        _i zDataLen = 16 * zppGlobRepoIf[zMetaIf.RepoId]->TotalHost;\
-\
-        zMem_Alloc(zMetaIf.p_data, char, zDataLen);\
-        zMem_Alloc(zpJsonStrBuf, char, 256 + zDataLen);\
-        zpBasePtr = zMetaIf.p_data;\
-\
-        memset(zppGlobRepoIf[zMetaIf.RepoId]->p_FailingList, 0, zppGlobRepoIf[zMetaIf.RepoId]->TotalHost);\
-        /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */\
-        for (_i i = 0; i < zppGlobRepoIf[zMetaIf.RepoId]->TotalHost; i++) {\
-            if (0 == zppGlobRepoIf[zMetaIf.RepoId]->p_DpResList[i].DeployState) {\
-                zppGlobRepoIf[zMetaIf.RepoId]->p_FailingList[zUnReplyCnt] = zppGlobRepoIf[zMetaIf.RepoId]->p_DpResList[i].ClientAddr;\
-\
-                zconvert_ipv4_bin_to_str(zppGlobRepoIf[zMetaIf.RepoId]->p_FailingList[zUnReplyCnt], zpBasePtr);\
-                if (0 != i) {\
-                    (zpBasePtr - 1)[0]  = ',';\
-                }\
-\
-                zpBasePtr += 1 + strlen(zpBasePtr);\
-                zUnReplyCnt++;\
-            }\
-        }\
-        zconvert_struct_to_json_str(zpJsonStrBuf, &zMetaIf);\
-        zsendto(zSd, &(zpJsonStrBuf[1]), strlen(zpJsonStrBuf) - 1, 0, NULL);\
-\
-        free(zMetaIf.p_data);\
-        free(zpJsonStrBuf);\
-\
-        goto zMark;\
-    }\
-} while(0)
-
-#define zSizMark 256
 void
 zops_route(void *zpSd) {
 // TEST:PASS
     _i zSd = *((_i *)zpSd);
-    _i zBufSiz = zSizMark;
+    _i zBufSiz = zCommonBufSiz;
     _i zRecvdLen;
     _i zErrNo;
-    char zJsonBuf[zSizMark] = {'\0'};
+    struct zMetaInfo zMetaIf;
+    char zJsonBuf[zCommonBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
 
-    struct zMetaInfo zMetaIf;
-
-    /* 用于接收IP地址列表的场景 */
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
         zRecvSiz = zOffSet = zBufSiz;
-        zBufSiz = 4096;
-        zMem_C_Alloc(zpJsonBuf, char, zBufSiz);
+        zBufSiz *= 2;
+        zMem_Alloc(zpJsonBuf, char, zBufSiz);
         strcpy(zpJsonBuf, zJsonBuf);
 
         while(0 < (zRecvdLen = recv(zSd, zpJsonBuf + zOffSet, zBufSiz - zRecvSiz, 0))) {
@@ -565,48 +509,38 @@ zops_route(void *zpSd) {
 
     char zDataBuf[zRecvdLen];  // 使用动态栈空间
     zMetaIf.p_data = zDataBuf;
-    memset(zDataBuf, 0, zRecvdLen);
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
-        zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        shutdown(zSd, SHUT_RDWR);
-        zPrint_Err(0, NULL, "接收到的数据无法解析");
         goto zMark;
     }
 
     if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
         zMetaIf.OpsId = -1;  // 此时代表错误码
-        zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        zPrint_Err(0, NULL, "接收到的指令ID不存在");
         goto zMark;
     }
 
-    // 应对初始化配置为空或指定的ID不合法等场景
     if ((1 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
-        zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
-        zPrint_Err(0, NULL, "项目ID不存在");
         goto zMark;
     }
 
-    if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
+    while (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
+        if (-12 == zErrNo) {
+            zprint_failing_list(&zMetaIf, zSd);
+            break;
+        }
+
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
-
-        zCheck_Errno_12();
-
+zMark:
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
-        zsendto(zSd, &(zpJsonBuf[1]), strlen(zpJsonBuf) - 1, 0, NULL);
+        zpJsonBuf[0] = '[';
+        zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
+        zsendto(zSd, "]", zBytes(1), 0, NULL);
     }
 
-zMark:
-    if (zSizMark <= zRecvdLen) { free(zpJsonBuf); }
+    if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
 }
-#undef zSizMark
-#undef zCheck_Errno_12
 
 /************
  * 网络服务 *
