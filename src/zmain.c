@@ -150,7 +150,6 @@ struct zRepoInfo {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
-    char *p_PostDeployCmd;  // 布署完成之后需要在集群主机上执行的命令
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */

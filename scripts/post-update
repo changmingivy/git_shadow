@@ -31,3 +31,6 @@ while [[ 9 -gt $i ]]; do
     ./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
     let i++
 done
+
+# 布署完成之后需要执行的动作：<项目名称.sh>
+sh __PROJ_PATH.sh
