@@ -1,6 +1,8 @@
 #define _XOPEN_SOURCE 700
 
+#include <sys/types.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
