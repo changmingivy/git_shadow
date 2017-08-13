@@ -826,14 +826,18 @@ zinit_env(const char *zpConfPath) {
 /* 通过 SSH 远程初始化一个目标主机，完成任务后通知上层调用者 */
 void
 zinit_one_remote_host(void *zpIf) {
-	zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
-	char zShellBuf[zCommonBufSiz];
+    zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
+    char zShellBuf[zCommonBufSiz];
+    char zMajorHostStrAddrBuf[16], zHostStrAddrBuf[16];
 
-	sprintf(zShellBuf, "/home/git/zgit_shadow/scripts/zhost_init_repo.sh %u %u %s",
-			zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,
-			zpMetaIf->HostId,
-			zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
-	system(zShellBuf);
+    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr, zMajorHostStrAddrBuf);
+    zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
-	zCcur_Fin_Signal(zpMetaIf);
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh %s %s %s",
+            zMajorHostStrAddrBuf,
+            zHostStrAddrBuf,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+    system(zShellBuf);
+
+    zCcur_Fin_Signal(zpMetaIf);
 }
