@@ -554,34 +554,34 @@ zops_route(void *zpSd) {
     zMetaIf.p_data = zDataBuf;
     if (-1 == zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf)) {
         zMetaIf.OpsId = -7;  // 此时代表错误码
-        goto zMark;
+        goto zMarkCommonAction;
     }
 
     if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
         zMetaIf.OpsId = -1;  // 此时代表错误码
-        goto zMark;
+        goto zMarkCommonAction;
     }
 
     if ((1 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
-        goto zMark;
+        goto zMarkCommonAction;
     }
 
-    while (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
+    if (0 > (zErrNo = zNetServ[zMetaIf.OpsId](&zMetaIf, zSd))) {
         if (-12 == zErrNo) {
             zprint_failing_list(&zMetaIf, zSd);
-            break;
+            goto zMarkEnd;
         }
 
         zMetaIf.OpsId = zErrNo;  // 此时代表错误码
-zMark:
-        zMetaIf.p_data = "";
+zMarkCommonAction:
+        zMetaIf.p_data = NULL;
         zconvert_struct_to_json_str(zpJsonBuf, &zMetaIf);
         zpJsonBuf[0] = '[';
         zsendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         zsendto(zSd, "]", zBytes(1), 0, NULL);
     }
-
+zMarkEnd:
     if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
     shutdown(zSd, SHUT_RDWR);
 }
