@@ -1,6 +1,6 @@
 #!/bin/sh
 zMajorAddr=$1
-zPathOnHost=$2
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
 
 ssh $zMajorAddr "
     mkdir -p ${zPathOnHost}_SHADOW &&

@@ -1,6 +1,6 @@
 #!/bin/sh
 zCommitSig=$1
-zPathOnHost=$2  # 布署目标上的绝对路径
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
 zMajorAddr=$3  # 中转机IPv4地址
 
 shift 3
@@ -8,9 +8,9 @@ zHostList=$@
 zShadowPath=/home/git/zgit_shadow
 
 if [[ "" == $zCommitSig
-    ||  == ${zPathOnHost}
+    || "" == ${zPathOnHost}
     || "" == $zMajorAddr
-    || "" = $zHostList ]]; then
+    || "" == $zHostList ]]; then
     exit 1
 fi
 

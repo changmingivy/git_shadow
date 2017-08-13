@@ -2,7 +2,7 @@
 
 ###################
 zProjNo=$1  # 项目ID
-zProjPath=$2  # 生产机上的绝对路径
+zProjPath=$(echo $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
 zPullAddr=$3  # 拉取代码所用的完整地址
 zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的分支名称
 zRemoteVcsType=$5  # svn 或 git

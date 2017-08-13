@@ -1,7 +1,7 @@
 #!/bin/sh
 zMajorAddr=$1
 zSlaveAddr=$2
-zPathOnHost=$3
+zPathOnHost=$(echo $3 | sed -n 's%/\+%/%p')
 
 ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     mkdir -p ${zPathOnHost} &&
