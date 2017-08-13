@@ -39,13 +39,13 @@ git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
 ssh $zMajorAddr "
     cd ${zPathOnHost}_SHADOW &&
     for zHostAddr in $zHostList; do
-        ( git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server ) &
+        git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
     done
     rm -rf *
 \
     cd ${zPathOnHost} &&
     for zHostAddr in $zHostList; do
-        ( git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server ) &
+        git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
     done
     rm -rf *
 "
