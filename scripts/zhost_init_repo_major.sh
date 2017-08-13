@@ -20,5 +20,5 @@ ssh $zMajorAddr "
     git config user.name "MajorHost" &&
     git config user.email "MajorHost@$x" &&
     git commit --allow-empty -m "__init__" &&
-    git branch -f server &&
+    git branch -f server
     "

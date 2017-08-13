@@ -301,16 +301,16 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
 //     return zCnt;
 // }
 
-// /*
-//  * 纳秒级sleep，小数点形式赋值
-//  */
-// void
-// zsleep(_d zSecs) {
-//     struct timespec zNanoSecIf;
-//     zNanoSecIf.tv_sec = (_i) zSecs;
-//     zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
-//     nanosleep( &zNanoSecIf, NULL );
-// }
+/*
+ * 纳秒级sleep，小数点形式赋值
+ */
+void
+zsleep(_d zSecs) {
+    struct timespec zNanoSecIf;
+    zNanoSecIf.tv_sec = (_i) zSecs;
+    zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
+    nanosleep( &zNanoSecIf, NULL );
+}
 
 /*
  * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
@@ -389,7 +389,7 @@ zParseDigit(void *zpIn, void *zpOut) {
 void
 zParseStr(void *zpIn, void *zpOut) {
     if (NULL == zpIn) {
-        zpOut[0] = '_';
+        ((char *)zpOut)[0] = '_';
     } else {
         strcpy(zpOut, zpIn);
     }

@@ -90,6 +90,12 @@ zprint_record(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
+    /* 若上一次布署是失败的，则返回其 SHA1 sig，提示其尝试重新布署 */
+    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
+        zpMetaIf->p_data = zppGlobRepoIf[zpMetaIf->RepoId]->zFailDeploySig;
+        return -13;
+    }
+
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
         return -11;
     };
@@ -180,10 +186,28 @@ zprint_diff_content(struct zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 5：更新集群中所有主机的 ip 列表
+ * 4：更新中转机 IPv4
  */
 _i
 zupdate_ipv4_db_major(struct zMetaInfo *zpMetaIf, _i zSd) {
+    char zShellBuf[zCommonBufSiz];
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zhost_init_repo_major.sh %s %s",  // $1:MajorHostAddr；$2:PathOnHost
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zpMetaIf->p_data,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 8);
+
+    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        zpMetaIf->p_data = "";
+        return -11;
+    };
+
+    if (0 != system(zShellBuf)) { return -27; }
+
+    zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = strtol(zpMetaIf->p_data, NULL, 10);
+
+    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+    return 0;
 }
 
 /*
@@ -191,6 +215,14 @@ zupdate_ipv4_db_major(struct zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_all(struct zMetaInfo *zpMetaIf, _i zSd) {
+    /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        zpMetaIf->p_data = "";
+        return -11;
+    };
+
+    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+    return 0;
 }
 
 /*
@@ -216,40 +248,23 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {  // 加写锁
-        return -11;
-    };
-
     // 若检查条件成立，如下三个宏的内部会解锁
     zCheck_Lock_State();
     zCheck_CacheId();
     zCheck_CommitId();
 
-    /* 检查是否需要在布署之前更新 IPv4 地址库*/
-    if (0 != zpMetaIf->HostId) { zupdate_ipv4_db_major(zpMetaIf, zSd); }
-    if ('_' != zpMetaIf->p_data[0]) { zupdate_ipv4_db_all(zpMetaIf, zSd); }
+    /* 检查是否是单文件布署 */
+    if (0 > zpMetaIf->FileId) { zpFilePath = "_"; }
+    else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) { return -4; }
+    else { zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId); }
 
-    if (0 > zpMetaIf->FileId) {
-        zpFilePath = "_";
-    } else if ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "差异文件ID不存在");\
-        return -4;\
-    } else {
-        zpFilePath = zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CacheId, zpMetaIf->FileId);
-    }
+    /* 检查 IPv4 地址库存在性及是否需要在布署之前更新 */
+    if ('_' != zpMetaIf->p_data[0]) {zupdate_ipv4_db_all(zpMetaIf, zSd); }
+    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) { return -25; }
+    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResList) { return -26; }
 
-    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "中转机（MajorHost）地址为空");
-        return -25;
-    }
-
-    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResList) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-        zPrint_Err(0, NULL, "布署目标机IPv4数据库为空");
-        return -26;
-    }
+    /* 加写锁排斥一切相关操作 */
+    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; };
 
     /* 重置布署状态 */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
@@ -266,26 +281,25 @@ zdeploy(struct zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr,  // Major机的数字格式的ipv4地址（网络字节序，存储在一个无符号整型中）
             zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 
-    /* 调用 git 命令执行布署 */
+    /* 调用 git 命令执行布署，暂不检查返回值 */
     system(zShellBuf);
 
-    //等待所有主机的状态都得到确认，10 秒超时
+    //等待所有主机的状态都得到确认，9 秒超时
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
-        sleep(1);
-
-        fprintf(stderr, "DEBUG: Total Host: %d, Reply Cnt: %d\n",zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost, zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt);
-
-        if (10 < zTimeCnter) {
-            // 如果布署失败，代码库状态置为 "损坏" 状态
-            zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
-            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );  // 释放写锁
-            zPrint_Err(0, NULL, "布署超时(>10s)");
+        zsleep(0.2);
+        if (9 < zTimeCnter) {
+            /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并更新最近一次失败的 SHA1 sig；若为全部布署失败，则不必置位 */
+            if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
+                zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
+                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zFailDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
+            }
+            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
             return -12;
         }
     }
 
     // 布署成功，向前端确认成功，并复位代码库状态
-    sprintf(zJsonBuf, "{\"OpsId\":0,\"RepoId\":%d}", zpMetaIf->RepoId);
+    sprintf(zJsonBuf, "{\"OpsId\":0}");
     zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
@@ -612,7 +626,7 @@ zMark:
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确（此时前端需要再收取一次数据）
  *
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
- * -26：集群全量节点(所有主机)IP地址数据库不存在或数据异常，需要更新
+ * -26：集群全量节点(所有主机)IP地址数据库不存在
  * -27：主节点IP数据库更新失败
  * -28：全量节点IP数据库更新失败
  * -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）

@@ -828,9 +828,6 @@ zadd_one_repo_env(char *zpRepoStrIf) {
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[zRepoId]->MutexLock, NULL) );
 
-    /* 更新 TotalHost、zpppDpResHash、zppDpResList */
-    zupdate_ipv4_db(zRepoId);
-
     /* 用于收集布署尚未成功的主机列表，第一个元素用于存放实时时间戳，因此要多分配一个元素的空间 */
     zppGlobRepoIf[zRepoId]->p_FailingList = zalloc_cache(zRepoId, 1 + zppGlobRepoIf[zRepoId]->TotalHost);
 

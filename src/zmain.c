@@ -94,6 +94,7 @@ struct zMetaInfo {
     pthread_mutex_t *p_MutexLock[2];  // 2个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程计数
 };
 
+/* 用于提取原始数据 */
 struct zBaseDataInfo {
     struct zBaseDataInfo *p_next;
     _i DataLen;
@@ -152,6 +153,7 @@ struct zRepoInfo {
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
+    char zFailDeploySig[44];  // 存放最近一次布署失败的 40 位 SHA1 sig
 
     _ui MajorHostAddr;  // 以无符号整型格式存放的中转机(即实际执行分发的节点)IPv4地址
     struct zDeployResInfo *p_DpResList;  // 存储全量IPv4地址库信息，同时用作布署状态收集
@@ -193,10 +195,6 @@ zJsonParseFunc zJsonParseOps[128];
 /************
  * 配置文件 *
  ************/
-// 以下路径均是相对于所属代码库的顶级路径
-#define zAllIpPath "_SHADOW/info/host_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
-#define zAllIpTxtPath "_SHADOW/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
-#define zMajorIpTxtPath "_SHADOW/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
 #define zRepoIdPath "_SHADOW/info/repo_id"
 #define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zInotifyObjRelativePath "/.git/logs/refs/heads/server"  // inotify 监控每个项目的server分支变动，用以动态追加提交记录缓存（最前面加一个 '/' ，省去每次使用时单独拼一个字符的麻烦）
@@ -206,7 +204,7 @@ zJsonParseFunc zJsonParseOps[128];
  **********/
 #include "utils/pcre2/zpcre.c"
 #include "utils/zbase_utils.c"
-#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
+//#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "core/zinotify.c"  // 监控代码库文件变动
 #include "utils/zserv_utils.c"
