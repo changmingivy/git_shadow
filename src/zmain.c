@@ -68,12 +68,14 @@ struct zObjInfo {
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char p_path[];  // 被监控对象的绝对路径名称
 };
+typedef struct zObjInfo zObjInfo;
 
 struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
+typedef struct zNetServInfo zNetServInfo;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /* 数据交互格式 */
 struct zMetaInfo {
@@ -84,8 +86,8 @@ struct zMetaInfo {
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
-    char *p_TimeStamp;  // 字符串形式的UNIX时间戳
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
+    char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳
 
     pthread_cond_t *p_CondVar;  // 条件变量
     _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
@@ -93,6 +95,7 @@ struct zMetaInfo {
     _i *p_ThreadCnter;  // 各线程任务完成计数
     pthread_mutex_t *p_MutexLock[2];  // 2个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程计数
 };
+typedef struct zMetaInfo zMetaInfo;
 
 /* 用于提取原始数据 */
 struct zBaseDataInfo {
@@ -100,12 +103,14 @@ struct zBaseDataInfo {
     _i DataLen;
     char p_data[];
 };
+typedef struct zBaseDataInfo zBaseDataInfo;
 
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
 };
+typedef struct zRefDataInfo zRefDataInfo;
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
 struct zVecWrapInfo {
@@ -113,13 +118,14 @@ struct zVecWrapInfo {
     struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
     struct zRefDataInfo *p_RefDataIf;
 };
+typedef struct zVecWrapInfo zVecWrapInfo;
 
 struct zDeployResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _i RepoId;  // 所属代码库
     _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
     struct zDeployResInfo *p_next;
 };
+typedef struct zDeployResInfo zDeployResInfo;
 
 /* 用于存放每个项目的元信息 */
 struct zRepoInfo {
@@ -156,8 +162,9 @@ struct zRepoInfo {
     char zFailDeploySig[44];  // 存放最近一次布署失败的 40 位 SHA1 sig
 
     _ui MajorHostAddr;  // 以无符号整型格式存放的中转机(即实际执行分发的节点)IPv4地址
-    struct zDeployResInfo *p_DpResList;  // 存储全量IPv4地址库信息，同时用作布署状态收集
-    struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    char *p_HostAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
+    struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
+    struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
     _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
@@ -174,6 +181,7 @@ struct zRepoInfo {
     struct zVecWrapInfo SortedDeployVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
     struct iovec SortedDeployVecIf[zCacheSiz];
 };
+typedef struct zRepoInfo zRepoInfo;
 
 /************
  * 全局变量 *
