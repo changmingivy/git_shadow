@@ -241,40 +241,40 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":779,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"779 /home/git/779_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":112,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"112 /home/git/112_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"172.16.0.1\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"172.16.0.1\"}";
 
     // 更新all IP数据
-    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"|172.16.0.2|172.16.0.3|&.2.3.4klkklkkk.5.6.7\",\"ExtraData\":\"2\"}";
+    //char zStrBuf[] = "{\"OpsId\":5,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"|172.16.0.2|172.16.0.3|&.2.3.4klkklkkk.5.6.7\",\"ExtraData\":\"2\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 查询提交版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"_\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":112,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":779,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":112,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":779,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":112,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":779,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":112,\"RevId\":2,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":779,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430401,\"DataType\":1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":112,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502430401,\"DataType\":1,\"data\":\"_\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 

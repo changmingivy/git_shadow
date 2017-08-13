@@ -21,6 +21,6 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     git commit --allow-empty -m "__init__" &&
     git branch -f server &&
 \
-	cat > .git/hooks/post-update &&
-	chmod 0755 .git/hooks/post-update
+    cat > .git/hooks/post-update &&
+    chmod 0755 .git/hooks/post-update
     \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
