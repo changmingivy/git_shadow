@@ -136,7 +136,6 @@ struct zRepoInfo {
     _ui zDeployLogOffSet;  // 标记日志文件的下一次写入位置
 
     _i TotalHost;  // 每个项目的集群的主机数量
-    _ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性

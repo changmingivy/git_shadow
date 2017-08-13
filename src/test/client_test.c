@@ -112,7 +112,6 @@ struct zRepoInfo {
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
-    _ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
