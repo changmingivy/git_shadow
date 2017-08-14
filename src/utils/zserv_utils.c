@@ -253,31 +253,30 @@ zget_file_list_and_diff_content(void *zpIf) {
     pclose(zpShellRetHandler);
 
     if (0 == zCnter) {
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
-//
-//        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-//        zpSubMetaIf->OpsId = 0;
-//        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-//        zpSubMetaIf->CommitId = zpMetaIf->CommitId;
-//        zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
-//        zpSubMetaIf->HostId = 0;
-//        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
-//        zpSubMetaIf->DataType = zpMetaIf->DataType;
-//        zpSubMetaIf->p_data = "==> 此为最新的已布署版本 <==";
-//        zpSubMetaIf->p_ExtraData = NULL;
-//    
-//        /* 将zMetaInfo转换为JSON文本 */
-//        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-//        zJsonBuf[0] = '[';  // 逗号替换为 '['
-//    
-//        zVecDataLen = strlen(zJsonBuf);
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
-//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-//        memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base, zJsonBuf, zVecDataLen);
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
+
+        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+        zpSubMetaIf->OpsId = 0;
+        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+        zpSubMetaIf->CommitId = zpMetaIf->CommitId;
+        zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
+        zpSubMetaIf->HostId = 0;
+        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+        zpSubMetaIf->DataType = zpMetaIf->DataType;
+        zpSubMetaIf->p_data = "==> 最新的已布署版本 <==";
+        zpSubMetaIf->p_ExtraData = NULL;
+    
+        /* 将zMetaInfo转换为JSON文本 */
+        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+        zJsonBuf[0] = '[';  // 逗号替换为 '['
+    
+        zVecDataLen = strlen(zJsonBuf);
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+        memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base, zJsonBuf, zVecDataLen);
     } else {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zCnter;
