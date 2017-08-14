@@ -479,3 +479,18 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
 //     close(zFd);
 //     return 0;
 // }
+
+/* 
+ * 去除用字符串末尾的一个或多个换行符LB (Line Break)
+ * 返回新的字符串长度，不含最后的 '\0'
+ */
+_i
+zdel_LB(char *zpStr) {
+    char *zpStrPtr = zpStr;
+    _ui zStrLen = strlen(zpStr);
+
+    while ('\n' == zpStrPtr[zStrLen - 1]) { zStrLen--; }
+    zpStrPtr[zStrLen] = '\0';
+
+    return zStrLen;
+}

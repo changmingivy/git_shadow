@@ -20,6 +20,21 @@ struct zNetServInfo {
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 
+/* 
+ * 去除用字符串末尾的一个或多个换行符LB (Line Break)
+ * 返回新的字符串长度，不含最后的 '\0'
+ */
+_i
+zdel_LB(char *zpStr) {
+    char *zpStrPtr = zpStr;
+    _ui zStrLen = strlen(zpStr);
+
+    while ('\n' == zpStrPtr[zStrLen - 1]) { zStrLen--; }
+    zpStrPtr[zStrLen] = '\0';
+
+    return zStrLen;
+}
+
 void *
 zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
     char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
@@ -107,7 +122,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     /* 读取本机的所有常规IPv4地址，依次发送状态确认信息至服务端 */
     zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.'", "r") );
     while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
-        zBuf[strlen(zBuf)] = '\0';  // 清除 '\n'，否则转换结果将错乱，末尾是 '\0' 还是 '\n' ???????????????????????????
+        zdel_LB(zBuf);  // 清除 '\n'，否则转换结果将错乱
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
 
         if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
