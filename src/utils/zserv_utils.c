@@ -363,7 +363,8 @@ zgenerate_cache(void *zpIf) {
     }
     
     for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)); zCnter++) {
-        if (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40)))) { break; }
+        if ((zIsCommitDataType == zpMetaIf->DataType)
+                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { break; }
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
@@ -753,9 +754,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
 
     /* 提取最近一次布署的SHA1 sig */
-    sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    sprintf(zShellBuf, "cat %s%s | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
-    zget_one_line(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
+    zget_one_line(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(41), zpShellRetHandler);  // fgets 会把最后一个字节位置用于追加'\n'，因此指定的可用缓存区要大于40
     zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     pclose(zpShellRetHandler);
 
