@@ -752,6 +752,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
 
+    /* 提取最近一次布署的SHA1 sig */
+    sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    zpShellRetHandler = popen(zShellBuf, "r");
+    zget_one_line(zpShellRetHandler, zppGlobRepoIf[zRepoId]->zLastDeploySig);
+    zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
+    pclose(zpShellRetHandler);
+
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->CommitRefDataIf;
