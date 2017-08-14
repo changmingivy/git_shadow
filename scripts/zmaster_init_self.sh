@@ -9,8 +9,9 @@ git pull
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
 
-killall -9 git 2>/dev/null
-killall -9 git_shadow 2>/dev/null
+killall zauto_restart.sh
+killall -9 git
+killall -9 git_shadow
 
 mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
@@ -48,3 +49,6 @@ cc -O2 -Wall -Wextra -std=c99 \
 strip ${zShadowPath}/bin/git_shadow_client
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
+
+# 后台进入退出重启机制
+./zauto_restart.sh $zServAddr $zServPort &
