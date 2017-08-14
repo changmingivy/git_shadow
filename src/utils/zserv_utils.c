@@ -754,8 +754,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 提取最近一次布署的SHA1 sig */
     sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
-    zpShellRetHandler = popen(zShellBuf, "r");
-    zget_one_line(zpShellRetHandler, zppGlobRepoIf[zRepoId]->zLastDeploySig);
+    FILE *zpShellRetHandler = popen(zShellBuf, "r");
+    zget_one_line(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
     zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     pclose(zpShellRetHandler);
 
