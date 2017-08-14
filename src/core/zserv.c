@@ -322,15 +322,21 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     else if (zIsDeployDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf); }
     else { return -10; }
 
+    /* 加写锁排斥一切相关操作 */
+    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+
+    // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
+    zCheck_Lock_State();
+    zCheck_CacheId();
+    zCheck_CommitId();
+
     /* 若项目状态是 zRepoGood，并且请求布署的版本号与最近一次布署的相同，直接返回成功 */
     if (zRepoGood == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState 
             && 0 == (strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig))) {
+        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
         return 0;
     }
-
-    /* 加写锁排斥一切相关操作 */
-    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
     /*
      * 检查中转机 IPv4 存在性
@@ -360,11 +366,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -26;
     }
-
-    // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
-    zCheck_Lock_State();
-    zCheck_CacheId();
-    zCheck_CommitId();
 
     /* 重置布署状态 */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
