@@ -102,8 +102,6 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 5：开发人员已提交的版本号列表
- * 6：历史布署版本号列表
  * 10：显示差异文件路径列表
  */
 _i
@@ -144,8 +142,6 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 6：版本号列表
- * 10：显示差异文件路径列表
  * 11：显示差异文件内容
  */
 _i
@@ -173,9 +169,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 差异文件内容直接是文本格式，在此处临时拼装成 json 样式 */
     if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
-        zsendto(zSd, "[{\"OpsId\":0,\"data\":\"", zBytes(20), 0, NULL);
         zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
-        zsendto(zSd, "\"}]", zBytes(3), 0, NULL);  // 前端 PHP 需要的二级json结束符
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
