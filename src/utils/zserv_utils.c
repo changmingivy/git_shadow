@@ -169,7 +169,7 @@ zget_diff_content(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff %s CURRENT -- %s",
+    sprintf(zShellBuf, "cd %s && git diff CURRENT %s -- %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zpMetaIf->p_data);
@@ -232,7 +232,7 @@ zget_file_list_and_diff_content(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff --name-only %s CURRENT",
+    sprintf(zShellBuf, "cd %s && git diff --name-only CURRENT %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
@@ -253,30 +253,31 @@ zget_file_list_and_diff_content(void *zpIf) {
     pclose(zpShellRetHandler);
 
     if (0 == zCnter) {
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
-
-        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zpSubMetaIf->OpsId = 0;
-        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf->CommitId = zpMetaIf->CommitId;
-        zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
-        zpSubMetaIf->HostId = 0;
-        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
-        zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->p_data = "==> 此为最新的已布署版本 <==";
-        zpSubMetaIf->p_ExtraData = NULL;
-    
-        /* 将zMetaInfo转换为JSON文本 */
-        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-        zJsonBuf[0] = '[';  // 逗号替换为 '['
-    
-        zVecDataLen = strlen(zJsonBuf);
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-        memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base, zJsonBuf, zVecDataLen);
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = NULL;
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
+//
+//        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+//        zpSubMetaIf->OpsId = 0;
+//        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+//        zpSubMetaIf->CommitId = zpMetaIf->CommitId;
+//        zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
+//        zpSubMetaIf->HostId = 0;
+//        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+//        zpSubMetaIf->DataType = zpMetaIf->DataType;
+//        zpSubMetaIf->p_data = "==> 此为最新的已布署版本 <==";
+//        zpSubMetaIf->p_ExtraData = NULL;
+//    
+//        /* 将zMetaInfo转换为JSON文本 */
+//        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+//        zJsonBuf[0] = '[';  // 逗号替换为 '['
+//    
+//        zVecDataLen = strlen(zJsonBuf);
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
+//        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+//        memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base, zJsonBuf, zVecDataLen);
     } else {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zCnter;
@@ -363,6 +364,7 @@ zgenerate_cache(void *zpIf) {
     }
     
     for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)); zCnter++) {
+        /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMetaIf->DataType)
                 && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { break; }
         zBaseDataLen = strlen(zRes);
@@ -756,8 +758,11 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 提取最近一次布署的SHA1 sig */
     sprintf(zShellBuf, "cat %s%s | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
-    zget_one_line(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(41), zpShellRetHandler);  // fgets 会把最后一个字节位置用于追加'\n'，因此指定的可用缓存区要大于40
-    zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
+    if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
+        zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
+    } else {
+        zppGlobRepoIf[zRepoId]->zLastDeploySig[0] = '\0'; 
+    }
     pclose(zpShellRetHandler);
 
     /* 指针指向自身的静态数据项 */
