@@ -112,7 +112,6 @@ struct zRepoInfo {
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
-    _ui *p_FailingList;  // 初始化时，分配 TotalHost 个 _ui 的内存空间，用于每次布署时收集尚未布署成功的主机列表
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
@@ -241,40 +240,37 @@ zclient(void) {
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"RepoId\":777,\"CommitId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"Data\":\"777 /home/git/777_X https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":64,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"64 /home/git/64_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\"}";
-
-    // 更新all IP数据
-   // char zStrBuf[] = "{\"OpsId\":5,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"10.10.40.49\n172.16.0.1\n172.16.0.2\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 查询提交版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"_\"}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"RepoId\":777,\"CommitId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":64,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"RepoId\":777,\"CommitId\":1023,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":64,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"RepoId\":777,\"CommitId\":2,\"FileId\":1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":64,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"RepoId\":777,\"CommitId\":4,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502169375,\"DataType\":0,\"Data\":\"\"}";
+    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":64,\"RevId\":3,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502666690,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"RepoId\":777,\"CommitId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502168256,\"DataType\":1,\"Data\":\"\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":64,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":1502640401,\"DataType\":1,\"data\":\"_\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 

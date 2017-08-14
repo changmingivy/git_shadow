@@ -1,6 +1,8 @@
 #define _XOPEN_SOURCE 700
 
+#include <sys/types.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -10,7 +12,7 @@
 #define zCommonBufSiz 1024
 #define UDP 0
 #define TCP 1
-#define zRepoIdPath ".git_shadow/info/repo_id"
+#define zRelativeRepoIdPath "info/repo_id"
 
 struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
@@ -98,14 +100,14 @@ zstate_reply(char *zpHost, char *zpPort) {
     _i zRepoId, zFd, zSd;
     _ui zIpv4Bin;
 
-    zCheck_Negative_Exit( zFd = open(zRepoIdPath, O_RDONLY) );
+    zCheck_Negative_Exit( zFd = open(zRelativeRepoIdPath, O_RDONLY) );
     zCheck_Negative_Exit( read(zFd, &zRepoId, sizeof(_i)) );
     close(zFd);
 
     /* 读取本机的所有常规IPv4地址，依次发送状态确认信息至服务端 */
-    zCheck_Null_Exit( zpFileHandler = popen("ifconfig | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.|\\.255$'", "r") );
+    zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.'", "r") );
     while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
-        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
+        zBuf[strlen(zBuf)] = '\0';  // 清除 '\n'，否则转换结果将错乱，末尾是 '\0' 还是 '\n' ???????????????????????????
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
 
         if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
@@ -113,8 +115,8 @@ zstate_reply(char *zpHost, char *zpPort) {
             exit(1);
         }
 
-        sprintf(zJsonBuf, "{\"OpsId\":8,\"RepoId\":%d,\"CommitId\":-1,\"FileId\":-1,\"HostId\":%u,\"CacheId\":-1,\"DataType\":-1,\"Data\":\"\"}", zRepoId, zIpv4Bin);
-        if ((1 + (_i)strlen(zJsonBuf)) != zsendto(zSd, zJsonBuf, (1 + strlen(zJsonBuf)), 0, NULL)) {
+        sprintf(zJsonBuf, "{\"OpsId\":8,\"ProjId\":%d,\"HostId\":%u}", zRepoId, zIpv4Bin);
+        if ((_i)strlen(zJsonBuf) != zsendto(zSd, zJsonBuf, strlen(zJsonBuf), 0, NULL)) {
             zPrint_Err(0, NULL, "布署状态回复失败！");
         }
 

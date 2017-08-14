@@ -1,34 +1,45 @@
 #!/bin/sh
 zServAddr=$1
 zServPort=$2
-zShadowPath="/home/git/zgit_shadow"
+zShadowPath="${HOME}/zgit_shadow"
 
+cd $zShadowPath
 git stash
 git pull
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./zhost_init_repo.sh
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./zhost_init_repo.sh
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./zhost_init_repo_slave.sh
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./zhost_init_repo_slave.sh
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
 
-killall -9 git 2>/dev/null
-killall -9 git_shadow 2>/dev/null
+killall zauto_restart.sh
+killall -9 git
+killall -9 git_shadow
 
 mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
+mkdir -p ${zShadowPath}/conf
+touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
-cc -O2 -Wall -Wextra -std=c99 \
-    -I ${zShadowPath}/inc \
-    -L ${zShadowPath}/lib/pcre2 \
-    -lm \
-    -lpthread \
-    -lpcre2-8 \
+# 编译正则库
+cd ${zShadowPath}/lib/
+rm -rf pcre2*
+wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
+mkdir pcre2
+tar -xf pcre2-10.23.tar.gz
+cd pcre2-10.23
+./configure --prefix=$HOME/zgit_shadow/lib/pcre2
+make -j 9 && make install
+
+# 编译主程序，静态库文件路径一定要放在源文件之后
+cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -D_XOPEN_SOURCE=700 \
+    -I${zShadowPath}/inc \
     -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/src/zmain.c
+    ${zShadowPath}/src/zmain.c \
+    ${zShadowPath}/lib/pcre2/lib/libpcre2-8.a
 
 strip ${zShadowPath}/bin/git_shadow
 
+# 编译客户端
 cc -O2 -Wall -Wextra -std=c99 \
     -I ${zShadowPath}/inc \
     -D_XOPEN_SOURCE=700 \
@@ -36,6 +47,8 @@ cc -O2 -Wall -Wextra -std=c99 \
     ${zShadowPath}/src/client/zmain_client.c
 
 strip ${zShadowPath}/bin/git_shadow_client
-printf "    `date +%s`" >> ${zShadowPath}/bin/git_shadow_client  # 末尾追加随机字符，防止git不识别二进制文件变动
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
+
+# 后台进入退出重启机制
+./zauto_restart.sh $zServAddr $zServPort &

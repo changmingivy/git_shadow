@@ -2,6 +2,17 @@ a.out
 ISOs/
 images/
 Trash/
+conf/
+pcre2/
+pcre2-10.21/
+pcre2-10.23/
+
+*.gz
+*.xz
+*.bz2
+*.tar
+*.zip
+*.rar
 
 # Prerequisites
 *.d

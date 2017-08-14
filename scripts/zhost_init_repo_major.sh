@@ -1,11 +1,10 @@
 #!/bin/sh
 zMajorAddr=$1
-zSlaveAddr=$2
-zPathOnHost=$(echo $3 | sed -n 's%/\+%/%p')
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
 
-ssh -t $zMajorAddr "ssh $zSlaveAddr \"
-    mkdir -p ${zPathOnHost} &&
+ssh $zMajorAddr "
     mkdir -p ${zPathOnHost}_SHADOW &&
+    mkdir -p ${zPathOnHost} &&
 \
     cd ${zPathOnHost}_SHADOW &&
     git init . &&
@@ -16,11 +15,8 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
 \
     cd $zPathOnHost &&
     git init . &&
-    git config user.name "_" &&
-    git config user.email "_@$x" &&
+    git config user.name "MajorHost" &&
+    git config user.email "MajorHost@$x" &&
     git commit --allow-empty -m "__init__" &&
-    git branch -f server &&
-\
-    cat > .git/hooks/post-update &&
-    chmod 0755 .git/hooks/post-update
-    \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
+    git branch -f server
+    "

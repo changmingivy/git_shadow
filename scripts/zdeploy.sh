@@ -1,64 +1,57 @@
 #!/bin/sh
+zCommitSig=$1
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
+zMajorAddr=$3  # 中转机IPv4地址
 
-zProjPath=
-zCommitSig=
-zFilePath=
-zHostIp=
-zHostListPath=
+shift 3
+zHostList=$@
+zShadowPath=/home/git/zgit_shadow
 
-while getopts p:i:h:f:P: zOption
-do
-    case $zOption in
-        p) zProjPath=$OPTARG;;  # repo path
-        i) zCommitSig=$OPTARG;;  # commit id(SHA1 sig)
-        f) zFilePath=$OPTARG;;  # file path
-        h) zHostIp=$OPTARG;;  # host ip
-        P) zHostListPath=$OPTARG;;  # major host list path
-        ?) exit 255;;
-    esac
-done
-shift $[$OPTIND - 1]
+if [[ "" == $zCommitSig
+    || "" == ${zPathOnHost}
+    || "" == $zMajorAddr
+    || "" == $zHostList ]]; then
+    exit 1
+fi
 
-cd $zProjPath
-git stash
-git stash clear
+cd /home/git/${zPathOnHost}
+rm -rf *
+
 git pull --force ./.git server:master
+git reset ${zCommitSig}
 
-if [[ '' == $zHostIp ]]; then
-    zHostList=`cat ${zProjPath}/${zHostListPath}`
-else
-    zHostList=$zHostIp
-fi
+# 更新中转机(MajorHost)
+cd /home/git/${zPathOnHost}_SHADOW
 
-git reset ${zCommitSig} -- $zFilePath
-echo "$zFilePath $zCommitSig" >> DP_LOG
-git add DP_LOG
-if [[ "" == $zFilePath ]]; then
-    git commit -m "单文件布署：$zFilePath $zCommitSig"
-else
-    git commit -m "版本布署：$zCommitSig"
-fi
-
-# git_shadow 作为独立的 git 库内嵌于项目代码库当中，因此此处必须进入 .git_shadow 目录执行
-cd $zProjPath/.git_shadow
+cp -rf ${zShadowPath}/bin/git_shadow_client ./bin/
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
+cp -rf ${zShadowPath}/scripts/* ./scripts/
+eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
 git add --all .
-git commit -m "__DP__"
+git commit --allow-empty -m "__DP__"
 
-zProjPathOnHost=`echo $zProjPath | sed -n 's%/home/git/\+%/%p'`
-for zHostAddr in $zHostList; do
-    let i++
-    # 必须首先切换目录
-    ( \
-        cd $zProjPath/.git_shadow \
-        && git push --force git@${zHostAddr}:${zProjPathOnHost}/.git_shadow/.git master:server \
-        \
-        && cd $zProjPath \
-        && git push --force git@${zHostAddr}:${zProjPathOnHost}/.git master:server \
-    ) &
+git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
 
-done
+cd /home/git/${zPathOnHost}
+git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
 
-cd $zProjPath
+# 通过中转机布署到终端集群
+ssh $zMajorAddr "
+    cd ${zPathOnHost}_SHADOW &&
+    for zHostAddr in $zHostList; do
+        git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
+    done
+    rm -rf *
+\
+    cd ${zPathOnHost} &&
+    for zHostAddr in $zHostList; do
+        git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
+    done
+    rm -rf *
+"
+
+# 中控机：布署后环境设置
+cd /home/git/${zPathOnHost}
 zOldSig=`git log CURRENT -1 --format=%H`
-git branch -f $zOldSig  # 创建一个以 CURRENT 分支的 SHA1 sig 命名的分支
+git branch -f $zOldSig  # 创建一个以原有的 CURRENT 分支的 SHA1 sig 命名的分支
 git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
