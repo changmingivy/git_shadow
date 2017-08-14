@@ -630,7 +630,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     zMetaInfo *zpMetaIf[2];
     zObjInfo *zpObjIf;
-    struct stat zStatIf;
+    char zShellBuf[zCommonBufSiz];
 
     _i zRepoId,zFd;
 
@@ -667,9 +667,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zpRetIf->p_rets[1]);
 
     /* 调用SHELL执行检查和创建 */
-    char *zpCmd = "/home/git/zgit_shadow/scripts/zmaster_init_repo.sh";
-    char *zppArgv[] = {"", zpRetIf->p_rets[0], zpRetIf->p_rets[1], zpRetIf->p_rets[2], zpRetIf->p_rets[3], zpRetIf->p_rets[4], NULL};
-    zfork_do_exec(zpCmd, zppArgv);
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
+    system(zShellBuf);
 
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];
@@ -726,9 +725,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppPrev[0] = NULL;
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
-
-    /* 初始化日志下一次写入偏移量 */
-    zppGlobRepoIf[zRepoId]->zDeployLogOffSet = zStatIf.st_size;
 
     /* inotify */
     zpObjIf = zalloc_cache(zRepoId, sizeof(zObjInfo) + 1 + strlen(zInotifyObjRelativePath) + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath));

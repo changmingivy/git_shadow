@@ -133,8 +133,6 @@ struct zRepoInfo {
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
 
-    _ui zDeployLogOffSet;  // 标记日志文件的下一次写入位置
-
     _i TotalHost;  // 每个项目的集群的主机数量
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
