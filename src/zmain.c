@@ -155,7 +155,7 @@ struct zRepoInfo {
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
-    char zFailDeploySig[44];  // 存放最近一次布署失败的 40 位 SHA1 sig
+    char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
 
     _ui MajorHostAddr;  // 以无符号整型格式存放的中转机(即实际执行分发的节点)IPv4地址
     char *p_HostAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本

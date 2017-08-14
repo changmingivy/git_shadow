@@ -87,13 +87,6 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    /* 若上一次布署是失败的，则返回其 SHA1 sig，提示其尝试重新布署 */
-    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
-        zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-        zpMetaIf->p_data = zppGlobRepoIf[zpMetaIf->RepoId]->zFailDeploySig;
-        return -13;
-    }
-
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
         return -11;
     };
@@ -126,6 +119,12 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     } else {
         zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
+    }
+
+    /* 若上一次布署是失败的，则返回其 SHA1 sig，提示其尝试重新布署或撤销到某个版本号 */
+    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
+        zpMetaIf->p_data = zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig;
+        return -13;
     }
 
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
@@ -329,12 +328,19 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     else if (zIsDeployDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf); }
     else { return -10; }
 
+    /* 若项目状态是 zRepoGood，并且请求布署的版本号与最近一次布署的相同，直接返回成功 */
+    if (zRepoGood == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState 
+            && 0 == (strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig))) {
+        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+        return 0;
+    }
+
     /* 加写锁排斥一切相关操作 */
     if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
     /*
      * 检查中转机 IPv4 存在性
-     * 优先取用传入的 HostId 字段
+     * 优先取用传入的 HostId 字段，转换成点分格式 IPv4 字符串地址
      * 与单独调用 zupdate_ipv4_db_major 函数的区别是，此处并不会去初始化中转机的环境，适合除了新建项目外的所有场景
      */
     if (0 == zpMetaIf->HostId) { zMajorHostAddr = zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr; }
@@ -344,8 +350,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -25;
     }
-
-    /* 转换成点分格式 IPv4 地址 */
     zconvert_ipv4_bin_to_str(zMajorHostAddr, zMajorHostStrAddrBuf);
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
@@ -389,10 +393,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
         if (75 < zTimeCnter) {
-            /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并更新最近一次失败的 SHA1 sig；若为全部布署失败，则不必置位 */
+            /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并记录失败的 SHA1 sig；若为全部布署失败，则不必置位 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
-                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zFailDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
+                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
             }
 
             pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );

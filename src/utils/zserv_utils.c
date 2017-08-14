@@ -353,6 +353,7 @@ zgenerate_cache(void *zpIf) {
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
+        // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
     } else {
@@ -418,6 +419,8 @@ zgenerate_cache(void *zpIf) {
         zCcur_Wait(A);
 
         if (zIsDeployDataType == zpMetaIf->DataType) {
+            // 存储最近一次布署的 SHA1 sig，执行布署是首先对比布署目标与最近一次布署，若相同，则直接返回成功
+            strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zpTopVecWrapIf->p_RefDataIf[zCnter - 1].p_data);
             /* 将布署记录按逆向时间排序（新记录显示在前面） */
             for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
                 zCnter--;
