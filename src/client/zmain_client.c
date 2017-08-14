@@ -107,7 +107,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     /* 读取本机的所有常规IPv4地址，依次发送状态确认信息至服务端 */
     zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.'", "r") );
     while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
-        zBuf[strlen(zBuf) - 1] = '\0';  // 清除 '\n'，否则转换结果将错乱
+        zBuf[strlen(zBuf)] = '\0';  // 清除 '\n'，否则转换结果将错乱，末尾是 '\0' 还是 '\n' ???????????????????????????
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
 
         if (-1== (zSd = ztcp_connect(zpHost, zpPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
