@@ -266,11 +266,12 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->HostId = 0;
         zpSubMetaIf->CacheId = zpMetaIf->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->p_data = "\033[31;01m==> 此为最新的已布署版本 <==\033[00m";
+        zpSubMetaIf->p_data = "==> 此为最新的已布署版本 <==";
         zpSubMetaIf->p_ExtraData = NULL;
     
         /* 将zMetaInfo转换为JSON文本 */
         zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+        zJsonBuf[0] = '[';  // 逗号替换为 '['
     
         zVecDataLen = strlen(zJsonBuf);
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
