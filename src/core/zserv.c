@@ -123,7 +123,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
 
     /* get rdlock */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; };
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
@@ -177,6 +177,10 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
+    _ui zIpv4AddrBin = zconvert_ipv4_str_to_bin(zpMetaIf->p_data);
+    /* if equal, skip update */
+    if (zIpv4AddrBin == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) { goto zMark; }
+
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zhost_init_repo_major.sh %s %s",  // $1:MajorHostAddr；$2:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
@@ -184,19 +188,14 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        return -11;
-    };
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
-    if (0 != system(zShellBuf)) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        return -27;
-    }
-
-    zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = zconvert_ipv4_str_to_bin(zpMetaIf->p_data);
+    system(zShellBuf);
+    zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = zIpv4AddrBin;
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
+zMark:
     zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
     return 0;
 }
