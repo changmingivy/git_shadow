@@ -9,6 +9,7 @@ while :
 do
     if [[ 2 -gt `ps ax | grep -c "zgit_shadow/bin/git_shadow" | grep -v ']]'` ]]; then
         /home/git/zgit_shadow/bin/git_shadow -f /home/git/zgit_shadow/conf/master.conf -h $zServAddr -p $zServPort
+        echo "`date`" >> /tmp/zgit_shadow_restart_cnt
     fi
 
     sleep 0.5
