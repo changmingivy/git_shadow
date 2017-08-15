@@ -122,7 +122,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     /* 若上一次布署是部分失败的，返回 -13 错误 */
     if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
 
-    /* 加读锁 */
+    /* get rdlock */
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; };
 
     zCheck_CacheId();  // 宏内部会解锁
@@ -384,6 +384,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         if (50 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
+                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] = '\0';
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             }
 
