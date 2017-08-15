@@ -549,6 +549,8 @@ zops_route(void *zpSd) {
     }
 
     char zDataBuf[zRecvdLen], zExtraDataBuf[zRecvdLen];
+    memset(zDataBuf, 0, zRecvdLen);
+    memset(zExtraDataBuf, 0, zRecvdLen);
     zMetaIf.p_data = zDataBuf;
     zMetaIf.p_ExtraData = zExtraDataBuf;
     if (0 > (zErrNo = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
