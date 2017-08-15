@@ -481,9 +481,9 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zpTmp->DeployState && zpTmp->ClientAddr == zpMetaIf->HostId) {
             zpTmp->DeployState = 1;
             // 需要原子性递增
-            pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->MutexLock) );
+            pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock) );
             zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
-            pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->MutexLock) );
+            pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock) );
             return 0;
         }
     }

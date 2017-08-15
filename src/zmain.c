@@ -136,7 +136,7 @@ struct zRepoInfo {
     _i TotalHost;  // 每个项目的集群的主机数量
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
-    pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
+    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
 
