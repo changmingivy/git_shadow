@@ -119,15 +119,11 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    /* 若上一次布署是失败的，则返回其 SHA1 sig，提示其尝试重新布署或撤销到某个版本号 */
-    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
-        zpMetaIf->p_data = zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig;
-        return -13;
-    }
+    /* 若上一次布署是部分失败的，返回 -13 错误 */
+    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
 
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-        return -11;
-    };
+    /* 加读锁 */
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; };
 
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
@@ -279,9 +275,7 @@ zMark:
     zpcre_free_metasource(zpPcreInitIf);
 
     /* 更新项目元信息 */
-    if (NULL != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) {
-        free(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf);
-    }
+    if (NULL != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) { free(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf); }
     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf = zpDpResListIf;
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList = zpIpStrList;  // 存放于项目内存池中，不可 free()
 
@@ -388,10 +382,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
         if (50 < zTimeCnter) {
-            /* 若为部分布署失败，代码库状态置为 "损坏" 状态，并记录失败的 SHA1 sig；若为全部布署失败，则不必置位 */
+            /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
-                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
             }
 
             pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -399,8 +392,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         }
     }
 
-    // 布署成功，向前端确认成功，并复位代码库状态
+    /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
     zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
     /* 将本次布署信息写入日志 */
