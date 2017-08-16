@@ -127,7 +127,7 @@ struct zDeployResInfo {
 };
 typedef struct zDeployResInfo zDeployResInfo;
 
-/* 用于存放每个项目的元信息 */
+/* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"

@@ -7,7 +7,9 @@
  ***********/
 /* 检查 CommitId 是否合法，宏内必须解锁 */
 #define zCheck_CommitId() do {\
-    if ((0 > zpMetaIf->CommitId) || ((zCacheSiz - 1) < zpMetaIf->CommitId) || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {\
+    if ((0 > zpMetaIf->CommitId)\
+            || ((zCacheSiz - 1) < zpMetaIf->CommitId)\
+            || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
         zPrint_Err(0, NULL, "CommitId 不存在或内容为空（空提交）");\
         return -3;\
@@ -16,7 +18,9 @@
 
 /* 检查 FileId 是否合法，宏内必须解锁 */
 #define zCheck_FileId() do {\
-    if ((0 > zpMetaIf->FileId) || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId)) {\
+    if ((0 > zpMetaIf->FileId)\
+            || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf)\
+            || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId)) {\
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );\
         zPrint_Err(0, NULL, "差异文件ID不存在");\
         return -4;\
@@ -44,9 +48,7 @@
  * 0：列出所有有效项目ID及其所在路径
  */
 _i
-zzero(zMetaInfo *_, _i zSd) {
-    return 0;
-}
+zzero(zMetaInfo *_, _i zSd) { return 0; }
 
 /*
  * 1：添加新项目（代码库）
@@ -54,22 +56,18 @@ zzero(zMetaInfo *_, _i zSd) {
 _i
 zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
-
-    if (0 > (zErrNo = zinit_one_repo_env(zpMetaIf->p_data))) {
-        return zErrNo;
-    } else {
+    if (0 == (zErrNo = zinit_one_repo_env(zpMetaIf->p_data))) {
         zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-        return 0;
     }
+
+    return zErrNo;
 }
 
 /*
  * 13：删除项目（代码库）
  */
 _i
-zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
-    return 0;
-}
+zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) { return 0; }
 
 /*
  * 6：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
@@ -124,19 +122,26 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* get rdlock */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        return -11;
+    }
 
     zCheck_CacheId();  // 宏内部会解锁
-    zCheck_CommitId();  // 宏内部会解锁
 
-    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) { zget_file_list(zpMetaIf); }
+    zCheck_CommitId();  // 宏内部会解锁
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {
+        zget_file_list(zpMetaIf);
+    }
 
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
     zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
     for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
-        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz) % IOV_MAX; }
-        else { zSendVecWrapIf.VecSiz = IOV_MAX; }
+        if (1 == zCnter) {
+            zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz) % IOV_MAX;
+        } else {
+            zSendVecWrapIf.VecSiz = IOV_MAX;
+        }
 
         zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);
         zSendVecWrapIf.p_VecIf += zSendVecWrapIf.VecSiz;
@@ -172,9 +177,11 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
-    zCheck_FileId();  // 宏内部会解锁
 
-    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) { zget_diff_content(zpMetaIf); }
+    zCheck_FileId();  // 宏内部会解锁
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
+        zget_diff_content(zpMetaIf);
+    }
 
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;
@@ -199,8 +206,12 @@ _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
     _ui zIpv4AddrBin = zconvert_ipv4_str_to_bin(zpMetaIf->p_data);
     /* if equal, skip update */
-    if (0 == zIpv4AddrBin) { return -27; }
-    if (zIpv4AddrBin == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) { goto zMark; }
+    if (0 == zIpv4AddrBin) {
+        return -27;
+    }
+    if (zIpv4AddrBin == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) {
+        goto zMark;
+    }
 
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zhost_init_repo_major.sh %s %s",  // $1:MajorHostAddr；$2:PathOnHost
@@ -209,7 +220,9 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+    if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        return -11;
+    }
 
     system(zShellBuf);
     zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = zIpv4AddrBin;
@@ -233,7 +246,9 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
     char *zpIpStrList;
     _ui zOffSet = 0;
 
-    if (NULL == zpMetaIf->p_ExtraData) { return -24; }
+    if (NULL == zpMetaIf->p_ExtraData) {
+        return -24;
+    }
 
     zpPcreInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
     zpPcreResIf = zpcre_match(zpPcreInitIf, zpMetaIf->p_data, 1);
@@ -332,12 +347,18 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
 
-    if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
-    else if (zIsDeployDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf); }
-    else { return -10; }
+    if (zIsCommitDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+    } else {
+        return -10;
+    }
 
     /* 加写锁排斥一切相关操作 */
-    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        return -11;
+    }
 
     // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
     zCheck_Lock_State();

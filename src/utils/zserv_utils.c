@@ -468,7 +468,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zSubMetaIf.DataType = zIsCommitDataType;
     zSubMetaIf.p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
     zSubMetaIf.p_ExtraData = &(zRes[41]);
-    /* 生成下一级缓存 */
+    /* 生成下一级缓存，新提交的单条记录直接生成下一级缓存 */
     zget_file_list(&zSubMetaIf);
 
     /* 将zMetaInfo转换为JSON文本 */
