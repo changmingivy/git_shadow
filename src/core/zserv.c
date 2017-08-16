@@ -280,7 +280,8 @@ zMark:
     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf = zpDpResListIf;
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList = zpIpStrList;  // 存放于项目内存池中，不可 free()
 
-    /* 将线性数组影射成 HASH 结构 */
+    /* 将线性数组影射成 HASH 结构,clear hash buf before reuse it!!! */
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
     for (_i zCnter = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
         zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz];
         if (NULL == zpTmpDpResIf) {
