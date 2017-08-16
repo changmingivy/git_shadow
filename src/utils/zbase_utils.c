@@ -447,12 +447,11 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
                 );
     } else {
         sprintf(
-                zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+                zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
                 zpMetaIf->OpsId,
                 zpMetaIf->RepoId,
                 zpMetaIf->CommitId,
                 zpMetaIf->FileId,
-                zpMetaIf->HostId,
                 zpMetaIf->CacheId,
                 zpMetaIf->DataType,
                 (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,

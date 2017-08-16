@@ -265,7 +265,6 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->RepoId = zpMetaIf->RepoId;
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
         zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
-        zpSubMetaIf->HostId = 0;
         zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->p_data = "==> 最新的已布署版本 <==";
@@ -302,7 +301,6 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpSubMetaIf->RepoId = zpMetaIf->RepoId;
             zpSubMetaIf->CommitId = zpMetaIf->CommitId;
             zpSubMetaIf->FileId = i;
-            zpSubMetaIf->HostId = 0;
             zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
@@ -403,7 +401,6 @@ zgenerate_cache(void *zpIf) {
             zpSubMetaIf->RepoId = zpMetaIf->RepoId;
             zpSubMetaIf->CommitId = i;
             zpSubMetaIf->FileId = -1;
-            zpSubMetaIf->HostId = 0;
             zpSubMetaIf->CacheId =  zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
@@ -511,7 +508,6 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->RepoId = zpObjIf->RepoId;
     zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
     zpSubMetaIf->FileId = -1;
-    zpSubMetaIf->HostId = -1;
     zpSubMetaIf->CacheId = zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
     zpSubMetaIf->DataType = zIsCommitDataType;
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
