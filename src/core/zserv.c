@@ -306,7 +306,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf[2];
 
     _i zErrNo;
-    _ui zMajorHostAddr;
     char zMajorHostStrAddrBuf[16];
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
@@ -331,19 +330,13 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return 0;
     }
 
-    /*
-     * 检查中转机 IPv4 存在性
-     * 优先取用传入的 HostId 字段，转换成点分格式 IPv4 字符串地址
-     * 与单独调用 zupdate_ipv4_db_major 函数的区别是，此处并不会去初始化中转机的环境，适合除了新建项目外的所有场景
-     */
-    if (0 == zpMetaIf->HostId) { zMajorHostAddr = zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr; }
-    else { zMajorHostAddr = zpMetaIf->HostId; }
-
-    if (0 == zMajorHostAddr) {
+    /* 检查中转机 IPv4 存在性 */
+    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -25;
+    } else {
+        zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr, zMajorHostStrAddrBuf);
     }
-    zconvert_ipv4_bin_to_str(zMajorHostAddr, zMajorHostStrAddrBuf);
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
