@@ -401,7 +401,7 @@ zgenerate_cache(void *zpIf) {
             zpSubMetaIf->RepoId = zpMetaIf->RepoId;
             zpSubMetaIf->CommitId = i;
             zpSubMetaIf->FileId = -1;
-            zpSubMetaIf->CacheId =  zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
+            zpSubMetaIf->CacheId =  zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
             zpSubMetaIf->p_ExtraData = &(zpTmpBaseDataIf[2]->p_data[41]);
@@ -508,7 +508,7 @@ zupdate_one_commit_cache(void *zpIf) {
     zpSubMetaIf->RepoId = zpObjIf->RepoId;
     zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
     zpSubMetaIf->FileId = -1;
-    zpSubMetaIf->CacheId = zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpSubMetaIf->DataType = zIsCommitDataType;
     zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
     zpSubMetaIf->p_ExtraData = &(zRes[41]);
