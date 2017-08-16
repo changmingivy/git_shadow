@@ -389,6 +389,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
     zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
