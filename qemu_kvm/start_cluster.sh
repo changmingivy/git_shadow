@@ -47,7 +47,7 @@ zCpuNum="2"
 zMem="512M"
 zDiskSiz="20G"
 zHostNatIf="eno1"
-zHostIP="10.10.40.49"
+zHostIP="172.30.80.31"
 zBridgeIf=br0
 
 modprobe tun

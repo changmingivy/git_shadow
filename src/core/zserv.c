@@ -179,6 +179,7 @@ _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
     _ui zIpv4AddrBin = zconvert_ipv4_str_to_bin(zpMetaIf->p_data);
     /* if equal, skip update */
+    if (0 == zIpv4AddrBin) { return -27; }
     if (zIpv4AddrBin == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) { goto zMark; }
 
     char zShellBuf[zCommonBufSiz];

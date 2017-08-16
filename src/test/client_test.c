@@ -108,7 +108,7 @@ struct zDeployResInfo {
 /* 用于存放每个项目的元信息 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    char RepoPath[646];  // 项目路径，如："/home/git/miaopai_TEST"
+    char RepoPath[64];  // 项目路径，如："/home/git/miaopai_TEST"
     _i LogFd;  // 每个代码库的布署日志日志文件：log/sig，用于存储 SHA1-sig
 
     _i TotalHost;  // 每个项目的集群的主机数量
@@ -233,62 +233,54 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 #define zBufSiz 1024
 void
 zclient(void) {
-    _i zSd = ztcp_connect("10.10.80.94", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
+    _i zSd = ztcp_connect("172.30.80.31", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
     if (-1 == zSd) {
         fprintf(stderr, "Connect to server failed \n");
         exit(1);
     }
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":646,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":0,\"DataType\":-1,\"data\":\"646 /home/git/646_Z https://git.coding.net/kt10/zgit_shadow.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":779,\"data\":\"779 /home/git/779_M https://git.coding.net/kt10/zgit_shadow.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"10.10.40.49\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":779,\"data\":\"172.30.80.31\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 查询提交版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":779,\"DataType\":0}";
 
     // 查询已布署版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":646,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":779,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":646,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":779,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":646,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":779,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 布署
-    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":646,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
+    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":779,\"RevId\":5,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
 
     // 撤销
-    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":646,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":15026460401,\"DataType\":1,\"data\":\"_\"}";
+    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":779,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":15027790401,\"DataType\":1,\"data\":\"_\"}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 
     char zBuf[zBufSiz] = {'\0'};
 
-    recv(zSd, &zBuf, zBufSiz, 0);
-    fprintf(stderr, "<+=[0]=+>\n");
-   // fprintf(stderr, "STR: %s\n", zBuf);
-    for (_i i = 0; i < zBufSiz; i++) {
-        fprintf(stderr, "%c", zBuf[i]);
-    }
-
-    memset(zBuf, 0, zBufSiz);
-    recv(zSd, &zBuf, zBufSiz, 0);
-    fprintf(stderr, "\n\n<+=[1]=+>\n");
-  //  fprintf(stderr, "STR: %s\n", zBuf);
-    for (_i i = 0; i < zBufSiz; i++) {
-        fprintf(stderr, "%c", zBuf[i]);
+    while (0 < recv(zSd, &zBuf, zBufSiz, 0)) {
+        for (_i i = 0; i < zBufSiz; i++) {
+            fprintf(stderr, "%c", zBuf[i]);
+        }
+        memset(zBuf, 0, zBufSiz);
     }
 
     shutdown(zSd, SHUT_RDWR);

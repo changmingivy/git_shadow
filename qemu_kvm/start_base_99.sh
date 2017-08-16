@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 zHostNatIf="eno1"
-zHostIP="10.10.40.49"
+zHostIP="172.30.80.31"
 zBridgeIf=br0
 
 modprobe tun
