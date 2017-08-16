@@ -86,7 +86,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         }\
     } while(0)
 
-/* 
+/*
  * 用于存在条件式跳转的循环场景
  * 每次跳过时，都必须让同步计数器递减一次
  */
@@ -169,8 +169,9 @@ zget_diff_content(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff CURRENT %s -- %s",
+    sprintf(zShellBuf, "cd %s && git diff %s %s -- %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zpMetaIf->p_data);
 
@@ -232,8 +233,9 @@ zget_file_list_and_diff_content(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff --name-only CURRENT %s",
+    sprintf(zShellBuf, "cd %s && git diff --name-only %s %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
@@ -268,11 +270,11 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->p_data = "==> 最新的已布署版本 <==";
         zpSubMetaIf->p_ExtraData = NULL;
-    
+
         /* 将zMetaInfo转换为JSON文本 */
         zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
         zJsonBuf[0] = '[';  // 逗号替换为 '['
-    
+
         zVecDataLen = strlen(zJsonBuf);
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_len = zVecDataLen;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
@@ -305,15 +307,15 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
             zpSubMetaIf->p_ExtraData = NULL;
-    
+
             /* 将zMetaInfo转换为JSON文本 */
             zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-    
+
             zVecDataLen = strlen(zJsonBuf);
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_len = zVecDataLen;
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
             memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
-    
+
             /* 进入下一层获取对应的差异内容 */
             zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
         }
@@ -361,7 +363,7 @@ zgenerate_cache(void *zpIf) {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
     }
-    
+
     for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)); zCnter++) {
         /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMetaIf->DataType)
@@ -406,15 +408,15 @@ zgenerate_cache(void *zpIf) {
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
             zpSubMetaIf->p_ExtraData = &(zpTmpBaseDataIf[2]->p_data[41]);
-    
+
             /* 将zMetaInfo转换为JSON文本 */
             zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-    
+
             zVecDataLen = strlen(zJsonBuf);
             zpTopVecWrapIf->p_VecIf[i].iov_len = zVecDataLen;
             zpTopVecWrapIf->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
             memcpy(zpTopVecWrapIf->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
-    
+
             /* 进入下一层获取对应的差异文件列表 */
             zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
         }
@@ -572,13 +574,13 @@ zupdate_one_commit_cache(void *zpIf) {
 // zinotify_common_callback(void *zpIf) {
 //     zObjInfo *zpObjIf = (zObjInfo *) zpIf;
 //     char zShellBuf[zCommonBufSiz];
-// 
+//
 //     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify.sh %d %s %s",
 //         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
 //         zpObjIf->RepoId,
 //         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
 //         zpObjHash[zpObjIf->UpperWid]->path);
-// 
+//
 //     if (0 != system(zShellBuf)) {
 //         zPrint_Err(0, NULL, "[system]: shell command failed!");
 //     }
@@ -592,14 +594,16 @@ zwrite_log(_i zRepoId) {
     FILE *zpFile;
     _i zLen;
 
-    // 将 CURRENT 标签的40位sig字符串及10位时间戳追加写入.git_shadow/log/meta
-    sprintf(zShellBuf, "cd %s && git log CURRENT -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zRepoId]->p_RepoPath);
+    /* write last deploy SHA1_sig and it's timestamp to: <_SHADOW/log/meta> */
+    sprintf(zShellBuf, "cd %s && git log %s -1 --format=\"%%H_%%ct\"",
+            zppGlobRepoIf[zRepoId]->zLastDeploySig,
+            zppGlobRepoIf[zRepoId]->p_RepoPath);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
 
     if (zLen != write(zppGlobRepoIf[zRepoId]->LogFd, zRes, zLen)) {
-        zPrint_Err(0, NULL, "日志写入失败： <.git_shadow/log/deploy/meta> !");
+        zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
         exit(1);
     }
 }
@@ -760,7 +764,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     } else {
-        zppGlobRepoIf[zRepoId]->zLastDeploySig[0] = '\0'; 
+        zppGlobRepoIf[zRepoId]->zLastDeploySig[0] = '\0';
     }
     pclose(zpShellRetHandler);
 
