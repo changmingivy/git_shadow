@@ -228,7 +228,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
 
     /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配 */
-    zMem_C_Alloc(zpDpResListIf, zDeployResInfo, zpPcreResIf->cnt);
+    zMem_Alloc(zpDpResListIf, zDeployResInfo, zpPcreResIf->cnt);
 
     /* 加空格最长16字节，如："123.123.123.123 " */
     zpIpStrList = zalloc_cache(zpMetaIf->RepoId, zBytes(16) * zpPcreResIf->cnt);
@@ -241,6 +241,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 转换字符串点分格式 IPv4 为 _ui 型 */
         zpDpResListIf[i].ClientAddr = zconvert_ipv4_str_to_bin(zpPcreResIf->p_rets[i]);
+        zpDpResListIf[i].p_next = NULL;
         zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDeployHashSiz];
         while (NULL != zpTmpDpResIf) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
@@ -279,7 +280,7 @@ zMark:
     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf = zpDpResListIf;
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList = zpIpStrList;  // 存放于项目内存池中，不可 free()
 
-    /* 更新对应的 HASH 散列，用于加快查询速度 */
+    /* 将线性数组影射成 HASH 结构 */
     for (_i zCnter = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
         zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz];
         if (NULL == zpTmpDpResIf) {
@@ -287,7 +288,6 @@ zMark:
             zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz]
                 = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         } else {
-            /* 将线性数组影射成 HASH 结构 */
             while (NULL != zpTmpDpResIf->p_next) { zpTmpDpResIf = zpTmpDpResIf->p_next; }
             zpTmpDpResIf->p_next = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         }
