@@ -121,7 +121,7 @@ struct zRepoInfo {
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolHeadId;  // 动态指示下一次内存分配的起始地址
 
-    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为0)
+    _i CacheId;
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */

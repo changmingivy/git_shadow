@@ -138,7 +138,7 @@ struct zRepoInfo {
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    _i CacheId;  // 即：最新一次布署的时间戳(CURRENT 分支的时间戳，没有布署日志时初始化为1000000000)
+    _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先

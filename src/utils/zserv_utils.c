@@ -596,8 +596,8 @@ zwrite_log(_i zRepoId) {
 
     /* write last deploy SHA1_sig and it's timestamp to: <_SHADOW/log/meta> */
     sprintf(zShellBuf, "cd %s && git log %s -1 --format=\"%%H_%%ct\"",
-            zppGlobRepoIf[zRepoId]->zLastDeploySig,
-            zppGlobRepoIf[zRepoId]->p_RepoPath);
+            zppGlobRepoIf[zRepoId]->p_RepoPath,
+            zppGlobRepoIf[zRepoId]->zLastDeploySig);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
