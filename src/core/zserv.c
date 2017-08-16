@@ -426,14 +426,12 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
     zCcur_Sub_Config(zpSubMetaIf[0], A);  //___
     zpSubMetaIf[0]->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf[0]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpSubMetaIf[0]->DataType = zIsCommitDataType;
     zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[0]);
     /* 生成布署记录缓存 */
     zpSubMetaIf[1] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
     zCcur_Sub_Config(zpSubMetaIf[1], B);  //___
     zpSubMetaIf[1]->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf[1]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
     zpSubMetaIf[1]->DataType = zIsDeployDataType;
     zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[1]);
     /* 等待两批任务完成，之后释放同步锁的资源占用 */

@@ -266,7 +266,7 @@ zget_file_list_and_diff_content(void *zpIf) {
         zpSubMetaIf->CommitId = zpMetaIf->CommitId;
         zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
         zpSubMetaIf->HostId = 0;
-        zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+        zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpSubMetaIf->DataType = zpMetaIf->DataType;
         zpSubMetaIf->p_data = "==> 最新的已布署版本 <==";
         zpSubMetaIf->p_ExtraData = NULL;
@@ -303,7 +303,7 @@ zget_file_list_and_diff_content(void *zpIf) {
             zpSubMetaIf->CommitId = zpMetaIf->CommitId;
             zpSubMetaIf->FileId = i;
             zpSubMetaIf->HostId = 0;
-            zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+            zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
             zpSubMetaIf->p_ExtraData = NULL;
@@ -404,7 +404,7 @@ zgenerate_cache(void *zpIf) {
             zpSubMetaIf->CommitId = i;
             zpSubMetaIf->FileId = -1;
             zpSubMetaIf->HostId = 0;
-            zpSubMetaIf->CacheId = zpMetaIf->CacheId;
+            zpSubMetaIf->CacheId =  zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
             zpSubMetaIf->DataType = zpMetaIf->DataType;
             zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
             zpSubMetaIf->p_ExtraData = &(zpTmpBaseDataIf[2]->p_data[41]);
@@ -786,7 +786,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zpMetaIf[0] = zalloc_cache(zRepoId, sizeof(zMetaInfo));
     zCcur_Sub_Config(zpMetaIf[0], A);  //___
     zpMetaIf[0]->RepoId = zRepoId;
-    zpMetaIf[0]->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf[0]->DataType = zIsCommitDataType;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[0]);
 
@@ -794,7 +793,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zpMetaIf[1] = zalloc_cache(zRepoId, sizeof(zMetaInfo));
     zCcur_Sub_Config(zpMetaIf[1], B);  //___
     zpMetaIf[1]->RepoId = zRepoId;
-    zpMetaIf[1]->CacheId = zppGlobRepoIf[zRepoId]->CacheId;
     zpMetaIf[1]->DataType = zIsDeployDataType;
     zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[1]);
 

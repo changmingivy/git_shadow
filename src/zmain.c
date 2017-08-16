@@ -37,7 +37,7 @@
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
-#define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
+#define zPreLoadCacheSiz 3  // 版本批次及其下属的文件列表与内容缓存
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 #define zServHashSiz 14
