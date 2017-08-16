@@ -26,7 +26,7 @@ git branch -M master
 cd ${zPathOnHost}_SHADOW
 ./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
 i=0
-while [[ 9 -gt $i ]]; do
+while [[ 3 -gt $i ]]; do
     sleep 1
     ./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
     let i++

@@ -120,7 +120,7 @@ zstate_reply(char *zpHost, char *zpPort) {
     close(zFd);
 
     /* 读取本机的所有常规IPv4地址，依次发送状态确认信息至服务端 */
-    zCheck_Null_Exit( zpFileHandler = popen("ip addr | grep -oP '(\\d+\\.){3}\\d+' | grep -vE '^(169|127|0|255)\\.'", "r") );
+    zCheck_Null_Exit( zpFileHandler = fopen("/home/git/zself_ipv4_addr.txt", "r") );
     while (NULL != zget_one_line(zBuf, INET_ADDRSTRLEN, zpFileHandler)) {
         zdel_LB(zBuf);  // 清除 '\n'，否则转换结果将错乱
         zIpv4Bin = zconvert_ipv4_str_to_bin(zBuf);
