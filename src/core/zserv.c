@@ -106,7 +106,11 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
-    zVecWrapInfo *zpTopVecWrapIf;
+    zVecWrapInfo *zpTopVecWrapIf, zSendVecWrapIf;
+    _i zSplitCnt;
+
+    /* 若上一次布署是部分失败的，返回 -13 错误 */
+    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -119,19 +123,23 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    /* 若上一次布署是部分失败的，返回 -13 错误 */
-    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
-
     /* get rdlock */
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
-    if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {
-        zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf, 0, NULL);
-        zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+    zSendVecWrapIf.VecSiz = 0;
+    zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
+    zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
+    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
+        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) % IOV_MAX; }
+        else { zSendVecWrapIf.VecSiz = IOV_MAX; }
+
+        zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);
+        zSendVecWrapIf.p_VecIf += zSendVecWrapIf.VecSiz;
     }
+    zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -142,7 +150,8 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
-    zVecWrapInfo *zpTopVecWrapIf;
+    zVecWrapInfo *zpTopVecWrapIf, zSendVecWrapIf;
+    _i zSplitCnt;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -163,9 +172,16 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CommitId();  // 宏内部会解锁
     zCheck_FileId();  // 宏内部会解锁
 
-    /* 差异文件内容直接是文本格式，在此处临时拼装成 json 样式 */
-    if (NULL != zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
-        zsendmsg(zSd, zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf, 0, NULL);
+    zSendVecWrapIf.VecSiz = 0;
+    zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;
+    zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
+    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
+        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz - 1) % IOV_MAX; }
+        else { zSendVecWrapIf.VecSiz = IOV_MAX; }
+
+        /* 差异文件内容直接是文本格式 */
+        zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);
+        zSendVecWrapIf.p_VecIf += zSendVecWrapIf.VecSiz;
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
