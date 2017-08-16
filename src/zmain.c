@@ -135,19 +135,11 @@ struct zRepoInfo {
 
     _i TotalHost;  // 每个项目的集群的主机数量
 
-    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
-    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
-
     _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
 
-    pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
-    pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
-
-    void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
-    pthread_mutex_t MemLock;  // 内存池锁
-    _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
-
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
+
+    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -162,7 +154,9 @@ struct zRepoInfo {
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
-    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
+    pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
+    pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVecIf[zCacheSiz];
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];
@@ -170,12 +164,19 @@ struct zRepoInfo {
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
     struct iovec SortedCommitVecIf[zCacheSiz];
 
+    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
+    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
+
     struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
     struct iovec DeployVecIf[zCacheSiz];
     struct zRefDataInfo DeployRefDataIf[zCacheSiz];
 
     struct zVecWrapInfo SortedDeployVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
     struct iovec SortedDeployVecIf[zCacheSiz];
+
+    void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
+    pthread_mutex_t MemLock;  // 内存池锁
+    _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 };
 typedef struct zRepoInfo zRepoInfo;
 
