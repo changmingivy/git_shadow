@@ -129,6 +129,10 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
 
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {
+        zget_file_list(zpMetaIf);
+    }
+
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
     zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
@@ -171,6 +175,10 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
     zCheck_FileId();  // 宏内部会解锁
+
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
+        zget_diff_content(zpMetaIf);
+    }
 
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;

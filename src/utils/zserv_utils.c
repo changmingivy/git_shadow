@@ -150,7 +150,6 @@ zauto_pull(void *_) {
  */
 void
 zget_diff_content(void *zpIf) {
-// TEST:PASS
     zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
     zVecWrapInfo *zpTopVecWrapIf;
     zBaseDataInfo *zpTmpBaseDataIf[3];
@@ -202,18 +201,14 @@ zget_diff_content(void *zpIf) {
             zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf[i].iov_len = zpTmpBaseDataIf[2]->DataLen;
         }
     }
-
-    /* >>>>任务完成，尝试通知上层调用者 */
-    zCcur_Fin_Signal(zpMetaIf);
 }
 
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表与每个文件的差异内容
  */
 void
-zget_file_list_and_diff_content(void *zpIf) {
-// TEST:PASS
-    zMetaInfo *zpMetaIf, *zpSubMetaIf;
+zget_file_list(void *zpIf) {
+    zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf;
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
@@ -260,18 +255,17 @@ zget_file_list_and_diff_content(void *zpIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
 
-        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zpSubMetaIf->OpsId = 0;
-        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf->CommitId = zpMetaIf->CommitId;
-        zpSubMetaIf->FileId = -1;  // 置为 -1，不允许再查询下一级内容
-        zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-        zpSubMetaIf->DataType = zpMetaIf->DataType;
-        zpSubMetaIf->p_data = "==> 最新的已布署版本 <==";
-        zpSubMetaIf->p_ExtraData = NULL;
+        zSubMetaIf.OpsId = 0;
+        zSubMetaIf.RepoId = zpMetaIf->RepoId;
+        zSubMetaIf.CommitId = zpMetaIf->CommitId;
+        zSubMetaIf.FileId = -1;  // 置为 -1，不允许再查询下一级内容
+        zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+        zSubMetaIf.DataType = zpMetaIf->DataType;
+        zSubMetaIf.p_data = "==> 最新的已布署版本 <==";
+        zSubMetaIf.p_ExtraData = NULL;
 
         /* 将zMetaInfo转换为JSON文本 */
-        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+        zconvert_struct_to_json_str(zJsonBuf, &zSubMetaIf);
         zJsonBuf[0] = '[';  // 逗号替换为 '['
 
         zVecDataLen = strlen(zJsonBuf);
@@ -284,49 +278,33 @@ zget_file_list_and_diff_content(void *zpIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(zRefDataInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
 
-        /* >>>>初始化线程同步环境 */
-        zCcur_Init(zpMetaIf->RepoId, A);
-
         for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
-            /* >>>>检测是否是最后一次循环 */
-            zCcur_Fin_Mark(i == zCnter - 1, A);
-
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
 
-            zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-            /* >>>>填充必要的线程间同步数据 */
-            zCcur_Sub_Config(zpSubMetaIf, A);
-            /* 用于转换成JsonStr以及传向下一级函数 */
-            zpSubMetaIf->OpsId = 0;
-            zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-            zpSubMetaIf->CommitId = zpMetaIf->CommitId;
-            zpSubMetaIf->FileId = i;
-            zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-            zpSubMetaIf->DataType = zpMetaIf->DataType;
-            zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
-            zpSubMetaIf->p_ExtraData = NULL;
+            /* 用于转换成JsonStr */
+            zSubMetaIf.OpsId = 0;
+            zSubMetaIf.RepoId = zpMetaIf->RepoId;
+            zSubMetaIf.CommitId = zpMetaIf->CommitId;
+            zSubMetaIf.FileId = i;
+            zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+            zSubMetaIf.DataType = zpMetaIf->DataType;
+            zSubMetaIf.p_data = zpTmpBaseDataIf[2]->p_data;
+            zSubMetaIf.p_ExtraData = NULL;
 
             /* 将zMetaInfo转换为JSON文本 */
-            zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+            zconvert_struct_to_json_str(zJsonBuf, &zSubMetaIf);
 
             zVecDataLen = strlen(zJsonBuf);
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_len = zVecDataLen;
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
             memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
 
-            /* 进入下一层获取对应的差异内容 */
-            zAdd_To_Thread_Pool(zget_diff_content, zpSubMetaIf);
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_SubVecWrapIf = NULL;
         }
-
-        /* >>>>等待分发出去的所有任务全部完成 */
-        zCcur_Wait(A);
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
     }
-
-    /* >>>>任务完成，尝试通知上层调用者 */
-    zCcur_Fin_Signal(zpMetaIf);
 }
 
 /*
@@ -335,8 +313,7 @@ zget_file_list_and_diff_content(void *zpIf) {
  */
 void
 zgenerate_cache(void *zpIf) {
-// TEST:PASS
-    zMetaInfo *zpMetaIf, *zpSubMetaIf;
+    zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
@@ -383,43 +360,30 @@ zgenerate_cache(void *zpIf) {
     zpSortedTopVecWrapIf->VecSiz = zpTopVecWrapIf->VecSiz = zCnter;
 
     if (0 != zCnter) {
-        /* >>>>初始化线程同步环境 */
-        zCcur_Init(zpMetaIf->RepoId, A);
-
         for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
-            /* >>>>检测是否是最后一次循环 */
-            zCcur_Fin_Mark(i == zCnter - 1, A);
-
             zpTmpBaseDataIf[2]->p_data[40] = '\0';
             zpTopVecWrapIf->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
 
-            zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-            /* >>>>填充必要的线程间同步数据 */
-            zCcur_Sub_Config(zpSubMetaIf, A);
-            /* 用于转换成JsonStr以及传向下一级函数 */
-            zpSubMetaIf->OpsId = 0;
-            zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-            zpSubMetaIf->CommitId = i;
-            zpSubMetaIf->FileId = -1;
-            zpSubMetaIf->CacheId =  zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-            zpSubMetaIf->DataType = zpMetaIf->DataType;
-            zpSubMetaIf->p_data = zpTmpBaseDataIf[2]->p_data;
-            zpSubMetaIf->p_ExtraData = &(zpTmpBaseDataIf[2]->p_data[41]);
+            /* 用于转换成JsonStr */
+            zSubMetaIf.OpsId = 0;
+            zSubMetaIf.RepoId = zpMetaIf->RepoId;
+            zSubMetaIf.CommitId = i;
+            zSubMetaIf.FileId = -1;
+            zSubMetaIf.CacheId =  zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+            zSubMetaIf.DataType = zpMetaIf->DataType;
+            zSubMetaIf.p_data = zpTmpBaseDataIf[2]->p_data;
+            zSubMetaIf.p_ExtraData = &(zpTmpBaseDataIf[2]->p_data[41]);
 
             /* 将zMetaInfo转换为JSON文本 */
-            zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+            zconvert_struct_to_json_str(zJsonBuf, &zSubMetaIf);
 
             zVecDataLen = strlen(zJsonBuf);
             zpTopVecWrapIf->p_VecIf[i].iov_len = zVecDataLen;
             zpTopVecWrapIf->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
             memcpy(zpTopVecWrapIf->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
 
-            /* 进入下一层获取对应的差异文件列表 */
-            zAdd_To_Thread_Pool(zget_file_list_and_diff_content, zpSubMetaIf);
+            zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
         }
-
-        /* >>>>等待分发出去的所有任务全部完成 */
-        zCcur_Wait(A);
 
         if (zIsDeployDataType == zpMetaIf->DataType) {
             // 存储最近一次布署的 SHA1 sig，执行布署是首先对比布署目标与最近一次布署，若相同，则直接返回成功
@@ -458,9 +422,8 @@ zgenerate_cache(void *zpIf) {
  */
 void
 zupdate_one_commit_cache(void *zpIf) {
-// TEST:PASS
     zObjInfo *zpObjIf;
-    zMetaInfo *zpSubMetaIf;
+    zMetaInfo zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
 
     char zJsonBuf[zBytes(256)];  // iov_base
@@ -496,29 +459,20 @@ zupdate_one_commit_cache(void *zpIf) {
     zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41)) );
     strcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zRes);
 
-    /* >>>>初始化线程同步环境 */
-    zCcur_Init(zpObjIf->RepoId, A);
-    /* >>>>通知工作线程是最后一次循环 */
-    zCcur_Fin_Mark(1 == 1, A);
-    /* >>>>填充必要的线程间同步数据 */
-    zpSubMetaIf = zalloc_cache(zpObjIf->RepoId, sizeof(zMetaInfo));
-    zCcur_Sub_Config(zpSubMetaIf, A);
-    /* 转换成JsonStr以及传向下一级函数 */
-    zpSubMetaIf->OpsId = 0;
-    zpSubMetaIf->RepoId = zpObjIf->RepoId;
-    zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
-    zpSubMetaIf->FileId = -1;
-    zpSubMetaIf->CacheId = zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
-    zpSubMetaIf->DataType = zIsCommitDataType;
-    zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
-    zpSubMetaIf->p_ExtraData = &(zRes[41]);
+    /* 转换成JsonStr */
+    zSubMetaIf.OpsId = 0;
+    zSubMetaIf.RepoId = zpObjIf->RepoId;
+    zSubMetaIf.CommitId = *zpHeadId;  // 逆向循环索引号更新
+    zSubMetaIf.FileId = -1;
+    zSubMetaIf.CacheId = zppGlobRepoIf[zpObjIf->RepoId]->CacheId;
+    zSubMetaIf.DataType = zIsCommitDataType;
+    zSubMetaIf.p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
+    zSubMetaIf.p_ExtraData = &(zRes[41]);
     /* 生成下一级缓存 */
-    zAdd_To_Thread_Pool( zget_file_list_and_diff_content, zpSubMetaIf );
-    /* >>>>等待分发出去的所有任务全部完成 */
-    zCcur_Wait(A);
+    zget_file_list(&zSubMetaIf);
 
     /* 将zMetaInfo转换为JSON文本 */
-    zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+    zconvert_struct_to_json_str(zJsonBuf, &zSubMetaIf);
 
     /* 将JsonStr内容存放到iov_base中 */
     zVecDataLen = strlen(zJsonBuf);
