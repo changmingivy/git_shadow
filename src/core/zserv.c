@@ -133,7 +133,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
     zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
     for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
-        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) % IOV_MAX; }
+        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz) % IOV_MAX; }
         else { zSendVecWrapIf.VecSiz = IOV_MAX; }
 
         zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);
@@ -176,7 +176,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;
     zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
     for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
-        if (1 == zCnter) { zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz - 1) % IOV_MAX; }
+        if (1 == zCnter) { zSendVecWrapIf.VecSiz = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz % IOV_MAX; }
         else { zSendVecWrapIf.VecSiz = IOV_MAX; }
 
         /* 差异文件内容直接是文本格式 */
