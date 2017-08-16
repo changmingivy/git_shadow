@@ -240,7 +240,7 @@ zclient(void) {
     }
 
     // 创建新项目
-    char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":145,\"data\":\"145 /home/git/145_M git@git.rockywu.me:pingtaijiagou/miaopaii2mp.git deploy git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":145,\"data\":\"145 /home/git/145_M git@git.rockywu.me:pingtaijiagou/miaopaii2mp.git deploy git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":145,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";

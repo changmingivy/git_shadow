@@ -164,7 +164,7 @@ zget_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
-        exit(1);
+        return;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -224,7 +224,7 @@ zget_file_list(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型错误!");
-        exit(1);
+        return;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
