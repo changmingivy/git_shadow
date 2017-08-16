@@ -127,11 +127,8 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     if (EBUSY == pthread_rwlock_tryrdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) { zget_file_list(zpMetaIf); }
     zCheck_CommitId();  // 宏内部会解锁
-
-    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf) {
-        zget_file_list(zpMetaIf);
-    }
 
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
@@ -174,11 +171,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 
     zCheck_CacheId();  // 宏内部会解锁
     zCheck_CommitId();  // 宏内部会解锁
+    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) { zget_diff_content(zpMetaIf); }
     zCheck_FileId();  // 宏内部会解锁
-
-    if (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf) {
-        zget_diff_content(zpMetaIf);
-    }
 
     zSendVecWrapIf.VecSiz = 0;
     zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;
