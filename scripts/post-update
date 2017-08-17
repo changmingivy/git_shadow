@@ -24,11 +24,11 @@ git reset -q --hard
 git branch -M master
 
 cd ${zPathOnHost}_SHADOW
-./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
+./bin/git_shadow_client -h  -p 
 i=0
 while [[ 3 -gt $i ]]; do
     sleep 1
-    ./bin/git_shadow_client -h __MASTER_ADDR -p __MASTER_PORT
+    ./bin/git_shadow_client -h  -p 
     let i++
 done
 
