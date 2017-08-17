@@ -213,6 +213,11 @@ zget_file_list(void *zpIf) {
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
 
+	zTreeNodeInfo zTreeNodeIf = {NULL, NULL, NULL, "."};
+	zTreeNodeInfo *zpTmpTreeNodeIf[2];
+	zPCREInitInfo *zpPcreInitIf = zpcre_init("[^/]+");
+	zPCRERetInfo *zpPcreRetIf;
+
     FILE *zpShellRetHandler;
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
@@ -235,7 +240,35 @@ zget_file_list(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
+	_i zNodeCnter;
     for (zCnter = 0; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
+		zpPcreRetIf = zpcre_match(zPCREInitIf, zRes, 1);
+
+		zpTmpTreeNodeIf[0] = zTreeNodeIf.p_FirstChild;
+		for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt 
+				&& (NULL != zpTmpTreeNodeIf[0])
+				&& (0 == strcmp(zRes, zpPcreRetIf->p_rets[zNodeCnter])); zNodeCnter++) {
+
+			zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+		}
+
+		if (NULL == zpTmpTreeNodeIf[0]) {
+			zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));
+			zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, strlen(zRes));
+		} else {
+			zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
+			while (0 != strcmp(zRes, zpPcreRetIf->p_rets[zNodeCnter])) {
+				zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
+				if (NULL != zpTmpTreeNodeIf[0]) {
+					zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1];
+					break;
+				}
+			}
+		}
+
+
+
+
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }

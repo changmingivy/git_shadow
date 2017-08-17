@@ -179,6 +179,14 @@ struct zRepoInfo {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 };
 typedef struct zRepoInfo zRepoInfo;
+///////////////////////////////////////////////////////////////////////////////////////////////////
+struct zTreeNodeInfo {
+    struct zTreeNodeInfo *p_father;
+    struct zTreeNodeInfo *p_left;
+    struct zTreeNodeInfo *p_FirstChild;
+    char *p_data;
+};
+typedef struct zTreeNodeInfo zTreeNodeInfo;
 
 /************
  * 全局变量 *
