@@ -74,3 +74,12 @@ mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
 touch ${zDeployPath}_SHADOW/info/repo_id
 touch ${zDeployPath}_SHADOW/log/deploy/meta
 chmod -R 0755 ${zDeployPath}_SHADOW
+
+# use to get diff when no deploy log has been written
+cd ${zDeployPath}
+git branch -f BASEXXXXXXXX
+git checkout BASEXXXXXXXX
+rm -rf *
+git add --all .
+git commit --allow-empty -m "_"
+git checkout master
