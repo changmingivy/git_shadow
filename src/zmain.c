@@ -37,7 +37,7 @@
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
-#define zPreLoadCacheSiz 3  // 版本批次及其下属的文件列表与内容缓存
+#define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 #define zServHashSiz 14
@@ -185,6 +185,7 @@ struct zTreeNodeInfo {
     struct zTreeNodeInfo *p_left;
     struct zTreeNodeInfo *p_FirstChild;
     char *p_data;
+    _i zEndMark;  // 标记是否是上层结构的最后一个成员：1表示是，0表示不是
 };
 typedef struct zTreeNodeInfo zTreeNodeInfo;
 

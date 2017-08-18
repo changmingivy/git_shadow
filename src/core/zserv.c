@@ -89,7 +89,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
-    /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX，不使用链表 */
+    /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
     if (0 < zpSortedTopVecWrapIf->VecSiz) {
         zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
         zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
@@ -134,13 +134,13 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     zSendVecWrapIf.VecSiz = 0;
-    zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_VecIf;
-    zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
+    zSendVecWrapIf.p_VecIf = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf;
+    zSplitCnt = (zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz - 1) / zSendUnitSiz  + 1;
     for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
         if (1 == zCnter) {
-            zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz) % IOV_MAX;
+            zSendVecWrapIf.VecSiz = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) % zSendUnitSiz + 1;
         } else {
-            zSendVecWrapIf.VecSiz = IOV_MAX;
+            zSendVecWrapIf.VecSiz = zSendUnitSiz;
         }
 
         zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);
@@ -184,11 +184,15 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     zSendVecWrapIf.VecSiz = 0;
-    zSendVecWrapIf.p_VecIf = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->p_VecIf;
-    zSplitCnt = (zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz - 1) / IOV_MAX  + 1;
+    zSendVecWrapIf.p_VecIf = zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->p_VecIf;
+    zSplitCnt = (zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) / zSendUnitSiz  + 1;
     for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
-        if (1 == zCnter) { zSendVecWrapIf.VecSiz = zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->p_RefDataIf[zpMetaIf->FileId].p_SubVecWrapIf->VecSiz % IOV_MAX; }
-        else { zSendVecWrapIf.VecSiz = IOV_MAX; }
+        if (1 == zCnter) {
+            zSendVecWrapIf.VecSiz = (zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz - 1) % zSendUnitSiz + 1;
+        }
+        else {
+            zSendVecWrapIf.VecSiz = zSendUnitSiz;
+        }
 
         /* 差异文件内容直接是文本格式 */
         zsendmsg(zSd, &zSendVecWrapIf, 0, NULL);

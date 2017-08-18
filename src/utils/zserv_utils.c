@@ -210,13 +210,13 @@ void
 zget_file_list(void *zpIf) {
     zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf;
-    zBaseDataInfo *zpTmpBaseDataIf[3];
-    _i zVecDataLen, zBaseDataLen, zCnter;
+    zBaseDataInfo *zpTmpBaseDataIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
+    _i zVecDataLen, zBaseDataLen, zCnter, zNodeCnter;
 
-	zTreeNodeInfo zTreeNodeIf = {NULL, NULL, NULL, "."};
-	zTreeNodeInfo *zpTmpTreeNodeIf[2];
-	zPCREInitInfo *zpPcreInitIf = zpcre_init("[^/]+");
-	zPCRERetInfo *zpPcreRetIf;
+    zTreeNodeInfo zTreeNodeIf = {NULL, NULL, NULL, ".", 0};
+    zTreeNodeInfo *zpTmpTreeNodeIf[3];
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^/]+");
+    zPCRERetInfo *zpPcreRetIf;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
@@ -240,46 +240,65 @@ zget_file_list(void *zpIf) {
 
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
-	_i zNodeCnter;
-    for (zCnter = 0; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
-		zpPcreRetIf = zpcre_match(zPCREInitIf, zRes, 1);
+    zCnter = zNodeCnter = 0;
+    if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
+        zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
-		zpTmpTreeNodeIf[0] = zTreeNodeIf.p_FirstChild;
-		for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt 
-				&& (NULL != zpTmpTreeNodeIf[0])
-				&& (0 == strcmp(zRes, zpPcreRetIf->p_rets[zNodeCnter])); zNodeCnter++) {
+        for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {
+            zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));
+            if (0 == zNodeCnter) {
+                zTreeNodeIf.p_FirstChild = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
+                zpTmpTreeNodeIf[0]->p_father = &zTreeNodeIf;
+            } else {
+                zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];
+            }
 
-			zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-		}
+            zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];
+            zpTmpTreeNodeIf[0]->p_left = NULL;
+            zpTmpTreeNodeIf[0]->zEndMark = 0;
+            zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));
+            strcpy(zpTmpTreeNodeIf[0]->p_data, zpPcreRetIf->p_rets[zNodeCnter]);
 
-		if (NULL == zpTmpTreeNodeIf[0]) {
-			zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));
-			zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, strlen(zRes));
-		} else {
-			zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
-			while (0 != strcmp(zRes, zpPcreRetIf->p_rets[zNodeCnter])) {
-				zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
-				if (NULL != zpTmpTreeNodeIf[0]) {
-					zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1];
-					break;
-				}
-			}
-		}
+            zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
+            zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+        }
+        zpTmpTreeNodeIf[0]->p_FirstChild = NULL;
+        zpcre_free_tmpsource(zpPcreRetIf);
 
+        for (zCnter = 1; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
+            zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
+            zpTmpTreeNodeIf[0] = zTreeNodeIf.p_FirstChild;
+            for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {
+                zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
 
+                if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data,  zpPcreRetIf->p_rets[zNodeCnter])) {
+                    zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                    goto zMark;
+                } else {
+                    zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
+                    zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
+                    while (NULL != zpTmpTreeNodeIf[0]) {
+                        if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data, zpPcreRetIf->p_rets[zNodeCnter])) {
+                            zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                            goto zMark;
+                        }
+                        zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
+                        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
+                    }
+                }
+zMark:
+                if (NULL == zpTmpTreeNodeIf[0]) { break; }
+            }
 
-        zBaseDataLen = strlen(zRes);
-        zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
-        zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
-        memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
-        zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
-
-        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+            //...
+            zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[2]->p_left= zpTmpTreeNodeIf[0];
+            zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];
+            //...
+            zpcre_free_tmpsource(zpPcreRetIf);
+        }
     }
+    zpcre_free_metasource(zpPcreInitIf);
     pclose(zpShellRetHandler);
 
     if (0 == zCnter) {
