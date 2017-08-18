@@ -310,7 +310,10 @@ zget_file_list(void *zpIf) {
         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
 
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
+
+        /* 添加树节点 */
         zGenerate_Tree_Node();
+
         zpcre_free_tmpsource(zpPcreRetIf);
 
         for (zCnter = 1; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
@@ -339,12 +342,17 @@ zMark:
                 if (NULL == zpTmpTreeNodeIf[0]) { break; }
             }
 
+            /* 添加树节点 */
             zGenerate_Tree_Node();
+
             zpcre_free_tmpsource(zpPcreRetIf);
         }
     }
     zpcre_free_metasource(zpPcreInitIf);
     pclose(zpShellRetHandler);
+
+    /* 用于存储最终的每一行已格式化的文本 */
+    char *zpFinalRes[zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz];
 
     if (0 == zCnter) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
