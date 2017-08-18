@@ -273,7 +273,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
     zpIpStrList = zalloc_cache(zpMetaIf->RepoId, zBytes(16) * zpPcreResIf->cnt);
 
     /* 并发同步环境初始化 */
-    zCcur_Init(zpMetaIf->RepoId, A);
+    zCcur_Init(zpMetaIf->RepoId, 0, A);
     for (_i i = 0; i < zpPcreResIf->cnt; i++) {
         /* 检测是否是最后一次循环 */
         zCcur_Fin_Mark((zpPcreResIf->cnt - 1) == i, A);
@@ -447,9 +447,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
     /* 同步锁初始化 */
-    zCcur_Init(zpMetaIf->RepoId, A);  //___
+    zCcur_Init(zpMetaIf->RepoId, 0, A);  //___
     zCcur_Fin_Mark(1 == 1, A);  //___
-    zCcur_Init(zpMetaIf->RepoId, B);  //___
+    zCcur_Init(zpMetaIf->RepoId, 0, B);  //___
     zCcur_Fin_Mark(1 == 1, B);  //___
     /* 生成提交记录缓存 */
     zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
