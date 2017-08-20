@@ -64,8 +64,9 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     *zpThreadCnter##zSuffix = 0;\
 \
     pthread_cond_t *zpCondVar##zSuffix = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
-    pthread_mutex_t *zpMutexLock##zSuffix = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
     pthread_cond_init(zpCondVar##zSuffix, NULL);\
+\
+    pthread_mutex_t *zpMutexLock##zSuffix = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
     pthread_mutex_init(zpMutexLock##zSuffix, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 1, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 2, NULL);\
@@ -132,6 +133,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         } while (*(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix));\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_cond_destroy(zpCondVar##zSuffix);\
+        pthread_mutex_destroy(zpMutexLock##zSuffix + 2);\
         pthread_mutex_destroy(zpMutexLock##zSuffix + 1);\
         pthread_mutex_destroy(zpMutexLock##zSuffix);\
     } while(0)
@@ -247,7 +249,7 @@ zgenerate_graph(void *zpIf) {
     if (NULL == zpNodeIf->p_left) {
         zpNodeIf->p_data[6 * zBytes(zpNodeIf->OffSet - 1) + 2] = '\224';
     } else {
-        zpNodeIf->p_data[6 * zBytes(zpNodeIf->OffSet - 2)] = '\234';
+        zpNodeIf->p_data[6 * zBytes(zpNodeIf->OffSet - 1) + 2] = '\234';
     }
     zpNodeIf->p_data[6 * zBytes(zpNodeIf->OffSet - 1) + 3] = '\342';
     zpNodeIf->p_data[6 * zBytes(zpNodeIf->OffSet - 1) + 4] = '\224';
@@ -295,6 +297,8 @@ zdistribute_task(void *zpIf) {
 
     zpTmpNodeIf = zpNodeIf->p_left;
     while (NULL != zpTmpNodeIf) {
+        zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
+
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
         zCcur_Fin_Mark_Thread(zpTmpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
@@ -304,6 +308,8 @@ zdistribute_task(void *zpIf) {
 
     zpTmpNodeIf = zpNodeIf->p_FirstChild;
     while (NULL != zpTmpNodeIf) {
+        zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
+
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
         zCcur_Fin_Mark_Thread(zpTmpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
@@ -316,7 +322,6 @@ zdistribute_task(void *zpIf) {
     zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
     zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移，第一行是Root节点 */\
     zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移，第一列是Root节点 */\
-    zpTmpTreeNodeIf[0]->pp_ResHash = zpRootNodeIf->pp_ResHash;\
 \
     zpTmpTreeNodeIf[0]->OpsId = 0;\
     zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
@@ -367,7 +372,6 @@ zdistribute_task(void *zpIf) {
         zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
         zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
         zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移 */\
-        zpTmpTreeNodeIf[0]->pp_ResHash = zpRootNodeIf->pp_ResHash;\
 \
         zpTmpTreeNodeIf[0]->OpsId = 0;\
         zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
@@ -395,7 +399,7 @@ zdistribute_task(void *zpIf) {
     }\
     zpTmpTreeNodeIf[1]->FileId = zpTmpTreeNodeIf[1]->LineNum;  /* 最后一个节点关联元数据 */\
     zpTmpTreeNodeIf[1]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
-    memcpy(zpTmpTreeNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
+    memcpy(zpTmpTreeNodeIf[1]->p_ExtraData, zRes, zBaseDataLen);\
 } while(0)
 
 void
@@ -414,6 +418,7 @@ zget_file_list(void *zpIf) {
     zpMetaIf = (zMetaInfo *)zpIf;
     zpRootNodeIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
     memcpy(zpRootNodeIf, zpMetaIf, sizeof(zMetaInfo));
+    zpRootNodeIf->p_data = ".";
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
