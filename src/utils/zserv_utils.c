@@ -350,6 +350,7 @@ zdistribute_task(void *zpIf) {
             }\
         }\
 \
+        zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
         zpTmpTreeNodeIf[0]->p_father = zpRootNodeIf;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
