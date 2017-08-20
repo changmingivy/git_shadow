@@ -416,10 +416,7 @@ zget_file_list(void *zpIf) {
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
-    zpRootNodeIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-    memcpy(zpRootNodeIf, zpMetaIf, sizeof(zMetaInfo));
-    zpRootNodeIf->p_data = ".";
-    zpRootNodeIf->OffSet = 0;
+    zpRootNodeIf = zpMetaIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -523,7 +520,7 @@ zMark:
         zCcur_Init(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz, A);
         zCcur_Sub_Config(zpRootNodeIf->p_FirstChild, A);
         zCcur_Fin_Mark(zpRootNodeIf->p_TotalTask == zpRootNodeIf->p_TaskCnter, A);
-        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
+        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf->p_FirstChild);
         zCcur_Wait(A);
 
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf 
