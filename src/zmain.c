@@ -89,6 +89,13 @@ struct zMetaInfo {
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
 
+    struct zMetaInfo *p_father;  // Tree 父节点
+    struct zMetaInfo *p_left;  // Tree 左节点
+    struct zMetaInfo *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
+    struct zMetaInfo **pp_ResHash;  // Tree 按行号对应的散列
+    _i LineNum;  // 行号
+    _i OffSet;  // 纵向偏移
+
     pthread_cond_t *p_CondVar;  // 条件变量
     _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
     _i *p_TaskCnter;  // 已分发出去的任务计数
@@ -180,16 +187,6 @@ struct zRepoInfo {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 };
 typedef struct zRepoInfo zRepoInfo;
-///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zTreeNodeInfo {
-    struct zTreeNodeInfo *p_father;
-    struct zTreeNodeInfo *p_left;
-    struct zTreeNodeInfo *p_FirstChild;
-    char *p_data;
-    _i LineNum;  // 行号
-    _i OffSet;  // 纵向偏移
-};
-typedef struct zTreeNodeInfo zTreeNodeInfo;
 
 /************
  * 全局变量 *

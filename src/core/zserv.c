@@ -48,7 +48,7 @@
  * 0：列出所有有效项目ID及其所在路径
  */
 _i
-zzero(zMetaInfo *_, _i zSd) { return 0; }
+zzero(zMetaInfo *_, _i __) { return 0; }
 
 /*
  * 1：添加新项目（代码库）
@@ -67,7 +67,7 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
  * 13：删除项目（代码库）
  */
 _i
-zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) { return 0; }
+zdelete_repo(zMetaInfo *_, _i __) { return 0; }
 
 /*
  * 6：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
@@ -242,7 +242,7 @@ zMark:
  * 注：完全内嵌于 zdeploy() 中，不再需要读写锁
  */
 _i
-zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
+zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i _) {
     zMetaInfo *zpSubMetaIf;
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
@@ -507,7 +507,7 @@ zprint_failing_list(zMetaInfo *zpMetaIf, _i zSd) {
  * 9：布署成功主机自动确认
  */
 _i
-zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
+zstate_confirm(zMetaInfo *zpMetaIf, _i _) {
     zDeployResInfo *zpTmp = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDeployHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
