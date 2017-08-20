@@ -223,6 +223,11 @@ zget_diff_content(void *zpIf) {
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表
  */
+void
+ztree_walking(zTreeNodeInfo *zpNodeIf, char **zppResHash) {
+
+}
+
 #define zGenerate_Tree_Node() do {\
     zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));\
     zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
@@ -230,16 +235,16 @@ zget_diff_content(void *zpIf) {
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
 \
     if (0 == zNodeCnter) {\
-        if (NULL == zTreeNodeIf.p_FirstChild) {\
-            zTreeNodeIf.p_FirstChild = zpTmpTreeNodeIf[0];\
+        if (NULL == zpRootNodeIf->p_FirstChild) {\
+            zpRootNodeIf->p_FirstChild = zpTmpTreeNodeIf[0];\
         } else {\
-            zpTmpTreeNodeIf[2] = zTreeNodeIf.p_FirstChild;\
+            zpTmpTreeNodeIf[2] = zpRootNodeIf->p_FirstChild;\
             while (NULL != zpTmpTreeNodeIf[2]->p_left) {\
                 zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[2]->p_left;\
             }\
         }\
 \
-        zpTmpTreeNodeIf[0]->p_father = &zTreeNodeIf;\
+        zpTmpTreeNodeIf[0]->p_father = zpRootNodeIf;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
         zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
@@ -283,15 +288,15 @@ zget_file_list(void *zpIf) {
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zVecDataLen, zCnter, zNodeCnter;
 
-    zTreeNodeInfo zTreeNodeIf = {NULL, NULL, NULL, ".", 0, 0};
-    zTreeNodeInfo *zpTmpTreeNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("[^/]+");
+    zTreeNodeInfo *zpRootNodeIf, *zpTmpTreeNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
+    zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreRetIf;
 
     FILE *zpShellRetHandler;
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
+    zpRootNodeIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -314,6 +319,7 @@ zget_file_list(void *zpIf) {
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
 
     zCnter = zNodeCnter = 0;
+    zpPcreInitIf = zpcre_init("[^/]+");
     if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
@@ -327,7 +333,7 @@ zget_file_list(void *zpIf) {
             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
-            zpTmpTreeNodeIf[0] = zTreeNodeIf.p_FirstChild;
+            zpTmpTreeNodeIf[0] = zpRootNodeIf->p_FirstChild;
             for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {
                 zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
 
@@ -360,7 +366,7 @@ zMark:
     pclose(zpShellRetHandler);
 
     /* 用于存储最终的每一行已格式化的文本 */
-    char *zpFinalRes[zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz];
+    char **zppResHash = zalloc_cache(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz * sizeof(char *));
 
     if (0 == zCnter) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
