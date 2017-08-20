@@ -341,17 +341,17 @@ zdistribute_task(void *zpIf) {
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
 \
     if (0 == zNodeCnter) {\
-        if (NULL == zpRootNodeIf->p_FirstChild) {\
-            zpRootNodeIf->p_FirstChild = zpTmpTreeNodeIf[0];\
+        if (NULL == zpRootNodeIf) {\
+            zpRootNodeIf = zpTmpTreeNodeIf[0];\
         } else {\
-            zpTmpTreeNodeIf[2] = zpRootNodeIf->p_FirstChild;\
+            zpTmpTreeNodeIf[2] = zpRootNodeIf;\
             while (NULL != zpTmpTreeNodeIf[2]->p_left) {\
                 zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[2]->p_left;\
             }\
         }\
 \
         zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
-        zpTmpTreeNodeIf[0]->p_father = zpRootNodeIf;\
+        zpTmpTreeNodeIf[0]->p_father = NULL;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
         zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
@@ -417,8 +417,7 @@ zget_file_list(void *zpIf) {
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
-    zpRootNodeIf = zpMetaIf;
-    zpRootNodeIf->p_FirstChild = NULL;
+    zpRootNodeIf = NULL;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -460,7 +459,7 @@ zget_file_list(void *zpIf) {
             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
-            zpTmpTreeNodeIf[0] = zpRootNodeIf->p_FirstChild;
+            zpTmpTreeNodeIf[0] = zpRootNodeIf;
             for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {
                 zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
 
@@ -492,7 +491,7 @@ zMark:
     zpcre_free_metasource(zpPcreInitIf);
     pclose(zpShellRetHandler);
 
-    if (NULL == zpRootNodeIf->p_FirstChild) {
+    if (NULL == zpRootNodeIf) {
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 1;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = NULL;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, sizeof(struct iovec));
@@ -516,13 +515,13 @@ zMark:
         memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base, zJsonBuf, zVecDataLen);
     } else {
         /* 用于存储最终的每一行已格式化的文本 */
-        zpRootNodeIf->p_FirstChild->pp_ResHash = zalloc_cache(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz * sizeof(zMetaInfo *));
+        zpRootNodeIf->pp_ResHash = zalloc_cache(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz * sizeof(zMetaInfo *));
 
         /* Tree 图生成过程的并发控制 */
         zCcur_Init(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz, A);
-        zCcur_Sub_Config(zpRootNodeIf->p_FirstChild, A);
-        zCcur_Fin_Mark(zpRootNodeIf->p_FirstChild->p_TotalTask == zpRootNodeIf->p_FirstChild->p_TaskCnter, A);
-        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf->p_FirstChild);
+        zCcur_Sub_Config(zpRootNodeIf, A);
+        zCcur_Fin_Mark(zpRootNodeIf->p_TotalTask == zpRootNodeIf->p_TaskCnter, A);
+        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
         zCcur_Wait(A);
 
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf 
@@ -531,14 +530,14 @@ zMark:
             = zalloc_cache(zpMetaIf->RepoId, zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz * sizeof(struct iovec));
 
         for (_i i = 0; i < zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz; i++) {
-            zconvert_struct_to_json_str(zJsonBuf, zpRootNodeIf->p_FirstChild->pp_ResHash[i]); /* 将 zMetaInfo 转换为 json 文本 */
+            zconvert_struct_to_json_str(zJsonBuf, zpRootNodeIf->pp_ResHash[i]); /* 将 zMetaInfo 转换为 json 文本 */
 
             zVecDataLen = strlen(zJsonBuf);
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_len = zVecDataLen;
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
             memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zJsonBuf, zVecDataLen);
 
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpRootNodeIf->p_FirstChild->pp_ResHash[i]->p_ExtraData;
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpRootNodeIf->pp_ResHash[i]->p_ExtraData;
             zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_SubVecWrapIf = NULL;
         }
 
