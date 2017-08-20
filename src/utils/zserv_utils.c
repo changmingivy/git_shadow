@@ -348,9 +348,9 @@ zdistribute_task(void *zpIf) {
             while (NULL != zpTmpTreeNodeIf[2]->p_left) {\
                 zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[2]->p_left;\
             }\
+            zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
         }\
 \
-        zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
         zpTmpTreeNodeIf[0]->p_father = NULL;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
