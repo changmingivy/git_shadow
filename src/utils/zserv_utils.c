@@ -221,7 +221,7 @@ zget_diff_content(void *zpIf) {
 }
 
 /*
- * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表与每个文件的差异内容
+ * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表
  */
 #define zGenerate_Tree_Node() do {\
     zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zTreeNodeInfo));\
@@ -229,12 +229,16 @@ zget_diff_content(void *zpIf) {
     zpTmpTreeNodeIf[0]->OffSet = zNodeCnter + 1;  /* 纵向偏移 */\
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
 \
-    if (NULL != zpTmpTreeNodeIf[2]) {\
-        zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
-    }\
-\
     if (0 == zNodeCnter) {\
-        zTreeNodeIf.p_FirstChild = zpTmpTreeNodeIf[0];\
+        if (NULL == zTreeNodeIf.p_FirstChild) {\
+            zTreeNodeIf.p_FirstChild = zpTmpTreeNodeIf[0];\
+        } else {\
+            zpTmpTreeNodeIf[2] = zTreeNodeIf.p_FirstChild;\
+            while (NULL != zpTmpTreeNodeIf[2]->p_left) {\
+                zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[2]->p_left;\
+            }\
+        }\
+\
         zpTmpTreeNodeIf[0]->p_father = &zTreeNodeIf;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
@@ -245,6 +249,10 @@ zget_diff_content(void *zpIf) {
     zpTmpTreeNodeIf[0]->p_left = NULL;\
     zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
     strcpy(zpTmpTreeNodeIf[0]->p_data, zpPcreRetIf->p_rets[zNodeCnter]);\
+\
+    if (NULL != zpTmpTreeNodeIf[2]) {\
+        zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
+    }\
 \
     zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;\
@@ -308,7 +316,6 @@ zget_file_list(void *zpIf) {
     zCnter = zNodeCnter = 0;
     if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
-
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
         /* 添加树节点 */
@@ -317,6 +324,7 @@ zget_file_list(void *zpIf) {
         zpcre_free_tmpsource(zpPcreRetIf);
 
         for (zCnter = 1; NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler); zCnter++) {
+            zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
             zpTmpTreeNodeIf[0] = zTreeNodeIf.p_FirstChild;

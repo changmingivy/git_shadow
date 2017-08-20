@@ -1,1 +1,1 @@
-# zgit_shadow
+# git_shadow
