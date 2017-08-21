@@ -358,11 +358,17 @@ zdistribute_task(void *zpIf) {
     zNodeCnter++;\
     for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
         zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
-        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;\
-\
         zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
+        zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
+        zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
+        zpTmpTreeNodeIf[0]->p_left = NULL;\
+\
         zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
         zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移 */\
+\
+        zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
+        strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
         zpTmpTreeNodeIf[0]->OpsId = 0;\
         zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
@@ -374,14 +380,6 @@ zdistribute_task(void *zpIf) {
         zpTmpTreeNodeIf[0]->p_ExtraData = NULL;\
 \
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
-\
-        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
-        zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
-\
-        zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
-        zpTmpTreeNodeIf[0]->p_left = NULL;\
-        zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
-        strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
     }\
     zpTmpTreeNodeIf[0]->FileId = zpTmpTreeNodeIf[0]->LineNum;  /* 最后一个节点关联元数据 */\
     zpTmpTreeNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
