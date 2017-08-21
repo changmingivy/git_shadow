@@ -355,7 +355,8 @@ zdistribute_task(void *zpIf) {
     zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
     strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
-    for (++zNodeCnter; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
+    zNodeCnter++;\
+    for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
         zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;\
 \
@@ -448,12 +449,11 @@ zget_file_list(void *zpIf) {
 
                 if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                    zNodeCnter++;
                     if (NULL == zpTmpTreeNodeIf[0]) {
-                        zNodeCnter++;
-                        break;
+                        goto zMarkBreak;
                     } else {
-                        zNodeCnter++;
-                        continue;
+                        goto zMarkContinue;
                     }
                 } else {
                     zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
@@ -461,19 +461,20 @@ zget_file_list(void *zpIf) {
                     while (NULL != zpTmpTreeNodeIf[0]) {
                         if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
                             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                            zNodeCnter++;
                             if (NULL == zpTmpTreeNodeIf[0]) {
-                                zNodeCnter++;
-                                break;
+                                goto zMarkBreak;
                             } else {
-                                zNodeCnter++;
-                                continue;
+                                goto zMarkContinue;
                             }
                         }
                         zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
                         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
                     }
                 }
+zMarkBreak:
                 break;
+zMarkContinue:;
             }
 
             zGenerate_Tree_Node(); /* 添加树节点 */
