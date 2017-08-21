@@ -343,17 +343,17 @@ zdistribute_task(void *zpIf) {
         zpTmpTreeNodeIf[0]->p_father = NULL;\
     } else {\
         zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
-        zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
+        if (NULL == zpTmpTreeNodeIf[2]) {\
+            zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
+        } else {\
+            zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
+        }\
     }\
 \
     zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
     zpTmpTreeNodeIf[0]->p_left = NULL;\
     zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
     strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
-\
-    if (NULL != zpTmpTreeNodeIf[2]) {\
-        zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
-    }\
 \
     for (++zNodeCnter; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
         zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
