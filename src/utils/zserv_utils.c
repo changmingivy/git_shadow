@@ -447,21 +447,26 @@ zget_file_list(void *zpIf) {
 
                 if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-                    goto zMark;
+                    if (NULL == zpTmpTreeNodeIf[0]) {
+                        zNodeCnter++;
+                        break;
+                    }
                 } else {
                     zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
                     while (NULL != zpTmpTreeNodeIf[0]) {
                         if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
                             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-                            goto zMark;
+                            if (NULL == zpTmpTreeNodeIf[0]) {
+                                zNodeCnter++;
+                                break;
+                            }
                         }
                         zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
                         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
                     }
                 }
-zMark:
-                if (NULL == zpTmpTreeNodeIf[0]) { break; }
+                break;
             }
 
             zGenerate_Tree_Node(); /* 添加树节点 */
