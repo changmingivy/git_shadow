@@ -428,9 +428,11 @@ zget_file_list(void *zpIf) {
     zpPcreInitIf = zpcre_init("[^/]+");
     if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
         zBaseDataLen = strlen(zRes);
-        zRes[zBaseDataLen - 1] = '\0';  // 去除换行符
         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
+
+        zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
+        zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
         zGenerate_Tree_Node(); /* 添加树节点 */
@@ -438,9 +440,11 @@ zget_file_list(void *zpIf) {
 
         while (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
             zBaseDataLen = strlen(zRes);
-            zRes[zBaseDataLen - 1] = '\0';  // 去除换行符
             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
+
+            zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
+            zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
             zNodeCnter = 0; 
             zpTmpTreeNodeIf[0] = zpRootNodeIf;
