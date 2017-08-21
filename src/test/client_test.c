@@ -249,7 +249,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":145,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":145,\"data\":\"172.30.80.31\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":145,\"data\":\"127.0.0.1\"}";
 
     // 查询尚未布署成功的主机列表
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":145,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":-1,\"data\":\"_\"}";
@@ -261,13 +261,14 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":145,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":145,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":145,\"RevId\":0,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 打印差异文件内容
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":145,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 布署
     //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":145,\"RevId\":5,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":145,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"127.0.0.1\",\"ExtraData\":1}";
 
     // 撤销
     //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":145,\"RevId\":1,\"FileId\":-1,\"HostId\":0,\"CacheId\":15021450401,\"DataType\":1,\"data\":\"_\"}";
