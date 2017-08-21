@@ -441,8 +441,9 @@ zget_file_list(void *zpIf) {
             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
 
+            zNodeCnter = 0; 
             zpTmpTreeNodeIf[0] = zpRootNodeIf;
-            for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {
+            while (zNodeCnter < zpPcreRetIf->cnt) {
                 zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
 
                 if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
@@ -451,6 +452,7 @@ zget_file_list(void *zpIf) {
                         zNodeCnter++;
                         break;
                     } else {
+                        zNodeCnter++;
                         continue;
                     }
                 } else {
@@ -463,6 +465,7 @@ zget_file_list(void *zpIf) {
                                 zNodeCnter++;
                                 break;
                             } else {
+                                zNodeCnter++;
                                 continue;
                             }
                         }
