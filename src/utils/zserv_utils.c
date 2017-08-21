@@ -450,6 +450,8 @@ zget_file_list(void *zpIf) {
                     if (NULL == zpTmpTreeNodeIf[0]) {
                         zNodeCnter++;
                         break;
+                    } else {
+                        continue;
                     }
                 } else {
                     zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
@@ -460,6 +462,8 @@ zget_file_list(void *zpIf) {
                             if (NULL == zpTmpTreeNodeIf[0]) {
                                 zNodeCnter++;
                                 break;
+                            } else {
+                                continue;
                             }
                         }
                         zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
