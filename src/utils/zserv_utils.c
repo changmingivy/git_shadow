@@ -310,6 +310,7 @@ zdistribute_task(void *zpIf) {
 #define zGenerate_Tree_Node() do {\
     zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
     zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
+    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
     zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移，Root 节点不占行，但占列 */\
 \
     zpTmpTreeNodeIf[0]->OpsId = 0;\
@@ -326,8 +327,6 @@ zdistribute_task(void *zpIf) {
         zpTmpTreeNodeIf[0]->FileId = -1;\
         zpTmpTreeNodeIf[0]->p_ExtraData = NULL;\
     }\
-\
-    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
 \
     if (0 == zNodeCnter) {\
         if (NULL == zpRootNodeIf) {\
@@ -359,12 +358,13 @@ zdistribute_task(void *zpIf) {
     for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
         zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
         zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
-        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
         zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
+        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
         zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
         zpTmpTreeNodeIf[0]->p_left = NULL;\
 \
         zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
         zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移 */\
 \
         zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
@@ -378,8 +378,6 @@ zdistribute_task(void *zpIf) {
 \
         zpTmpTreeNodeIf[0]->FileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
         zpTmpTreeNodeIf[0]->p_ExtraData = NULL;\
-\
-        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
     }\
     zpTmpTreeNodeIf[0]->FileId = zpTmpTreeNodeIf[0]->LineNum;  /* 最后一个节点关联元数据 */\
     zpTmpTreeNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
@@ -400,7 +398,6 @@ zget_file_list(void *zpIf) {
     char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
-    zpRootNodeIf = NULL;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -423,6 +420,7 @@ zget_file_list(void *zpIf) {
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = 0;
 
+    zpRootNodeIf = NULL;
     zpPcreInitIf = zpcre_init("[^/]+");
     if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
         zBaseDataLen = strlen(zRes);
