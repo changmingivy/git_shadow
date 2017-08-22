@@ -445,9 +445,8 @@ zget_file_list(void *zpIf) {
             zNodeCnter = 0; 
             zpTmpTreeNodeIf[0] = zpRootNodeIf;
             while (zNodeCnter < zpPcreRetIf->cnt) {
-                zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
-
                 if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
+                    zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
                     zNodeCnter++;
                     if (NULL == zpTmpTreeNodeIf[0]) {
@@ -460,7 +459,9 @@ zget_file_list(void *zpIf) {
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
                     while (NULL != zpTmpTreeNodeIf[0]) {
                         if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
+                            zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
                             zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                            zpTmpTreeNodeIf[2] = NULL;  // 必须重置为 NULL
                             zNodeCnter++;
                             if (NULL == zpTmpTreeNodeIf[0]) {
                                 goto zMarkBreak;
