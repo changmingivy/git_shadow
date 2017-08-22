@@ -243,7 +243,7 @@ zgenerate_graph(void *zpIf) {
 
     zpNodeIf = (zMetaInfo *)zpIf;
     zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;
-    zOffSet = 6 * (zpNodeIf->OffSet - 1) + 10;
+    zOffSet = 6 * zpNodeIf->OffSet + 10;
 
     zpNodeIf->p_data[--zOffSet] = ' ';
     zpNodeIf->p_data[--zOffSet] = '\200';
@@ -257,7 +257,7 @@ zgenerate_graph(void *zpIf) {
     zpNodeIf->p_data[--zOffSet] = '\342';
 
     zpTmpNodeIf = zpNodeIf;
-    for (_i i = 0; i < zpTmpNodeIf->OffSet - 1; i++) {
+    for (_i i = 0; i < zpTmpNodeIf->OffSet; i++) {
         zpNodeIf->p_data[--zOffSet] = ' ';
         zpNodeIf->p_data[--zOffSet] = ' ';
         zpNodeIf->p_data[--zOffSet] = ' ';
@@ -311,7 +311,7 @@ zdistribute_task(void *zpIf) {
     zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
     zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
-    zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移，Root 节点不占行，但占列 */\
+    zpTmpTreeNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
 \
     zpTmpTreeNodeIf[0]->OpsId = 0;\
     zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
@@ -351,8 +351,8 @@ zdistribute_task(void *zpIf) {
 \
     zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
     zpTmpTreeNodeIf[0]->p_left = NULL;\
-    zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
-    strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
+    zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
+    strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
     zNodeCnter++;\
     for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
@@ -365,10 +365,10 @@ zdistribute_task(void *zpIf) {
 \
         zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
-        zpTmpTreeNodeIf[0]->OffSet = 1 + zNodeCnter;  /* 纵向偏移 */\
+        zpTmpTreeNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
 \
-        zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
-        strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
+        zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
+        strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
         zpTmpTreeNodeIf[0]->OpsId = 0;\
         zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
@@ -424,19 +424,18 @@ zget_file_list(void *zpIf) {
     zpPcreInitIf = zpcre_init("[^/]+");
     if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
         zBaseDataLen = strlen(zRes);
-        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
 
         zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
         zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
+        zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
         zpcre_free_tmpsource(zpPcreRetIf);
 
         while (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
             zBaseDataLen = strlen(zRes);
-            zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[2] = NULL;
 
             zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
@@ -444,6 +443,7 @@ zget_file_list(void *zpIf) {
 
             zNodeCnter = 0; 
             zpTmpTreeNodeIf[0] = zpRootNodeIf;
+            zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = NULL;
             while (zNodeCnter < zpPcreRetIf->cnt) {
                 if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
                     zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
