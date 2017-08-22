@@ -243,32 +243,32 @@ zgenerate_graph(void *zpIf) {
 
     zpNodeIf = (zMetaInfo *)zpIf;
     zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;
-    zOffSet = 6 * zpNodeIf->OffSet + 10;
+    zOffSet = 6 * zpNodeIf->OffSet + 10 + 1;
 
-    zpNodeIf->p_data[zOffSet--] = ' ';
-    zpNodeIf->p_data[zOffSet--] = '\200';
-    zpNodeIf->p_data[zOffSet--] = '\224';
-    zpNodeIf->p_data[zOffSet--] = '\342';
-    zpNodeIf->p_data[zOffSet--] = '\200';
-    zpNodeIf->p_data[zOffSet--] = '\224';
-    zpNodeIf->p_data[zOffSet--] = '\342';
-    zpNodeIf->p_data[zOffSet--] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';
-    zpNodeIf->p_data[zOffSet--] = '\224';
-    zpNodeIf->p_data[zOffSet--] = '\342';
+    zpNodeIf->p_data[--zOffSet] = ' ';
+    zpNodeIf->p_data[--zOffSet] = '\200';
+    zpNodeIf->p_data[--zOffSet] = '\224';
+    zpNodeIf->p_data[--zOffSet] = '\342';
+    zpNodeIf->p_data[--zOffSet] = '\200';
+    zpNodeIf->p_data[--zOffSet] = '\224';
+    zpNodeIf->p_data[--zOffSet] = '\342';
+    zpNodeIf->p_data[--zOffSet] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';
+    zpNodeIf->p_data[--zOffSet] = '\224';
+    zpNodeIf->p_data[--zOffSet] = '\342';
 
     zpTmpNodeIf = zpNodeIf;
     for (_i i = 0; i < zpTmpNodeIf->OffSet; i++) {
-        zpNodeIf->p_data[zOffSet--] = ' ';
-        zpNodeIf->p_data[zOffSet--] = ' ';
-        zpNodeIf->p_data[zOffSet--] = ' ';
+        zpNodeIf->p_data[--zOffSet] = ' ';
+        zpNodeIf->p_data[--zOffSet] = ' ';
+        zpNodeIf->p_data[--zOffSet] = ' ';
 
         zpTmpNodeIf = zpTmpNodeIf->p_father;
         if (NULL == zpTmpNodeIf->p_left) {
-            zpNodeIf->p_data[zOffSet--] = ' ';
+            zpNodeIf->p_data[--zOffSet] = ' ';
         } else {
-            zpNodeIf->p_data[zOffSet--] = '\202';
-            zpNodeIf->p_data[zOffSet--] = '\224';
-            zpNodeIf->p_data[zOffSet--] = '\342';
+            zpNodeIf->p_data[--zOffSet] = '\202';
+            zpNodeIf->p_data[--zOffSet] = '\224';
+            zpNodeIf->p_data[--zOffSet] = '\342';
         }
     }
 
