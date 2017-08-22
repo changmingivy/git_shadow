@@ -441,42 +441,28 @@ zget_file_list(void *zpIf) {
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
             zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
-            zNodeCnter = 0; 
             zpTmpTreeNodeIf[0] = zpRootNodeIf;
             zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = NULL;
-            while (zNodeCnter < zpPcreRetIf->cnt) {
-                if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
-                    zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
-                    zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-                    zNodeCnter++;
-                    if (NULL == zpTmpTreeNodeIf[0]) {
-                        goto zMarkBreak;
-                    } else {
-                        goto zMarkContinue;
+            for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt;) {
+                do {
+                    if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
+                        zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
+                        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
+                        zpTmpTreeNodeIf[2] = NULL;
+                        zNodeCnter++;
+                        if (NULL == zpTmpTreeNodeIf[0]) {
+                            goto zMarkOuter;
+                        } else {
+                            goto zMarkInner;
+                        }
                     }
-                } else {
                     zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
                     zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
-                    while (NULL != zpTmpTreeNodeIf[0]) {
-                        if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * (zpTmpTreeNodeIf[0]->OffSet - 1) + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
-                            zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
-                            zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-                            zpTmpTreeNodeIf[2] = NULL;  // 必须重置为 NULL
-                            zNodeCnter++;
-                            if (NULL == zpTmpTreeNodeIf[0]) {
-                                goto zMarkBreak;
-                            } else {
-                                goto zMarkContinue;
-                            }
-                        }
-                        zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
-                        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
-                    }
-                }
-zMarkBreak:
+                } while (NULL != zpTmpTreeNodeIf[0]);
                 break;
-zMarkContinue:;
+zMarkInner:;
             }
+zMarkOuter:;
 
             zGenerate_Tree_Node(); /* 添加树节点 */
             zpcre_free_tmpsource(zpPcreRetIf);
