@@ -257,12 +257,11 @@ zgenerate_graph(void *zpIf) {
     zpNodeIf->p_data[--zOffSet] = '\342';
 
     zpTmpNodeIf = zpNodeIf;
-    for (_i i = 0; i < zpTmpNodeIf->OffSet; i++) {
+    for (_i i = 0; i < zpNodeIf->OffSet; i++) {
         zpNodeIf->p_data[--zOffSet] = ' ';
         zpNodeIf->p_data[--zOffSet] = ' ';
         zpNodeIf->p_data[--zOffSet] = ' ';
 
-        zpTmpNodeIf = zpTmpNodeIf->p_father;
         if (NULL == zpTmpNodeIf->p_left) {
             zpNodeIf->p_data[--zOffSet] = ' ';
         } else {
@@ -270,6 +269,8 @@ zgenerate_graph(void *zpIf) {
             zpNodeIf->p_data[--zOffSet] = '\224';
             zpNodeIf->p_data[--zOffSet] = '\342';
         }
+
+        zpTmpNodeIf = zpTmpNodeIf->p_father;
     }
 
     zpNodeIf->p_data = zpNodeIf->p_data + zOffSet;
