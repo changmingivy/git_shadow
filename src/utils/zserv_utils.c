@@ -245,30 +245,30 @@ zgenerate_graph(void *zpIf) {
     zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;
     zOffSet = 6 * zpNodeIf->OffSet + 10;
 
-    zpNodeIf->p_data[--zOffSet] = ' ';
-    zpNodeIf->p_data[--zOffSet] = '\200';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
-    zpNodeIf->p_data[--zOffSet] = '\200';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
-    zpNodeIf->p_data[--zOffSet] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
+    zpNodeIf->p_data[zOffSet--] = ' ';
+    zpNodeIf->p_data[zOffSet--] = '\200';
+    zpNodeIf->p_data[zOffSet--] = '\224';
+    zpNodeIf->p_data[zOffSet--] = '\342';
+    zpNodeIf->p_data[zOffSet--] = '\200';
+    zpNodeIf->p_data[zOffSet--] = '\224';
+    zpNodeIf->p_data[zOffSet--] = '\342';
+    zpNodeIf->p_data[zOffSet--] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';
+    zpNodeIf->p_data[zOffSet--] = '\224';
+    zpNodeIf->p_data[zOffSet--] = '\342';
 
     zpTmpNodeIf = zpNodeIf;
     for (_i i = 0; i < zpTmpNodeIf->OffSet; i++) {
-        zpNodeIf->p_data[--zOffSet] = ' ';
-        zpNodeIf->p_data[--zOffSet] = ' ';
-        zpNodeIf->p_data[--zOffSet] = ' ';
+        zpNodeIf->p_data[zOffSet--] = ' ';
+        zpNodeIf->p_data[zOffSet--] = ' ';
+        zpNodeIf->p_data[zOffSet--] = ' ';
 
         zpTmpNodeIf = zpTmpNodeIf->p_father;
         if (NULL == zpTmpNodeIf->p_left) {
-            zpNodeIf->p_data[--zOffSet] = ' ';
+            zpNodeIf->p_data[zOffSet--] = ' ';
         } else {
-            zpNodeIf->p_data[--zOffSet] = '\202';
-            zpNodeIf->p_data[--zOffSet] = '\224';
-            zpNodeIf->p_data[--zOffSet] = '\342';
+            zpNodeIf->p_data[zOffSet--] = '\202';
+            zpNodeIf->p_data[zOffSet--] = '\224';
+            zpNodeIf->p_data[zOffSet--] = '\342';
         }
     }
 
@@ -436,7 +436,7 @@ zget_file_list(void *zpIf) {
             zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = NULL;
             for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt;) {
                 do {
-                    if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
+                    if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1, zpPcreRetIf->p_rets[zNodeCnter])) {
                         zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
                         zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
                         zpTmpTreeNodeIf[2] = NULL;
