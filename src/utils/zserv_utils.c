@@ -243,7 +243,7 @@ zgenerate_graph(void *zpIf) {
 
     zpNodeIf = (zMetaInfo *)zpIf;
     zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;
-    zOffSet = 6 * zpNodeIf->OffSet + 10 + 1;
+    zOffSet = 6 * zpNodeIf->OffSet + 10;
 
     zpNodeIf->p_data[--zOffSet] = ' ';
     zpNodeIf->p_data[--zOffSet] = '\200';
@@ -303,77 +303,76 @@ zdistribute_task(void *zpIf) {
 }
 
 #define zGenerate_Tree_Node() do {\
-    zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
-    zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
+    zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+    zpTmpNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
-    zpTmpTreeNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
+    zpTmpNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
 \
-    zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
-    zpTmpTreeNodeIf[0]->p_left = NULL;\
-    zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
-    strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1, zpPcreRetIf->p_rets[zNodeCnter]);\
+    zpTmpNodeIf[0]->p_FirstChild = NULL;\
+    zpTmpNodeIf[0]->p_left = NULL;\
+    zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
+    strcpy(zpTmpNodeIf[0]->p_data + 6 * zpTmpNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
-    zpTmpTreeNodeIf[0]->OpsId = 0;\
-    zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
-    zpTmpTreeNodeIf[0]->CommitId = zpMetaIf->CommitId;\
-    zpTmpTreeNodeIf[0]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;\
-    zpTmpTreeNodeIf[0]->DataType = zpMetaIf->DataType;\
+    zpTmpNodeIf[0]->OpsId = 0;\
+    zpTmpNodeIf[0]->RepoId = zpMetaIf->RepoId;\
+    zpTmpNodeIf[0]->CommitId = zpMetaIf->CommitId;\
+    zpTmpNodeIf[0]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;\
+    zpTmpNodeIf[0]->DataType = zpMetaIf->DataType;\
 \
     if (zNodeCnter == (zpPcreRetIf->cnt - 1)) {\
-        zpTmpTreeNodeIf[0]->FileId = zpTmpTreeNodeIf[0]->LineNum;\
-        zpTmpTreeNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
-        memcpy(zpTmpTreeNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
+        zpTmpNodeIf[0]->FileId = zpTmpNodeIf[0]->LineNum;\
+        zpTmpNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
+        memcpy(zpTmpNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
     } else {\
-        zpTmpTreeNodeIf[0]->FileId = -1;\
-        zpTmpTreeNodeIf[0]->p_ExtraData = NULL;\
+        zpTmpNodeIf[0]->FileId = -1;\
+        zpTmpNodeIf[0]->p_ExtraData = NULL;\
     }\
 \
     if (0 == zNodeCnter) {\
+        zpTmpNodeIf[0]->p_father = NULL;\
         if (NULL == zpRootNodeIf) {\
-            zpRootNodeIf = zpTmpTreeNodeIf[0];\
+            zpRootNodeIf = zpTmpNodeIf[0];\
         } else {\
-            for (zpTmpTreeNodeIf[2] = zpRootNodeIf; NULL != zpTmpTreeNodeIf[2]->p_left; zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[2]->p_left) {}\
-            zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
+            for (zpTmpNodeIf[2] = zpRootNodeIf; NULL != zpTmpNodeIf[2]->p_left; zpTmpNodeIf[2] = zpTmpNodeIf[2]->p_left) {}\
+            zpTmpNodeIf[2]->p_left = zpTmpNodeIf[0];\
         }\
-\
-        zpTmpTreeNodeIf[0]->p_father = NULL;\
     } else {\
-        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
-        if (NULL == zpTmpTreeNodeIf[2]) {\
-            zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
+        zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
+        if (NULL == zpTmpNodeIf[2]) {\
+            zpTmpNodeIf[1]->p_FirstChild = zpTmpNodeIf[0];\
         } else {\
-            zpTmpTreeNodeIf[2]->p_left = zpTmpTreeNodeIf[0];\
+            zpTmpNodeIf[2]->p_left = zpTmpNodeIf[0];\
         }\
     }\
 \
     zNodeCnter++;\
     for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
-        zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];\
-        zpTmpTreeNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
-        zpTmpTreeNodeIf[1]->p_FirstChild = zpTmpTreeNodeIf[0];\
-        zpTmpTreeNodeIf[0]->p_father = zpTmpTreeNodeIf[1];\
-        zpTmpTreeNodeIf[0]->p_FirstChild = NULL;\
-        zpTmpTreeNodeIf[0]->p_left = NULL;\
+        zpTmpNodeIf[1] = zpTmpNodeIf[0];\
+        zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+        zpTmpNodeIf[1]->p_FirstChild = zpTmpNodeIf[0];\
+        zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
+        zpTmpNodeIf[0]->p_FirstChild = NULL;\
+        zpTmpNodeIf[0]->p_left = NULL;\
 \
-        zpTmpTreeNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
+        zpTmpNodeIf[0]->LineNum = zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz;  /* 横向偏移 */\
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz++;  /* 每个节点会占用一行显示输出 */\
-        zpTmpTreeNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
+        zpTmpNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
 \
-        zpTmpTreeNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
-        strcpy(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1, zpPcreRetIf->p_rets[zNodeCnter]);\
+        zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + strlen(zpPcreRetIf->p_rets[zNodeCnter]));\
+        strcpy(zpTmpNodeIf[0]->p_data + 6 * zpTmpNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter]);\
 \
-        zpTmpTreeNodeIf[0]->OpsId = 0;\
-        zpTmpTreeNodeIf[0]->RepoId = zpMetaIf->RepoId;\
-        zpTmpTreeNodeIf[0]->CommitId = zpMetaIf->CommitId;\
-        zpTmpTreeNodeIf[0]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;\
-        zpTmpTreeNodeIf[0]->DataType = zpMetaIf->DataType;\
+        zpTmpNodeIf[0]->OpsId = 0;\
+        zpTmpNodeIf[0]->RepoId = zpMetaIf->RepoId;\
+        zpTmpNodeIf[0]->CommitId = zpMetaIf->CommitId;\
+        zpTmpNodeIf[0]->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;\
+        zpTmpNodeIf[0]->DataType = zpMetaIf->DataType;\
 \
-        zpTmpTreeNodeIf[0]->FileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
-        zpTmpTreeNodeIf[0]->p_ExtraData = NULL;\
+        zpTmpNodeIf[0]->FileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
+        zpTmpNodeIf[0]->p_ExtraData = NULL;\
     }\
-    zpTmpTreeNodeIf[0]->FileId = zpTmpTreeNodeIf[0]->LineNum;  /* 最后一个节点关联元数据 */\
-    zpTmpTreeNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
-    memcpy(zpTmpTreeNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
+    zpTmpNodeIf[0]->FileId = zpTmpNodeIf[0]->LineNum;  /* 最后一个节点关联元数据 */\
+    zpTmpNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
+    memcpy(zpTmpNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
 } while(0)
 
 void
@@ -382,7 +381,7 @@ zget_file_list(void *zpIf) {
     zVecWrapInfo *zpTopVecWrapIf;
     _i zVecDataLen, zBaseDataLen, zNodeCnter;
 
-    zMetaInfo *zpRootNodeIf, *zpTmpTreeNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
+    zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreRetIf;
 
@@ -422,7 +421,7 @@ zget_file_list(void *zpIf) {
         zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
-        zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0] = NULL;
+        zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
         zpcre_free_tmpsource(zpPcreRetIf);
 
@@ -433,24 +432,24 @@ zget_file_list(void *zpIf) {
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
             zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
-            zpTmpTreeNodeIf[0] = zpRootNodeIf;
-            zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[1] = NULL;
+            zpTmpNodeIf[0] = zpRootNodeIf;
+            zpTmpNodeIf[2] = zpTmpNodeIf[1] = NULL;
             for (zNodeCnter = 0; zNodeCnter < zpPcreRetIf->cnt;) {
                 do {
-                    if (0 == strcmp(zpTmpTreeNodeIf[0]->p_data + 6 * zpTmpTreeNodeIf[0]->OffSet + 10 + 1, zpPcreRetIf->p_rets[zNodeCnter])) {
-                        zpTmpTreeNodeIf[1] = zpTmpTreeNodeIf[0];
-                        zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_FirstChild;
-                        zpTmpTreeNodeIf[2] = NULL;
+                    if (0 == strcmp(zpTmpNodeIf[0]->p_data + 6 * zpTmpNodeIf[0]->OffSet + 10, zpPcreRetIf->p_rets[zNodeCnter])) {
+                        zpTmpNodeIf[1] = zpTmpNodeIf[0];
+                        zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;
+                        zpTmpNodeIf[2] = NULL;
                         zNodeCnter++;
-                        if (NULL == zpTmpTreeNodeIf[0]) {
+                        if (NULL == zpTmpNodeIf[0]) {
                             goto zMarkOuter;
                         } else {
                             goto zMarkInner;
                         }
                     }
-                    zpTmpTreeNodeIf[2] = zpTmpTreeNodeIf[0];
-                    zpTmpTreeNodeIf[0] = zpTmpTreeNodeIf[0]->p_left;
-                } while (NULL != zpTmpTreeNodeIf[0]);
+                    zpTmpNodeIf[2] = zpTmpNodeIf[0];
+                    zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_left;
+                } while (NULL != zpTmpNodeIf[0]);
                 break;
 zMarkInner:;
             }
