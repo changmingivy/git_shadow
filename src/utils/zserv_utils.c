@@ -286,6 +286,7 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
+    zCcur_Fin_Mark_Thread(zpTmpNodeIf);
     zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
 
     zpTmpNodeIf = zpNodeIf->p_left;
@@ -293,7 +294,6 @@ zdistribute_task(void *zpIf) {
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
 
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zCcur_Fin_Mark_Thread(zpTmpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
     }
 
@@ -302,7 +302,6 @@ zdistribute_task(void *zpIf) {
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
 
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zCcur_Fin_Mark_Thread(zpTmpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
     }
 }
@@ -498,7 +497,6 @@ zMarkOuter:;
         /* Tree 图生成过程的并发控制 */
         zCcur_Init(zpMetaIf->RepoId, zLineCnter, A);
         zCcur_Sub_Config(zpRootNodeIf, A);
-        zCcur_Fin_Mark_Thread(zpRootNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
         zCcur_Wait(A);
 
