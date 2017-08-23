@@ -11,24 +11,22 @@
         pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
         zThreadJobInfo zTmpJosIf = {.OpsFunc = zFunc, .p_param = zParam};\
         zCheck_Pthread_Func_Exit(pthread_create(&(zTmpJosIf.Tid), NULL, ztmp_job_func, &zTmpJosIf));\
-        goto zMarkSkip;\
+    } else {\
+        zThreadPoll[zJobQueue].OpsFunc = zFunc;\
+        zThreadPoll[zJobQueue].p_param = zParam;\
+        zThreadPoll[zJobQueue].MarkStart = 1;\
+\
+        pthread_mutex_lock(&(zThreadPollMutexLock[0]));\
+        zJobQueue = -1;\
+        pthread_cond_signal(&(zThreadPoolCond[0]));\
+        pthread_mutex_unlock(&(zThreadPollMutexLock[0]));\
+\
+        pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
+\
+        pthread_mutex_lock(&(zThreadPollMutexLock[1]));\
+        pthread_mutex_unlock(&(zThreadPollMutexLock[1]));\
+        pthread_cond_signal(&(zThreadPoolCond[1]));\
     }\
-\
-    zThreadPoll[zJobQueue].OpsFunc = zFunc;\
-    zThreadPoll[zJobQueue].p_param = zParam;\
-    zThreadPoll[zJobQueue].MarkStart = 1;\
-\
-    pthread_mutex_lock(&(zThreadPollMutexLock[0]));\
-    zJobQueue = -1;\
-    pthread_cond_signal(&(zThreadPoolCond[0]));\
-    pthread_mutex_unlock(&(zThreadPollMutexLock[0]));\
-\
-    pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
-\
-    pthread_mutex_lock(&(zThreadPollMutexLock[1]));\
-    pthread_mutex_unlock(&(zThreadPollMutexLock[1]));\
-    pthread_cond_signal(&(zThreadPoolCond[1]));\
-    zMarkSkip:;\
 } while(0)
 
 typedef struct zThreadJobInfo {
