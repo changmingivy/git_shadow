@@ -8,9 +8,9 @@
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
     pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
     if (-1 == zJobQueue) {\
-        pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
         zThreadJobInfo zTmpJosIf = {.OpsFunc = zFunc, .p_param = zParam};\
         zCheck_Pthread_Func_Exit(pthread_create(&(zTmpJosIf.Tid), NULL, ztmp_job_func, &zTmpJosIf));\
+        pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
     } else {\
         zThreadPoll[zJobQueue].OpsFunc = zFunc;\
         zThreadPoll[zJobQueue].p_param = zParam;\
