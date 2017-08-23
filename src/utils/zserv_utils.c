@@ -286,7 +286,7 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
-    zCcur_Fin_Mark_Thread(zpTmpNodeIf);
+    zCcur_Fin_Mark_Thread(zpNodeIf);
     zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
 
     zpTmpNodeIf = zpNodeIf->p_left;
