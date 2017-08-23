@@ -245,7 +245,7 @@ zgenerate_graph(void *zpIf) {
     _i zOffSet;
 
     zpNodeIf = (zMetaInfo *)zpIf;
-    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;
+    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpIf;
     zOffSet = 6 * zpNodeIf->OffSet + 10;
 
     zpNodeIf->p_data[--zOffSet] = ' ';
@@ -278,6 +278,7 @@ zgenerate_graph(void *zpIf) {
 
     zpNodeIf->p_data = zpNodeIf->p_data + zOffSet;
 
+    zCcur_Fin_Mark_Thread(zpNodeIf);
     zCcur_Fin_Signal(zpNodeIf);
 }
 
@@ -286,7 +287,6 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
-    zCcur_Fin_Mark_Thread(zpNodeIf);
     zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
 
     zpTmpNodeIf = zpNodeIf->p_left;

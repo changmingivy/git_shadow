@@ -261,7 +261,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":145,\"RevId\":-1,\"FileId\":-1,\"HostId\":0,\"CacheId\":-1,\"DataType\":1,\"data\":\"_\"}";
 
     // 打印差异文件列表
-    char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":145,\"RevId\":9,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
+    char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":145,\"RevId\":10,\"FileId\":-1,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
 
     // 打印差异文件内容
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":145,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"_\"}";
