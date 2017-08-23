@@ -283,7 +283,8 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
-    for (zpTmpNodeIf = zpNodeIf->p_left; NULL != zpTmpNodeIf; zpTmpNodeIf = zpTmpNodeIf->p_left) {
+    zpTmpNodeIf = zpNodeIf->p_left;
+    if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
 
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
@@ -291,7 +292,8 @@ zdistribute_task(void *zpIf) {
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
     }
 
-    for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpTmpNodeIf->p_FirstChild) {
+    zpTmpNodeIf = zpNodeIf->p_FirstChild;
+    if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
 
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
