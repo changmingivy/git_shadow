@@ -287,8 +287,6 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
-    zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
-
     zpTmpNodeIf = zpNodeIf->p_left;
     if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
@@ -304,6 +302,8 @@ zdistribute_task(void *zpIf) {
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
     }
+
+    zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
 }
 
 #define zGenerate_Tree_Node() do {\

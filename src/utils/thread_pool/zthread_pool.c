@@ -8,9 +8,12 @@
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
     pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
     if (-1 == zJobQueue) {\
-        zThreadJobInfo zTmpJosIf = {.OpsFunc = zFunc, .p_param = zParam};\
-        zCheck_Pthread_Func_Exit(pthread_create(&(zTmpJosIf.Tid), NULL, ztmp_job_func, &zTmpJosIf));\
         pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
+        zThreadJobInfo *zpTmpJobIf = malloc(sizeof(zThreadJobInfo));\
+        zCheck_Null_Exit(zpTmpJobIf);\
+        zpTmpJobIf->OpsFunc = zFunc;\
+        zpTmpJobIf->p_param = zParam;\
+        zCheck_Pthread_Func_Exit(pthread_create(&(zpTmpJobIf->Tid), NULL, ztmp_job_func, zpTmpJobIf));\
     } else {\
         zThreadPoll[zJobQueue].OpsFunc = zFunc;\
         zThreadPoll[zJobQueue].p_param = zParam;\
@@ -79,6 +82,7 @@ ztmp_job_func(void *zpIf) {
     zThreadJobInfo *zpTmpJobIf = (zThreadJobInfo *) zpIf;
     zpTmpJobIf->OpsFunc(zpTmpJobIf->p_param);
 
+    free(zpTmpJobIf);  // 用完释放
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
     return NULL;
 }
