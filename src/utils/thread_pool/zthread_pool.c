@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
 
-#define zThreadPollSiz 256
+#define zThreadPollSiz 512
 
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
     pthread_mutex_lock(&(zThreadPollMutexLock[0]));\

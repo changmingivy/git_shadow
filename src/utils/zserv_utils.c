@@ -186,7 +186,7 @@ zget_diff_content(void *zpIf) {
     _i zBaseDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
+    char zShellBuf[zCommonBufSiz], zRes[zBytes(1448)];  // MTU 上限，每个分片最多可以发送1448 Bytes
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -388,7 +388,7 @@ zget_file_list(void *zpIf) {
     zPCRERetInfo *zpPcreRetIf;
 
     FILE *zpShellRetHandler;
-    char zShellBuf[128], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
+    char zShellBuf[zCommonBufSiz], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
 
@@ -530,7 +530,7 @@ zgenerate_cache(void *zpIf) {
     _i zVecDataLen, zBaseDataLen, zCnter;
 
     FILE *zpShellRetHandler;
-    char zRes[zCommonBufSiz], zShellBuf[128], zJsonBuf[zBytes(256)];
+    char zRes[zCommonBufSiz], zShellBuf[zCommonBufSiz], zJsonBuf[zBytes(256)];
 
     zpMetaIf = (zMetaInfo *)zpIf;
 
@@ -641,7 +641,7 @@ zupdate_one_commit_cache(void *zpIf) {
     _i zVecDataLen, *zpHeadId;
 
     FILE *zpShellRetHandler;
-    char zRes[zCommonBufSiz], zShellBuf[128];
+    char zRes[zCommonBufSiz], zShellBuf[zCommonBufSiz];
 
     zpObjIf = (zObjInfo*)zpIf;
     zpTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf);
@@ -751,7 +751,7 @@ zupdate_one_commit_cache(void *zpIf) {
 void
 zwrite_log(_i zRepoId) {
 // TEST:PASS
-    char zShellBuf[128], zRes[zCommonBufSiz];
+    char zShellBuf[zCommonBufSiz], zRes[zCommonBufSiz];
     FILE *zpFile;
     _i zLen;
 
