@@ -110,7 +110,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         pthread_mutex_lock(zpIf->p_MutexLock[2]);\
         (*(zpIf->p_TaskCnter))++;\
         pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
-        if (*(zpIf->p_TaskCnter) == *(zpIf->p_TotalTask)) {\
+        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) {\
             *(zpIf->p_FinMark) = 1;\
         }\
     } while(0)
@@ -130,7 +130,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 #define zCcur_Wait(zSuffix) do {\
         do {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
-        } while (*(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix));\
+        } while ((1 != *(zpFinMark##zSuffix)) || *(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix));\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_cond_destroy(zpCondVar##zSuffix);\
         pthread_mutex_destroy((zpMutexLock##zSuffix) + 2);\
@@ -286,6 +286,8 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
+    zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
+
     zpTmpNodeIf = zpNodeIf->p_left;
     if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
@@ -303,8 +305,6 @@ zdistribute_task(void *zpIf) {
         zCcur_Fin_Mark_Thread(zpTmpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
     }
-
-    zAdd_To_Thread_Pool(zgenerate_graph, zpNodeIf);
 }
 
 #define zGenerate_Tree_Node() do {\
