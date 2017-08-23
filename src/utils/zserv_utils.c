@@ -347,9 +347,9 @@ zdistribute_task(void *zpIf) {
 \
     zNodeCnter++;\
     for (; zNodeCnter < zpPcreRetIf->cnt; zNodeCnter++) {\
+        zpTmpNodeIf[0]->p_FirstChild = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
         zpTmpNodeIf[1] = zpTmpNodeIf[0];\
-        zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
-        zpTmpNodeIf[1]->p_FirstChild = zpTmpNodeIf[0];\
+        zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;\
         zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
         zpTmpNodeIf[0]->p_FirstChild = NULL;\
         zpTmpNodeIf[0]->p_left = NULL;\
