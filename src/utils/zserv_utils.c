@@ -58,15 +58,15 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     _i *zpTotalTask##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
     _i *zpTaskCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
     _i *zpThreadCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    *zpFinMark##zSuffix = 0;\
-    *zpTotalTask##zSuffix = zTotalTask;\
-    *zpTaskCnter##zSuffix = 0;\
-    *zpThreadCnter##zSuffix = 0;\
+    *(zpFinMark##zSuffix) = 0;\
+    *(zpTotalTask##zSuffix) = zTotalTask;\
+    *(zpTaskCnter##zSuffix) = 0;\
+    *(zpThreadCnter##zSuffix) = 0;\
 \
-    pthread_cond_t *zpCondVar##zSuffix = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
+    pthread_cond_t *(zpCondVar##zSuffix) = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
     pthread_cond_init(zpCondVar##zSuffix, NULL);\
 \
-    pthread_mutex_t *zpMutexLock##zSuffix = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
+    pthread_mutex_t *(zpMutexLock##zSuffix) = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
     pthread_mutex_init(zpMutexLock##zSuffix, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 1, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 2, NULL);\
@@ -98,7 +98,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 /* 放置于调用者每次分发任务之前(即调用工作线程之前)，其中zStopExpression指最后一次循环的判断条件，如：A > B && C < D */
 #define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
         pthread_mutex_lock(zpMutexLock##zSuffix + 2);\
-        (*zpTaskCnter##zSuffix)++;\
+        (*(zpTaskCnter##zSuffix))++;\
         pthread_mutex_unlock(zpMutexLock##zSuffix + 2);\
         if (zStopExpression) {\
             *(zpFinMark##zSuffix) = 1;\
@@ -133,8 +133,8 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         } while (*(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix));\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_cond_destroy(zpCondVar##zSuffix);\
-        pthread_mutex_destroy(zpMutexLock##zSuffix + 2);\
-        pthread_mutex_destroy(zpMutexLock##zSuffix + 1);\
+        pthread_mutex_destroy((zpMutexLock##zSuffix) + 2);\
+        pthread_mutex_destroy((zpMutexLock##zSuffix) + 1);\
         pthread_mutex_destroy(zpMutexLock##zSuffix);\
     } while(0)
 
@@ -498,7 +498,7 @@ zMarkOuter:;
         /* Tree 图生成过程的并发控制 */
         zCcur_Init(zpMetaIf->RepoId, zLineCnter, A);
         zCcur_Sub_Config(zpRootNodeIf, A);
-        zCcur_Fin_Mark(zpRootNodeIf->p_TotalTask == zpRootNodeIf->p_TaskCnter, A);
+        zCcur_Fin_Mark_Thread(zpRootNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
         zCcur_Wait(A);
 
