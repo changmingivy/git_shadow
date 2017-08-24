@@ -5,31 +5,42 @@
 #define zThreadPollSiz 64
 
 /* 优先使用线程池，若线程池满，则新建临时线程执行任务 */
+// #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
+//     pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
+//     if (-1 == zJobQueue) {\
+//         pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
+//         zThreadJobInfo *zpTmpJobIf = malloc(sizeof(zThreadJobInfo));\
+//         zCheck_Null_Exit(zpTmpJobIf);\
+//         zpTmpJobIf->OpsFunc = zFunc;\
+//         zpTmpJobIf->p_param = zParam;\
+//         zCheck_Pthread_Func_Exit(pthread_create(&(zpTmpJobIf->Tid), NULL, ztmp_job_func, zpTmpJobIf));\
+//     } else {\
+//         zThreadPoll[zJobQueue].OpsFunc = zFunc;\
+//         zThreadPoll[zJobQueue].p_param = zParam;\
+//         zThreadPoll[zJobQueue].MarkStart = 1;\
+// \
+//         pthread_mutex_lock(&(zThreadPollMutexLock[0]));\
+//         zJobQueue = -1;\
+//         pthread_cond_signal(&(zThreadPoolCond[0]));\
+//         pthread_mutex_unlock(&(zThreadPollMutexLock[0]));\
+// \
+//         pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
+// \
+//         pthread_mutex_lock(&(zThreadPollMutexLock[1]));\
+//         pthread_mutex_unlock(&(zThreadPollMutexLock[1]));\
+//         pthread_cond_signal(&(zThreadPoolCond[1]));\
+//     }\
+// } while(0)
+
+/* 线程池设计的有问题，存在阻死现象，伪共享导致？ */
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
     pthread_mutex_lock(&(zThreadPollMutexLock[2]));\
-    if (-1 == zJobQueue) {\
-        pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
-        zThreadJobInfo *zpTmpJobIf = malloc(sizeof(zThreadJobInfo));\
-        zCheck_Null_Exit(zpTmpJobIf);\
-        zpTmpJobIf->OpsFunc = zFunc;\
-        zpTmpJobIf->p_param = zParam;\
-        zCheck_Pthread_Func_Exit(pthread_create(&(zpTmpJobIf->Tid), NULL, ztmp_job_func, zpTmpJobIf));\
-    } else {\
-        zThreadPoll[zJobQueue].OpsFunc = zFunc;\
-        zThreadPoll[zJobQueue].p_param = zParam;\
-        zThreadPoll[zJobQueue].MarkStart = 1;\
-\
-        pthread_mutex_lock(&(zThreadPollMutexLock[0]));\
-        zJobQueue = -1;\
-        pthread_cond_signal(&(zThreadPoolCond[0]));\
-        pthread_mutex_unlock(&(zThreadPollMutexLock[0]));\
-\
-        pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
-\
-        pthread_mutex_lock(&(zThreadPollMutexLock[1]));\
-        pthread_mutex_unlock(&(zThreadPollMutexLock[1]));\
-        pthread_cond_signal(&(zThreadPoolCond[1]));\
-    }\
+    zThreadJobInfo *zpTmpJobIf = malloc(sizeof(zThreadJobInfo));\
+    zCheck_Null_Exit(zpTmpJobIf);\
+    zpTmpJobIf->OpsFunc = zFunc;\
+    zpTmpJobIf->p_param = zParam;\
+    zCheck_Pthread_Func_Exit(pthread_create(&(zpTmpJobIf->Tid), NULL, ztmp_job_func, zpTmpJobIf));\
+    pthread_mutex_unlock(&(zThreadPollMutexLock[2]));\
 } while(0)
 
 typedef struct zThreadJobInfo {
