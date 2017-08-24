@@ -441,21 +441,17 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     if (0 > zpMetaIf->OpsId) {
-        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":\"%d\",\"data\":\"%s\"}",
+        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d,\"data\":\"%s\"}",
                 zpMetaIf->OpsId,
-                zpMetaIf->CacheId,
                 (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data
                 );
     } else {
         sprintf(
-                zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"HostId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                zpMetaIf->OpsId,
-                zpMetaIf->RepoId,
+                //zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+                zpJsonStrBuf, ",{\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
                 zpMetaIf->CommitId,
                 zpMetaIf->FileId,
-                zpMetaIf->HostId,
                 zpMetaIf->CacheId,
-                zpMetaIf->DataType,
                 (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
                 (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
                 );
@@ -479,3 +475,18 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
 //     close(zFd);
 //     return 0;
 // }
+
+/* 
+ * 去除用字符串末尾的一个或多个换行符LB (Line Break)
+ * 返回新的字符串长度，不含最后的 '\0'
+ */
+_i
+zdel_LB(char *zpStr) {
+    char *zpStrPtr = zpStr;
+    _ui zStrLen = strlen(zpStr);
+
+    while ('\n' == zpStrPtr[zStrLen - 1]) { zStrLen--; }
+    zpStrPtr[zStrLen] = '\0';
+
+    return zStrLen;
+}

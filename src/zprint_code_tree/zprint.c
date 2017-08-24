@@ -1,10 +1,9 @@
-#include "zpcre.c"  // Just use a while.
+#ifdef _Z
+    #include "../zmain.c"
+#endif
 
-// Get total number of children recursively.
-// This is a tail-recursive function, so should never burst stack.
 void
 zget_children_summary(const zNodeInfo *zpNodeIf, _i *zpResOUT) {
-// TEST: pass!
     if (NULL != zpNodeIf) {
         *zpResOUT += zpNodeIf->total;
 
@@ -53,7 +52,6 @@ zgen_inbound_info(const zNodeInfo *zpNodeIf, zInboundInfo **zpCurInIf, const _i 
     }
 }
 
-// This is a tail-recursive function, so should never burst stack.
 void
 znew_get_final_res(zInboundInfo *zpPrevInboundIf, zInboundInfo ***zpppFinalResIfOUT) {
 // TEST: pass!
@@ -75,10 +73,8 @@ znew_get_final_res(zInboundInfo *zpPrevInboundIf, zInboundInfo ***zpppFinalResIf
     }
 }
 
-// Print out.
 void
 zprint_out(zInboundInfo **zppInboundIf, const _i zLen) {
-// TEST: pass!
     for (_i i = 0; i < zLen; i++) {
     for (_ui j = 2; j <= zppInboundIf[i]->vOffSet; j++) {
         if (0 < zCheck_Bit(zppInboundIf[i]->EndMarkAllPrev, j)) {
