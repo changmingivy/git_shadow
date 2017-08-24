@@ -1,0 +1,16 @@
+[31m[2017-7-17 0:22:29] [00m[31;01m
+====[ ERROR ]====[00m
+[31;01mFile:[00m /home/fh/zgit_shadow/src/utils/zserv_utils.c
+[31;01mLine:[00m 783
+[31;01mFunc:[00m zinit_env
+[31;01mCause:[00m 
+[31;01mDetail:[00m 未读取到有效代码库信息!
+
+[31m[2017-7-17 0:22:29] [00m[31;01m
+====[ ERROR ]====[00m
+[31;01mFile:[00m /home/fh/zgit_shadow/src/utils/zbase_utils.c
+[31;01mLine:[00m 97
+[31;01mFunc:[00m zgenerate_serv_SD
+[31;01mCause:[00m bind(zSd, zpAddrIf, INET_ADDRSTRLEN) < 0
+[31;01mDetail:[00m Address family not supported by protocol
+

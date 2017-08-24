@@ -5,7 +5,10 @@
     #include <errno.h>
     #include <pthread.h>
     #include <sys/signal.h>
-    #define zCommonBufSiz 4096
+#endif
+
+#ifndef zCommonBufSiz
+#define zCommonBufSiz 1024
 #endif
 
 #define zBytes(zNum) ((_i)(zNum * sizeof(char)))
@@ -134,37 +137,17 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 /*
  * =>>> Memory Management <<<=
  */
-void *
-zregister_malloc(const size_t zSiz) {
-    register void *zpRes = malloc(zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
 
-void *
-zregister_realloc(void *zpPrev, const size_t zSiz) {
-    register void *zpRes = realloc(zpPrev, zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
-
-void *
-zregister_calloc(const int zCnt, const size_t zSiz) {
-    register void *zpRes = calloc(zCnt, zSiz);
-    zCheck_Null_Exit(zpRes);
-    return zpRes;
-}
-
-#define zMem_Alloc(zpReqBuf, zType, zCnt) do {\
-    zpReqBuf = (zType *)zregister_malloc((zCnt) * sizeof(zType));\
+#define zMem_Alloc(zpRet, zType, zCnt) do {\
+    zCheck_Null_Exit( zpRet = malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_Re_Alloc(zpReqBuf, zType, zpPrev, zSiz) do {\
-    zpReqBuf = (zType *)zregister_realloc(zpPrev, zSiz);\
+#define zMem_Re_Alloc(zpRet, zType, zCnt, zpOldAddr) do {\
+    zCheck_Null_Exit( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_C_Alloc(zpReqBuf, zType, zCnt) do {\
-    zpReqBuf = (zType *)zregister_calloc(zCnt, sizeof(zType));\
+#define zMem_C_Alloc(zpRet, zType, zCnt) do {\
+    zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 #define zFree_Memory_Common(zpObjToFree, zpBridgePointer) do {\
@@ -176,15 +159,26 @@ zregister_calloc(const int zCnt, const size_t zSiz) {
     zpObjToFree = zpBridgePointer = NULL;\
 } while(0)
 
+// #define zMap_Alloc(zpRet, zType, zCnt) do {\
+// 	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
+// 		zPrint_Err(0, NULL, "mmap failed!");\
+// 		exit(1);\
+// 	}\
+// } while(0)
+// 
+// #define zMap_Free(zpRet, zType, zCnt) do {\
+// 	munmap(zpRet, (zCnt) * sizeof(zType));\
+// } while(0)
+
 /*
- * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV 之外的所有信号，合计 29 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
  */
-_i zSigSet[30] = {
+_i zSigSet[26] = {
     SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-    SIGIOT, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
-    SIGPIPE, SIGALRM, SIGTERM, SIGCLD, SIGCHLD, SIGCONT,
+    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
     SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGPOLL, SIGIO, SIGPWR, SIGSEGV
+    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
+    SIGIOT, SIGIO
 };
 
 #define zIgnoreAllSignal() do {\
@@ -219,8 +213,4 @@ _i zSigSet[30] = {
     sigaction(zSigSet[23], &zSigActionIf, NULL);\
     sigaction(zSigSet[24], &zSigActionIf, NULL);\
     sigaction(zSigSet[25], &zSigActionIf, NULL);\
-    sigaction(zSigSet[26], &zSigActionIf, NULL);\
-    sigaction(zSigSet[27], &zSigActionIf, NULL);\
-    sigaction(zSigSet[28], &zSigActionIf, NULL);\
 } while(0)
-

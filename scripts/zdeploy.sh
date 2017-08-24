@@ -1,89 +1,57 @@
 #!/bin/sh
+zCommitSig=$1
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
+zMajorAddr=$3  # 中转机IPv4地址
 
-# $@(after shift):files to deploy
-zdeploy() {
-    zCommitContent=`git log -n 1 | tail -n 1 | grep -o '[^ ].*'`
+shift 3
+zHostList=$@
+zShadowPath=/home/git/zgit_shadow
 
-    git reset CURRENT  # 将 master 分支提交状态回退到 CURRENT 分支状态，即上一次布署的状态
-
-    if [[ 0 -eq $# ]]; then  # If no file name given, meaning deploy all
-        git add --all .
-    else
-        git add $@
-    fi
-
-    if [[ 0 -ne $? ]]; then exit 1; fi
-
-    git commit --allow-empty -m "[DEPLOY FROM]:${zCommitContent}"  # Maybe reveive contents from frontend?
-}
-
-# $@(after shift):the file to deploy
-zrevoke() {
-    if [[ '' == ${zCommitId} ]]; then exit 1; fi
-    zCommitContent=`git log CURRENT -n 1 | tail -n 1 | grep -o '[^ ].*'`
-
-    if [[ 0 -eq $# ]]; then # If no file name given, meaning revoke all
-        git reset ${zCommitId}
-    else
-        git reset ${zCommitId} -- $@
-    fi
-
-    if [[ 0 -ne $? ]]; then exit 1; fi
-
-    git commit --allow-empty -m "[REVOKE FROM]:${zCommitContent}" # commit 不能以 $? 变量不为 0 终止进程，因为当可提交内容为空时，$? 为 1
-}
-
-#######################################################
-zDeployAll=2; zDeployOne=1; zRevokeOne=-1; zRevokeAll=-2
-
-zActionType=
-zCodePath=
-zCommitId=
-
-while getopts dDrRP:i: zOption
-do
-    case $zOption in
-        d) zActionType=zDeployOne;;
-        D) zActionType=zDeployAll;;
-        r) zActionType=zRevokeOne;;
-        R) zActionType=zRevokeAll;;
-        P) zCodePath="$OPTARG";;  # code path
-        i) zCommitId="$OPTARG";;  #used by function 'zrevoke'
-        ?) exit 1;;
-    esac
-done
-shift $[$OPTIND - 1]
-
-if [[ '' == $zCodePath ]]; then zCodePath=`pwd`; fi
-
-cd $zCodePath
-zEcsList=`cat ${zCodePath}/.git_shadow/info/client_ip_major.txt`
-
-if [[ $zActionType -eq $zDeployOne ]]; then zdeploy $@
-elif [[ $zActionType -eq $zDeployAll ]]; then zdeploy
-elif [[ $zActionType -eq $zRevokeOne ]]; then zrevoke $@
-elif [[ $zActionType -eq $zRevokeAll ]]; then zrevoke
-else printf "\033[31;01Deploy: unknown request!\033[00m\n" 1>&2
-fi
-
-i=0
-j=0
-for zEcs in $zEcsList
-do
-    let i++
-    git push --force git@${zEcs}:${zCodePath}/.git master:server &
-
-    if [[ $? -ne 0 ]]; then let j++; fi
-done
-
-if [[ $i -eq $j ]]; then
-    git reset --hard CURRENT
-    git stash
-    git stash clear
-    git pull --force ${zCodePath}/.git server:master
+if [[ "" == $zCommitSig
+    || "" == ${zPathOnHost}
+    || "" == $zMajorAddr
+    || "" == $zHostList ]]; then
     exit 1
 fi
 
-zCurSig=$(git log CURRENT -n 1 --format=%H) # 取 CURRENT 分支的 SHA1 sig
-git branch -f $zCurSig # 创建一个以 SHA1 sig 命名的分支
-git branch -f CURRENT
+cd /home/git/${zPathOnHost}
+rm -rf *
+
+git pull --force ./.git server:master
+git reset ${zCommitSig}
+
+# 更新中转机(MajorHost)
+cd /home/git/${zPathOnHost}_SHADOW
+
+cp -rf ${zShadowPath}/bin/git_shadow_client ./bin/
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" >> ./bin/git_shadow_client
+cp -rf ${zShadowPath}/scripts/* ./scripts/
+eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+git add --all .
+git commit --allow-empty -m "__DP__"
+
+git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
+
+cd /home/git/${zPathOnHost}
+git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
+
+# 通过中转机布署到终端集群
+ssh $zMajorAddr "
+    cd ${zPathOnHost}_SHADOW &&
+    for zHostAddr in $zHostList; do
+        git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
+    done
+    rm -rf *
+\
+    cd ${zPathOnHost} &&
+    for zHostAddr in $zHostList; do
+        git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
+    done
+    rm -rf *
+"
+
+# 中控机：布署后环境设置
+cd /home/git/${zPathOnHost}
+zOldSig=`git log CURRENT -1 --format=%H`
+git branch -f $zOldSig  # 创建一个以原有的 CURRENT 分支的 SHA1 sig 命名的分支
+git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
