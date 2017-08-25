@@ -39,15 +39,6 @@ cc -Wall -Wextra -std=c99 -O2 -lpthread \
 
 strip ${zShadowPath}/bin/git_shadow
 
-# 编译客户端
-cc -O2 -Wall -Wextra -std=c99 \
-    -I ${zShadowPath}/inc \
-    -D_XOPEN_SOURCE=700 \
-    -o ${zShadowPath}/bin/git_shadow_client \
-    ${zShadowPath}/src/client/zmain_client.c
-
-strip ${zShadowPath}/bin/git_shadow_client
-
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
 
 # 后台进入退出重启机制

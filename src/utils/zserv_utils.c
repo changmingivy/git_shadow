@@ -863,7 +863,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     }
 
     /* 在每个代码库的<_SHADOW/info/repo_id>文件中写入所属代码库的ID */
-    if (sizeof(zRepoId) != write(zFd, &zRepoId, sizeof(zRepoId))) {
+    char zRepoIdBuf[12];  // 足以容纳整数最大值即可
+    _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
+    if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
         zFree_Source();
         zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
