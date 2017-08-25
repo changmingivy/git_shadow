@@ -56,6 +56,6 @@ zOps() {
     git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 }
 
-echo "====[`date`]====" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
+echo -e "========================\n====[`date`]====\n========================\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
-echo "\n\n\n\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
+echo -e "\n\n\n\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
