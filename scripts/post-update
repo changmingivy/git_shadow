@@ -19,6 +19,9 @@ export GIT_DIR="${zPathOnHost}/.git"
 git add --all .
 git commit -m "_"
 git checkout server
+printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____READMEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+git add ____READMEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+git commit -m "__mark__"
 git checkout -b TMP
 git reset -q --hard
 git branch -M master
