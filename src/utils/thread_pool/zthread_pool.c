@@ -1,7 +1,7 @@
-// #ifndef _Z
-//     #include "../../zmain.c"
-// #endif
-// 
+ #ifndef _Z
+     #include "../../zmain.c"
+ #endif
+ 
 // #define zThreadPollSiz 64
 // 
 // /* 优先使用线程池，若线程池满，则新建临时线程执行任务 */
@@ -93,7 +93,8 @@
  * 线程池设计的有问题，暂时如此实现
  * 存在阻死现象，伪共享导致？
  */
+pthread_t zXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX;
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
-    zCheck_Pthread_Func_Exit( pthread_create(&(zpTmpJobIf->Tid), NULL, zFunc, zParam) );\
+    zCheck_Pthread_Func_Exit( pthread_create(&zXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX, NULL, zFunc, zParam) );\
 } while(0)
 

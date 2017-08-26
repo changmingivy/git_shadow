@@ -561,7 +561,7 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
 /*
  * 网络服务路由函数
  */
-void
+void *
 zops_route(void *zpSd) {
     _i zSd = *((_i *)zpSd);
     _i zBufSiz = zCommonBufSiz;
@@ -596,7 +596,7 @@ zops_route(void *zpSd) {
 
     if (zBytes(6) > zRecvdLen) {
         shutdown(zSd, SHUT_RDWR);
-        return;
+        return NULL;
     }
 
     char zDataBuf[zRecvdLen], zExtraDataBuf[zRecvdLen];
@@ -635,6 +635,8 @@ zMarkCommonAction:
 zMarkEnd:
     shutdown(zSd, SHUT_RDWR);
     if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
+
+    return NULL;
 }
 
 /************

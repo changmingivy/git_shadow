@@ -8,7 +8,7 @@
 /*************
  * ADD WATCH *
  *************/
-void
+void *
 zinotify_add_sub_watch(void *zpIf) {
     struct zObjInfo *zpCurIf, *zpSubIf;
     _i zWid;
@@ -24,10 +24,10 @@ zinotify_add_sub_watch(void *zpIf) {
     zpObjHash[zWid] = zpCurIf;
 
     // 如果不需要递归监控子目录，到此返回，不再往下执行
-    if (0 == zpCurIf->RecursiveMark) { return; }
+    if (0 == zpCurIf->RecursiveMark) { return NULL; }
 
     DIR *zpDir = opendir(zpCurIf->p_path);
-    zCheck_Null_Return(zpDir,);
+    zCheck_Null_Return(zpDir, NULL);
 
     size_t zLen = strlen(zpCurIf->p_path);
     struct dirent *zpEntry;
@@ -55,12 +55,14 @@ zinotify_add_sub_watch(void *zpIf) {
         }
     }
     closedir(zpDir);
+
+    return NULL;
 }
 
 /********************
  * DEAL WITH EVENTS *
  ********************/
-void
+void *
 zinotify_wait(void *_) {
 // TEST: PASS
     char zBuf[zCommonBufSiz] __attribute__ ((aligned(__alignof__(struct inotify_event))));
@@ -91,7 +93,7 @@ zinotify_wait(void *_) {
 
                 // Must do "malloc" here; 分配的内存包括路径名称长度
                 struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->p_path) + zpEv->len);
-                zCheck_Null_Return(zpSubIf,);
+                zCheck_Null_Return(zpSubIf, NULL);
 
                 // 为新监控目标填冲基本信息
                 zpSubIf->RepoId = zpObjHash[zpEv->wd]->RepoId;
@@ -107,4 +109,6 @@ zinotify_wait(void *_) {
             }
         }
     }
+
+    return NULL;
 }
