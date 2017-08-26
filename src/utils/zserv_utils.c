@@ -160,7 +160,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 /*
  *  定时(10s)同步远程代码
  */
-void
+void *
 zauto_pull(void *_) {
     _i zCnter;
     while (1) {
@@ -173,12 +173,14 @@ zauto_pull(void *_) {
         }
         sleep(8);
     }
+
+    return NULL;
 }
 
 /*
  * 功能：生成单个文件的差异内容缓存
  */
-void
+void *
 zget_diff_content(void *zpIf) {
     zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
     zVecWrapInfo *zpTopVecWrapIf;
@@ -194,7 +196,7 @@ zget_diff_content(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
-        return;
+        return NULL;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -207,15 +209,24 @@ zget_diff_content(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
-    for (zCnter = 0; 0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
+    zCnter = 0;
+    if (0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler))) {
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
 
-        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+        zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1]->p_next = NULL;
+
+        zCnter++;
+        for (; 0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
+            zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
+            zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+            memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+
+            zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+            zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        }
     }
     pclose(zpShellRetHandler);
 
@@ -234,12 +245,14 @@ zget_diff_content(void *zpIf) {
         /* 最后为 VecSiz 赋值，通知同类请求缓存已生成 */
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz = zCnter;
     }
+
+    return NULL;
 }
 
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表
  */
-void
+void *
 zgenerate_graph(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     _i zOffSet;
@@ -279,9 +292,11 @@ zgenerate_graph(void *zpIf) {
 
     zCcur_Fin_Mark_Thread(zpNodeIf);
     zCcur_Fin_Signal(zpNodeIf);
+
+    return NULL;
 }
 
-void
+void *
 zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
@@ -303,6 +318,8 @@ zdistribute_task(void *zpIf) {
     }
 
     zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
+
+    return NULL;
 }
 
 #define zGenerate_Tree_Node() do {\
@@ -378,7 +395,7 @@ zdistribute_task(void *zpIf) {
     memcpy(zpTmpNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
 } while(0)
 
-void
+void *
 zget_file_list(void *zpIf) {
     zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf;
@@ -399,7 +416,7 @@ zget_file_list(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型错误!");
-        return;
+        return NULL;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -522,13 +539,15 @@ zMarkOuter:;
         /* 最后为 VecSiz 赋值，通知同类请求缓存已生成 */
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zLineCnter;
     }
+
+    return NULL;
 }
 
 /*
  * 功能：逐层生成单个代码库的 commit/deploy 列表、文件列表及差异内容缓存
  * 当有新的布署或撤销动作完成时，所有的缓存都会失效，因此每次都需要重新执行此函数以刷新预载缓存
  */
-void
+void *
 zgenerate_cache(void *zpIf) {
     zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
@@ -556,21 +575,37 @@ zgenerate_cache(void *zpIf) {
         exit(1);
     }
 
-    for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)); zCnter++) {
+    /* 第一行单独处理，避免后续每次判断是否是第一行 */
+    zCnter = 0;
+    if (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) {
         /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMetaIf->DataType)
-                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { break; }
+                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
         zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
 
-        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+        zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1]->p_next = NULL;
+
+        zCnter++;
+        for (; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)); zCnter++) {
+            /* 只提取比最近一次布署版本更新的提交记录 */
+            if ((zIsCommitDataType == zpMetaIf->DataType)
+                    && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
+            zBaseDataLen = strlen(zRes);
+            zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
+            zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+            memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+            zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
+
+            zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+            zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        }
     }
+zMarkSkip:
     pclose(zpShellRetHandler);
 
     /* 存储的是实际的对象数量 */
@@ -631,13 +666,15 @@ zgenerate_cache(void *zpIf) {
 
     /* >>>>任务完成，尝试通知上层调用者 */
     zCcur_Fin_Signal(zpMetaIf);
+
+    return NULL;
 }
 
 /*
  * 当监测到有新的代码提交时，为新版本代码生成缓存
  * 此函数在 inotify 中使用，传入的参数是 zObjInfo 数型
  */
-void
+void *
 zupdate_one_commit_cache(void *zpIf) {
     zObjInfo *zpObjIf;
     zMetaInfo zSubMetaIf;
@@ -670,7 +707,7 @@ zupdate_one_commit_cache(void *zpIf) {
     if (0 == strcmp(zRes,
                 zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
-        return;
+        return NULL;
     }
 
     zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41)) );
@@ -728,6 +765,8 @@ zupdate_one_commit_cache(void *zpIf) {
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
+
+    return NULL;
 }
 
 // /*
@@ -737,7 +776,7 @@ zupdate_one_commit_cache(void *zpIf) {
 //  * $2：代码库绝对路径
 //  * $3：受监控路径名称
 //  */
-// void
+// void *
 // zinotify_common_callback(void *zpIf) {
 //     zObjInfo *zpObjIf = (zObjInfo *) zpIf;
 //     char zShellBuf[zCommonBufSiz];
@@ -978,7 +1017,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 #undef zFree_Source
 
 /* 读取项目信息，初始化配套环境 */
-void
+void *
 zinit_env(const char *zpConfPath) {
     FILE *zpFile;
     char zRes[zCommonBufSiz];
@@ -1005,10 +1044,12 @@ zinit_env(const char *zpConfPath) {
         zPrint_Err(0, NULL, "未读取到有效代码库信息!");
     }
     fclose(zpFile);
+
+    return NULL;
 }
 
 /* 通过 SSH 远程初始化一个目标主机，完成任务后通知上层调用者 */
-void
+void *
 zinit_one_remote_host(void *zpIf) {
     zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
     char zShellBuf[zCommonBufSiz];
@@ -1024,4 +1065,6 @@ zinit_one_remote_host(void *zpIf) {
     system(zShellBuf);
 
     zCcur_Fin_Signal(zpMetaIf);
+
+    return NULL;
 }

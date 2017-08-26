@@ -315,9 +315,10 @@ zsleep(_d zSecs) {
 /*
  * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
  */
-void
+void *
 zthread_system(void *zpCmd) {
     system((char *) zpCmd);
+    return NULL;
 }
 
 // /*
