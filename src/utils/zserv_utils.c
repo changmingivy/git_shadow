@@ -209,15 +209,24 @@ zget_diff_content(void *zpIf) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
-    for (zCnter = 0; 0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
+    zCnter = 0;
+    if (0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler))) {
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
 
-        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+        zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1]->p_next = NULL;
+
+        zCnter++;
+        for (; 0 < (zBaseDataLen = zget_str_content(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
+            zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
+            zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+            memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+
+            zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+            zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        }
     }
     pclose(zpShellRetHandler);
 
@@ -566,21 +575,37 @@ zgenerate_cache(void *zpIf) {
         exit(1);
     }
 
-    for (zCnter = 0; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)); zCnter++) {
+    /* 第一行单独处理，避免后续每次判断是否是第一行 */
+    zCnter = 0;
+    if (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) {
         /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMetaIf->DataType)
-                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { break; }
+                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
-        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
         memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
         zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
 
-        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
-        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+        zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1]->p_next = NULL;
+
+        zCnter++;
+        for (; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)); zCnter++) {
+            /* 只提取比最近一次布署版本更新的提交记录 */
+            if ((zIsCommitDataType == zpMetaIf->DataType)
+                    && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
+            zBaseDataLen = strlen(zRes);
+            zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
+            zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+            memcpy(zpTmpBaseDataIf[0]->p_data, zRes, zBaseDataLen);
+            zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
+
+            zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+            zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        }
     }
+zMarkSkip:
     pclose(zpShellRetHandler);
 
     /* 存储的是实际的对象数量 */
