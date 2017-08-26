@@ -165,9 +165,7 @@ zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *z
         .msg_flags = 0
     };
 
-    _i zSentSiz = sendmsg(zSd, &zMsgIf, zFlags);
-    zCheck_Negative_Return(zSentSiz, -1);
-    return zSentSiz;
+    return sendmsg(zSd, &zMsgIf, zFlags);
 }
 
 _i
