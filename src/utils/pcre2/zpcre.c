@@ -3,7 +3,7 @@
 #endif
 
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
-#include <pcre2.h>  //compile with '-lpcre2-8'
+#include "pcre2.h"  //compile with '-lpcre2-8'
 
 #define zMatchLimit 1024
 #define zErrBufLen 256

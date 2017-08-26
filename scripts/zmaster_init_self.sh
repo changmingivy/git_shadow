@@ -33,6 +33,7 @@ make -j 9 && make install
 cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -D_XOPEN_SOURCE=700 \
     -I${zShadowPath}/inc \
+    -I${zShadowPath}/lib/pcre2/include \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c \
     ${zShadowPath}/lib/pcre2/lib/libpcre2-8.a
