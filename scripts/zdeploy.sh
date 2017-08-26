@@ -16,6 +16,7 @@ zOps() {
     fi
 
     cd /home/git/${zPathOnHost}
+    if [[ 0 -ne $? ]]; then exit 1; fi  # 当指定的路径不存在，此句可防止 /home/git 下的项目文件被误删除
     rm -rf *
 
     git pull --force ./.git server:master
@@ -56,6 +57,6 @@ zOps() {
     git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 }
 
-echo -e "========================\n====[`date`]====\n========================\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
+echo -e "====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 echo -e "\n\n\n\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
