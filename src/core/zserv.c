@@ -91,8 +91,13 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
     if (0 < zpSortedTopVecWrapIf->VecSiz) {
-        zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL);
-        zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+        if (0 < zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL)) {
+            zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+        } else {
+            zsendto(zSd, "[{\"OpsId\":-14}]", zBytes(15), 0, NULL);
+        }
+    } else {
+        zsendto(zSd, "[{\"OpsId\":-15}]", zBytes(15), 0, NULL);
     }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -666,6 +671,8 @@ zMarkEnd:
  * -11：正在布署／撤销过程中（请稍后重试？）
  * -12：布署失败（超时？未全部返回成功状态）
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
+ * -14：服务器缓存内容错误
+ * -15：最近的布署记录之后，无新的提交记录
  *
  * -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
@@ -682,7 +689,6 @@ zMarkEnd:
  * -38：无法创建新项目路径（如：git clone失败等原因）
  * -39：项目ID写入配置文件失败(repo_id)
  *
- * -100：不确定IP数据库是否准确更新，需要前端验证MD5_checksum（若验证不一致，则需要尝试重新更交IP数据库）
  */
 
 void
