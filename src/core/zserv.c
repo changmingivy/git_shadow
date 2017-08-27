@@ -99,9 +99,8 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
  * 5：显示所有项目及其元信息
  */
 _i
-zlist_repo(zMetaInfo *zpIf, _i zSd) {
+zlist_repo(zMetaInfo *_, _i zSd) {
     char zSendBuf[zCommonBufSiz];
-    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
 
     for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
         if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
@@ -109,14 +108,14 @@ zlist_repo(zMetaInfo *zpIf, _i zSd) {
         }
 
         sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
-                zppGlobRepoIf[zpMetaIf->RepoId]->RepoId,
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
-                '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
-                zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
-                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
-                zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
-                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+                zCnter,
+                zppGlobRepoIf[zCnter]->p_RepoPath,
+                zDeployLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
+                '\0' == zppGlobRepoIf[zCnter]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDeploySig,
+                zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
+                NULL == zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr,
+                zppGlobRepoIf[zCnter]->TotalHost,
+                NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
                 );
         zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
     }
