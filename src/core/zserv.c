@@ -150,9 +150,10 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
         } else {
             zsendto(zSd, "[{\"OpsId\":-14}]", zBytes(15), 0, NULL);
         }
-    } else {
-        zsendto(zSd, "[{\"OpsId\":-15}]", zBytes(15), 0, NULL);
     }
+//    else {
+//        zsendto(zSd, "[{\"OpsId\":-15}]", zBytes(15), 0, NULL);
+//    }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
