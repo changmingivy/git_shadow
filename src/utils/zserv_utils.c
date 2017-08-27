@@ -1011,7 +1011,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCcur_Wait(A);  //___
     zCcur_Wait(B);  //___
 
-    zGlobMaxRepoId = zRepoId;
+    zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
     return 0;
 }
