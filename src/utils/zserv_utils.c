@@ -170,6 +170,8 @@ zauto_pull(void *_) {
             }
             system(zppGlobRepoIf[zCnter]->p_PullCmd);
         }
+
+        sleep(4);
     }
 
     return NULL;

@@ -683,7 +683,7 @@ zops_route(void *zpSd) {
         goto zMarkCommonAction;
     }
 
-    if ((1 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
+    if ((1 != zMetaIf.OpsId) && (5 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         goto zMarkCommonAction;
     }
