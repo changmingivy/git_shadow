@@ -158,7 +158,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 #define zGet_OneFilePath(zpTopVecWrapIf, zCommitId, zFileId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf->p_RefDataIf[zFileId].p_data)
 
 /*
- *  定时(10s)同步远程代码
+ *  拉取远程代码
  */
 void *
 zauto_pull(void *_) {
@@ -168,10 +168,8 @@ zauto_pull(void *_) {
             if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
                 continue;
             }
-
-            zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
+            system(zppGlobRepoIf[zCnter]->p_PullCmd);
         }
-        sleep(4);
     }
 
     return NULL;
