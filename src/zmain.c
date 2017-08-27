@@ -157,8 +157,8 @@ struct zRepoInfo {
     _i RepoState;
     char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
 
-    _ui MajorHostAddr;  // 以无符号整型格式存放的中转机(即实际执行分发的节点)IPv4地址
-    char *p_HostAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
+    char *p_ProxyHostStrAddr;  // 代理机 IPv4 地址
+    char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
 
@@ -185,6 +185,9 @@ struct zRepoInfo {
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
+
+    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
+    char zInitRepoFinMark;
 };
 typedef struct zRepoInfo zRepoInfo;
 

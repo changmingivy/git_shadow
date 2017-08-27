@@ -315,7 +315,7 @@ zsleep(_d zSecs) {
  */
 void *
 zthread_system(void *zpCmd) {
-    system((char *) zpCmd);
+    if (NULL != zpCmd) { system((char *) zpCmd); }
     return NULL;
 }
 
