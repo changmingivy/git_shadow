@@ -64,10 +64,65 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
+ * 有连锁风险未解决，暂不启用
  * 13：删除项目（代码库）
  */
 _i
-zdelete_repo(zMetaInfo *_, _i __) { return 0; }
+zdelete_repo(zMetaInfo *zpIf, _i zSd) {
+//    char zShellBuf[zCommonBufSiz];
+//    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+//
+//    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+//        return -11;
+//    };
+//
+//    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
+//    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
+//    pthread_rwlock_unlock( &(zpRepoIf->RwLock) );
+//
+//    /* 执行外部脚本使用 git 进行布署 */
+//    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
+//            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
+//            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+//            zpRepoIf->p_ProxyHostStrAddr,
+//            zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+//
+//    if (0 != system(zShellBuf)) { return -16; }
+//
+//    // TO DO: 释放此项占用的内存资源
+//
+//    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    return 0;
+}
+
+/*
+ * 5：显示所有项目及其元信息
+ */
+_i
+zlist_repo(zMetaInfo *zpIf, _i zSd) {
+    char zSendBuf[zCommonBufSiz];
+    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+
+    for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
+        if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
+            continue;
+        }
+
+        sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+                zppGlobRepoIf[zpMetaIf->RepoId]->RepoId,
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
+                '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+                zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
+                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
+                zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
+                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+                );
+        zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
+    }
+
+    return 0;
+}
 
 /*
  * 6：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
@@ -235,12 +290,9 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
-    _ui zIpv4AddrBin = zconvert_ipv4_str_to_bin(zpMetaIf->p_data);
-    /* if equal, skip update */
-    if (0 == zIpv4AddrBin) {
-        return -27;
-    }
-    if (zIpv4AddrBin == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) {
+    if (NULL == zpMetaIf->p_data) { return -27; }
+    if (NULL != zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr
+            && 0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr, zpMetaIf->p_data)) {
         goto zMark;
     }
 
@@ -255,8 +307,13 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     }
 
-    system(zShellBuf);
-    zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr = zIpv4AddrBin;
+    if (0 != system(zShellBuf)) {
+        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+        return -27;
+    }
+
+    zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr = zalloc_cache(zpMetaIf->RepoId, 1 + strlen(zpMetaIf->p_data));
+    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr, zpMetaIf->p_data);
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
@@ -344,7 +401,7 @@ zMark:
     /* 更新项目元信息 */
     if (NULL != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) { free(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf); }
     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf = zpDpResListIf;
-    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList = zpIpStrList;  // 存放于项目内存池中，不可 free()
+    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zpIpStrList;  // 存放于项目内存池中，不可 free()
 
     /* 将线性数组影射成 HASH 结构,clear hash buf before reuse it!!! */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
@@ -374,7 +431,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf[2];
 
     _i zErrNo;
-    char zMajorHostStrAddrBuf[16];
 
     char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
 
@@ -405,11 +461,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 检查中转机 IPv4 存在性 */
-    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr) {
+    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -25;
-    } else {
-        zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr, zMajorHostStrAddrBuf);
     }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
@@ -438,8 +492,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            zMajorHostStrAddrBuf,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostAddrList);  // 集群主机的点分格式文本 IPv4 列表
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool( zthread_system, zShellBuf );
@@ -673,6 +727,7 @@ zMarkEnd:
  * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
  * -14：服务器缓存内容错误
  * -15：最近的布署记录之后，无新的提交记录
+ * -16：删除项目失败
  *
  * -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
@@ -699,9 +754,9 @@ zstart_server(void *zpIf) {
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
-    zNetServ[5] = zzero;  // 不再提供独立的更新全量IP列表的接口，功能内嵌至 zdeploy 中
+    zNetServ[5] = zlist_repo;  // 显示当前有效项目的元信息
     zNetServ[6] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
-    zNetServ[7] = zstate_confirm;  // 布署成功状态人工确认
+    zNetServ[7] = zzero;  // 不再提供人工状态确认接口
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表

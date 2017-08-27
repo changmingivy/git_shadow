@@ -165,13 +165,13 @@ zauto_pull(void *_) {
     _i zCnter;
     while (1) {
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
-            if (NULL == zppGlobRepoIf[zCnter] || NULL == zppGlobRepoIf[zCnter]->p_PullCmd) {
+            if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
                 continue;
             }
 
             zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
-        sleep(8);
+        sleep(4);
     }
 
     return NULL;
@@ -1012,6 +1012,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCcur_Wait(B);  //___
 
     zGlobMaxRepoId = zRepoId;
+    zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
     return 0;
 }
 #undef zFree_Source
@@ -1053,15 +1054,15 @@ void *
 zinit_one_remote_host(void *zpIf) {
     zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
     char zShellBuf[zCommonBufSiz];
-    char zMajorHostStrAddrBuf[16], zHostStrAddrBuf[16];
+    char zHostStrAddrBuf[16];
 
-    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->MajorHostAddr, zMajorHostStrAddrBuf);
     zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
     sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh %s %s %s",
-            zMajorHostStrAddrBuf,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
             zHostStrAddrBuf,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+
     system(zShellBuf);
 
     zCcur_Fin_Signal(zpMetaIf);
