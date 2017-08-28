@@ -11,19 +11,33 @@ zRemoteVcsType=$5  # svn 或 git
 zShadowPath=/home/git/zgit_shadow
 zDeployPath=/home/git/$zPathOnHost
 
-if [[ "" == $zProjNo
-    || "" == $zPathOnHost
-    || "" == $zPullAddr
-    || "" == $zRemoteMasterBranchName
-    || "" == $zRemoteVcsType ]]
-then
-    exit 255
+# if [[ "" == $zProjNo
+#     || "" == $zPathOnHost
+#     || "" == $zPullAddr
+#     || "" == $zRemoteMasterBranchName
+#     || "" == $zRemoteVcsType ]]
+# then
+#     exit 1
+# fi
+
+# 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
+if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
+	if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then 
+		exit 0
+	else
+		exit 255
+	fi
 fi
 
-if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then exit 0; fi
+# 创建项目路径
+mkdir -p $zDeployPath
+if [[ $? -ne 0 ]]; then exit 254; fi
+
+# 拉取远程代码
+git clone $zPullAddr $zDeployPath
+if [[ $? -ne 0 ]]; then exit 253; fi
 
 # 环境初始化
-git clone $zPullAddr $zDeployPath
 cd $zDeployPath
 git config user.name "$zProjNo"
 git config user.email "${zProjNo}@${zPathOnHost}"

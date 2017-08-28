@@ -687,10 +687,12 @@ zupdate_one_commit_cache(void *zpIf) {
     char zRes[zCommonBufSiz], zShellBuf[zCommonBufSiz];
 
     zpObjIf = (zObjInfo*)zpIf;
+
+    /* 应对删除项目动作可能带来的时间差 */
+    if (NULL == zppGlobRepoIf[zpObjIf->RepoId]) { return NULL; }
+
     zpTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf);
     zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedCommitVecWrapIf);
-
-    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
 
     zpHeadId = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitCacheQueueHeadId);
 
@@ -704,13 +706,11 @@ zupdate_one_commit_cache(void *zpIf) {
     zRes[40] = '\0';
 
     /* 防止冗余事件导致的重复更新 */
-    if (0 == strcmp(zRes,
-                zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
-        pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
+    if (0 == strcmp(zRes, zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
         return NULL;
     }
 
-    zCheck_Null_Exit( zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41)) );
+    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpObjIf->RepoId, zBytes(41));
     strcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zRes);
 
     /* 转换成JsonStr */
@@ -733,6 +733,9 @@ zupdate_one_commit_cache(void *zpIf) {
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zalloc_cache(zpObjIf->RepoId, zVecDataLen);
     memcpy(zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base, zJsonBuf, zVecDataLen);
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
+
+    /* 之前的部分并不影响缓存布局，自此处开始加写锁即可 */
+    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
 
     /* 若未达到容量上限，VecSiz 加 1*/
     if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
@@ -765,32 +768,8 @@ zupdate_one_commit_cache(void *zpIf) {
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
-
     return NULL;
 }
-
-// /*
-//  * 通用函数，调用外部程序或脚本文件执行相应的动作
-//  * 传入参数：
-//  * $1：代码库ID
-//  * $2：代码库绝对路径
-//  * $3：受监控路径名称
-//  */
-// void *
-// zinotify_common_callback(void *zpIf) {
-//     zObjInfo *zpObjIf = (zObjInfo *) zpIf;
-//     char zShellBuf[zCommonBufSiz];
-//
-//     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify.sh %d %s %s",
-//         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
-//         zpObjIf->RepoId,
-//         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
-//         zpObjHash[zpObjIf->UpperWid]->path);
-//
-//     if (0 != system(zShellBuf)) {
-//         zPrint_Err(0, NULL, "[system]: shell command failed!");
-//     }
-// }
 
 // 记录布署或撤销的日志
 void
@@ -822,13 +801,13 @@ zwrite_log(_i zRepoId) {
  *   新建项目基本信息五个字段
  *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
  * 返回值:
-        -33;  // 请求创建的新项目路径无权访问
-        -34;  // 请求创建的新项目信息格式错误（合法字段数量不是5个）
-        -35;  // 请求创建的项目ID已存在或不合法（创建项目代码库时出错）
-        -36;  // 请求创建的项目路径已存在
-        -37;  // 请求创建项目时指定的源版本控制系统错误（非git或svn）
-        -38;  // 拉取(git clone)远程代码失败
-        -39;  // 项目ID写入失败
+ *         -33：无法创建请求的项目路径
+ *         -34：请求创建的新项目信息格式错误（合法字段数量不是五个）
+ *         -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
+ *         -36：请求创建的项目路径已存在，且项目ID不同
+ *         -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
+ *         -38：拉取远程代码库失败（git clone 失败）
+ *         -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
  */
 #define zFree_Source() do {\
     close(zFd);\
@@ -849,14 +828,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zObjInfo *zpObjIf;
     char zShellBuf[zCommonBufSiz];
 
-    _i zRepoId,zFd;
+    _i zRepoId, zFd, zErrNo;
 
     /* 正则匹配项目基本信息（5个字段） */
     zpInitIf = zpcre_init("(\\w|[[:punct:]])+");
     zpRetIf = zpcre_match(zpInitIf, zpRepoMetaData, 1);
     if (5 != zpRetIf->cnt) {
         zPrint_Time();
-        fprintf(stderr, "\033[31m\"%s\": 新项目信息错误!\033[00m\n", zpRepoMetaData);
         return -34;
     }
 
@@ -885,7 +863,12 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 调用SHELL执行检查和创建 */
     sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
-    system(zShellBuf);
+
+    /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
+    zErrNo = WEXITSTATUS(system(zShellBuf));
+    if (255 == zErrNo) { return -36; }
+    else if (254 == zErrNo) { return -33; }
+    else if (253 == zErrNo) { return -38; }
 
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];
@@ -897,8 +880,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
         zFree_Source();
-        zPrint_Err(0, NULL, "项目日志文件或repo_id路径不存在!");
-        return -38;
+        return -39;
     }
 
     /* 在每个代码库的<_SHADOW/info/repo_id>文件中写入所属代码库的ID */
@@ -906,7 +888,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
     if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
         zFree_Source();
-        zPrint_Err(0, NULL, "项目ID写入repo_id文件失败!");
         return -39;
     }
     close(zFd);
@@ -923,7 +904,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
                 zpRetIf->p_rets[1]);
     } else {
         zFree_Source();
-        zPrint_Err(0, NULL, "无法识别的远程版本管理系统：不是git也不是svn!");
         return -37;
     }
 
@@ -945,7 +925,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
 
-    /* inotify */
+    /* Inotify */
     zpObjIf = zalloc_cache(zRepoId, sizeof(zObjInfo) + 1 + strlen(zInotifyObjRelativePath) + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath));
     zpObjIf->RepoId = zRepoId;
     zpObjIf->RecursiveMark = 0;  // 不必递归监控
@@ -1022,6 +1002,7 @@ void *
 zinit_env(const char *zpConfPath) {
     FILE *zpFile;
     char zRes[zCommonBufSiz];
+    _i zErrNo;
 
     /* json 解析时的回调函数索引 */
     zJsonParseOps['O']  // OpsId
@@ -1038,14 +1019,14 @@ zinit_env(const char *zpConfPath) {
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
-        zinit_one_repo_env(zRes);
+        if (0 > (zErrNo = zinit_one_repo_env(zRes))) {
+            fprintf(stderr, "ERROR[zinit_one_repo_env]: %d\n", zErrNo);
+        }
     }
 
-    if (0 > zGlobMaxRepoId) {
-        zPrint_Err(0, NULL, "未读取到有效代码库信息!");
-    }
+    if (0 > zGlobMaxRepoId) { zPrint_Err(0, NULL, "未读取到有效代码库信息!"); }
+
     fclose(zpFile);
-
     return NULL;
 }
 

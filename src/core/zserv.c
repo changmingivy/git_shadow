@@ -64,35 +64,46 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 有连锁风险未解决，暂不启用
  * 13：删除项目（代码库）
  */
 _i
 zdelete_repo(zMetaInfo *zpIf, _i zSd) {
-//    char zShellBuf[zCommonBufSiz];
-//    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
-//
-//    if (EBUSY == pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-//        return -11;
-//    };
-//
-//    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
-//    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
-//    pthread_rwlock_unlock( &(zpRepoIf->RwLock) );
-//
-//    /* 执行外部脚本使用 git 进行布署 */
-//    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
-//            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
-//            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-//            zpRepoIf->p_ProxyHostStrAddr,
-//            zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
-//
-//    if (0 != system(zShellBuf)) { return -16; }
-//
-//    // TO DO: 释放此项占用的内存资源
-//
-//    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-    return 0;
+    char zShellBuf[zCommonBufSiz];
+    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+
+    if (EBUSY == pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        return -11;
+    };
+
+    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
+    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
+    pthread_rwlock_unlock( &(zpRepoIf->RwLock) );
+
+    /* 生成待执行的外部动作指令 */
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
+            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
+            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+            zpRepoIf->p_ProxyHostStrAddr,
+            zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+
+    /* 清理该项目占用的内存资源 */
+    void **zppPrev = zpRepoIf->p_MemPool;
+    do {
+        zppPrev = zppPrev[0];
+        munmap(zpRepoIf->p_MemPool, zMemPoolSiz);
+        zpRepoIf->p_MemPool = zppPrev;
+    } while(NULL != zpRepoIf->p_MemPool);
+
+    free(zpRepoIf);
+    free(zpRepoIf->p_RepoPath);
+
+    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+    if (0 != WEXITSTATUS( system(zShellBuf) )) {
+        return -16;
+    } else {
+        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+        return 0;
+    }
 }
 
 /*
@@ -307,7 +318,8 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     }
 
-    if (0 != system(zShellBuf)) {
+    /* system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+    if (0 != WEXITSTATUS( system(zShellBuf) )) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -27;
     }
@@ -711,39 +723,38 @@ zMarkEnd:
 /************
  * 网络服务 *
  ************/
-/* 执行结果状态码对应表
- * -1：操作指令不存在（未知／未定义）
- * -2：项目ID不存在
- * -3：代码版本ID不存在或与其相关联的内容为空（空提交记录）
- * -4：差异文件ID不存在
- * -5：指定的主机 IP 不存在
- * -6：项目布署／撤销／更新ip数据库的权限被锁定
- * -7：后端接收到的数据无法解析，要求前端重发
- * -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
- * -9：服务端错误：接收缓冲区为空或容量不足，无法解析数据
- * -10：前端请求的数据类型错误
- * -11：正在布署／撤销过程中（请稍后重试？）
- * -12：布署失败（超时？未全部返回成功状态）
- * -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
- * -14：服务器缓存内容错误
- * -15：最近的布署记录之后，无新的提交记录
- * -16：删除项目失败
+/*  执行结果状态码对应表
+ *  -1：操作指令不存在（未知／未定义）
+ *  -2：项目ID不存在
+ *  -3：代码版本ID不存在或与其相关联的内容为空（空提交记录）
+ *  -4：差异文件ID不存在
+ *  -5：指定的主机 IP 不存在
+ *  -6：项目布署／撤销／更新ip数据库的权限被锁定
+ *  -7：后端接收到的数据无法解析，要求前端重发
+ *  -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
+ *  -9：服务端错误：接收缓冲区为空或容量不足，无法解析数据
+ *  -10：前端请求的数据类型错误
+ *  -11：正在布署／撤销过程中（请稍后重试？）
+ *  -12：布署失败（超时？未全部返回成功状态）
+ *  -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
+ *  -14：服务器缓存内容错误
+ *  -15：最近的布署记录之后，无新的提交记录
+ *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
- * -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
- * -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
- * -26：集群全量节点(所有主机)IP地址数据库不存在
- * -27：主节点IP数据库更新失败
- * -28：全量节点IP数据库更新失败
- * -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ *  -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
+ *  -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
+ *  -26：集群全量节点(所有主机)IP地址数据库不存在
+ *  -27：主节点IP数据库更新失败
+ *  -28：全量节点IP数据库更新失败
+ *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  *
- * -33：权限不足，无法创建请求的路径
- * -34：请求创建的新项目信息格式错误（合法字段数量不是5个）
- * -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
- * -36：请求创建的项目路径已存在
- * -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
- * -38：无法创建新项目路径（如：git clone失败等原因）
- * -39：项目ID写入配置文件失败(repo_id)
- *
+ *  -33：无法创建请求的项目路径
+ *  -34：请求创建的新项目信息格式错误（合法字段数量不是5个）
+ *  -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
+ *  -36：请求创建的项目路径已存在，且项目ID不同
+ *  -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
+ *  -38：拉取远程代码库失败（git clone 失败）
+ *  -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
  */
 
 void
