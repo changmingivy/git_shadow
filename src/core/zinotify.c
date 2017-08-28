@@ -19,8 +19,6 @@ zinotify_add_sub_watch(void *zpIf) {
     // 判断是否是顶层被监控对象
     if (-1 == zpCurIf->UpperWid) { zpCurIf->UpperWid = zWid; }
 
-    // Free old memory before using the same index again.
-    if (NULL != zpObjHash[zWid]) { free(zpObjHash[zWid]); }
     zpObjHash[zWid] = zpCurIf;
 
     // 如果不需要递归监控子目录，到此返回，不再往下执行
