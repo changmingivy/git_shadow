@@ -97,8 +97,8 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
     free(zpRepoIf);
     free(zpRepoIf->p_RepoPath);
 
-    /* 执行动作，清理本地及所有远程主机上的项目文件 */
-    if (0 != system(zShellBuf)) {
+    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+    if (0 != WEXITSTATUS( system(zShellBuf) )) {
         return -16;
     } else {
         zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
@@ -318,7 +318,8 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     }
 
-    if (0 != system(zShellBuf)) {
+    /* system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+    if (0 != WEXITSTATUS( system(zShellBuf) )) {
         pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         return -27;
     }

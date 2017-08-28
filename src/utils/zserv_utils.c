@@ -771,29 +771,6 @@ zupdate_one_commit_cache(void *zpIf) {
     return NULL;
 }
 
-// /*
-//  * 通用函数，调用外部程序或脚本文件执行相应的动作
-//  * 传入参数：
-//  * $1：代码库ID
-//  * $2：代码库绝对路径
-//  * $3：受监控路径名称
-//  */
-// void *
-// zinotify_common_callback(void *zpIf) {
-//     zObjInfo *zpObjIf = (zObjInfo *) zpIf;
-//     char zShellBuf[zCommonBufSiz];
-//
-//     sprintf(zShellBuf, "%s/.git_shadow/scripts/zpost-inotify.sh %d %s %s",
-//         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
-//         zpObjIf->RepoId,
-//         zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath,
-//         zpObjHash[zpObjIf->UpperWid]->path);
-//
-//     if (0 != system(zShellBuf)) {
-//         zPrint_Err(0, NULL, "[system]: shell command failed!");
-//     }
-// }
-
 // 记录布署或撤销的日志
 void
 zwrite_log(_i zRepoId) {
@@ -886,10 +863,12 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 调用SHELL执行检查和创建 */
     sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
-    zErrNo = system(zShellBuf);
+
+    /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
+    zErrNo = WEXITSTATUS(system(zShellBuf));
     if (255 == zErrNo) { return -36; }
-	else if (254 == zErrNo) { return -33; }
-	else if (253 == zErrNo) { return -38; }
+    else if (254 == zErrNo) { return -33; }
+    else if (253 == zErrNo) { return -38; }
 
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];
