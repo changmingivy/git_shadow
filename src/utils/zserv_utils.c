@@ -159,18 +159,20 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 
 /*
  *  拉取远程代码
+ *  需要持 Destroy 锁进行
  */
 void *
 zauto_pull(void *_) {
     _i zCnter;
     while (1) {
+        pthread_mutex_lock(&zDestroyLock);
+
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
-            if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
-                continue;
-            }
-            system(zppGlobRepoIf[zCnter]->p_PullCmd);
+            if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
+            zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
 
+        pthread_mutex_unlock(&zDestroyLock);
         sleep(4);
     }
 
@@ -673,6 +675,7 @@ zMarkSkip:
 /*
  * 当监测到有新的代码提交时，为新版本代码生成缓存
  * 此函数在 inotify 中使用，传入的参数是 zObjInfo 数型
+ * 注：必须持 Destroy 锁进行
  */
 void *
 zupdate_one_commit_cache(void *zpIf) {
@@ -688,11 +691,17 @@ zupdate_one_commit_cache(void *zpIf) {
 
     zpObjIf = (zObjInfo*)zpIf;
 
-    /* 应对删除项目动作可能带来的时间差 */
-    if (NULL == zppGlobRepoIf[zpObjIf->RepoId]) { return NULL; }
-
     zpTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf);
     zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedCommitVecWrapIf);
+
+    /* 应对删除项目动作可能带来的时间差 */
+    pthread_mutex_lock(&zDestroyLock);
+    if (NULL == zppGlobRepoIf[zpObjIf->RepoId]) {
+        pthread_mutex_unlock(&zDestroyLock);
+        return NULL;
+    }
+
+    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
 
     zpHeadId = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitCacheQueueHeadId);
 
@@ -734,9 +743,6 @@ zupdate_one_commit_cache(void *zpIf) {
     memcpy(zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base, zJsonBuf, zVecDataLen);
     zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
 
-    /* 之前的部分并不影响缓存布局，自此处开始加写锁即可 */
-    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
-
     /* 若未达到容量上限，VecSiz 加 1*/
     if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
         zpSortedTopVecWrapIf->VecSiz = ++(zpTopVecWrapIf->VecSiz);
@@ -768,6 +774,7 @@ zupdate_one_commit_cache(void *zpIf) {
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
+    pthread_mutex_unlock(&zDestroyLock);
     return NULL;
 }
 
@@ -940,6 +947,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), &(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
     zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
 
+    /* 读写锁生成之后，立刻拿写锁 */
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zRepoId]->RwLock));
+
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[zRepoId]->ReplyCntLock, NULL) );
 
@@ -993,6 +1003,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
+
+    /* 放锁 */
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zRepoId]->RwLock));
     return 0;
 }
 #undef zFree_Source
