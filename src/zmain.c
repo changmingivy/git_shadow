@@ -20,8 +20,6 @@
 #include <errno.h>
 #include <limits.h>
 
-#include <sys/inotify.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -142,11 +140,6 @@ struct zRepoInfo {
 
     _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
 
-    _i InotifyFd;  // 每个代码库拥有独立的 inotify 描述符
-    pthread_t InotifyWaitTid;  // 执行 inotify wait 的线程ID，对应的代码库重载时，需要停掉这个线程
-    struct zObjInfo *p_ObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
-    struct zObjInfo *p_TopObjIf;  // 顶层监控对象信息
-
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
 
@@ -208,7 +201,6 @@ zJsonParseFunc zJsonParseOps[128];
  ************/
 #define zRepoIdPath "_SHADOW/info/repo_id"
 #define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
-#define zInotifyObjRelativePath "/.git/logs/refs/heads/server"  // inotify 监控每个项目的server分支变动，用以动态追加提交记录缓存（最前面加一个 '/' ，省去每次使用时单独拼一个字符的麻烦）
 
 /**********
  * 子模块 *
@@ -217,7 +209,6 @@ zJsonParseFunc zJsonParseOps[128];
 #include "utils/zbase_utils.c"
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
-#include "core/zinotify.c"  // 监控代码库文件变动
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 

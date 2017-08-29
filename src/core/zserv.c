@@ -45,12 +45,6 @@
 } while(0)
 
 /*
- * 0：列出所有有效项目ID及其所在路径
- */
-_i
-zzero(zMetaInfo *_, _i __) { return 0; }
-
-/*
  * 1：添加新项目（代码库）
  */
 _i
@@ -72,10 +66,9 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
 
 _i
-zdelete_repo(zMetaInfo *zpIf, _i zSd) {
+zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    _i zErrNo;
 //    char zShellBuf[zCommonBufSiz];
-//    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
 //
 //    /* 取 Destroy 锁 */
 //    pthread_mutex_lock(&zDestroyLock);
@@ -102,9 +95,6 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
 //    zErrNo = WEXITSTATUS(system(zShellBuf));
 //
 //    /* 清理该项目占用的资源 */
-//    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
-//    close(zpRepoIf->InotifyFd);
-//
 //    void **zppPrev = zpRepoIf->p_MemPool;
 //    do {
 //        zppPrev = zppPrev[0];
@@ -132,7 +122,7 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
  * 6：显示单个项目及其元信息
  */
 _i
-zshow_all_repo_meta(zMetaInfo *_, _i zSd) {
+zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
     char zSendBuf[zCommonBufSiz];
 
     zsendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
@@ -391,7 +381,7 @@ zMark:
  * 注：完全内嵌于 zdeploy() 中，不再需要读写锁
  */
 _i
-zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i _) {
+zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf;
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
@@ -587,11 +577,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 将本次布署信息写入日志 */
     zwrite_log(zpMetaIf->RepoId);
 
-    /* 停掉inotify wait线程，重置内存池状态，之后重新添加受监控对象、重启inotify wait */
-    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
+    /* 重置内存池状态 */
     zReset_Mem_Pool_State(zpMetaIf->RepoId);
-    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zppGlobRepoIf[zpMetaIf->RepoId]->p_TopObjIf);  // 添加监控目标
-    zCheck_Pthread_Func_Exit(pthread_create(&(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid), NULL, zinotify_wait, &(zpMetaIf->RepoId)));
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
@@ -656,7 +643,7 @@ zprint_failing_list(zMetaInfo *zpMetaIf, _i zSd) {
  * 9：布署成功主机自动确认
  */
 _i
-zstate_confirm(zMetaInfo *zpMetaIf, _i _) {
+zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
     zDeployResInfo *zpTmp = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDeployHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
@@ -692,6 +679,100 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
     sprintf(zJsonBuf, "[{\"OpsId\":0}]");
     zsendto(zSd, zJsonBuf, zBytes(13), 0, NULL);
 
+    return 0;
+}
+
+/*
+ * 由 post-merge 通过 socket 通知有新的提交记录产生，需要增量更新缓存
+ * 注：若启用删除项目接口，必须持 Destroy 锁进行
+ */
+_i
+zupdate_one_commit_cache(zMetaInfo *zpMetaIf, _i zSd) {
+    zMetaInfo *zpSubMetaIf;
+    zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
+
+    char zJsonBuf[zBytes(256)];  // iov_base
+    _i zVecDataLen, *zpHeadId;
+
+    FILE *zpShellRetHandler;
+    char zShellBuf[zCommonBufSiz];
+
+    zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
+    zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
+
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+    zpHeadId = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId);
+    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(52));
+
+    // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
+    sprintf(zShellBuf, "cd %s && git log server -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zget_one_line(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zBytes(52), zpShellRetHandler);
+    pclose(zpShellRetHandler);
+
+    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data[strlen(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data) - 1] = '\0';  // 去掉换行符
+    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data[40] = '\0';
+
+    /* 防止冗余事件导致的重复更新 */
+    if (0 == strcmp(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        return 0;
+    }
+
+    /* 转换成JsonStr */
+    zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+    zpSubMetaIf->OpsId = 0;
+    zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+    zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
+    zpSubMetaIf->FileId = -1;
+    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+    zpSubMetaIf->DataType = zIsCommitDataType;
+    zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
+    zpSubMetaIf->p_ExtraData = 41 + zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
+    /* 生成下一级缓存，新提交的单条记录直接生成下一级缓存 */
+    zAdd_To_Thread_Pool(zget_file_list, zpSubMetaIf);
+
+    /* 将zMetaInfo转换为JSON文本 */
+    zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+
+    /* 将JsonStr内容存放到iov_base中 */
+    zVecDataLen = strlen(zJsonBuf);
+    zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+    memcpy(zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base, zJsonBuf, zVecDataLen);
+    zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
+
+    /* 若未达到容量上限，VecSiz 加 1*/
+    if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
+        zpSortedTopVecWrapIf->VecSiz = ++(zpTopVecWrapIf->VecSiz);
+    }
+
+    /* 改变 Sorted 序列之前，将原先的json开头 '[' 还原为 ','，形成二维json */
+    ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = ',';
+
+    // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
+    for (_i i = 0, j = *zpHeadId; i < zpTopVecWrapIf->VecSiz; i++) {
+        zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[j].iov_base;
+        zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[j].iov_len;
+
+        if ((zCacheSiz - 1) == j) {
+            j = 0;
+        } else {
+            j++;
+        }
+    }
+
+    /* 更新队列下一次将写入的位置的索引 */
+    if (0 == *zpHeadId) {
+        *zpHeadId = zCacheSiz - 1;
+    } else {
+        (*zpHeadId)--;
+    }
+
+    /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
+    ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
+
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
     return 0;
 }
 
@@ -817,20 +898,20 @@ zMarkEnd:
 void
 zstart_server(void *zpIf) {
     // 顺序不可变
-    zNetServ[0] = zzero;  // 显示项目ID及其在中控机上的绝对路径
+    zNetServ[0] = zdelete_repo;  // 删除指定项目及其所属的所有文件
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
-    zNetServ[5] = zshow_all_repo_meta;  // 显示当前有效项目的元信息
-    zNetServ[6] = zshow_one_repo_meta;  // 不再提供人工状态确认接口
+    zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
+    zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
     zNetServ[7] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
-    zNetServ[13] = zdelete_repo;  // 删除指定项目及其所属的所有文件
+    zNetServ[13] = zupdate_one_commit_cache;  // 接到 git 的 post-merge 勾子通知后，增量更新缓存
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;

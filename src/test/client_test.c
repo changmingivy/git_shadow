@@ -19,7 +19,6 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
-#include <sys/inotify.h>
 #include <sys/epoll.h>
 
 #include <stdio.h>
@@ -49,7 +48,6 @@ struct zObjInfo {
     _s RepoId;  // 每个代码库对应的索引
     _s RecursiveMark;  // 是否递归标志
     _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    char *zpRegexPattern;  // 符合此正则表达式的目录或文件将不被inotify监控
     zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
     char path[];  // 被监控对象的绝对路径名称
 };
@@ -152,9 +150,6 @@ struct zRepoInfo *zpGlobRepoIf;
  * 全局变量 *
  ************/
 _i zGlobRepoNum;  // 总共有多少个代码库
-
-_i zInotifyFD;   // inotify 主描述符
-struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 #define UDP 0
 #define TCP 1
