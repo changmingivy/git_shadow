@@ -64,62 +64,67 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
+ * 存在较大风险，暂不使用!!!!
  * 13：删除项目（代码库）
  */
+
+/* 删除项目与拉取远程代码两个动作需要互斥执行 */
+//pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
+
 _i
 zdelete_repo(zMetaInfo *zpIf, _i zSd) {
-    _i zErrNo;
-    char zShellBuf[zCommonBufSiz];
-    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
-
-    /* 取 Destroy 锁 */
-    pthread_mutex_lock(&zDestroyLock);
-
-    /* 
-     * 取项目写锁
-     * 元数据指针置为NULL
-     * 销毁读写锁
-     */
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
-    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
-    pthread_rwlock_unlock(&(zpRepoIf->RwLock));
-    pthread_rwlock_destroy(&(zpRepoIf->RwLock));
-
-    /* 生成待执行的外部动作指令 */
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
-            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
-            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            NULL == zpRepoIf->p_ProxyHostStrAddr ? "" : zpRepoIf->p_ProxyHostStrAddr,
-            NULL == zpRepoIf->p_HostStrAddrList ? "" : zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
-
-    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-    zErrNo = WEXITSTATUS(system(zShellBuf));
-
-    /* 清理该项目占用的资源 */
-    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
-    close(zpRepoIf->InotifyFd);
-
-    void **zppPrev = zpRepoIf->p_MemPool;
-    do {
-        zppPrev = zppPrev[0];
-        munmap(zpRepoIf->p_MemPool, zMemPoolSiz);
-        zpRepoIf->p_MemPool = zppPrev;
-    } while(NULL != zpRepoIf->p_MemPool);
-
-    free(zpRepoIf->p_TopObjIf);
-    free(zpRepoIf->p_RepoPath);
-    free(zpRepoIf);
-
-    /* 放 Destroy 锁 */
-    pthread_mutex_unlock(&zDestroyLock);
-
-    if (0 != zErrNo) {
-        return -16;
-    } else {
-        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+//    _i zErrNo;
+//    char zShellBuf[zCommonBufSiz];
+//    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+//
+//    /* 取 Destroy 锁 */
+//    pthread_mutex_lock(&zDestroyLock);
+//
+//    /* 
+//     * 取项目写锁
+//     * 元数据指针置为NULL
+//     * 销毁读写锁
+//     */
+//    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+//    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
+//    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
+//    pthread_rwlock_unlock(&(zpRepoIf->RwLock));
+//    pthread_rwlock_destroy(&(zpRepoIf->RwLock));
+//
+//    /* 生成待执行的外部动作指令 */
+//    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
+//            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
+//            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+//            NULL == zpRepoIf->p_ProxyHostStrAddr ? "" : zpRepoIf->p_ProxyHostStrAddr,
+//            NULL == zpRepoIf->p_HostStrAddrList ? "" : zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+//
+//    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+//    zErrNo = WEXITSTATUS(system(zShellBuf));
+//
+//    /* 清理该项目占用的资源 */
+//    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
+//    close(zpRepoIf->InotifyFd);
+//
+//    void **zppPrev = zpRepoIf->p_MemPool;
+//    do {
+//        zppPrev = zppPrev[0];
+//        munmap(zpRepoIf->p_MemPool, zMemPoolSiz);
+//        zpRepoIf->p_MemPool = zppPrev;
+//    } while(NULL != zpRepoIf->p_MemPool);
+//
+//    free(zpRepoIf->p_TopObjIf);
+//    free(zpRepoIf->p_RepoPath);
+//    free(zpRepoIf);
+//
+//    /* 放 Destroy 锁 */
+//    pthread_mutex_unlock(&zDestroyLock);
+//
+//    if (0 != zErrNo) {
+//        return -16;
+//    } else {
+//        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
         return 0;
-    }
+//    }
 }
 
 /*

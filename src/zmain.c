@@ -203,9 +203,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
 
-/* 删除项目与拉取远程代码两个动作需要互斥执行 */
-pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
-
 /************
  * 配置文件 *
  ************/

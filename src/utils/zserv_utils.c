@@ -136,14 +136,10 @@ void *
 zauto_pull(void *_) {
     _i zCnter;
     while (1) {
-        pthread_mutex_lock(&zDestroyLock);
-
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
             if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
             zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
         }
-
-        pthread_mutex_unlock(&zDestroyLock);
         sleep(4);
     }
 
@@ -665,13 +661,6 @@ zupdate_one_commit_cache(void *zpIf) {
     zpTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitVecWrapIf);
     zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpObjIf->RepoId]->SortedCommitVecWrapIf);
 
-    /* 应对删除项目动作可能带来的时间差 */
-    pthread_mutex_lock(&zDestroyLock);
-    if (NULL == zppGlobRepoIf[zpObjIf->RepoId]) {
-        pthread_mutex_unlock(&zDestroyLock);
-        return NULL;
-    }
-
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpObjIf->RepoId]->RwLock));
 
     zpHeadId = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitCacheQueueHeadId);
@@ -745,7 +734,6 @@ zupdate_one_commit_cache(void *zpIf) {
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpObjIf->RepoId]->RwLock));
-    pthread_mutex_unlock(&zDestroyLock);
     return NULL;
 }
 
