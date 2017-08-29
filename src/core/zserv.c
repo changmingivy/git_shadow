@@ -124,66 +124,69 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
 
 /*
  * 5：显示所有项目及其元信息
+ * 6：显示单个项目及其元信息
  */
 _i
-zlist_repo(zMetaInfo *zpIf, _i zSd) {
-    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+zshow_all_repo_meta(zMetaInfo *_, _i zSd) {
     char zSendBuf[zCommonBufSiz];
 
-    /* 不会有项目ID为0，若为指定为0表示查询所有项目的元信息 */
-    if (0 == zpMetaIf->RepoId) {
-        zsendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
+    zsendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
+    for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
+        if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
 
-        for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
-            if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) {
-                continue;
-            }
-
-            if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) {
-                sprintf(zSendBuf, "{\"OpsId\":-11,\"data\":\"Id: %d\"},", zCnter);
-                zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
-                continue;
-            };
-
-            sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"},",
-                    zCnter,
-                    zppGlobRepoIf[zCnter]->p_RepoPath,
-                    zDeployLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
-                    '\0' == zppGlobRepoIf[zCnter]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDeploySig,
-                    zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
-                    NULL == zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr,
-                    zppGlobRepoIf[zCnter]->TotalHost,
-                    NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
-                    );
+        if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) {
+            sprintf(zSendBuf, "{\"OpsId\":-11,\"data\":\"Id: %d\"},", zCnter);
             zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
+            continue;
+        };
 
-            pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
-        }
-
-        zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", zBytes(1), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
-    } else {
-        if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
-
-        sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
-                zpMetaIf->RepoId,
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
-                '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
-                zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
-                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
-                zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
-                NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+        sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"},",
+                zCnter,
+                zppGlobRepoIf[zCnter]->p_RepoPath,
+                zDeployLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
+                '\0' == zppGlobRepoIf[zCnter]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDeploySig,
+                zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
+                NULL == zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr,
+                zppGlobRepoIf[zCnter]->TotalHost,
+                NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
                 );
         zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
 
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
     }
+    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", zBytes(1), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
 
     return 0;
 }
 
 /*
- * 6：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
+ * 6：显示单个项目及其元信息
+ */
+_i
+zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
+    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+    char zSendBuf[zCommonBufSiz];
+
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+
+    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+            zpMetaIf->RepoId,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
+            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
+            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
+            zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
+            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+            );
+    zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
+
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    return 0;
+}
+
+/*
+ * 7：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
@@ -744,7 +747,7 @@ zops_route(void *zpSd) {
         goto zMarkCommonAction;
     }
 
-    if ((1 != zMetaIf.OpsId) && (5 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 > zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
+    if ((1 != zMetaIf.OpsId) && (5 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 >= zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         goto zMarkCommonAction;
     }
@@ -814,9 +817,9 @@ zstart_server(void *zpIf) {
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
-    zNetServ[5] = zlist_repo;  // 显示当前有效项目的元信息
-    zNetServ[6] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
-    zNetServ[7] = zzero;  // 不再提供人工状态确认接口
+    zNetServ[5] = zshow_all_repo_meta;  // 显示当前有效项目的元信息
+    zNetServ[6] = zshow_one_repo_meta;  // 不再提供人工状态确认接口
+    zNetServ[7] = zprint_failing_list;  // 显示尚未布署成功的主机 ip 列表
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表

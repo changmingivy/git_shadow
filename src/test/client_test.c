@@ -242,6 +242,9 @@ zclient(void) {
     // 列出所有项目元信息
     //char zStrBuf[] = "{\"OpsId\":5}";
 
+    // 列出单个项目元信息
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":133}";
+
     // 创建新项目
     //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":133,\"data\":\"133 /home/git/133_Y https://git.coding.net/kt10/FreeBSD.git master git\"}";
 
@@ -255,7 +258,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":133,\"data\":\"192.168.1.254\"}";
 
     // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":133}";
+    //char zStrBuf[] = "{\"OpsId\":7,\"ProjId\":133}";
 
     // 查询版本号列表
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":133,\"DataType\":0}";
@@ -264,7 +267,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":133,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":133,\"RevId\":0,\"FileId\":0,\"HostId\":0,\"CacheId\":1000000000,\"DataType\":0}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":133,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 布署与撤销
     //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":133,\"RevId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
