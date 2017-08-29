@@ -19,11 +19,12 @@ export GIT_DIR="${zPathOnHost}/.git"
 git add --all .
 git commit -m "_"
 git checkout server
-printf "$RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____READMEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-git add ____READMEXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-git commit -m "__mark__"
+zCurSig=`git log -1 --format=%H`
+printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____MARK____XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXZ
+git add ____MARK____XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXZ
+git commit -m "____MARK____"
 git checkout -b TMP
-git reset -q --hard
+git reset -q --hard $zCurSig  # 工作区不需要附带 MARK 文件
 git branch -M master
 
 cd ${zPathOnHost}_SHADOW
