@@ -32,17 +32,13 @@
 #include "../inc/zutils.h"
 
 #define zCommonBufSiz 1024
-
-#define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
+#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 14
-
-#define zUnitSiz 8  // 分散聚离IO分段数量大于8时，效率会降低
 
 #define UDP 0
 #define TCP 1
@@ -138,16 +134,21 @@ typedef struct zDeployResInfo zDeployResInfo;
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
-    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
-
-    _i TotalHost;  // 每个项目的集群的主机数量
-
     _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-
+    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
+    _i TotalHost;  // 每个项目的集群的主机数量
+    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
 
-    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
+    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
+
+    _i InotifyFd;  // 每个代码库拥有独立的 inotify 描述符
+    pthread_t InotifyWaitTid;  // 执行 inotify wait 的线程ID，对应的代码库重载时，需要停掉这个线程
+    struct zObjInfo *p_ObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
+    struct zObjInfo *p_TopObjIf;  // 顶层监控对象信息
+
+    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
+    char zInitRepoFinMark;
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -185,9 +186,6 @@ struct zRepoInfo {
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
-
-    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
-    char zInitRepoFinMark;
 };
 typedef struct zRepoInfo zRepoInfo;
 
@@ -196,9 +194,6 @@ typedef struct zRepoInfo zRepoInfo;
  ************/
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
-
-_i zInotifyFD;  // inotify 主描述符
-struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
 
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
@@ -263,13 +258,8 @@ main(_i zArgc, char **zppArgv) {
     }
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-
 //    zthread_poll_init();  // 初始化线程池：线程池在大压力下应用有阻死风险，暂不用之
-    zCheck_Negative_Exit( zInotifyFD = inotify_init() );  // 生成inotify master fd
-
     zinit_env(zpConfFilePath);  // 运行环境初始化
-
-    zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
     zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
 
     zstart_server(&zNetServIf);  // 启动网络服务

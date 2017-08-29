@@ -14,12 +14,12 @@ zinotify_add_sub_watch(void *zpIf) {
     _i zWid;
 
     zpCurIf = (struct zObjInfo *) zpIf;
-    zCheck_Negative_Exit( zWid = inotify_add_watch(zInotifyFD, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW) );
+    zCheck_Negative_Exit(zWid = inotify_add_watch(zppGlobRepoIf[zpCurIf->RepoId]->InotifyFd, zpCurIf->p_path, zBaseWatchBit | IN_DONT_FOLLOW));
 
     // 判断是否是顶层被监控对象
     if (-1 == zpCurIf->UpperWid) { zpCurIf->UpperWid = zWid; }
 
-    zpObjHash[zWid] = zpCurIf;
+    zppGlobRepoIf[zpCurIf->RepoId]->p_ObjHash[zWid] = zpCurIf;
 
     // 如果不需要递归监控子目录，到此返回，不再往下执行
     if (0 == zpCurIf->RecursiveMark) { return NULL; }
@@ -36,8 +36,8 @@ zinotify_add_sub_watch(void *zpIf) {
                 continue;  /* 忽略 '.' 与 '..' 两个路径，否则会陷入死循环 */
             }
 
-            // Must do "malloc" here.
-            zMem_Alloc(zpSubIf, char, sizeof(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
+            // Must do "alloc" here.
+            zpSubIf = zalloc_cache(zpCurIf->RepoId, sizeof(struct zObjInfo) + 2 + zLen + strlen(zpEntry->d_name));
 
             // 为新监控目标填充基本信息
             zpSubIf->RepoId = zpCurIf->RepoId;
@@ -52,8 +52,8 @@ zinotify_add_sub_watch(void *zpIf) {
             zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpSubIf);
         }
     }
-    closedir(zpDir);
 
+    closedir(zpDir);
     return NULL;
 }
 
@@ -61,7 +61,7 @@ zinotify_add_sub_watch(void *zpIf) {
  * DEAL WITH EVENTS *
  ********************/
 void *
-zinotify_wait(void *_) {
+zinotify_wait(void *zpIf) {
 // TEST: PASS
     char zBuf[zCommonBufSiz] __attribute__ ((aligned(__alignof__(struct inotify_event))));
     ssize_t zLen;
@@ -69,19 +69,21 @@ zinotify_wait(void *_) {
     const struct inotify_event *zpEv;
     char *zpOffset;
 
+    _i zRepoId = * ((_i *) zpIf);
+
     for (;;) {
-    zCheck_Negative_Exit( zLen = read(zInotifyFD, zBuf, zSizeOf(zBuf)) );
+    zCheck_Negative_Exit(zLen = read(zppGlobRepoIf[zRepoId]->InotifyFd, zBuf, zSizeOf(zBuf)));
 
         for (zpOffset = zBuf; zpOffset < zBuf + zLen;
             zpOffset += zSizeOf(struct inotify_event) + zpEv->len) {
             zpEv = (struct inotify_event *)zpOffset;
 
-            if (NULL != zpObjHash[zpEv->wd]->CallBack) {
-                zAdd_To_Thread_Pool(zpObjHash[zpEv->wd]->CallBack, zpObjHash[zpEv->wd]);
+            if (NULL != zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->CallBack) {
+                zAdd_To_Thread_Pool(zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->CallBack, zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]);
             }
 
             /* If a new subdir is created or moved in, add it to the watch list */
-            if (1 == zpObjHash[zpEv->wd]->RecursiveMark
+            if (1 == zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->RecursiveMark
                 && (zpEv->mask & IN_ISDIR)
                 && ((zpEv->mask & IN_CREATE) || (zpEv->mask & IN_MOVED_TO))) {
 
@@ -89,17 +91,16 @@ zinotify_wait(void *_) {
                     continue;  /* 忽略 '.' 与 '..' 两个路径，否则会陷入死循环 */
                 }
 
-                // Must do "malloc" here; 分配的内存包括路径名称长度
-                struct zObjInfo *zpSubIf = malloc(zSizeOf(struct zObjInfo) + 2 + strlen(zpObjHash[zpEv->wd]->p_path) + zpEv->len);
-                zCheck_Null_Return(zpSubIf, NULL);
+                // Must do "alloc" here; 分配的内存包括路径名称长度
+                struct zObjInfo *zpSubIf = zalloc_cache(zRepoId, zSizeOf(struct zObjInfo) + 2 + strlen(zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->p_path) + zpEv->len);
 
                 // 为新监控目标填冲基本信息
-                zpSubIf->RepoId = zpObjHash[zpEv->wd]->RepoId;
-                zpSubIf->UpperWid = zpObjHash[zpEv->wd]->UpperWid;
-                zpSubIf->CallBack = zpObjHash[zpEv->wd]->CallBack;
-                zpSubIf->RecursiveMark = zpObjHash[zpEv->wd]->RecursiveMark;
+                zpSubIf->RepoId = zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->RepoId;
+                zpSubIf->UpperWid = zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->UpperWid;
+                zpSubIf->CallBack = zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->CallBack;
+                zpSubIf->RecursiveMark = zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->RecursiveMark;
 
-                strcpy(zpSubIf->p_path, zpObjHash[zpEv->wd]->p_path);
+                strcpy(zpSubIf->p_path, zppGlobRepoIf[zRepoId]->p_ObjHash[zpEv->wd]->p_path);
                 strcat(zpSubIf->p_path, "/");
                 strcat(zpSubIf->p_path, zpEv->name);
 

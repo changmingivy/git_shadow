@@ -5,35 +5,6 @@
 /************
  * META OPS *
  ************/
-/*
- * 专用于缓存的内存调度分配函数，适用多线程环境，不需要free
- * 调用此函数的父函数一定是已经取得全局写锁的，故此处不能再试图加写锁
- */
-void *
-zalloc_cache(_i zRepoId, size_t zSiz) {
-// TEST:PASS
-    pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));
-
-    if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
-        void **zppPrev, *zpCur;
-        /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-            zPrint_Err(0, NULL, "mmap failed!");
-            exit(1);
-        }
-        zppPrev = zpCur;
-        zppPrev[0] = zppGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
-        zppGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
-        zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
-    }
-
-    void *zpX = zppGlobRepoIf[zRepoId]->p_MemPool + zppGlobRepoIf[zRepoId]->MemPoolOffSet;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
-
-    pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));
-    return zpX;
-}
-
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zReset_Mem_Pool_State(zRepoId) do {\
     pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));\
@@ -208,7 +179,7 @@ zget_diff_content(void *zpIf) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
-    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     zCnter = 0;
@@ -427,7 +398,7 @@ zget_file_list(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
@@ -565,13 +536,13 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
-        zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
-        zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
@@ -701,13 +672,13 @@ zupdate_one_commit_cache(void *zpIf) {
         return NULL;
     }
 
-    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpObjIf->RepoId]->RwLock));
 
     zpHeadId = &(zppGlobRepoIf[zpObjIf->RepoId]->CommitCacheQueueHeadId);
 
     // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
     sprintf(zShellBuf, "cd %s && git log server -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zpObjIf->RepoId]->p_RepoPath);
-    zCheck_Null_Exit( zpShellRetHandler = popen(zShellBuf, "r") );
+    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler);
     pclose(zpShellRetHandler);
 
@@ -773,7 +744,7 @@ zupdate_one_commit_cache(void *zpIf) {
     /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
     ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
 
-    pthread_rwlock_unlock( &(zppGlobRepoIf[zpObjIf->RepoId]->RwLock) );
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zpObjIf->RepoId]->RwLock));
     pthread_mutex_unlock(&zDestroyLock);
     return NULL;
 }
@@ -832,7 +803,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zPCRERetInfo *zpRetIf;
 
     zMetaInfo *zpMetaIf[2];
-    zObjInfo *zpObjIf;
     char zShellBuf[zCommonBufSiz];
 
     _i zRepoId, zFd, zErrNo;
@@ -930,28 +900,31 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     void **zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
     zppPrev[0] = NULL;
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+    zCheck_Pthread_Func_Exit(pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL));
 
-    /* Inotify */
-    zpObjIf = zalloc_cache(zRepoId, sizeof(zObjInfo) + 1 + strlen(zInotifyObjRelativePath) + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath));
-    zpObjIf->RepoId = zRepoId;
-    zpObjIf->RecursiveMark = 0;  // 不必递归监控
-    zpObjIf->CallBack = zupdate_one_commit_cache;
-    zpObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
-    sprintf(zpObjIf->p_path, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zInotifyObjRelativePath);
-    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zpObjIf);
+    /* Inotify：必须在创建内存池之后 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_TopObjIf, char, sizeof(zObjInfo) + 1 + strlen(zInotifyObjRelativePath) + strlen(zppGlobRepoIf[zRepoId]->p_RepoPath));
+    zppGlobRepoIf[zRepoId]->p_TopObjIf->RepoId = zRepoId;
+    zppGlobRepoIf[zRepoId]->p_TopObjIf->RecursiveMark = 0;  // 不必递归监控
+    zppGlobRepoIf[zRepoId]->p_TopObjIf->CallBack = zupdate_one_commit_cache;
+    zppGlobRepoIf[zRepoId]->p_TopObjIf->UpperWid = -1; /* 填充 -1，提示 zinotify_add_sub_watch 函数这是顶层监控对象 */
+    sprintf(zppGlobRepoIf[zRepoId]->p_TopObjIf->p_path, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zInotifyObjRelativePath);
+
+    zCheck_Negative_Exit(zppGlobRepoIf[zRepoId]->InotifyFd = inotify_init());  // 生成inotify master fd
+    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zppGlobRepoIf[zRepoId]->p_TopObjIf);  // 添加监控目标
+    zCheck_Pthread_Func_Exit(pthread_create(&(zppGlobRepoIf[zRepoId]->InotifyWaitTid), NULL, zinotify_wait, &(zppGlobRepoIf[zRepoId]->RepoId)));  // 等待事件发生，线程ID写入项目元数据
 
     /* 为每个代码库生成一把读写锁，锁属性设置写者优先 */
-    zCheck_Pthread_Func_Exit( pthread_rwlockattr_init(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
-    zCheck_Pthread_Func_Exit( pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[zRepoId]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) );
-    zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), &(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
-    zCheck_Pthread_Func_Exit( pthread_rwlockattr_destroy(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)) );
+    zCheck_Pthread_Func_Exit(pthread_rwlockattr_init(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)));
+    zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[zRepoId]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP));
+    zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), &(zppGlobRepoIf[zRepoId]->zRWLockAttr)));
+    zCheck_Pthread_Func_Exit(pthread_rwlockattr_destroy(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)));
 
     /* 读写锁生成之后，立刻拿写锁 */
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zRepoId]->RwLock));
 
     /* 用于统计布署状态的互斥锁 */
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&zppGlobRepoIf[zRepoId]->ReplyCntLock, NULL) );
+    zCheck_Pthread_Func_Exit(pthread_mutex_init(&zppGlobRepoIf[zRepoId]->ReplyCntLock, NULL));
 
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
@@ -1030,7 +1003,7 @@ zinit_env(const char *zpConfPath) {
         = zJsonParseOps['E']  // ExtraData
         = zparse_str;
 
-    zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
+    zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
     while (NULL != zget_one_line(zRes, zCommonBufSiz, zpFile)) {
         if (0 > (zErrNo = zinit_one_repo_env(zRes))) {
             fprintf(stderr, "ERROR[zinit_one_repo_env]: %d\n", zErrNo);

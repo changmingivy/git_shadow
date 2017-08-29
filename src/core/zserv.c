@@ -96,7 +96,10 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
     /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
     zErrNo = WEXITSTATUS( system(zShellBuf) );
 
-    /* 清理该项目占用的内存资源 */
+    /* 清理该项目占用的资源 */
+    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
+    close(zpRepoIf->InotifyFd);
+
     void **zppPrev = zpRepoIf->p_MemPool;
     do {
         zppPrev = zppPrev[0];
@@ -104,6 +107,7 @@ zdelete_repo(zMetaInfo *zpIf, _i zSd) {
         zpRepoIf->p_MemPool = zppPrev;
     } while(NULL != zpRepoIf->p_MemPool);
 
+    free(zpRepoIf->p_TopObjIf);
     free(zpRepoIf->p_RepoPath);
     free(zpRepoIf);
 
@@ -174,9 +178,6 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
             zsendto(zSd, "[{\"OpsId\":-14}]", zBytes(15), 0, NULL);
         }
     }
-//    else {
-//        zsendto(zSd, "[{\"OpsId\":-15}]", zBytes(15), 0, NULL);
-//    }
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return 0;
@@ -546,8 +547,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 将本次布署信息写入日志 */
     zwrite_log(zpMetaIf->RepoId);
 
-    /* 重置内存池状态 */
+    /* 停掉inotify wait线程，重置内存池状态，之后重新添加受监控对象、重启inotify wait */
+    pthread_kill(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid, SIGKILL);
     zReset_Mem_Pool_State(zpMetaIf->RepoId);
+    zAdd_To_Thread_Pool(zinotify_add_sub_watch, zppGlobRepoIf[zpMetaIf->RepoId]->p_TopObjIf);  // 添加监控目标
+    zCheck_Pthread_Func_Exit(pthread_create(&(zppGlobRepoIf[zpMetaIf->RepoId]->InotifyWaitTid), NULL, zinotify_wait, &(zpMetaIf->RepoId)));
 
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
