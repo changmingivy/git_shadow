@@ -47,7 +47,7 @@ cc -Wall -Wextra -std=c99 -O2 \
     -D_XOPEN_SOURCE=700 \
     -I${zShadowPath}/inc \
     -o ${zShadowPath}/bin/notice \
-    ${zShadowPath}/src/extra/znotice.c \
+    ${zShadowPath}/src/extra/znotice.c
 strip ${zShadowPath}/bin/notice
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2

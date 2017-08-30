@@ -706,7 +706,7 @@ zupdate_one_commit_cache(zMetaInfo *zpMetaIf, _i zSd) {
 
     zpHeadId = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId);
     while (NULL != zget_one_line(zLineBuf, zBytes(52), zpShellRetHandler)) {
-        zLineBuf[strlen(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data) - 1] = '\0';  // 去掉换行符
+        zLineBuf[strlen(zLineBuf) - 1] = '\0';  // 去掉换行符
         zLineBuf[40] = '\0';
         /* 防止冗余事件导致的重复更新 */
         if (0 == strcmp(zLineBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {

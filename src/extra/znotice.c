@@ -66,12 +66,15 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 
 _i
 main(_i zArgc, char **zppArgv) {
-	_i zSd, zLen;
-	char zSendBuf[zCommonBufSiz];
+    _i zSd, zLen;
+    char zSendBuf[zCommonBufSiz];
 
-    if (3 != zArgc) { _exit(1); }
-	zLen = sprintf(zSendBuf, "[{\"OpsId\":13,\"ProjId\":%s}]", zppArgv[3]);
-	if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) { zsendto(zSd, zSendBuf, zLen, 0, NULL); }
+    if (4 != zArgc) { _exit(1); }
+    zLen = sprintf(zSendBuf, "[{\"OpsId\":13,\"ProjId\":%s}]", zppArgv[3]);
+    if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) {
+        zsendto(zSd, zSendBuf, zLen, 0, NULL);
+        close(zSd);  // 只有连接成功才需要关闭
+    }
 
-	return 0;
+    return 0;
 }

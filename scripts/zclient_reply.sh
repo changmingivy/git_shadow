@@ -21,7 +21,7 @@ exec 777<&-
 exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
-echo "{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr}}">&777
+echo "[{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr}}]">&777
 
 # 关闭套接字读写端
 exec 777<&-
