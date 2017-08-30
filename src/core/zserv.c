@@ -690,10 +690,12 @@ _i
 zupdate_one_commit_cache(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
+
     char zJsonBuf[zBytes(256)];  // iov_base
     _i zVecDataLen, *zpHeadId;
+
     FILE *zpShellRetHandler;
-    char zShellBuf[zCommonBufSiz], zLineBuf[zBytes(52)];
+    char zShellBuf[zCommonBufSiz], zLineBuf[zCommonBufSiz], *zpLastSigPtr;
 
     zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
     zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -705,11 +707,12 @@ zupdate_one_commit_cache(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
 
     zpHeadId = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId);
-    while (NULL != zget_one_line(zLineBuf, zBytes(52), zpShellRetHandler)) {
+    zpLastSigPtr = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data;
+    while (NULL != zget_one_line(zLineBuf, zCommonBufSiz, zpShellRetHandler)) {
         zLineBuf[strlen(zLineBuf) - 1] = '\0';  // 去掉换行符
         zLineBuf[40] = '\0';
         /* 防止冗余事件导致的重复更新 */
-        if (0 == strcmp(zLineBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
+        if (0 == strcmp(zLineBuf, zpLastSigPtr)) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             pclose(zpShellRetHandler);
             return 0;
