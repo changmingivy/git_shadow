@@ -22,11 +22,11 @@ zDeployPath=/home/git/$zPathOnHost
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
-	if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then 
-		exit 0
-	else
-		exit 255
-	fi
+    if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
+        exit 0
+    else
+        exit 255
+    fi
 fi
 
 # 创建项目路径
@@ -64,12 +64,13 @@ fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录
 mkdir -p ${zDeployPath}_SHADOW
-
 cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
-
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+chmod 0755 ./scripts/post-merge
+mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
+
 git init .
 git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjNo}"

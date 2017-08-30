@@ -29,10 +29,12 @@ zOps() {
 
     cp -rf ${zShadowPath}/scripts/* ./scripts/
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-    git add --all .
-    git commit --allow-empty -m "__DP__"
+    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+    chmod 0755 ./scripts/post-merge
+    mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
-    git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
+    git add --all .
+    git commit -m "__DP__" && git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server  # 如果没有新内容，则不必推送，故使用 &&
 
     cd /home/git/${zPathOnHost}
     git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
