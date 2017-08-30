@@ -133,7 +133,7 @@ typedef struct zDeployResInfo zDeployResInfo;
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
+//    _i CommitCacheQueueHeadId;  // !!!!队列结构已经弃用!!!!用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
@@ -163,8 +163,7 @@ struct zRepoInfo {
     struct iovec CommitVecIf[zCacheSiz];
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
-    struct iovec SortedCommitVecIf[zCacheSiz];
+    struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性

@@ -616,19 +616,16 @@ zMarkSkip:
                 zpSortedTopVecWrapIf->p_VecIf[zCnter].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
             }
         } else {
-            /* 新生成的提交记录缓存本来就是有序的，不需要额外排序 */
-            for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
-                zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[i].iov_base;
-                zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[i].iov_len;
-            }
+            /* 提交记录缓存本来就是有序的，不需要额外排序 */
+            zpSortedTopVecWrapIf->p_VecIf = zpTopVecWrapIf->p_VecIf;
         }
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
     }
 
-    /* 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
+//    /* !!!!队列结构已经弃用!!!! 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
+//    zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
 
     /* 防止意外访问导致的程序崩溃 */
     memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
@@ -823,7 +820,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 指针指向自身的静态数据项 */
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->CommitRefDataIf;
-    zppGlobRepoIf[zRepoId]->SortedCommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedCommitVecIf;
+    zppGlobRepoIf[zRepoId]->SortedCommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;  // 提交记录总是有序的，不需要再分配静态空间
+
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DeployVecIf;
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
