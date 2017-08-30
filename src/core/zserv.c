@@ -862,7 +862,7 @@ zstart_server(void *zpIf) {
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
     zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
-    zNetServ[7] = NULL;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[7] = zdelete_repo;  // 显示尚未布署成功的主机 ip 列表
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
