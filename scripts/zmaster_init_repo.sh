@@ -65,11 +65,11 @@ fi
 # 创建以 <项目名称>_SHADOW 命名的目录
 mkdir -p ${zDeployPath}_SHADOW
 
-cp -rf ${zShadowPath}/bin ${zDeployPath}_SHADOW/
 cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
 
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
 git init .
 git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjNo}"

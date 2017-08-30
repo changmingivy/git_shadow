@@ -490,32 +490,3 @@ zdel_LB(char *zpStr) {
     return zStrLen;
 }
 
-/*
- * 专用于缓存的内存调度分配函数，适用多线程环境，不需要free
- * 调用此函数的父函数一定是已经取得全局写锁的，故此处不能再试图加写锁
- */
-void *
-zalloc_cache(_i zRepoId, size_t zSiz) {
-// TEST:PASS
-    pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));
-
-    if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
-        void **zppPrev, *zpCur;
-        /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-            zPrint_Err(0, NULL, "mmap failed!");
-            exit(1);
-        }
-        zppPrev = zpCur;
-        zppPrev[0] = zppGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
-        zppGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
-        zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
-    }
-
-    void *zpX = zppGlobRepoIf[zRepoId]->p_MemPool + zppGlobRepoIf[zRepoId]->MemPoolOffSet;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
-
-    pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));
-    return zpX;
-}
-

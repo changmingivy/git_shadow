@@ -690,89 +690,89 @@ _i
 zupdate_one_commit_cache(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
-
     char zJsonBuf[zBytes(256)];  // iov_base
     _i zVecDataLen, *zpHeadId;
-
     FILE *zpShellRetHandler;
-    char zShellBuf[zCommonBufSiz];
+    char zShellBuf[zCommonBufSiz], zLineBuf[zBytes(52)];
 
     zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
     zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    zpHeadId = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId);
-    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(52));
-
-    // 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录
-    sprintf(zShellBuf, "cd %s && git log server -1 --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+    /* 必须在shell命令中切换到正确的工作路径，取 server 分支的提交记录 */
+    sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
-    zget_one_line(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zBytes(52), zpShellRetHandler);
-    pclose(zpShellRetHandler);
 
-    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data[strlen(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data) - 1] = '\0';  // 去掉换行符
-    zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data[40] = '\0';
-
-    /* 防止冗余事件导致的重复更新 */
-    if (0 == strcmp(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        return 0;
-    }
-
-    /* 转换成JsonStr */
-    zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-    zpSubMetaIf->OpsId = 0;
-    zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
-    zpSubMetaIf->FileId = -1;
-    zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-    zpSubMetaIf->DataType = zIsCommitDataType;
-    zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
-    zpSubMetaIf->p_ExtraData = 41 + zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
-    /* 生成下一级缓存，新提交的单条记录直接生成下一级缓存 */
-    zAdd_To_Thread_Pool(zget_file_list, zpSubMetaIf);
-
-    /* 将zMetaInfo转换为JSON文本 */
-    zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
-
-    /* 将JsonStr内容存放到iov_base中 */
-    zVecDataLen = strlen(zJsonBuf);
-    zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-    memcpy(zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base, zJsonBuf, zVecDataLen);
-    zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
-
-    /* 若未达到容量上限，VecSiz 加 1*/
-    if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
-        zpSortedTopVecWrapIf->VecSiz = ++(zpTopVecWrapIf->VecSiz);
-    }
-
-    /* 改变 Sorted 序列之前，将原先的json开头 '[' 还原为 ','，形成二维json */
-    ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = ',';
-
-    // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
-    for (_i i = 0, j = *zpHeadId; i < zpTopVecWrapIf->VecSiz; i++) {
-        zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[j].iov_base;
-        zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[j].iov_len;
-
-        if ((zCacheSiz - 1) == j) {
-            j = 0;
-        } else {
-            j++;
+    zpHeadId = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId);
+    while (NULL != zget_one_line(zLineBuf, zBytes(52), zpShellRetHandler)) {
+        zLineBuf[strlen(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data) - 1] = '\0';  // 去掉换行符
+        zLineBuf[40] = '\0';
+        /* 防止冗余事件导致的重复更新 */
+        if (0 == strcmp(zLineBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[(*zpHeadId == (zCacheSiz - 1)) ? 0 : (1 + *zpHeadId)].p_data)) {
+            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            pclose(zpShellRetHandler);
+            return 0;
         }
-    }
 
-    /* 更新队列下一次将写入的位置的索引 */
-    if (0 == *zpHeadId) {
-        *zpHeadId = zCacheSiz - 1;
-    } else {
-        (*zpHeadId)--;
-    }
+        zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data = zalloc_cache(zpMetaIf->RepoId, zBytes(52));
+        memcpy(zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data, zLineBuf, zBytes(52));
 
-    /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-    ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
+        /* 转换成JsonStr */
+        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+        zpSubMetaIf->OpsId = 0;
+        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
+        zpSubMetaIf->CommitId = *zpHeadId;  // 逆向循环索引号更新
+        zpSubMetaIf->FileId = -1;
+        zpSubMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+        zpSubMetaIf->DataType = zIsCommitDataType;
+        zpSubMetaIf->p_data = zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
+        zpSubMetaIf->p_ExtraData = 41 + zpTopVecWrapIf->p_RefDataIf[*zpHeadId].p_data;
+        /* 生成下一级缓存，新提交的单条记录直接生成下一级缓存 */
+        zAdd_To_Thread_Pool(zget_file_list, zpSubMetaIf);
+
+        /* 将zMetaInfo转换为JSON文本 */
+        zconvert_struct_to_json_str(zJsonBuf, zpSubMetaIf);
+
+        /* 将JsonStr内容存放到iov_base中 */
+        zVecDataLen = strlen(zJsonBuf);
+        zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+        memcpy(zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_base, zJsonBuf, zVecDataLen);
+        zpTopVecWrapIf->p_VecIf[*zpHeadId].iov_len = zVecDataLen;
+
+        /* 若未达到容量上限，VecSiz 加 1*/
+        if (zCacheSiz > zpTopVecWrapIf->VecSiz) {
+            zpSortedTopVecWrapIf->VecSiz = ++(zpTopVecWrapIf->VecSiz);
+        }
+
+        /* 改变 Sorted 序列之前，将原先的json开头 '[' 还原为 ','，形成二维json */
+        ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = ',';
+
+        // 对缓存队列的结果进行排序（按时间戳降序排列），这是将要向前端发送的最终结果
+        for (_i i = 0, j = *zpHeadId; i < zpTopVecWrapIf->VecSiz; i++) {
+            zpSortedTopVecWrapIf->p_VecIf[i].iov_base = zpTopVecWrapIf->p_VecIf[j].iov_base;
+            zpSortedTopVecWrapIf->p_VecIf[i].iov_len = zpTopVecWrapIf->p_VecIf[j].iov_len;
+
+            if ((zCacheSiz - 1) == j) {
+                j = 0;
+            } else {
+                j++;
+            }
+        }
+
+        /* 更新队列下一次将写入的位置的索引 */
+        if (0 == *zpHeadId) {
+            *zpHeadId = zCacheSiz - 1;
+        } else {
+            (*zpHeadId)--;
+        }
+
+        /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
+        ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
+    }
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    pclose(zpShellRetHandler);
     return 0;
 }
 

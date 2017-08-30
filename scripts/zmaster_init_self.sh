@@ -6,8 +6,11 @@ zShadowPath="${HOME}/zgit_shadow"
 cd $zShadowPath
 git stash
 git pull
+
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-merge
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-merge
 
 killall zauto_restart.sh
 killall -9 git
@@ -37,8 +40,15 @@ cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c \
     ${zShadowPath}/lib/pcre2/lib/libpcre2-8.a
-
 strip ${zShadowPath}/bin/git_shadow
+
+# 编译 notice 程序，用于通知主程序有新的提交记录诞生
+cc -Wall -Wextra -std=c99 -O2 \
+    -D_XOPEN_SOURCE=700 \
+    -I${zShadowPath}/inc \
+    -o ${zShadowPath}/bin/notice \
+    ${zShadowPath}/src/znotice.c \
+strip ${zShadowPath}/bin/notice
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
 
