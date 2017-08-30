@@ -23,6 +23,12 @@ zDeployPath=/home/git/$zPathOnHost
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
+        cd ${zDeployPath}_SHADOW
+        cp -rf ${zShadowPath}/scripts ./
+        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+        chmod 0755 ./scripts/post-merge
+        mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
         exit 0
     else
         exit 255
@@ -62,7 +68,7 @@ if [[ "svn" == $zRemoteVcsType ]]; then
     git commit -m "__init__"
 fi
 
-# 创建以 <项目名称>_SHADOW 命名的目录
+# 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
 mkdir -p ${zDeployPath}_SHADOW
 cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
 cd ${zDeployPath}_SHADOW
