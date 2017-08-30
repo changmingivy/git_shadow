@@ -149,7 +149,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
 
         pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
     }
-    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", zBytes(1), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
+    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", zBytes(29), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
 
     return 0;
 }
