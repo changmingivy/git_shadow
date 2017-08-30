@@ -420,7 +420,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf, _i zSd) {
         /* 转换字符串点分格式 IPv4 为 _ui 型 */
         zpDpResListIf[i].ClientAddr = zconvert_ipv4_str_to_bin(zpPcreResIf->p_rets[i]);
         zpDpResListIf[i].p_next = NULL;
-        zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDeployHashSiz];
+        zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpDpResListIf[i].ClientAddr % zDeployHashSiz];
         while (NULL != zpTmpDpResIf) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
             if (zpTmpDpResIf->ClientAddr == zpDpResListIf[i].ClientAddr) {
