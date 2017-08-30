@@ -213,7 +213,8 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
         void **zppPrev, *zpCur;
         /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
         if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-            zPrint_Err(0, NULL, "mmap failed!");
+            zPrint_Time();
+            fprintf(stderr, "mmap failed! RepoId: %d", zRepoId);
             exit(1);
         }
         zppPrev = zpCur;

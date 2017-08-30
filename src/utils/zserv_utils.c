@@ -781,7 +781,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
             (zppGlobRepoIf[zRepoId]->p_MemPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-        zPrint_Err(0, NULL, "mmap failed!");
+        zPrint_Time();
+        fprintf(stderr, "mmap failed! RepoId: %d", zRepoId);
         exit(1);
     }
     void **zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;

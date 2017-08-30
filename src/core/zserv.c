@@ -746,7 +746,6 @@ zops_route(void *zpSd) {
 
     /* 必须清零，以防脏栈数据导致问题 */
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
-//    zMetaIf.RepoId = -1;  // 提定为 -1，用作判断条件，防止与0号库冲突???
 
     if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
         _i zRecvSiz, zOffSet;
