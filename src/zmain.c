@@ -155,6 +155,7 @@ struct zRepoInfo {
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    struct zDeployResInfo *p_KeepDpResHashIf[zDeployHashSiz];  // 更新全量IP时暂存新数据
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
@@ -165,7 +166,7 @@ struct zRepoInfo {
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
+    _i ReplyCnt[2];  // [0]: 用于收集初始化远程主机的结果；[1]: 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息

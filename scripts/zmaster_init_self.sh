@@ -11,6 +11,8 @@ eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-merge
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-merge
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/zhost_init_repo.sh
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/zhost_init_repo.sh
 
 killall zauto_restart.sh
 killall -9 git
