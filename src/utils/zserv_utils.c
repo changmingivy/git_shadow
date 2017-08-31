@@ -676,6 +676,7 @@ zwrite_log(_i zRepoId) {
 #define zFree_Source() do {\
     free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
     free(zppGlobRepoIf[zRepoId]);\
+    zppGlobRepoIf[zRepoId] = NULL;\
     zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
     zpcre_free_tmpsource(zpRetIf);\
     zpcre_free_metasource(zpInitIf);\
