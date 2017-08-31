@@ -487,19 +487,20 @@ zMark:
 
     if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
-        zpBasePtr = zpMetaIf->p_data;
         zOffSet = 0;
+        zpBasePtr = zpMetaIf->p_data;
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-        for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
+        for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zpPcreResIf->cnt; zCnter++) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState) {
                 zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
                 zpBasePtr += sprintf(zpBasePtr, "%s,", zIpv4StrAddrBuf);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strlen() 取得的值相同
                 zUnReplyCnt++;
 
-                /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+                /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行；同时主机总数递减 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
+                zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost--;
             } else {
-                /* 此处重新生成有效的主机IP字符串，过滤掉失败的部分 */
+                /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
                 strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
                 zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
                 zpIpStrList[zOffSet - 1] = ' ';
