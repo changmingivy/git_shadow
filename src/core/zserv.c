@@ -421,7 +421,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zpIpStrList = zalloc_cache(zpMetaIf->RepoId, zBytes(16) * zpPcreResIf->cnt);
 
     /* 并发同步环境初始化 */
-    zCcur_Init(zpMetaIf->RepoId, 0, A);
+    zCcur_Init(zpMetaIf->RepoId, zpPcreResIf->cnt, A);
     for (_i zCnter = 0; zCnter < zpPcreResIf->cnt; zCnter++) {
         /* 检测是否是最后一次循环 */
         zCcur_Fin_Mark((zpPcreResIf->cnt - 1) == zCnter, A);
@@ -486,6 +486,7 @@ zMark:
 
     if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+        zpMetaIf->p_data[0] = '\0';
         zOffSet = 0;
         zpBasePtr = zpMetaIf->p_data;
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
@@ -724,7 +725,7 @@ zrefresh_cache(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 同步锁初始化 */
-    zCcur_Init(zpMetaIf->RepoId, 0, A);
+    zCcur_Init(zpMetaIf->RepoId, 1, A);
     zCcur_Fin_Mark(1 == 1, A);
     /* 生成提交记录缓存 */
     zCcur_Sub_Config(zpMetaIf, A);

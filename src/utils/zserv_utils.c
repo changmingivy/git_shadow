@@ -93,15 +93,14 @@
 #define zCcur_Cnter_Subtract(zSuffix) do {\
         (*(zpTaskCnter##zSuffix))--;\
 } while(0)
+
 /*
  * 当调用者任务分发完成之后执行，之后释放资源占用
- * 不能使用while，而要使用 do...while，至少让调用者有一次收信号的机会
- * 否则可能导致在下层通知未执行之前条件变量被销毁，从而带来不确定的后果
  */
 #define zCcur_Wait(zSuffix) do {\
-        do {\
+        while ((1 != *(zpFinMark##zSuffix)) || *(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix)) {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
-        } while ((1 != *(zpFinMark##zSuffix)) || *(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix));\
+        }\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_cond_destroy(zpCondVar##zSuffix);\
         pthread_mutex_destroy((zpMutexLock##zSuffix) + 2);\
@@ -828,9 +827,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
 
     /* 初始化任务分发环境 */
-    zCcur_Init(zRepoId, 0, A);  //___
+    zCcur_Init(zRepoId, 1, A);  //___
     zCcur_Fin_Mark(1 == 1, A);  //___
-    zCcur_Init(zRepoId, 0, B);  //___
+    zCcur_Init(zRepoId, 1, B);  //___
     zCcur_Fin_Mark(1 == 1, B);  //___
 
     /* 生成提交记录缓存 */
