@@ -633,9 +633,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 如下部分：更新全局缓存 */
     zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
     /* 同步锁初始化 */
-    zCcur_Init(zpMetaIf->RepoId, 0, A);  //___
+    zCcur_Init(zpMetaIf->RepoId, 1, A);  //___
     zCcur_Fin_Mark(1 == 1, A);  //___
-    zCcur_Init(zpMetaIf->RepoId, 0, B);  //___
+    zCcur_Init(zpMetaIf->RepoId, 1, B);  //___
     zCcur_Fin_Mark(1 == 1, B);  //___
     /* 生成提交记录缓存 */
     zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
