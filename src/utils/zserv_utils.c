@@ -902,9 +902,10 @@ zinit_one_remote_host(void *zpIf) {
 
     zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh %s %s %s",
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh %s %s %d %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
             zHostStrAddrBuf,
+            zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
     system(zShellBuf);

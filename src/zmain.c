@@ -133,7 +133,6 @@ typedef struct zDeployResInfo zDeployResInfo;
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-//    _i CommitCacheQueueHeadId;  // !!!!队列结构已经弃用!!!!用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
@@ -155,7 +154,6 @@ struct zRepoInfo {
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
-    struct zDeployResInfo *p_KeepDpResHashIf[zDeployHashSiz];  // 更新全量IP时暂存新数据
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先

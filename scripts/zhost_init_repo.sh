@@ -1,7 +1,8 @@
 #!/bin/sh
 zMajorAddr=$1
 zSlaveAddr=$2
-zPathOnHost=$(echo $3 | sed -n 's%/\+%/%p')
+zProjId=$3
+zPathOnHost=$(echo $4 | sed -n 's%/\+%/%p')
 zShadowPath=/home/git/zgit_shadow
 
 zSelfPid=$$  # 获取自身PID
@@ -33,9 +34,18 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     chmod 0755 .git/hooks/post-update
     \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
 
+# 将点分格式的 IPv4 地址转换为数字格式
+zIPv4NumAddr=0
+zCnter=0
+for zField in `echo ${zSlaveAddr} | grep -oP '\d+'`
+do
+    let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]
+    let zCnter++
+done
+
 # 初始化成功，返回状态
 if [[ 0 == $? ]]; then
-    ${zShadowPath}/scripts/zclient_reply.sh '__MASTER_ADDR' '__MASTER_PORT' 'A'
+    ${zShadowPath}/bin/notice '__MASTER_ADDR' '__MASTER_PORT' '8' "${zProjId}" "${zIPv4NumAddr}" 'A'
 fi
 
 echo "" > $zTmpFile  # 提示后台监视线程已成功执行，不要再kill，防止误杀其它进程

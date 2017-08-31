@@ -385,7 +385,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zMetaInfo *zpSubMetaIf;
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
-    zDeployResInfo *zpOldDpResListIf, *zpTmpDpResIf;
+    zDeployResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDeployHashSiz];
     char *zpIpStrList;
     _ui zOffSet = 0;
 
@@ -406,8 +406,11 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     /* 更新项目目标主机总数 */
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
 
-    /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配 */
+    /* 暂留旧数据 */
     zpOldDpResListIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf;
+    memcpy(zpOldDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDeployHashSiz * sizeof(zDeployResInfo *));
+
+    /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配 */
     zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDeployResInfo, zpPcreResIf->cnt);
 
     /* 重置状态 */
@@ -438,7 +441,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
             zpTmpDpResIf->p_next = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         }
 
-        zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_KeepDpResHashIf[zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr % zDeployHashSiz];
+        zpTmpDpResIf = zpOldDpResHashIf[zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr % zDeployHashSiz];
         while (NULL != zpTmpDpResIf) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
             if (zpTmpDpResIf->ClientAddr == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
@@ -474,8 +477,6 @@ zMark:
 
     /* 更新全量IP信息，存放于项目内存池中，不可free */
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zpIpStrList;
-    /* 更新Keep Hash */
-    memcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_KeepDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDeployHashSiz * sizeof(zDeployResInfo *));
 
     /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
     zCcur_Wait(A);

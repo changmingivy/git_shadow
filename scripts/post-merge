@@ -2,4 +2,4 @@
 # 通知主程序增量更新缓存
 
 unset GIT_DIR
-/home/git/zgit_shadow/bin/notice __MASTER_ADDR __MASTER_PORT `cat /home/git/__PROJ_PATH_SHADOW/info/repo_id`
+/home/git/zgit_shadow/bin/notice '__MASTER_ADDR' '__MASTER_PORT' '13' `cat /home/git/__PROJ_PATH_SHADOW/info/repo_id` '_' '_'
