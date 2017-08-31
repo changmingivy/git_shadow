@@ -729,9 +729,16 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS(system(zShellBuf));
-    if (255 == zErrNo) { return -36; }
-    else if (254 == zErrNo) { return -33; }
-    else if (253 == zErrNo) { return -38; }
+    if (255 == zErrNo) {
+        zFree_Source();
+        return -36;
+    } else if (254 == zErrNo) {
+        zFree_Source();
+        return -33;
+    } else if (253 == zErrNo) {
+        zFree_Source();
+        return -38;
+    }
 
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];

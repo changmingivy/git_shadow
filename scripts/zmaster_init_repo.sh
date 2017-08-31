@@ -41,7 +41,10 @@ if [[ $? -ne 0 ]]; then exit 254; fi
 
 # 拉取远程代码
 git clone $zPullAddr $zDeployPath
-if [[ $? -ne 0 ]]; then exit 253; fi
+if [[ $? -ne 0 ]]; then
+    rm -rf $zDeployPath
+    exit 253
+fi
 
 # 环境初始化
 cd $zDeployPath
