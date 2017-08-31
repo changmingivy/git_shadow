@@ -18,7 +18,7 @@ zOps() {
     cd /home/git/${zPathOnHost}
     if [[ 0 -ne $? ]]; then exit 1; fi  # 当指定的路径不存在，此句可防止 /home/git 下的项目文件被误删除
 
-    rm -rf *
+    \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
     git rebase server
 
@@ -45,13 +45,13 @@ zOps() {
         for zHostAddr in $zHostList; do
             git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
         done
-        rm -rf *
+        \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;
     \
         cd ${zPathOnHost} &&
         for zHostAddr in $zHostList; do
             git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
         done
-        rm -rf *
+        \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf
     "
 
     # 中控机：布署后环境设置
