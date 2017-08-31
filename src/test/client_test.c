@@ -252,9 +252,6 @@ zclient(void) {
     // 更新major IP数据
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":122,\"data\":\"127.0.0.1\"}";
 
-    // 查询尚未布署成功的主机列表
-    //char zStrBuf[] = "{\"OpsId\":7,\"ProjId\":122}";
-
     // 查询版本号列表
     //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":122,\"DataType\":0}";
 
