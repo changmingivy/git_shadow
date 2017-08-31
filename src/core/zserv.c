@@ -396,10 +396,10 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
 
     zpPcreInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
     zpPcreResIf = zpcre_match(zpPcreInitIf, zpMetaIf->p_data, 1);
+    zpcre_free_metasource(zpPcreInitIf);
 
     if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zpPcreResIf->cnt) {
         zpcre_free_tmpsource(zpPcreResIf);
-        zpcre_free_metasource(zpPcreInitIf);
         return -28;
     }
 
@@ -477,8 +477,6 @@ zMark:
     }
     zpIpStrList[zOffSet - 1] = '\0';
 
-    zpcre_free_tmpsource(zpPcreResIf);
-    zpcre_free_metasource(zpPcreInitIf);
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
 
     /* 更新全量IP信息，存放于项目内存池中，不可free */
@@ -490,6 +488,7 @@ zMark:
     if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
         zpBasePtr = zpMetaIf->p_data;
+        zOffSet = 0;
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
         for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState) {
@@ -499,12 +498,20 @@ zMark:
 
                 /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
+            } else {
+                /* 此处重新生成有效的主机IP字符串，过滤掉失败的部分 */
+                strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
+                zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
+                zpIpStrList[zOffSet - 1] = ' ';
             }
         }
+        zpIpStrList[zOffSet - 1] = '\0';
         (--zpBasePtr)[0] = '\0';  // 去掉最后一个逗号
 
+        zpcre_free_tmpsource(zpPcreResIf);
         return -23;
     } else {
+        zpcre_free_tmpsource(zpPcreResIf);
         return 0;
     }
 }
