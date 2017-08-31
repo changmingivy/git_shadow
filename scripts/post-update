@@ -38,4 +38,4 @@ while [[ 3 -gt $i ]]; do
 done
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
-sh '__PROJ_PATH'/____post-deploy.sh
+sh __PROJ_PATH/____post-deploy.sh
