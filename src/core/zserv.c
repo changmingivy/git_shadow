@@ -445,6 +445,8 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         while (NULL != zpTmpDpResIf) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
             if (zpTmpDpResIf->ClientAddr == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
+                /* 先前已被初始化过的主机，状态置1，防止后续收集结果时误报失败 */
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState = 1;
                 /* 每次条件式跳过时，都必须让同步计数器递减一次 */
                 zCcur_Cnter_Subtract(A);
                 goto zMark;

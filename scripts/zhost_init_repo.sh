@@ -5,6 +5,15 @@ zProjId=$3
 zPathOnHost=$(echo $4 | sed -n 's%/\+%/%p')
 zShadowPath=/home/git/zgit_shadow
 
+# 将点分格式的 IPv4 地址转换为数字格式
+zIPv4NumAddr=0
+zCnter=0
+for zField in `echo ${zSlaveAddr} | grep -oP '\d+'`
+do
+    let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]
+    let zCnter++
+done
+
 zSelfPid=$$  # 获取自身PID
 zTmpFile=`mktemp /tmp/${zSelfPid}.XXXXXXXX`
 echo $zSelfPid > $zTmpFile
@@ -34,16 +43,7 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     chmod 0755 .git/hooks/post-update
     \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
 
-# 将点分格式的 IPv4 地址转换为数字格式
-zIPv4NumAddr=0
-zCnter=0
-for zField in `echo ${zSlaveAddr} | grep -oP '\d+'`
-do
-    let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]
-    let zCnter++
-done
-
-# 初始化成功，返回状态
+# 初始化成功，返回状态；ssh 与 此处之间不要放置其它代码，以免扰乱 $? 变量的值
 if [[ 0 == $? ]]; then
     ${zShadowPath}/bin/notice '__MASTER_ADDR' '__MASTER_PORT' '8' "${zProjId}" "${zIPv4NumAddr}" 'A'
 fi
