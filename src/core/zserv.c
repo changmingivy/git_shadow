@@ -475,10 +475,9 @@ zMark:
         zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
         zpIpStrList[zOffSet - 1] = ' ';
     }
-    zpIpStrList[zOffSet - 1] = '\0';
+    if (0 < zOffSet) { zpIpStrList[zOffSet - 1] = '\0'; }
 
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
-
     /* 更新全量IP信息，存放于项目内存池中，不可free */
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zpIpStrList;
 
@@ -506,7 +505,7 @@ zMark:
                 zpIpStrList[zOffSet - 1] = ' ';
             }
         }
-        zpIpStrList[zOffSet - 1] = '\0';
+        if (0 < zOffSet) { zpIpStrList[zOffSet - 1] = '\0'; }
         (--zpBasePtr)[0] = '\0';  // 去掉最后一个逗号
 
         zpcre_free_tmpsource(zpPcreResIf);
