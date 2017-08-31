@@ -27,7 +27,7 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     cd ${zPathOnHost}_SHADOW
     git init .
     git config user.name "git_shadow"
-    git config user.email "git_shadow@$x"
+    git config user.email "git_shadow@"
     git commit --allow-empty -m "__init__"
     git branch -f server
     echo ${zSlaveAddr} > /home/git/zself_ipv4_addr.txt
@@ -35,17 +35,15 @@ ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     cd $zPathOnHost
     git init .
     git config user.name "_"
-    git config user.email "_@$x"
+    git config user.email "_@"
     git commit --allow-empty -m "__init__"
     git branch -f server
 \
     cat > .git/hooks/post-update
     chmod 0755 .git/hooks/post-update
+    exec 777 > /dev/tcp/__MASTER_ADDR/__MASTER_PORT
+    echo \'[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zIPv4NumAddr},\"ExtraData\":\"A\"}]\' > &777
+    exec 777 > &-
     \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
-
-# 初始化成功，返回状态；ssh 与 此处之间不要放置其它代码，以免扰乱 $? 变量的值
-if [[ 0 == $? ]]; then
-    ${zShadowPath}/bin/notice '__MASTER_ADDR' '__MASTER_PORT' '8' "${zProjId}" "${zIPv4NumAddr}" 'A'
-fi
 
 echo "" > $zTmpFile  # 提示后台监视线程已成功执行，不要再kill，防止误杀其它进程
