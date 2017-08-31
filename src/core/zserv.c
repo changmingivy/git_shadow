@@ -888,12 +888,14 @@ zstart_server(void *zpIf) {
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
-    _i zMajorSd, zConnSd;
+    _i zMajorSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
+    _ui zIndex = 0;  // 务必使用无符号整型，防止溢出错乱
+    static _i zConnSd[64];  // 会传向新线程，使用静态变量；使用数组防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况（此法不够严谨，权宜之计）
     for (;;) {
-        if (-1 != (zConnSd = accept(zMajorSd, NULL, 0))) {
-            zAdd_To_Thread_Pool(zops_route, &zConnSd);
+        if (-1 != (zConnSd[zIndex++ % 64] = accept(zMajorSd, NULL, 0))) {
+            zAdd_To_Thread_Pool(zops_route, zConnSd + (zIndex % 64));
         }
     }
 }

@@ -674,8 +674,6 @@ zwrite_log(_i zRepoId) {
  *         -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
  */
 #define zFree_Source() do {\
-    close(zFd);\
-    close(zppGlobRepoIf[zRepoId]->LogFd);\
     free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
     free(zppGlobRepoIf[zRepoId]);\
     zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
@@ -749,6 +747,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 
     if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
+        close(zFd);
+        close(zppGlobRepoIf[zRepoId]->LogFd);
         zFree_Source();
         return -39;
     }
@@ -757,6 +757,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     char zRepoIdBuf[12];  // 足以容纳整数最大值即可
     _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
     if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
+        close(zFd);
+        close(zppGlobRepoIf[zRepoId]->LogFd);
         zFree_Source();
         return -39;
     }
@@ -773,6 +775,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         sprintf(zPullCmdBuf, "cd /home/git/%s/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zpRetIf->p_rets[1]);
     } else {
+        close(zppGlobRepoIf[zRepoId]->LogFd);
         zFree_Source();
         return -37;
     }
