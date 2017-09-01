@@ -27,12 +27,11 @@ zOps() {
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
-
-    rm -rf ./scripts/*
-    cp -r ${zShadowPath}/scripts/* ./scripts/
+    cp -ur ${zShadowPath}/scripts/* ./scripts/
+    chmod 0755 ./scripts/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
     chmod 0755 ./scripts/post-merge
+    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
     mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
     git add --all .
@@ -45,12 +44,12 @@ zOps() {
     # 通过中转机布署到终端集群
     ssh $zMajorAddr "
         for zHostAddr in $zHostList; do
-			(\
-				cd ${zPathOnHost}_SHADOW &&\
-				git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server;\
-				cd ${zPathOnHost} &&\
-				git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server\
-			)&
+            (\
+                cd ${zPathOnHost}_SHADOW &&\
+                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server;\
+                cd ${zPathOnHost} &&\
+                git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server\
+            )&
         done
     "
 
