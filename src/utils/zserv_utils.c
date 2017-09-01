@@ -137,7 +137,11 @@ zauto_pull(void *_) {
     while (1) {
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
             if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
-            system(zppGlobRepoIf[zCnter]->p_PullCmd);  // 不能使用多线程，git并发锁会有竞争导致多种操作失败
+        	if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) { continue; };
+
+            system(zppGlobRepoIf[zCnter]->p_PullCmd);  // 不能使用多线程，git的pull操作不能并发进行；另必须拿锁，防止布署时的pull与之产生冲穾
+
+        	pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
         }
         sleep(1);  // 防止无项目时无限循环
     }
