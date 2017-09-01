@@ -739,16 +739,19 @@ zrefresh_cache(zMetaInfo *zpMetaIf, _i zSd) {
         zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
     }
 
-    /* 同步锁初始化 */
-    zCcur_Init(zpMetaIf->RepoId, 1, A);
-    zCcur_Fin_Mark(1 == 1, A);
-    /* 生成提交记录缓存 */
-    zCcur_Sub_Config(zpMetaIf, A);
+//    /* 同步锁初始化 */
+//    zCcur_Init(zpMetaIf->RepoId, 1, A);
+//    zCcur_Fin_Mark(1 == 1, A);
+//    /* 生成提交记录缓存 */
+//    zCcur_Sub_Config(zpMetaIf, A);
+//    zpMetaIf->RepoId = zpMetaIf->RepoId;
+//    zpMetaIf->DataType = zIsCommitDataType;
+//    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
+//    /* 等待任务完成，之后释放同步锁的资源占用 */
+//    zCcur_Wait(A);
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
-    /* 等待任务完成，之后释放同步锁的资源占用 */
-    zCcur_Wait(A);
+    zgenerate_cache(zpMetaIf);
 
     zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
     if (zCnter[1] > zCnter[0]) {

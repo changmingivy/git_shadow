@@ -611,8 +611,8 @@ zMarkSkip:
     /* 防止意外访问导致的程序崩溃 */
     memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
 
-    /* >>>>任务完成，尝试通知上层调用者 */
-    zCcur_Fin_Signal(zpMetaIf);
+    /* >>>>任务完成，尝试通知上层调用者；若不是在新线程中执行，则不需要通知 */
+    if (NULL != zpMetaIf->p_CondVar) { zCcur_Fin_Signal(zpMetaIf); }
 
     return NULL;
 }
