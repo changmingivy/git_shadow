@@ -11,14 +11,14 @@ zRemoteVcsType=$5  # svn 或 git
 zShadowPath=/home/git/zgit_shadow
 zDeployPath=/home/git/$zPathOnHost
 
-# if [[ "" == $zProjNo
-#     || "" == $zPathOnHost
-#     || "" == $zPullAddr
-#     || "" == $zRemoteMasterBranchName
-#     || "" == $zRemoteVcsType ]]
-# then
-#     exit 1
-# fi
+if [[ "" == $zProjNo
+    || "" == $zPathOnHost
+    || "" == $zPullAddr
+    || "" == $zRemoteMasterBranchName
+    || "" == $zRemoteVcsType ]]
+then
+    exit 1
+fi
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
