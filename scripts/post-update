@@ -9,7 +9,7 @@ cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
-git checkout server
+git checkout server >/dev/null 2>&1
 git branch -D master
 git checkout -b master
 git reset -q --hard `git log -1 --format=%H`
@@ -18,8 +18,8 @@ cd $zPathOnHost
 export GIT_DIR="${zPathOnHost}/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
-git checkout server
-zCurSig=`git log -1 --format=%H`
+git checkout server >/dev/null 2>&1
+zCurSig=`git log -1 server --format=%H`
 printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 git add ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 git commit -m "____MARK____"
@@ -33,7 +33,7 @@ sh -x ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" > /tmp/____
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 sh __PROJ_PATH/____post-deploy.sh &
-echo -e "#refresh date: `date`\ncurrent sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
+echo -e "#refresh date: `date`\n#current sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
 
 # 自我更新
 cp ${zPathOnHost}_SHADOW/scripts/post-update ${zPathOnHost}/.git/hooks/post-update
