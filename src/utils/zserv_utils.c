@@ -128,26 +128,27 @@
 #define zGet_OneFilePath(zpTopVecWrapIf, zCommitId, zFileId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf->p_RefDataIf[zFileId].p_data)
 
 /*
+ *  git 并发拉取，当项目太多时会有问题，改用推送的方式
  *  拉取远程代码
  *  若启用删除项目接口，需要持 Destroy 锁进行
  */
-void *
-zauto_pull(void *_) {
-    _i zCnter;
-    while (1) {
-        for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
-            if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
-        	if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) { continue; };
-
-            system(zppGlobRepoIf[zCnter]->p_PullCmd);  // 不能使用多线程，git的pull操作不能并发进行；另必须拿锁，防止布署时的pull与之产生冲穾
-
-        	pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
-        }
-        sleep(1);  // 防止无项目时无限循环
-    }
-
-    return NULL;
-}
+// void *
+// zauto_pull(void *_) {
+//     _i zCnter;
+//     while (1) {
+//         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
+//             if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
+//             if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) { continue; };
+// 
+//             system(zppGlobRepoIf[zCnter]->p_PullCmd);  // 不能使用多线程，git的pull操作不能并发进行；另必须拿锁，防止布署时的pull与之产生冲穾
+// 
+//             pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
+//         }
+//         sleep(1);  // 防止无项目时无限循环
+//     }
+// 
+//     return NULL;
+// }
 
 /*
  * 功能：生成单个文件的差异内容缓存

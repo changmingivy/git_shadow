@@ -272,7 +272,5 @@ main(_i zArgc, char **zppArgv) {
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
 //    zthread_poll_init();  // 初始化线程池：线程池在大压力下应用有阻死风险，暂不用之
     zinit_env(zpConfFilePath);  // 运行环境初始化
-    zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
-
     zstart_server(&zNetServIf);  // 启动网络服务
 }
