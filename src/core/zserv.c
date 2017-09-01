@@ -88,7 +88,7 @@ zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
 //            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
 //            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-//            NULL == zpRepoIf->p_ProxyHostStrAddr ? "" : zpRepoIf->p_ProxyHostStrAddr,
+//            zpRepoIf->ProxyHostStrAddr,
 //            NULL == zpRepoIf->p_HostStrAddrList ? "" : zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 //
 //    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
@@ -141,7 +141,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
                 zDeployLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
                 '\0' == zppGlobRepoIf[zCnter]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDeploySig,
                 zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
-                NULL == zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zCnter]->p_ProxyHostStrAddr,
+                zppGlobRepoIf[zCnter]->ProxyHostStrAddr,
                 zppGlobRepoIf[zCnter]->TotalHost,
                 NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
                 );
@@ -170,7 +170,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
             zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
             '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
-            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
+            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
             NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             );
@@ -344,9 +344,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
-    if (NULL == zpMetaIf->p_data) { return -27; }
-    if (NULL != zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr
-            && 0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr, zpMetaIf->p_data)) {
+    if (NULL == zpMetaIf->p_data || zBytes(15) < strlen(zpMetaIf->p_data)) { return -27; }
+    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) {
         goto zMark;
     }
 
@@ -367,8 +366,7 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
         return -27;
     }
 
-    zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr = zalloc_cache(zpMetaIf->RepoId, 1 + strlen(zpMetaIf->p_data));
-    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr, zpMetaIf->p_data);
+    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data);
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
@@ -554,7 +552,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 检查中转机 IPv4 存在性 */
-    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr) {
+    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -25;
     }
@@ -585,7 +583,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
+            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 调用 git 命令执行布署 */

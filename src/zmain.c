@@ -150,7 +150,7 @@ struct zRepoInfo {
     _i RepoState;
     char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
 
-    char *p_ProxyHostStrAddr;  // 代理机 IPv4 地址
+    char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
