@@ -39,4 +39,4 @@ done
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 sh __PROJ_PATH/____post-deploy.sh
-echo "refresh date: `date`" >> __PROJ_PATH/____post-deploy.sh
+echo -e "refresh date: `date`\ncurrent sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
