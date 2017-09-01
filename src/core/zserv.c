@@ -187,38 +187,42 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (zIsCommitDataType == zpMetaIf->DataType) {
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
-    } else {
-        zPrint_Err(0, NULL, "请求的数据类型不存在");
-        return -10;
-    }
-
     if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
         return -11;
     };
 
-    /*
-     * 如果距离最近一次 “git pull“ 的时间间隔超过10秒，尝试拉取远程代码
-     * 放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
-     * 取到锁，则拉取；否则跳过此步，直接打印列表
-     */
-    if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
-        if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
-            system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
-            zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL);  // 以取完远程代码的时间重新赋值
-            pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
+    if (zIsCommitDataType == zpMetaIf->DataType) {
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
+        /*
+         * 如果距离最近一次 “git pull“ 的时间间隔超过10秒，尝试拉取远程代码
+         * 放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
+         * 取到锁，则拉取；否则跳过此步，直接打印列表
+         * 打印布署记录时不需要执行
+         */
+        if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
+            if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
+                system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
+
+                /* 以取完远程代码的时间重新赋值 */
+                zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL);
+
+                pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
+            }
         }
+    } else if (zIsDeployDataType == zpMetaIf->DataType) {
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
+    } else {
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        return -10;
     }
 
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
     if (0 < zpSortedTopVecWrapIf->VecSiz) {
         if (0 < zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL)) {
-            zsendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+            zsendto(zSd, "]", zBytes(1), 0, NULL);  // 二维json结束符
         } else {
-            zsendto(zSd, "[{\"OpsId\":-14}]", zBytes(15), 0, NULL);
+            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            return -14;
         }
     }
 
