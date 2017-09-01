@@ -9,23 +9,17 @@ cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
-git checkout server >/dev/null 2>&1
-git branch -D master
-git checkout -b master
-git reset -q --hard `git log -1 --format=%H`
+#git stash clear
+git pull --force ./.git server:master
+git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 
 cd $zPathOnHost
 export GIT_DIR="${zPathOnHost}/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
-git checkout server >/dev/null 2>&1
-zCurSig=`git log -1 server --format=%H`
-printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-git add ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-git commit -m "____MARK____"
-git branch -D master
-git checkout -b master
-git reset -q --hard $zCurSig  # 工作区不需要附带 MARK 文件
+#git stash clear
+git pull --force ./.git server:master
+git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
@@ -35,5 +29,14 @@ sh -x ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" > /tmp/____
 sh __PROJ_PATH/____post-deploy.sh &
 echo -e "#refresh date: `date`\n#current sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
 
+# 如下部分用于保障相同sig可以连接布署，应对失败重试场景；可能耗时很长，故放在回复成功状态之后
+git checkout server
+printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+git add ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+git commit -m "____MARK____"
+git checkout master
+
 # 自我更新
+rm ${zPathOnHost}/.git/hooks/post-update
 cp ${zPathOnHost}_SHADOW/scripts/post-update ${zPathOnHost}/.git/hooks/post-update
+chmod 0755 ${zPathOnHost}/.git/hooks/post-update

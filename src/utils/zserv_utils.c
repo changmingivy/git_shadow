@@ -129,7 +129,7 @@
 
 /*
  *  拉取远程代码
- *  需要持 Destroy 锁进行
+ *  若启用删除项目接口，需要持 Destroy 锁进行
  */
 void *
 zauto_pull(void *_) {
@@ -137,9 +137,9 @@ zauto_pull(void *_) {
     while (1) {
         for(zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
             if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
-            zAdd_To_Thread_Pool(zthread_system, zppGlobRepoIf[zCnter]->p_PullCmd);
+            system(zppGlobRepoIf[zCnter]->p_PullCmd);  // 不能使用多线程，git并发锁会有竞争导致多种操作失败
         }
-        sleep(4);
+        sleep(1);  // 防止无项目时无限循环
     }
 
     return NULL;
