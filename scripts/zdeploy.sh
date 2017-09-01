@@ -18,6 +18,7 @@ zOps() {
     cd /home/git/${zPathOnHost}
     if [[ 0 -ne $? ]]; then exit 1; fi  # 当指定的路径不存在，此句可防止 /home/git 下的项目文件被误删除
 
+    rm -f ./.git/index.lock
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
     git checkout server
