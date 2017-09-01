@@ -228,41 +228,41 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 #define zBufSiz 10240
 void
 zclient(void) {
-    _i zSd = ztcp_connect("127.0.0.1", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
+    _i zSd = ztcp_connect("192.168.1.254", "20000", AI_NUMERICHOST | AI_NUMERICSERV);
     if (-1 == zSd) {
         fprintf(stderr, "Connect to server failed \n");
         exit(1);
     }
 
     // 列出所有项目元信息
-    char zStrBuf[] = "{\"OpsId\":5}";
+    //char zStrBuf[] = "{\"OpsId\":5}";
 
     // 列出单个项目元信息
-    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":122}";
+    //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":11}";
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"data\":\"122 /home/git/122_Y https://git.coding.net/kt10/FreeBSD.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"data\":\"12 /home/git/12_Y https://git.coding.net/kt10/FreeBSD.git master git\"}";
 
     // 锁定
-    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":122}";
+    //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":11}";
 
     // 解锁
-    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":122}";
+    //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":11}";
 
     // 更新major IP数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":122,\"data\":\"127.0.0.1\"}";
+    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":11,\"data\":\"192.168.1.254\"}";
 
     // 查询版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":122,\"DataType\":0}";
+    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}";
 
     // 打印差异文件列表
-    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":122,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0}";
+    //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":11,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 打印差异文件内容
-    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":122,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}";
+    //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":11,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 布署与撤销
-    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":122,\"RevId\":0,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24\",\"ExtraData\":24}";
+    char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":11,\"RevId\":1,\"CacheId\":1504278250,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24|172.16.0.25|172.16.0.26|172.16.0.27|172.16.0.28|172.16.0.29|172.16.0.30|172.16.0.31|172.16.0.32|172.16.0.33|172.16.0.34|172.16.0.35|172.16.0.36|172.16.0.37|172.16.0.38|172.16.0.39|172.16.0.40|172.16.0.41\",\"ExtraData\":41}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 

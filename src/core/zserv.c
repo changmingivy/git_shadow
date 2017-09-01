@@ -593,7 +593,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         }
     }
 
-    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+    /* 检查部署目标主机集合是否存在 */
+    if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost
+            || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -26;
@@ -637,7 +639,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
                     zUnReplyCnt++;
                 }
             }
-            (--zpBasePtr)[0] = '\0';  // 去掉最后一个逗号
+            if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则去掉最后一个逗号
 
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -12;
@@ -799,24 +801,11 @@ zops_route(void *zpSd) {
     /* 必须清零，以防脏栈数据导致问题 */
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
-    if (zBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
-        _i zRecvSiz, zOffSet;
-        zRecvSiz = zOffSet = zBufSiz;
-        zBufSiz *= 2;
-        zMem_Alloc(zpJsonBuf, char, zBufSiz);
+    /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
+    if (zCommonBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
+        zMem_Alloc(zpJsonBuf, char, zCommonBufSiz * 1024);
         strcpy(zpJsonBuf, zJsonBuf);
-
-        while(0 < (zRecvdLen = recv(zSd, zpJsonBuf + zOffSet, zBufSiz - zRecvSiz, 0))) {
-            zOffSet += zRecvdLen;
-            zRecvSiz -= zRecvdLen;
-            if (zOffSet == zBufSiz) {
-                zRecvSiz += zBufSiz;
-                zBufSiz *= 2;
-                zMem_Re_Alloc(zpJsonBuf, char ,zBufSiz, zpJsonBuf);
-            }
-        }
-
-        zRecvdLen = zOffSet;
+        zRecvdLen += recv(zSd, zpJsonBuf + zRecvdLen, zCommonBufSiz * 1024 - zRecvdLen, 0);
     }
 
     if (zBytes(6) > zRecvdLen) {
@@ -854,7 +843,7 @@ zMarkCommonAction:
     }
 
     shutdown(zSd, SHUT_RDWR);
-    if (zCommonBufSiz <= zRecvdLen) { free(zpJsonBuf); }
+    if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
 
     return NULL;
 }
