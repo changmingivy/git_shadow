@@ -168,7 +168,7 @@ zget_diff_content(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff %s %s -- %s",
+    sprintf(zShellBuf, "cd \"%s\" && git diff \"%s\" \"%s\" -- \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
@@ -388,7 +388,7 @@ zget_file_list(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd %s && git diff --name-only %s %s",
+    sprintf(zShellBuf, "cd \"%s\" && git diff --name-only \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
@@ -530,13 +530,13 @@ zgenerate_cache(void *zpIf) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
-        sprintf(zShellBuf, "cd %s && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
+        sprintf(zShellBuf, "cd \"%s\" && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
         zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
-        sprintf(zShellBuf, "cat %s%s", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
+        sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
@@ -644,7 +644,7 @@ zwrite_log(_i zRepoId) {
     _i zLen;
 
     /* write last deploy SHA1_sig and it's timestamp to: <_SHADOW/log/meta> */
-    sprintf(zShellBuf, "cd %s && git log %s -1 --format=\"%%H_%%ct\"",
+    sprintf(zShellBuf, "cd \"%s\" && git log \"%s\" -1 --format=\"%%H_%%ct\"",
             zppGlobRepoIf[zRepoId]->p_RepoPath,
             zppGlobRepoIf[zRepoId]->zLastDeploySig);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
@@ -724,7 +724,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zpRetIf->p_rets[1]);
 
     /* 调用SHELL执行检查和创建 */
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh \"%s\"", zpRepoMetaData);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS(system(zShellBuf));
@@ -768,12 +768,12 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zCommonBufSiz];
     if (0 == strcmp("git", zpRetIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd /home/git/%s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; git pull --force %s %s:server",
+        sprintf(zPullCmdBuf, "cd /home/git/\"%s\" && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; git pull --force \"%s\" \"%s\":server",
                 zpRetIf->p_rets[1],
                 zpRetIf->p_rets[2],
                 zpRetIf->p_rets[3]);
     } else if (0 == strcmp("svn", zpRetIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd /home/git/%s/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
+        sprintf(zPullCmdBuf, "cd /home/git/\"%s\"/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zpRetIf->p_rets[1]);
     } else {
         close(zppGlobRepoIf[zRepoId]->LogFd);
@@ -816,13 +816,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
 
     /* 提取最近一次布署的SHA1 sig */
-    sprintf(zShellBuf, "cat %s%s | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
     if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     } else {
         pclose(zpShellRetHandler);
-        sprintf(zShellBuf, "cd %s && git log BASEXXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
+        sprintf(zShellBuf, "cd \"%s\" && git log BASEXXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
         zpShellRetHandler = popen(zShellBuf, "r");
         zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
     }
@@ -912,7 +912,7 @@ zinit_one_remote_host(void *zpIf) {
 
     zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh %s %s %d %s",
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_ProxyHostStrAddr,
             zHostStrAddrBuf,
             zpMetaIf->RepoId,
