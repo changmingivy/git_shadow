@@ -20,8 +20,8 @@ export GIT_DIR="${zPathOnHost}/.git"
 git stash
 git checkout server
 zCurSig=`git log -1 --format=%H`
-printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____MARK____XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXZ
-git add ____MARK____XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXZ
+printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+git add ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 git commit -m "____MARK____"
 git checkout -b TMP
 git reset -q --hard $zCurSig  # 工作区不需要附带 MARK 文件
@@ -30,12 +30,6 @@ git branch -M master
 cd ${zPathOnHost}_SHADOW
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
-i=0
-while [[ 3 -gt $i ]]; do
-    sleep 1
-    ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
-    let i++
-done
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 sh __PROJ_PATH/____post-deploy.sh
