@@ -3,12 +3,12 @@
 # 通知中控机已收到代码；
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
-export zPathOnHost='__PROJ_PATH'
+export zPathOnHost="__PROJ_PATH"
 
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-git add --all .
-git commit -m "_"
+\ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
+git stash
 git checkout server
 git checkout -b TMP
 git reset -q --hard
@@ -29,14 +29,14 @@ git branch -M master
 
 cd ${zPathOnHost}_SHADOW
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
-./scripts/zclient_reply.sh '__MASTER_ADDR' '__MASTER_PORT' 'B'
+./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
 i=0
 while [[ 3 -gt $i ]]; do
     sleep 1
-    ./scripts/zclient_reply.sh '__MASTER_ADDR' '__MASTER_PORT' 'B'
+    ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
     let i++
 done
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 sh __PROJ_PATH/____post-deploy.sh
-echo "[refresh date]: `date`" >> __PROJ_PATH/____post-deploy.sh
+echo "refresh date: `date`" >> __PROJ_PATH/____post-deploy.sh
