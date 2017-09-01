@@ -37,7 +37,8 @@ zOps() {
     mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
     git add --all .
-    git commit -m "__DP__" && git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server  # 如果没有新内容，则不必推送，故使用 &&
+    git commit -m "__DP__" &&  # 如果没有新内容，则不必推送，故使用 &&
+    git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
 
     cd /home/git/${zPathOnHost}
     git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
