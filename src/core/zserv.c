@@ -200,6 +200,18 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
         return -11;
     };
 
+    /*
+     * 如果距离最近一次 “git pull“ 的时间间隔超过10秒，尝试拉取远程代码
+     * 放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
+     * 取到锁，则拉取；否则跳过此步，直接打印列表
+     */
+    if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
+        if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
+            system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
+            pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
+        }
+    }
+
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
     if (0 < zpSortedTopVecWrapIf->VecSiz) {
         if (0 < zsendmsg(zSd, zpSortedTopVecWrapIf, 0, NULL)) {
