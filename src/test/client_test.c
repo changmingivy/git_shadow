@@ -241,7 +241,7 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":6,\"ProjId\":122}";
 
     // 创建新项目
-    //char zStrBuf[] = "{\"OpsId\":1,\"ProjId\":122,\"data\":\"122 /home/git/122_Y https://git.coding.net/kt10/FreeBSD.git master git\"}";
+    //char zStrBuf[] = "{\"OpsId\":1,\"data\":\"122 /home/git/122_Y https://git.coding.net/kt10/FreeBSD.git master git\"}";
 
     // 锁定
     //char zStrBuf[] = "{\"OpsId\":2,\"ProjId\":122}";

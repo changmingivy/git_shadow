@@ -208,6 +208,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
         if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
             system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
+            zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL);  // 以取完远程代码的时间重新赋值
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
         }
     }
