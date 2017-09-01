@@ -526,7 +526,7 @@ zMark:
                 zpIpStrList[zOffSet - 1] = ' ';
             }
         }
-        (--zpBasePtr)[0] = '\0';  // 去掉最后一个逗号
+        if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
         if (0 < zOffSet) {
             zpIpStrList[zOffSet - 1] = '\0';
@@ -619,10 +619,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
-    /* 等待所有主机的状态都得到确认，5 秒超时 */
+    /* 等待所有主机的状态都得到确认，9 秒超时 */
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.2);
-        if (50 < zTimeCnter) {
+        if (45 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] = '\0';
@@ -639,7 +639,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
                     zUnReplyCnt++;
                 }
             }
-            if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则去掉最后一个逗号
+            if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -12;
@@ -752,19 +752,9 @@ zrefresh_cache(zMetaInfo *zpMetaIf, _i zSd) {
         zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
     }
 
-//    /* 同步锁初始化 */
-//    zCcur_Init(zpMetaIf->RepoId, 1, A);
-//    zCcur_Fin_Mark(1 == 1, A);
-//    /* 生成提交记录缓存 */
-//    zCcur_Sub_Config(zpMetaIf, A);
-//    zpMetaIf->RepoId = zpMetaIf->RepoId;
-//    zpMetaIf->DataType = zIsCommitDataType;
-//    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf);
-//    /* 等待任务完成，之后释放同步锁的资源占用 */
-//    zCcur_Wait(A);
     zpMetaIf->RepoId = zpMetaIf->RepoId;
     zpMetaIf->DataType = zIsCommitDataType;
-    zgenerate_cache(zpMetaIf);
+    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
 
     zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
     if (zCnter[1] > zCnter[0]) {

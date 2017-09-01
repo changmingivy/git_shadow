@@ -18,7 +18,7 @@ zSelfPid=$$  # 获取自身PID
 zTmpFile=`mktemp /tmp/${zSelfPid}.XXXXXXXX`
 echo $zSelfPid > $zTmpFile
 
-(sleep 5; if [[ "" != `cat $zTmpFile` ]]; then kill -9 $zSelfPid; fi; rm $zTmpFile) &  # 防止遇到无效IP时长时间卡住
+(sleep 9; if [[ "" != `cat $zTmpFile` ]]; then kill -9 $zSelfPid; fi; rm $zTmpFile) &  # 防止遇到无效IP时长时间卡住
 
 ssh -t $zMajorAddr "ssh $zSlaveAddr \"
     mkdir -p ${zPathOnHost}
