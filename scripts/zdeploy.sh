@@ -18,27 +18,23 @@ zOps() {
     cd /home/git/${zPathOnHost}
     if [[ 0 -ne $? ]]; then exit 1; fi  # 当指定的路径不存在，此句可防止 /home/git 下的项目文件被误删除
 
-    rm -f ./.git/index.lock
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
-    git checkout server
-    git checkout -b TMP
-    git branch -M master
-
+    git pull --force ./.git server:master
     git reset ${zCommitSig}
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
 
-    rm -rf ./scripts
-    cp -rf ${zShadowPath}/scripts ./
+    rm -rf ./scripts/*
+    cp -r ${zShadowPath}/scripts/* ./scripts/
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
     chmod 0755 ./scripts/post-merge
     mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
     git add --all .
-    git commit -m "__DP__" &&  # 如果没有新内容，则不必推送，故使用 &&
+    git commit -m "__DP__"
     git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
 
     cd /home/git/${zPathOnHost}
