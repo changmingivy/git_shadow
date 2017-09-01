@@ -20,7 +20,9 @@ zOps() {
 
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
-    git pull --force ./.git server:master
+    git checkout server 
+    git branch -D master
+    git checkout -b master
     git reset ${zCommitSig}
 
     # 更新中转机(MajorHost)
