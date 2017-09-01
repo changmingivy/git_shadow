@@ -44,13 +44,13 @@ zOps() {
 
     # 通过中转机布署到终端集群
     ssh $zMajorAddr "
-        cd ${zPathOnHost}_SHADOW &&
         for zHostAddr in $zHostList; do
-            git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
-        done
-        cd ${zPathOnHost} &&
-        for zHostAddr in $zHostList; do
-            git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
+			(\
+				cd ${zPathOnHost}_SHADOW &&\
+				git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server;\
+				cd ${zPathOnHost} &&\
+				git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server\
+			)&
         done
     "
 
