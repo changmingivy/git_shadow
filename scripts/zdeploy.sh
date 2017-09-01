@@ -20,14 +20,17 @@ zOps() {
 
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
-    git rebase server
+    git checkout server
+    git checkout -b TMP
+    git branch -M master
 
     git reset ${zCommitSig}
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
 
-    cp -rf ${zShadowPath}/scripts/* ./scripts/
+    rm -rf ./scripts
+    cp -rf ${zShadowPath}/scripts ./
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
     chmod 0755 ./scripts/post-merge
@@ -45,13 +48,10 @@ zOps() {
         for zHostAddr in $zHostList; do
             git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
         done
-        \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;
-    \
         cd ${zPathOnHost} &&
         for zHostAddr in $zHostList; do
             git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
         done
-        \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf
     "
 
     # 中控机：布署后环境设置
