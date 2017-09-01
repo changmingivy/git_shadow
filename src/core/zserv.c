@@ -490,7 +490,12 @@ zMark:
         zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
         zpIpStrList[zOffSet - 1] = ' ';
     }
-    if (0 < zOffSet) { zpIpStrList[zOffSet - 1] = '\0'; }
+
+    if (0 < zOffSet) {
+        zpIpStrList[zOffSet - 1] = '\0';
+    } else {
+        zpIpStrList[0] = '\0';
+    }
 
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
     /* 更新全量IP信息，存放于项目内存池中，不可free */
@@ -521,8 +526,13 @@ zMark:
                 zpIpStrList[zOffSet - 1] = ' ';
             }
         }
-        if (0 < zOffSet) { zpIpStrList[zOffSet - 1] = '\0'; }
         (--zpBasePtr)[0] = '\0';  // 去掉最后一个逗号
+
+        if (0 < zOffSet) {
+            zpIpStrList[zOffSet - 1] = '\0';
+        } else {
+            zpIpStrList[0] = '\0';
+        }
 
         zpcre_free_tmpsource(zpPcreResIf);
         return -23;
@@ -540,7 +550,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
     zMetaInfo *zpSubMetaIf[2];
     _i zErrNo;
-    char zShellBuf[zCommonBufSiz];  // 存放SHELL命令字符串
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -584,7 +593,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         }
     }
 
-    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf) {
+    if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+            || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -26;
     }
@@ -595,8 +605,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DeployState = 0;
     }
 
-    /* 执行外部脚本使用 git 进行布署 */
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
+    /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
+    char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
+    sprintf(zpShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
@@ -604,7 +615,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 调用 git 命令执行布署 */
-    zAdd_To_Thread_Pool(zthread_system, zShellBuf );
+    zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
     /* 等待所有主机的状态都得到确认，5 秒超时 */
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
@@ -872,7 +883,7 @@ zMarkCommonAction:
  *  -23：更新全量IP列表时：部分或全部目标初始化失败
  *  -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  *  -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
- *  -26：集群全量节点(所有主机)IP地址数据库不存在
+ *  -26：集群全量节点(所有主机)IP地址数据库不存在，或为空
  *  -27：主节点IP数据库更新失败
  *  -28：全量节点IP数据库更新失败：前端指定的IP数量与实际解析出的数量不一致
  *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）

@@ -798,6 +798,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 缓存版本初始化 */
     zppGlobRepoIf[zRepoId]->CacheId = 1000000000;
+    /* 上一次布署结果状态初始化 */
+    zppGlobRepoIf[zRepoId]->RepoState = zRepoGood;
 
     /* 提取最近一次布署的SHA1 sig */
     sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
