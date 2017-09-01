@@ -27,10 +27,9 @@ git checkout -b TMP
 git reset -q --hard $zCurSig  # 工作区不需要附带 MARK 文件
 git branch -M master
 
-cd ${zPathOnHost}_SHADOW
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
-./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
+sh ${zPathOnHost}_SHADOW/scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B"
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
-sh __PROJ_PATH/____post-deploy.sh
-echo -e "refresh date: `date`\ncurrent sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
+sh __PROJ_PATH/____post-deploy.sh &
+echo -e "#refresh date: `date`\ncurrent sig: ${zCurSig}" >> __PROJ_PATH/____post-deploy.sh
