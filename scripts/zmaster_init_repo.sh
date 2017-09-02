@@ -11,22 +11,28 @@ zRemoteVcsType=$5  # svn 或 git
 zShadowPath=/home/git/zgit_shadow
 zDeployPath=/home/git/$zPathOnHost
 
-# if [[ "" == $zProjNo
-#     || "" == $zPathOnHost
-#     || "" == $zPullAddr
-#     || "" == $zRemoteMasterBranchName
-#     || "" == $zRemoteVcsType ]]
-# then
-#     exit 1
-# fi
+if [[ "" == $zProjNo
+    || "" == $zPathOnHost
+    || "" == $zPullAddr
+    || "" == $zRemoteMasterBranchName
+    || "" == $zRemoteVcsType ]]
+then
+    exit 1
+fi
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
-	if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then 
-		exit 0
-	else
-		exit 255
-	fi
+    if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
+        cd ${zDeployPath}_SHADOW
+        cp -rf ${zShadowPath}/scripts ./
+        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+        chmod 0755 ./scripts/post-merge
+        mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
+        exit 0
+    else
+        exit 255
+    fi
 fi
 
 # 创建项目路径
@@ -35,7 +41,10 @@ if [[ $? -ne 0 ]]; then exit 254; fi
 
 # 拉取远程代码
 git clone $zPullAddr $zDeployPath
-if [[ $? -ne 0 ]]; then exit 253; fi
+if [[ $? -ne 0 ]]; then
+    rm -rf $zDeployPath
+    exit 253
+fi
 
 # 环境初始化
 cd $zDeployPath
@@ -62,14 +71,15 @@ if [[ "svn" == $zRemoteVcsType ]]; then
     git commit -m "__init__"
 fi
 
-# 创建以 <项目名称>_SHADOW 命名的目录
+# 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
 mkdir -p ${zDeployPath}_SHADOW
-
-cp -rf ${zShadowPath}/bin ${zDeployPath}_SHADOW/
 cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
-
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+chmod 0755 ./scripts/post-merge
+mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
+
 git init .
 git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjNo}"

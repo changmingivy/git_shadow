@@ -17,19 +17,25 @@ zOps() {
 
     cd /home/git/${zPathOnHost}
     if [[ 0 -ne $? ]]; then exit 1; fi  # 当指定的路径不存在，此句可防止 /home/git 下的项目文件被误删除
-    rm -rf *
 
-    git pull --force ./.git server:master
+    \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
+    git stash
+    git checkout server 
+    git branch -D master
+    git checkout -b master
     git reset ${zCommitSig}
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
-
-    cp -rf ${zShadowPath}/scripts/* ./scripts/
+    cp -ur ${zShadowPath}/scripts/* ./scripts/
+    chmod 0755 ./scripts/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-    git add --all .
-    git commit --allow-empty -m "__DP__"
+    chmod 0755 ./scripts/post-merge
+    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
+    mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
+    git add --all .
+    git commit -m "__DP__"
     git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
 
     cd /home/git/${zPathOnHost}
@@ -37,17 +43,14 @@ zOps() {
 
     # 通过中转机布署到终端集群
     ssh $zMajorAddr "
-        cd ${zPathOnHost}_SHADOW &&
         for zHostAddr in $zHostList; do
-            git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server &
+            (\
+                cd ${zPathOnHost}_SHADOW &&\
+                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server;\
+                cd ${zPathOnHost} &&\
+                git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server\
+            )&
         done
-        rm -rf *
-    \
-        cd ${zPathOnHost} &&
-        for zHostAddr in $zHostList; do
-            git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server &
-        done
-        rm -rf *
     "
 
     # 中控机：布署后环境设置

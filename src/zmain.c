@@ -20,8 +20,6 @@
 #include <errno.h>
 #include <limits.h>
 
-#include <sys/inotify.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,17 +30,13 @@
 #include "../inc/zutils.h"
 
 #define zCommonBufSiz 1024
-
-#define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
+#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 14
-
-#define zUnitSiz 8  // 分散聚离IO分段数量大于8时，效率会降低
 
 #define UDP 0
 #define TCP 1
@@ -138,16 +132,18 @@ typedef struct zDeployResInfo zDeployResInfo;
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
-    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
-
-    _i TotalHost;  // 每个项目的集群的主机数量
-
     _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
+    _i TotalHost;  // 每个项目的集群的主机数量
+    char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
 
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
+    _i LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
+    pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
 
-    _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index），意指：下一个操作需要写入的位置（不是最后一次已完成的写操作位置！）
+    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
+
+    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
+    char zInitRepoFinMark;
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -157,7 +153,7 @@ struct zRepoInfo {
     _i RepoState;
     char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
 
-    char *p_ProxyHostStrAddr;  // 代理机 IPv4 地址
+    char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
@@ -169,10 +165,9 @@ struct zRepoInfo {
     struct iovec CommitVecIf[zCacheSiz];
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
-    struct iovec SortedCommitVecIf[zCacheSiz];
+    struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
+    _i ReplyCnt[2];  // [0]: 用于收集初始化远程主机的结果；[1]: 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
@@ -185,9 +180,6 @@ struct zRepoInfo {
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
-
-    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
-    char zInitRepoFinMark;
 };
 typedef struct zRepoInfo zRepoInfo;
 
@@ -197,9 +189,6 @@ typedef struct zRepoInfo zRepoInfo;
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
 
-_i zInotifyFD;  // inotify 主描述符
-struct zObjInfo *zpObjHash[zWatchHashSiz];  // 以watch id建立的HASH索引
-
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
 zNetOpsFunc zNetServ[zServHashSiz];
@@ -208,24 +197,45 @@ zNetOpsFunc zNetServ[zServHashSiz];
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
 
-/* 删除项目与拉取远程代码两个动作需要互斥执行 */
-pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
-
 /************
  * 配置文件 *
  ************/
 #define zRepoIdPath "_SHADOW/info/repo_id"
 #define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
-#define zInotifyObjRelativePath "/.git/logs/refs/heads/server"  // inotify 监控每个项目的server分支变动，用以动态追加提交记录缓存（最前面加一个 '/' ，省去每次使用时单独拼一个字符的麻烦）
 
 /**********
  * 子模块 *
  **********/
+/* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
+void *
+zalloc_cache(_i zRepoId, size_t zSiz) {
+    pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));
+
+    if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
+        void **zppPrev, *zpCur;
+        /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
+        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+            zPrint_Time();
+            fprintf(stderr, "mmap failed! RepoId: %d", zRepoId);
+            exit(1);
+        }
+        zppPrev = zpCur;
+        zppPrev[0] = zppGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
+        zppGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
+        zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
+    }
+
+    void *zpX = zppGlobRepoIf[zRepoId]->p_MemPool + zppGlobRepoIf[zRepoId]->MemPoolOffSet;
+    zppGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
+
+    pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));
+    return zpX;
+}
+
 #include "utils/pcre2/zpcre.c"
 #include "utils/zbase_utils.c"
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
-#include "core/zinotify.c"  // 监控代码库文件变动
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 
@@ -263,14 +273,7 @@ main(_i zArgc, char **zppArgv) {
     }
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-
-//    zthread_poll_init();  // 初始化线程池：线程池在大压力下应用有阻死风险，暂不用之
-    zCheck_Negative_Exit( zInotifyFD = inotify_init() );  // 生成inotify master fd
-
+//  zthread_poll_init();  // 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之
     zinit_env(zpConfFilePath);  // 运行环境初始化
-
-    zAdd_To_Thread_Pool( zinotify_wait, NULL );  // 等待事件发生
-    zAdd_To_Thread_Pool( zauto_pull, NULL );  // 定时拉取远程代码
-
     zstart_server(&zNetServIf);  // 启动网络服务
 }

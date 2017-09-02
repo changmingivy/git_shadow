@@ -1,6 +1,7 @@
 #!/bin/sh
 zMasterAddr=$1
 zMasterPort=$2
+zReplyType=$3  # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 
 zRelativeRepoIdPath="./info/repo_id"
 zIPv4StrAddrPath="/home/git/zself_ipv4_addr.txt"
@@ -21,7 +22,7 @@ exec 777<&-
 exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
-echo "{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr}}">&777
+echo "[{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr},\"ExtraData\":\"${zReplyType}\"}]">&777
 
 # 关闭套接字读写端
 exec 777<&-

@@ -398,7 +398,7 @@ zparse_str(void *zpIn, void *zpOut) {
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 // TEST:PASS
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}:]|(?<!\"):)+");
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}\\[\\]:]|(?<!\"):)+");
     zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
     
     if (0 != (zpPcreRetIf->cnt % 2)) {
@@ -489,3 +489,4 @@ zdel_LB(char *zpStr) {
 
     return zStrLen;
 }
+
