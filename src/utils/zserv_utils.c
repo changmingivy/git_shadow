@@ -416,9 +416,10 @@ zget_file_list(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd \"%s\" && git diff \"%s\" --shortstat | grep -oP '\\d+(?=\\s*files)' && git diff --name-only \"%s\" \"%s\"",
+    sprintf(zShellBuf, "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*files)' && git diff --name-only \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 

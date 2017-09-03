@@ -110,9 +110,6 @@ git branch ____base.XXXXXXXX &&\
         git commit --allow-empty -m "_";\
         zOrigLog=`git log -1 --format="%H_%ct"`;\
         git branch ${zOrigLog};\
-        mv ${zDeployPath}_SHADOW/log/deploy/meta ${zDeployPath}_SHADOW/log/deploy/meta.tmp;\
         echo ${zOrigLog} > ${zDeployPath}_SHADOW/log/deploy/meta;\
-        cat ${zDeployPath}_SHADOW/log/deploy/meta.tmp >> ${zDeployPath}_SHADOW/log/deploy/meta;\
-        rm ${zDeployPath}_SHADOW/log/deploy/meta.tmp;\
         git checkout master\
     )
