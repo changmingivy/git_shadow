@@ -116,7 +116,10 @@
         if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
             pthread_mutex_lock(zpIf->p_MutexLock[0]);\
             pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
-            pthread_cond_signal(zpIf->p_CondVar);\
+            \/* 此处一定要再次检查条件是否成立，避免任务分发过程中，已提前完成任务的线程恰好条件成立的情况 */\
+            if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
+                pthread_cond_signal(zpIf->p_CondVar);\
+            }\
         }\
     } while(0)
 
