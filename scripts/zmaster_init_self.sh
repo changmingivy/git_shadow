@@ -1,4 +1,9 @@
 #!/bin/sh
+
+# 预环境要求：
+#   (1) /etc/ssh/sshd_config 中的 MaxStartups 参数指定为 1024
+#   (2) sysctl net.core.somaxconn=1280
+
 zServAddr=$1
 zServPort=$2
 zShadowPath="${HOME}/zgit_shadow"
