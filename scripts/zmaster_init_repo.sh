@@ -72,8 +72,9 @@ if [[ "svn" == $zRemoteVcsType ]]; then
 fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
-mkdir -p ${zDeployPath}_SHADOW
-cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
+mkdir -p ${zDeployPath}_SHADOW/scripts
+rm -rf ${zDeployPath}_SHADOW/scripts/*
+cp -r ${zShadowPath}/scripts/* ${zDeployPath}_SHADOW/scripts/
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
