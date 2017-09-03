@@ -102,9 +102,17 @@ chmod -R 0755 ${zDeployPath}_SHADOW
 
 # use to get diff when no deploy log has been written
 cd ${zDeployPath}
-git branch -f BASEXXXXXXXX
-git checkout BASEXXXXXXXX
-rm -rf *
-git add --all .
-git commit --allow-empty -m "_"
-git checkout master
+git branch ____base.XXXXXXXX &&\
+    (\
+        git checkout ____base.XXXXXXXX;\
+        \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf;\
+        git add --all .;\
+        git commit --allow-empty -m "_";\
+        zOrigLog=`git log -1 --format="%H_%ct"`;\
+        git branch ${zOrigLog};\
+        mv ${zDeployPath}_SHADOW/log/deploy/meta ${zDeployPath}_SHADOW/log/deploy/meta.tmp;\
+        echo ${zOrigLog} > ${zDeployPath}_SHADOW/log/deploy/meta;\
+        cat ${zDeployPath}_SHADOW/log/deploy/meta.tmp >> ${zDeployPath}_SHADOW/log/deploy/meta;\
+        rm ${zDeployPath}_SHADOW/log/deploy/meta.tmp;\
+        git checkout master\
+    )

@@ -808,7 +808,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     } else {
         pclose(zpShellRetHandler);
-        sprintf(zShellBuf, "cd \"%s\" && git log BASEXXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
+        sprintf(zShellBuf, "cd \"%s\" && git log ____base.XXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
         zpShellRetHandler = popen(zShellBuf, "r");
         zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
     }
