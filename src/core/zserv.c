@@ -619,10 +619,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
-    /* 等待所有主机的状态都得到确认，9 秒超时 */
+    /* 等待所有主机的状态都得到确认，12 秒超时 */
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.2);
-        if (45 < zTimeCnter) {
+        if (60 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] = '\0';
