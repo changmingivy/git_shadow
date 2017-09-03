@@ -72,8 +72,9 @@ if [[ "svn" == $zRemoteVcsType ]]; then
 fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
-mkdir -p ${zDeployPath}_SHADOW
-cp -rf ${zShadowPath}/scripts ${zDeployPath}_SHADOW/
+mkdir -p ${zDeployPath}_SHADOW/scripts
+rm -rf ${zDeployPath}_SHADOW/scripts/*
+cp -r ${zShadowPath}/scripts/* ${zDeployPath}_SHADOW/scripts/
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
@@ -101,9 +102,14 @@ chmod -R 0755 ${zDeployPath}_SHADOW
 
 # use to get diff when no deploy log has been written
 cd ${zDeployPath}
-git branch -f BASEXXXXXXXX
-git checkout BASEXXXXXXXX
-rm -rf *
-git add --all .
-git commit --allow-empty -m "_"
-git checkout master
+git branch ____base.XXXXXXXX &&\
+    (\
+        git checkout ____base.XXXXXXXX;\
+        \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf;\
+        git add --all .;\
+        git commit --allow-empty -m "_";\
+        zOrigLog=`git log -1 --format="%H_%ct"`;\
+        git branch ${zOrigLog};\
+        echo ${zOrigLog} > ${zDeployPath}_SHADOW/log/deploy/meta;\
+        git checkout master\
+    )
