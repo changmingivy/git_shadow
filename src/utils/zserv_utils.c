@@ -292,7 +292,7 @@ zdistribute_task(void *zpIf) {
     if (zNodeCnter == (zpPcreRetIf->cnt - 1)) {\
         zpTmpNodeIf[0]->FileId = zpTmpNodeIf[0]->LineNum;\
         zpTmpNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
-        memcpy(zpTmpNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
+        memcpy(zpTmpNodeIf[0]->p_ExtraData, zShellBuf, zBaseDataLen);\
     } else {\
         zpTmpNodeIf[0]->FileId = -1;\
         zpTmpNodeIf[0]->p_ExtraData = NULL;\
@@ -342,23 +342,69 @@ zdistribute_task(void *zpIf) {
     }\
     zpTmpNodeIf[0]->FileId = zpTmpNodeIf[0]->LineNum;  /* 最后一个节点关联元数据 */\
     zpTmpNodeIf[0]->p_ExtraData = zalloc_cache(zpMetaIf->RepoId, zBaseDataLen);\
-    memcpy(zpTmpNodeIf[0]->p_ExtraData, zRes, zBaseDataLen);\
+    memcpy(zpTmpNodeIf[0]->p_ExtraData, zShellBuf, zBaseDataLen);\
 } while(0)
+
+/* 差异文件数量 >128 时，调用此函数，以防生成树图损耗太多性能；此时无需检查无差的性况 */
+void
+zget_file_list_large(zMetaInfo *zpMetaIf, zVecWrapInfo *zpTopVecWrapIf, FILE *zpShellRetHandler, char *zpShellBuf, char *zpJsonBuf) {
+    zMetaInfo zSubMetaIf;
+    zBaseDataInfo *zpTmpBaseDataIf[3];
+    _i zVecDataLen, zBaseDataLen, zCnter;
+
+    for (zCnter = 0; NULL != zget_one_line(zpShellBuf, zCommonBufSiz, zpShellRetHandler); zCnter++) {
+        zBaseDataLen = strlen(zpShellBuf);
+        zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
+        if (0 == zCnter) { zpTmpBaseDataIf[2] = zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0]; }
+        zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
+        memcpy(zpTmpBaseDataIf[0]->p_data, zpShellBuf, zBaseDataLen);
+        zpTmpBaseDataIf[0]->p_data[zBaseDataLen - 1] = '\0';
+
+        zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
+        zpTmpBaseDataIf[0] = zpTmpBaseDataIf[0]->p_next;
+    }
+    pclose(zpShellRetHandler);
+
+    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
+    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zCnter;
+    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(zRefDataInfo));
+    zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf = zalloc_cache(zpMetaIf->RepoId, zCnter * sizeof(struct iovec));
+
+    for (_i i = 0; i < zCnter; i++, zpTmpBaseDataIf[2] = zpTmpBaseDataIf[2]->p_next) {
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpTmpBaseDataIf[2]->p_data;
+
+        /* 用于转换成JsonStr */
+        zSubMetaIf.OpsId = 0;
+        zSubMetaIf.RepoId = zpMetaIf->RepoId;
+        zSubMetaIf.CommitId = zpMetaIf->CommitId;
+        zSubMetaIf.FileId = i;
+        zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+        zSubMetaIf.DataType = zpMetaIf->DataType;
+        zSubMetaIf.p_data = zpTmpBaseDataIf[2]->p_data;
+        zSubMetaIf.p_ExtraData = NULL;
+
+        /* 将zMetaInfo转换为JSON文本 */
+        zconvert_struct_to_json_str(zpJsonBuf, &zSubMetaIf);
+
+        zVecDataLen = strlen(zpJsonBuf);
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_len = zVecDataLen;
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+        memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zpJsonBuf, zVecDataLen);
+
+        zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_SubVecWrapIf = NULL;
+    }
+
+    /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
+    ((char *)(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[0].iov_base))[0] = '[';
+}
 
 void *
 zget_file_list(void *zpIf) {
-    zMetaInfo *zpMetaIf, zSubMetaIf;
+    zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
     zVecWrapInfo *zpTopVecWrapIf;
-    _i zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
-
-    zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
-    zPCREInitInfo *zpPcreInitIf;
-    zPCRERetInfo *zpPcreRetIf;
-
     FILE *zpShellRetHandler;
-    char zShellBuf[zCommonBufSiz], zJsonBuf[zBytes(256)], zRes[zBytes(1024)];
-
-    zpMetaIf = (zMetaInfo *)zpIf;
+    char zShellBuf[zCommonBufSiz], zJsonBuf[zCommonBufSiz];
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -370,12 +416,26 @@ zget_file_list(void *zpIf) {
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
-    sprintf(zShellBuf, "cd \"%s\" && git diff --name-only \"%s\" \"%s\"",
+    sprintf(zShellBuf, "cd \"%s\" && git diff \"%s\" --shortstat | grep -oP '\\d+(?=\\s*files)' && git diff --name-only \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+
+    /* 差异文件数量 >128 时使用 git 原生视图 */
+    if ((NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) && (128 < strtol(zShellBuf, NULL, 10))) {
+        zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
+        goto zMarkLarge;
+    }
+
+    /* 差异文件数量 <=128 生成Tree图 */
+    zMetaInfo zSubMetaIf;
+    _i zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
+    zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
+    zPCREInitInfo *zpPcreInitIf;
+    zPCRERetInfo *zpPcreRetIf;
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
@@ -384,24 +444,24 @@ zget_file_list(void *zpIf) {
     zpRootNodeIf = NULL;
     zLineCnter = 0;
     zpPcreInitIf = zpcre_init("[^/]+");
-    if (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
-        zBaseDataLen = strlen(zRes);
+    if (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
+        zBaseDataLen = strlen(zShellBuf);
 
-        zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
-        zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
-        zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
+        zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+        zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
+        zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
         zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
         zpcre_free_tmpsource(zpPcreRetIf);
 
-        while (NULL != zget_one_line(zRes, zBytes(1024), zpShellRetHandler)) {
-            zBaseDataLen = strlen(zRes);
+        while (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
+            zBaseDataLen = strlen(zShellBuf);
 
-            zRes[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
-            zpPcreRetIf = zpcre_match(zpPcreInitIf, zRes, 1);
-            zRes[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
+            zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+            zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
+            zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
             zpTmpNodeIf[0] = zpRootNodeIf;
             zpTmpNodeIf[2] = zpTmpNodeIf[1] = NULL;
@@ -442,7 +502,7 @@ zMarkOuter:;
         zSubMetaIf.FileId = -1;  // 置为 -1，不允许再查询下一级内容
         zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zSubMetaIf.DataType = zpMetaIf->DataType;
-        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "[ 最新的已布署版本 ]" : "[ 无差异 ]";
+        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "===> 最新的已布署版本 <===" : "===> 无差异 <===";
         zSubMetaIf.p_ExtraData = NULL;
 
         /* 将zMetaInfo转换为JSON文本 */
@@ -490,6 +550,7 @@ zMarkOuter:;
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz = zLineCnter;
     }
 
+zMarkLarge:
     return NULL;
 }
 
