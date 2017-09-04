@@ -361,10 +361,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
-    if (NULL == zpMetaIf->p_data || zBytes(15) < strlen(zpMetaIf->p_data)) { return -27; }
-    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) {
-        goto zMark;
-    }
+    if (NULL == zpMetaIf->p_data || zBytes(15) < strlen(zpMetaIf->p_data) || zBytes(7) > strlen(zpMetaIf->p_data)) { return -22; }
+    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) { goto zMark; }
 
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zhost_init_repo_major.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
@@ -373,9 +371,7 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    }
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     /* system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
     if (0 != WEXITSTATUS(system(zShellBuf))) {
@@ -859,11 +855,12 @@ zMarkCommonAction:
  *  -15：最近的布署记录之后，无新的提交记录
  *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
+ *  -22：指定的代理分发主机IP地址格式错误
  *  -23：更新全量IP列表时：部分或全部目标初始化失败
  *  -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
  *  -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
  *  -26：集群全量节点(所有主机)IP地址数据库不存在，或为空
- *  -27：主节点IP数据库更新失败
+ *  -27：代理分发节点主机初始化失败
  *  -28：全量节点IP数据库更新失败：前端指定的IP数量与实际解析出的数量不一致
  *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  *
