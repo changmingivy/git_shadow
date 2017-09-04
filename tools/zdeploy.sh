@@ -27,9 +27,9 @@ zOps() {
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
-    cp -ur ${zShadowPath}/scripts/* ./scripts/
-    chmod 0755 ./scripts/post-update
-    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
+    cp -ur ${zShadowPath}/tools/* ./tools/
+    chmod 0755 ./tools/post-update
+    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
     git add --all .
     git commit -m "__DP__"

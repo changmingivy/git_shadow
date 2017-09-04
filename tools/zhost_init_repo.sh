@@ -43,7 +43,7 @@ mkfifo -m 0700 $zPipePath
 \
         cat > .git/hooks/post-update
         chmod 0755 .git/hooks/post-update
-        \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
+        \"" < /home/git/${zPathOnHost}_SHADOW/tools/post-update
 
         if [[ (0 -eq $?) && (1 -eq `ls ${zPipePath} | wc -l`) ]]; then
             echo "Success" > $zPipePath

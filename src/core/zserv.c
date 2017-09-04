@@ -85,7 +85,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 生成待执行的外部动作指令 */
     char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zreset_repo.sh %s %s %s",
+    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
@@ -138,7 +138,7 @@ zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    pthread_rwlock_destroy(&(zpRepoIf->RwLock));
 //
 //    /* 生成待执行的外部动作指令 */
-//    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zdelete_repo.sh %s %s %s",
+//    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zdelete_repo.sh %s %s %s",
 //            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
 //            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 //            zpRepoIf->ProxyHostStrAddr,
@@ -480,7 +480,7 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) { goto zMark; }
 
     char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zhost_init_repo_major.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
+    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_major.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->p_data,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
@@ -720,7 +720,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
-    sprintf(zpShellBuf, "sh -x %s_SHADOW/scripts/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
+    sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符

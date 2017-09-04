@@ -781,7 +781,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zpRetIf->p_rets[1]);
 
     /* 调用SHELL执行检查和创建，此处SHELL参数不能加引号 */
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zmaster_init_repo.sh %s", zpRepoMetaData);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS(system(zShellBuf));
@@ -970,7 +970,7 @@ zinit_one_remote_host(void *zpIf) {
 
     zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zHostStrAddrBuf,
             zpMetaIf->RepoId,
