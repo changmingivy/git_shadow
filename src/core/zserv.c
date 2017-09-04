@@ -969,7 +969,7 @@ zstart_server(void *zpIf) {
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
-    zNetServ[13] = NULL;  // 接到 git 的 post-merge 勾子通知后，刷新缓存
+    zNetServ[13] = NULL;
     zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
     zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
 
