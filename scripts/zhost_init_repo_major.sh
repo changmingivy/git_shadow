@@ -31,7 +31,7 @@ echo "Orig" > $zTmpFile
 ) &
 
 # 防止遇到无效IP时，长时间阻塞；若失败，则以退出码 255 结束进程
-sleep 5
+sleep 6
 if [[ "Success" == `cat ${zTmpFile}` ]]; then
     rm $zTmpFile
     exit 0

@@ -14,43 +14,48 @@ do
     let zCnter++
 done
 
-zSelfPid=$$  # 获取自身PID
 zTmpFile=`mktemp /tmp/${zSelfPid}.XXXXXXXX`
-echo $zSelfPid > $zTmpFile
+echo "Orig" > $zTmpFile
 
 (
-    sleep 6
-    if [[ "" != `cat $zTmpFile` ]]; then
-        kill -9 $zSelfPid
-    fi
+    ssh -t $zMajorAddr "ssh $zSlaveAddr \"
+        exec 777>/dev/tcp/__MASTER_ADDR/__MASTER_PORT
+        echo '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
+        exec 777>&-
+\
+        mkdir -p ${zPathOnHost}
+        mkdir -p ${zPathOnHost}_SHADOW
+\
+        cd ${zPathOnHost}_SHADOW
+        git init .
+        git config user.name "git_shadow"
+        git config user.email "git_shadow@"
+        git commit --allow-empty -m "__init__"
+        git branch -f server
+        echo ${zSlaveAddr} > /home/git/zself_ipv4_addr.txt
+\
+        cd $zPathOnHost
+        git init .
+        git config user.name "_"
+        git config user.email "_@"
+        git commit --allow-empty -m "__init__"
+        git branch -f server
+\
+        cat > .git/hooks/post-update
+        chmod 0755 .git/hooks/post-update
+        \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
+
+        if [[ (0 -eq $?) && ("Orig" == `cat ${zTmpFile}`) ]]; then
+            echo "Success" > $zTmpFile
+        fi
+) &
+
+# 防止遇到无效IP时，长时间阻塞；若失败，则以退出码 255 结束进程
+sleep 6
+if [[ "Success" == `cat ${zTmpFile}` ]]; then
     rm $zTmpFile
-) &  # 防止遇到无效IP时长时间卡住
-
-ssh -t $zMajorAddr "ssh $zSlaveAddr \"
-    exec 777>/dev/tcp/__MASTER_ADDR/__MASTER_PORT
-    echo '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
-    exec 777>&-
-\
-    mkdir -p ${zPathOnHost}
-    mkdir -p ${zPathOnHost}_SHADOW
-\
-    cd ${zPathOnHost}_SHADOW
-    git init .
-    git config user.name "git_shadow"
-    git config user.email "git_shadow@"
-    git commit --allow-empty -m "__init__"
-    git branch -f server
-    echo ${zSlaveAddr} > /home/git/zself_ipv4_addr.txt
-\
-    cd $zPathOnHost
-    git init .
-    git config user.name "_"
-    git config user.email "_@"
-    git commit --allow-empty -m "__init__"
-    git branch -f server
-\
-    cat > .git/hooks/post-update
-    chmod 0755 .git/hooks/post-update
-    \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
-
-echo "" > $zTmpFile  # 提示后台监视线程已成功执行，不要再kill，防止误杀其它进程
+    exit 0
+else
+    rm $zTmpFile
+    exit 255
+fi
