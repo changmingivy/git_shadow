@@ -275,7 +275,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
             zsendto(zSd, "]", zBytes(1), 0, NULL);  // 二维json结束符
         } else {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-            return -14;
+            return -70;
         }
     }
 
@@ -314,7 +314,10 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
-        zget_file_list(zpMetaIf);
+        if ((void *) -1 == zget_file_list(zpMetaIf)) {
+            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            return -71;
+        }
     } else {
         /* 检测缓存是否正在生成过程中 */
         if (0 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
@@ -369,7 +372,10 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
-        zget_file_list(zpMetaIf);
+        if ((void *) -1 == zget_file_list(zpMetaIf)) {
+            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            return -71;
+        }
     } else {
         /* 检测缓存是否正在生成过程中 */
         if (0 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
@@ -380,7 +386,10 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 
     zCheck_FileId();  // 宏内部会解锁
     if (NULL == zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)) {
-        zget_diff_content(zpMetaIf);
+        if ((void *) -1 == zget_diff_content(zpMetaIf)) {
+            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            return -72;
+        }
     } else {
         /* 检测缓存是否正在生成过程中 */
         if (0 == zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz) {
@@ -905,7 +914,7 @@ zMarkCommonAction:
  *  -11：正在布署／撤销过程中（请稍后重试？）
  *  -12：布署失败（超时？未全部返回成功状态）
  *  -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
- *  -14：服务器缓存内容错误
+ *  -14：
  *  -15：最近的布署记录之后，无新的提交记录
  *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
@@ -927,6 +936,10 @@ zMarkCommonAction:
  *  -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
  *
  *  -60：中转机项目文件清理失败
+ *
+ *  -70：服务器版本号列表缓存存在错误
+ *  -71：服务器差异文件列表缓存存在错误
+ *  -72：服务器单个文件的差异内容缓存存在错误
  */
 
 void

@@ -181,8 +181,12 @@ zget_diff_content(void *zpIf) {
             zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
             zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
         }
+
+        pclose(zpShellRetHandler);
+    } else {
+        pclose(zpShellRetHandler);
+        return (void *) -1;
     }
-    pclose(zpShellRetHandler);
 
     if (0 == zCnter) {
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId) = NULL;
@@ -416,7 +420,7 @@ zget_file_list(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型错误!");
-        return NULL;
+        return (void *) -1;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -430,9 +434,14 @@ zget_file_list(void *zpIf) {
     zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
 
     /* 差异文件数量 >128 时使用 git 原生视图 */
-    if ((NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) && (128 < strtol(zShellBuf, NULL, 10))) {
-        zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
-        goto zMarkLarge;
+    if (NULL == zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
+        pclose(zpShellRetHandler);
+        return (void *) -1;
+    } else {
+        if (128 < strtol(zShellBuf, NULL, 10)) {
+            zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
+            goto zMarkLarge;
+        }
     }
 
     /* 差异文件数量 <=128 生成Tree图 */
