@@ -36,7 +36,7 @@
 
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
-#define zServHashSiz 14
+#define zServHashSiz 16
 
 #define UDP 0
 #define TCP 1

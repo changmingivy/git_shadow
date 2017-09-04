@@ -861,12 +861,13 @@ zops_route(void *zpSd) {
         goto zMarkCommonAction;
     }
 
-    if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId) {
+    if (0 > zMetaIf.OpsId || zServHashSiz <= zMetaIf.OpsId || NULL == zNetServ[zMetaIf.OpsId]) {
         zMetaIf.OpsId = -1;  // 此时代表错误码
         goto zMarkCommonAction;
     }
 
-    if ((1 != zMetaIf.OpsId) && (5 != zMetaIf.OpsId) && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 >= zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
+    if ((1 != zMetaIf.OpsId) && (5 != zMetaIf.OpsId)
+            && ((zGlobMaxRepoId < zMetaIf.RepoId) || (0 >= zMetaIf.RepoId) || (NULL == zppGlobRepoIf[zMetaIf.RepoId]))) {
         zMetaIf.OpsId = -2;  // 此时代表错误码
         goto zMarkCommonAction;
     }
@@ -929,20 +930,22 @@ zMarkCommonAction:
 void
 zstart_server(void *zpIf) {
     // 顺序不可变
-    zNetServ[0] = zdelete_repo;  // 删除指定项目及其所属的所有文件
+    zNetServ[0] = NULL;
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
     zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
-    zNetServ[7] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
+    zNetServ[7] = NULL;
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
     zNetServ[13] = zrefresh_cache;  // 接到 git 的 post-merge 勾子通知后，刷新缓存
+    zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
+    zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;

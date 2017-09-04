@@ -6,9 +6,6 @@ shift 2
 zHostList=$@
 zShadowPath=/home/git/zgit_shadow
 
-# 清理本地项目文件，保留 _SHADOW 目录
-rm -rf /home/git/${zPathOnHost}
-
 # 清理中转机项目文件及元文件
 ssh $zMajorAddr "rm -rf ${zPathOnHost} ${zPathOnHost}_SHADOW "
 
