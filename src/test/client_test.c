@@ -249,6 +249,9 @@ zclient(void) {
     // 解锁
     //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":11}";
 
+    // 重置（删除中转机与目标机上的项目文件，清空内存中的中转IP与目标IP列表）
+    //char zStrBuf[] = "{\"OpsId\":14,\"ProjId\":11,\"data\":\"_\",\"ExtraData\":0}";
+    
     // 更新major IP数据
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":11,\"data\":\"192.168.1.254\"}";
 

@@ -627,13 +627,13 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();
     zCheck_CommitId();
 
-    /* 若项目状态是 zRepoGood，并且请求布署的版本号与最近一次布署的相同，直接返回成功 */
-    if (zRepoGood == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState 
-            && 0 == (strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig))) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-        return 0;
-    }
+//    /* 若项目状态是 zRepoGood，并且请求布署的版本号与最近一次布署的相同，直接返回成功 */
+//    if (zRepoGood == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState 
+//            && 0 == (strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig))) {
+//        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+//        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+//        return 0;
+//    }
 
     /* 检查中转机 IPv4 存在性 */
     if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
