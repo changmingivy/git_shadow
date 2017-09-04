@@ -58,6 +58,41 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
+ * 7：重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
+ */
+_i
+zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
+    char zShellBuf[zCommonBufSiz];
+
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+    /* 中转机元数据重置 */
+    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0] = '\0';
+
+    /* 目标机元数据重置 */
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDeployResInfo));
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
+
+    /* 生成待执行的外部动作指令 */
+    sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zreset_repo.sh %s %s %s",
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+
+    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
+    if (0 != WEXITSTATUS(system(zShellBuf))) {
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        return -16;
+    }
+
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    return 0;
+}
+
+/*
  * 存在较大风险，暂不使用!!!!
  * 13：删除项目（代码库）
  */
@@ -883,7 +918,7 @@ zstart_server(void *zpIf) {
     zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
     zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
-    zNetServ[7] = zdelete_repo;  // 显示尚未布署成功的主机 ip 列表
+    zNetServ[7] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
     zNetServ[8] = zstate_confirm;  // 布署成功状态自动确认
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
