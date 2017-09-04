@@ -32,8 +32,10 @@ mkfifo -m 0700 $zPipePath
 
 # 防止遇到无效IP时，长时间阻塞
 (
-	sleep 6
-	echo "Fail" > $zPipePath
+    sleep 6
+    if [[ 1 -eq `ls ${zPipePath} | wc -l` ]]; then
+        echo "Fail" > $zPipePath
+    fi
 ) &
 
 if [[ "Success" == `cat ${zPipePath}` ]]; then
