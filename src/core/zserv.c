@@ -83,13 +83,6 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    /* 中转机元数据重置 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0] = '\0';
-
-    /* 目标机元数据重置 */
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDeployResInfo));
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
-
     /* 生成待执行的外部动作指令 */
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zreset_repo.sh %s %s %s",
@@ -103,6 +96,13 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -60;
     }
+
+    /* 中转机元数据重置 */
+    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0] = '\0';
+
+    /* 目标机元数据重置 */
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDeployResInfo));
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
