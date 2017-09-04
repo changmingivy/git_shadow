@@ -27,4 +27,11 @@ ssh $zMajorAddr "
     git branch -f server
     "
 
-echo "" > $zTmpFile  # 提示后台监视线程已成功执行，不要再kill，防止误杀其它进程
+# 若 SSH 连接成功，则提示后台监视进程已成功执行，不要再kill，防止误杀其它进程
+# 若失败，则以退出码 255 结束进程
+if [[ 0 -eq $? ]]; then
+    echo "" > $zTmpFile
+else
+    echo "" > $zTmpFile
+    exit 255
+fi

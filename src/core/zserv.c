@@ -425,8 +425,8 @@ zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
-    /* system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-    if (0 != WEXITSTATUS(system(zShellBuf))) {
+    /* system 返回值是 waitpid 状态，不是错误码，错误码需要用 WEXITSTATUS 宏提取 */
+    if (255 == WEXITSTATUS(system(zShellBuf))) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -27;
     }
