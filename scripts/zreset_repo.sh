@@ -7,7 +7,8 @@ zHostList=$@
 zShadowPath=/home/git/zgit_shadow
 
 # 清理中转机项目文件及元文件
-ssh $zMajorAddr "rm -rf ${zPathOnHost} ${zPathOnHost}_SHADOW "
+ssh $zMajorAddr "rm -rf ${zPathOnHost} ${zPathOnHost}_SHADOW"
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 # 清理目标集群各主机的项目文件及元文件
 for zSlaveAddr in $zHostList

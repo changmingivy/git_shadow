@@ -79,6 +79,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     }
     if (0 < zOffSet) { zpMetaIf->p_data[zOffSet - 1] = '\0'; }
     else { zpMetaIf->p_data[0] = '\0'; }
+    zpcre_free_tmpsource(zpPcreResIf);
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
@@ -98,7 +99,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
             zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-    if (0 != WEXITSTATUS(system(zShellBuf))) {
+    if (255 == WEXITSTATUS( system(zShellBuf)) ) {  // 中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -60;
     }
@@ -924,7 +925,8 @@ zMarkCommonAction:
  *  -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
  *  -38：拉取远程代码库失败（git clone 失败）
  *  -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
- *  -60：项目重置失败（清理项目文件失败）
+ *
+ *  -60：中转机项目文件清理失败
  */
 
 void
