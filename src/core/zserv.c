@@ -62,7 +62,23 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
-    char zShellBuf[zCommonBufSiz];
+    zPCREInitInfo *zpPcreInitIf = zpcre_init("(\\d{1,3}\\.){3}\\d{1,3}");
+    zPCRERetInfo *zpPcreResIf = zpcre_match(zpPcreInitIf, zpMetaIf->p_data, 1);
+    zpcre_free_metasource(zpPcreInitIf);
+
+    if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zpPcreResIf->cnt) {
+        zpcre_free_tmpsource(zpPcreResIf);
+        return -28;
+    }
+
+    _i zOffSet = 0;
+    for (_i zCnter = 0; zCnter < zpPcreResIf->cnt; zCnter++) {
+        strcpy(zpMetaIf->p_data + zOffSet, zpPcreResIf->p_rets[zCnter]);
+        zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
+        zpMetaIf->p_data[zOffSet - 1] = ' ';
+    }
+    if (0 < zOffSet) { zpMetaIf->p_data[zOffSet - 1] = '\0'; }
+    else { zpMetaIf->p_data[0] = '\0'; }
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
@@ -74,16 +90,17 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
 
     /* 生成待执行的外部动作指令 */
+    char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/scripts/zreset_repo.sh %s %s %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+            zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
     if (0 != WEXITSTATUS(system(zShellBuf))) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        return -16;
+        return -60;
     }
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
@@ -896,7 +913,7 @@ zMarkCommonAction:
  *  -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
  *  -26：集群全量节点(所有主机)IP地址数据库不存在，或为空
  *  -27：代理分发节点主机初始化失败
- *  -28：全量节点IP数据库更新失败：前端指定的IP数量与实际解析出的数量不一致
+ *  -28：前端指定的IP数量与实际解析出的数量不一致
  *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  *
  *  -33：无法创建请求的项目路径
@@ -906,6 +923,7 @@ zMarkCommonAction:
  *  -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
  *  -38：拉取远程代码库失败（git clone 失败）
  *  -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
+ *  -60：项目重置失败（清理项目文件失败）
  */
 
 void
