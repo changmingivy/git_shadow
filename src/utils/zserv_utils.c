@@ -867,16 +867,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 上一次布署结果状态初始化 */
     zppGlobRepoIf[zRepoId]->RepoState = zRepoGood;
 
-    /* 提取最近一次布署的SHA1 sig */
+    /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
     sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
     if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     } else {
-        pclose(zpShellRetHandler);
-        sprintf(zShellBuf, "cd \"%s\" && git log ____base.XXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
-        zpShellRetHandler = popen(zShellBuf, "r");
-        zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
+        zppGlobRepoIf[zRepoId]->RepoState = zRepoDamaged;
     }
     pclose(zpShellRetHandler);
 
