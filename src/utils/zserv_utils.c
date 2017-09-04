@@ -160,7 +160,7 @@ zget_diff_content(void *zpIf) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
-    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zpShellRetHandler = popen(zShellBuf, "r");
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     zCnter = 0;
@@ -431,7 +431,7 @@ zget_file_list(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zpShellRetHandler = popen(zShellBuf, "r");
 
     /* 差异文件数量 >128 时使用 git 原生视图 */
     if (NULL == zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
@@ -588,13 +588,13 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         sprintf(zShellBuf, "cd \"%s\" && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
-        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+        zpShellRetHandler = popen(zShellBuf, "r");
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
-        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+        zpShellRetHandler = popen(zShellBuf, "r");
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);

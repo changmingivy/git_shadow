@@ -30,9 +30,6 @@ zOps() {
     cp -ur ${zShadowPath}/scripts/* ./scripts/
     chmod 0755 ./scripts/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-    chmod 0755 ./scripts/post-merge
-    eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
-    mv ./scripts/post-merge /home/git/${zPathOnHost}/.git/hooks/
 
     git add --all .
     git commit -m "__DP__"

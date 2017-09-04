@@ -234,6 +234,45 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
 }
 
 /*
+ * 由 post-merge 通过 socket 通知有新的提交记录产生，需要刷新缓存（目前己改为全量刷新：只刷新版本号列表）
+ * 需要继承下层已存在的缓存
+ */
+_i
+zrefresh_cache(zMetaInfo *zpMetaIf) {
+    _i zCnter[2];
+    struct iovec zOldVecIf[zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz];
+    zRefDataInfo zOldRefDataIf[zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz];
+
+    for (zCnter[0] = 0; zCnter[0] < zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz; zCnter[0]++) {
+        zOldVecIf[zCnter[0]].iov_base = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[0]].iov_base;
+        zOldVecIf[zCnter[0]].iov_len = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[0]].iov_len;
+        zOldRefDataIf[zCnter[0]].p_data  = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_data;
+        zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
+    }
+
+    zpMetaIf->RepoId = zpMetaIf->RepoId;
+    zpMetaIf->DataType = zIsCommitDataType;
+    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
+
+    zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
+    if (zCnter[1] > zCnter[0]) {
+        for (zCnter[0]--, zCnter[1]--; zCnter[0] >= 0; zCnter[0]--, zCnter[1]--) {
+            if (NULL == zOldRefDataIf[zCnter[0]].p_SubVecWrapIf) { continue; }
+            if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_SubVecWrapIf) { break; }  // 若新内容为空，说明已经无法一一对应，后续内容无需再比较
+            if (0 == (strcmp(zOldRefDataIf[zCnter[0]].p_data, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_data))) {
+                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[1]].iov_base = zOldVecIf[zCnter[0]].iov_base;
+                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[1]].iov_len = zOldVecIf[zCnter[0]].iov_len;
+                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_SubVecWrapIf = zOldRefDataIf[zCnter[0]].p_SubVecWrapIf;
+            } else {
+                break;  // 若不能一一对应，则中断
+            }
+        }
+    }
+
+    return 0;
+}
+
+/*
  * 7：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 _i
@@ -247,17 +286,31 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         /*
-         * 如果距离最近一次 “git pull“ 的时间间隔超过10秒，尝试拉取远程代码
+         * 如果距离最近一次 “git pull“ 的时间间隔超过30秒，尝试拉取远程代码
          * 放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
          * 取到锁，则拉取；否则跳过此步，直接打印列表
          * 打印布署记录时不需要执行
          */
-        if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
+        if (30 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
             if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
                 system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
+                zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 
-                /* 以取完远程代码的时间重新赋值 */
-                zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL);
+                char zShellBuf[zCommonBufSiz];
+                FILE *zpShellRetHandler;
+
+                sprintf(zShellBuf, "cd %s && git log server -1 --format=%%H", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+                zpShellRetHandler = popen(zShellBuf, "r");
+                zget_str_content(zShellBuf, zBytes(40), zpShellRetHandler);
+                pclose(zpShellRetHandler);
+
+                if (0 != strncmp(zShellBuf, zpSortedTopVecWrapIf->p_RefDataIf[0].p_data, 40)) {
+                    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                    zrefresh_cache(zpMetaIf);
+                    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                    pthread_rwlock_rdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                }
 
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
             }
@@ -792,48 +845,6 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 由 post-merge 通过 socket 通知有新的提交记录产生，需要刷新缓存（目前己改为全量刷新：只刷新版本号列表）
- * 需要继承下层已存在的缓存
- */
-_i
-zrefresh_cache(zMetaInfo *zpMetaIf, _i zSd) {
-    _i zCnter[2];
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-
-    struct iovec zOldVecIf[zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz];
-    zRefDataInfo zOldRefDataIf[zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz];
-
-    for (zCnter[0] = 0; zCnter[0] < zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz; zCnter[0]++) {
-        zOldVecIf[zCnter[0]].iov_base = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[0]].iov_base;
-        zOldVecIf[zCnter[0]].iov_len = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[0]].iov_len;
-        zOldRefDataIf[zCnter[0]].p_data  = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_data;
-        zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
-    }
-
-    zpMetaIf->RepoId = zpMetaIf->RepoId;
-    zpMetaIf->DataType = zIsCommitDataType;
-    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
-
-    zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
-    if (zCnter[1] > zCnter[0]) {
-        for (zCnter[0]--, zCnter[1]--; zCnter[0] >= 0; zCnter[0]--, zCnter[1]--) {
-            if (NULL == zOldRefDataIf[zCnter[0]].p_SubVecWrapIf) { continue; }
-            if (NULL == zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_SubVecWrapIf) { break; }  // 若新内容为空，说明已经无法一一对应，后续内容无需再比较
-            if (0 == (strcmp(zOldRefDataIf[zCnter[0]].p_data, zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_data))) {
-                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[1]].iov_base = zOldVecIf[zCnter[0]].iov_base;
-                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_VecIf[zCnter[1]].iov_len = zOldVecIf[zCnter[0]].iov_len;
-                zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[1]].p_SubVecWrapIf = zOldRefDataIf[zCnter[0]].p_SubVecWrapIf;
-            } else {
-                break;  // 若不能一一对应，则中断
-            }
-        }
-    }
-
-    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-    return 0;
-}
-
-/*
  * 网络服务路由函数
  */
 void *
@@ -958,7 +969,7 @@ zstart_server(void *zpIf) {
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
-    zNetServ[13] = zrefresh_cache;  // 接到 git 的 post-merge 勾子通知后，刷新缓存
+    zNetServ[13] = NULL;  // 接到 git 的 post-merge 勾子通知后，刷新缓存
     zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
     zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
 

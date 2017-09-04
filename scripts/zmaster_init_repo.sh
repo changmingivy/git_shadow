@@ -26,9 +26,6 @@ if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
         cd ${zDeployPath}_SHADOW
         cp -rf ${zShadowPath}/scripts ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
-        chmod 0755 ./scripts/post-merge
-        mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
         exit 0
     else
         exit 255
@@ -77,9 +74,6 @@ rm -rf ${zDeployPath}_SHADOW/scripts/*
 cp -r ${zShadowPath}/scripts/* ${zDeployPath}_SHADOW/scripts/
 cd ${zDeployPath}_SHADOW
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
-chmod 0755 ./scripts/post-merge
-mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
 
 git init .
 git config user.name "git_shadow"
