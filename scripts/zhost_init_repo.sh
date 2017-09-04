@@ -14,8 +14,8 @@ do
     let zCnter++
 done
 
-zTmpFile=`mktemp /tmp/${zSelfPid}.XXXXXXXX`
-echo "Orig" > $zTmpFile
+zPipePath=/tmp/fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
+mkfifo -m 0700 $zPipePath
 
 (
     ssh -t $zMajorAddr "ssh $zSlaveAddr \"
@@ -45,17 +45,21 @@ echo "Orig" > $zTmpFile
         chmod 0755 .git/hooks/post-update
         \"" < /home/git/${zPathOnHost}_SHADOW/scripts/post-update
 
-        if [[ (0 -eq $?) && ("Orig" == `cat ${zTmpFile}`) ]]; then
-            echo "Success" > $zTmpFile
+        if [[ (0 -eq $?) && (1 -eq `ls ${zPipePath} | wc -l`) ]]; then
+            echo "Success" > $zPipePath
         fi
 ) &
 
-# 防止遇到无效IP时，长时间阻塞；若失败，则以退出码 255 结束进程
-sleep 6
-if [[ "Success" == `cat ${zTmpFile}` ]]; then
-    rm $zTmpFile
+# 防止遇到无效IP时，长时间阻塞
+(
+	sleep 6
+	echo "Fail" > $zPipePath
+) &
+
+if [[ "Success" == `cat ${zPipePath}` ]]; then
+    rm $zPipePath
     exit 0
 else
-    rm $zTmpFile
-    exit 255
+    rm $zPipePath
+    exit 255  # 若失败，则以退出码 255 结束进程
 fi
