@@ -676,10 +676,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    /* 加写锁排斥一切相关操作 */
-    if (0 > pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    }
+    /* 加写锁排斥一切相关操作，取写锁的时候阻塞等待 */
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
     // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
     zCheck_Lock_State();
