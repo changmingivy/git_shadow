@@ -310,7 +310,8 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 zget_str_content(zShellBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
 
-                if (0 != strncmp(zShellBuf, zpSortedTopVecWrapIf->p_RefDataIf[0].p_data, 40)) {
+                if ((NULL == zpSortedTopVecWrapIf->p_RefDataIf[0].p_data)
+                        || (0 != strncmp(zShellBuf, zpSortedTopVecWrapIf->p_RefDataIf[0].p_data, 40))) {
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     zrefresh_cache(zpMetaIf);
