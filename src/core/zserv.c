@@ -83,6 +83,12 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
+    /* 检查中转机 IPv4 存在性 */
+    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        return -25;
+    }
+
     /* 生成待执行的外部动作指令 */
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
