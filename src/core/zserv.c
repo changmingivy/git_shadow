@@ -680,14 +680,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zCheck_CacheId();
     zCheck_CommitId();
 
-//    /* 若项目状态是 zRepoGood，并且请求布署的版本号与最近一次布署的相同，直接返回成功 */
-//    if (zRepoGood == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState 
-//            && 0 == (strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig))) {
-//        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-//        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-//        return 0;
-//    }
-
     /* 检查中转机 IPv4 存在性 */
     if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
@@ -760,37 +752,42 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
     zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
     shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
-    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
-    /* 将本次布署信息写入日志 */
-    zwrite_log(zpMetaIf->RepoId);
+    /* 若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
+    if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig)) {
+        /* 更新最新一次布署版本号 */
+        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-    /* 重置内存池状态 */
-    zReset_Mem_Pool_State(zpMetaIf->RepoId);
+        /* 将本次布署信息写入日志 */
+        zwrite_log(zpMetaIf->RepoId);
 
-    /* 如下部分：更新全局缓存 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
-    /* 同步锁初始化 */
-    zCcur_Init(zpMetaIf->RepoId, 1, A);  //___
-    zCcur_Fin_Mark(1 == 1, A);  //___
-    zCcur_Init(zpMetaIf->RepoId, 1, B);  //___
-    zCcur_Fin_Mark(1 == 1, B);  //___
-    /* 生成提交记录缓存 */
-    zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-    zCcur_Sub_Config(zpSubMetaIf[0], A);  //___
-    zpSubMetaIf[0]->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf[0]->DataType = zIsCommitDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[0]);
-    /* 生成布署记录缓存 */
-    zpSubMetaIf[1] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-    zCcur_Sub_Config(zpSubMetaIf[1], B);  //___
-    zpSubMetaIf[1]->RepoId = zpMetaIf->RepoId;
-    zpSubMetaIf[1]->DataType = zIsDeployDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[1]);
-    /* 等待两批任务完成，之后释放同步锁的资源占用 */
-    zCcur_Wait(A);  //___
-    zCcur_Wait(B);  //___
+        /* 重置内存池状态 */
+        zReset_Mem_Pool_State(zpMetaIf->RepoId);
+
+        /* 如下部分：更新全局缓存 */
+        zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
+        /* 同步锁初始化 */
+        zCcur_Init(zpMetaIf->RepoId, 1, A);  //___
+        zCcur_Fin_Mark(1 == 1, A);  //___
+        zCcur_Init(zpMetaIf->RepoId, 1, B);  //___
+        zCcur_Fin_Mark(1 == 1, B);  //___
+        /* 生成提交记录缓存 */
+        zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+        zCcur_Sub_Config(zpSubMetaIf[0], A);  //___
+        zpSubMetaIf[0]->RepoId = zpMetaIf->RepoId;
+        zpSubMetaIf[0]->DataType = zIsCommitDataType;
+        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[0]);
+        /* 生成布署记录缓存 */
+        zpSubMetaIf[1] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
+        zCcur_Sub_Config(zpSubMetaIf[1], B);  //___
+        zpSubMetaIf[1]->RepoId = zpMetaIf->RepoId;
+        zpSubMetaIf[1]->DataType = zIsDeployDataType;
+        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[1]);
+        /* 等待两批任务完成，之后释放同步锁的资源占用 */
+        zCcur_Wait(A);  //___
+        zCcur_Wait(B);  //___
+    }
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
     return 0;
