@@ -663,7 +663,9 @@ zMark:
 }
 
 /*
+ * 实际的布署函数，由外壳函数调用
  * 12：布署／撤销
+ * 13：新加入的主机请求布署自身
  */
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
@@ -671,43 +673,33 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zMetaInfo *zpSubMetaIf[2];
     _i zErrNo;
 
-    if (zIsCommitDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-    } else {
-        return -10;
+    if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
+    else if (zIsDeployDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf); }
+    else { return -10; }
+
+    /* 检查是否允许布署 */
+    if (zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) { return -6; }
+    /* 检查缓存中的CacheId与全局CacheId是否一致 */
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) { return -8; }
+    /* 检查指定的版本号是否有效 */
+    if ((0 > zpMetaIf->CommitId)
+            || ((zCacheSiz - 1) < zpMetaIf->CommitId)
+            || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) { 
+        return -3;
     }
-
-    /* 加写锁排斥一切相关操作，取写锁的时候阻塞等待 */
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-
-    // 若检查条件成立，如下三个宏的内部会解锁，必须放在加锁之后的位置
-    zCheck_Lock_State();
-    zCheck_CacheId();
-    zCheck_CommitId();
 
     /* 检查中转机 IPv4 存在性 */
-    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        return -25;
-    }
+    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) { return -25; }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
-        zErrNo = zupdate_ipv4_db_all(zpMetaIf);
-
-        if (0 > zErrNo) {
-            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-            return zErrNo;
-        }
+        if (0 > (zErrNo = zupdate_ipv4_db_all(zpMetaIf))) { return zErrNo; }
     }
 
     /* 检查部署目标主机集合是否存在 */
     if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost
             || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -26;
     }
 
@@ -751,7 +743,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             }
             if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
-            pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -12;
         }
     }
@@ -796,8 +787,30 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         zCcur_Wait(B);  //___
     }
 
-    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
     return 0;
+}
+
+/*
+ * 外壳函数
+ * 12：布署／撤销
+ * 13：新加入的主机请求布署自身
+ */
+_i
+zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
+    _i zErrNo;
+
+    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+    if (13 == zpMetaIf->OpsId) {
+        zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+        zpMetaIf->DataType = 1;
+        zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf.VecSiz - 1;
+    }
+
+    zErrNo = zdeploy(zpMetaIf, zSd);
+
+    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    return zErrNo;
 }
 
 /*
@@ -943,7 +956,7 @@ zMarkCommonAction:
  *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
  *
  *  -33：无法创建请求的项目路径
- *  -34：请求创建的新项目信息格式错误（合法字段数量不是5个）
+ *  -34：请求创建的新项目信息格式错误（合法字段数量少于 5 个或大于 6 个，第6个字段用于标记是被动拉取代码还是主动推送代码）
  *  -35：请求创建的项目ID已存在或不合法（创建项目代码库时出错）
  *  -36：请求创建的项目路径已存在，且项目ID不同
  *  -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
@@ -972,8 +985,8 @@ zstart_server(void *zpIf) {
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
-    zNetServ[12] = zdeploy;  // 布署或撤销(如果 zMetaInfo 中 IP 地址数据段不为0，则表示仅布署到指定的单台主机，更多的适用于测试场景，仅需一台机器的情形)
-    zNetServ[13] = NULL;
+    zNetServ[12] = zcommon_deploy;  // 布署或撤销
+    zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
     zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
 
