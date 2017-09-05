@@ -752,7 +752,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 正则匹配项目基本信息（5个字段） */
     zpInitIf = zpcre_init("(\\w|[[:punct:]])+");
     zpRetIf = zpcre_match(zpInitIf, zpRepoMetaData, 1);
-    if (5 != zpRetIf->cnt) {
+    if (5 > zpRetIf->cnt) {
         zPrint_Time();
         return -34;
     }
@@ -775,6 +775,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zppGlobRepoIf[zRepoId], zRepoInfo, 1);
     zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
+    zppGlobRepoIf[zRepoId]->SelfPushMark = (6 == zpRetIf->cnt) ? 1 : 0;
 
     /* 提取项目绝对路径 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));

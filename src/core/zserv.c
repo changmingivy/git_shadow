@@ -292,13 +292,15 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         /*
-         * 如果距离最近一次 “git pull“ 的时间间隔超过30秒，尝试拉取远程代码
-         * 放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
-         * 取到锁，则拉取；否则跳过此步，直接打印列表
-         * 打印布署记录时不需要执行
+         * 如果该项目被标记为被动拉取模式（相对的是主动推送模式），则：
+         *     若距离最近一次 “git pull“ 的时间间隔超过 10 秒，尝试拉取远程代码
+         *     放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
+         *     取到锁，则拉取；否则跳过此步，直接打印列表
+         *     打印布署记录时不需要执行
          */
-        if (30 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
-            if (0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
+        if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
+            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->SelfPushMark
+                    && 0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
                 system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
                 zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 

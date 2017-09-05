@@ -136,6 +136,7 @@ struct zRepoInfo {
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
 
+    _i SelfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
     _i LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
