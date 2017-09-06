@@ -33,7 +33,7 @@ zthread_func(void *zpIf) {
 
 zMark:
     pthread_mutex_lock(&(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));
-    while (NULL == zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf->func) {
+    while (NULL == zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf) {
         pthread_cond_wait(&(zTaskQueueIf[zpThreadTaskIf->Index].CondVar), &(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));
     }
     zpOpsObjIf = zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf;
@@ -65,7 +65,7 @@ zthread_poll_init(void) {
         zTaskQueueIf[zCnter].Index = zCnter;
         pthread_mutex_init(&(zTaskQueueIf[zCnter].MutexLock), NULL);
         pthread_cond_init(&(zTaskQueueIf[zCnter].CondVar), NULL);
-        zCheck_Pthread_Func_Exit(pthread_create(&____zTidTrash____, NULL, zthread_func, &(zTaskQueueIf[zCnter])));
+        zCheck_Pthread_Func_Exit( pthread_create(&____zTidTrash____, NULL, zthread_func, &(zTaskQueueIf[zCnter])) );
     }
 }
 
