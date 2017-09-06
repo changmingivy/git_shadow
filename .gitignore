@@ -3,6 +3,7 @@ ISOs/
 images/
 Trash/
 conf/
+bin/
 log/
 pcre2/
 pcre2-10.21/
