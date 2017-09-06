@@ -53,24 +53,13 @@
 /****************
  * 数据结构定义 *
  ****************/
-typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
-///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zObjInfo {
-    _s RepoId;  // 每个代码库对应的索引
-    _s RecursiveMark;  // 是否递归标志
-    _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char p_path[];  // 被监控对象的绝对路径名称
-};
-typedef struct zObjInfo zObjInfo;
-
 struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 typedef struct zNetServInfo zNetServInfo;
-///////////////////////////////////////////////////////////////////////////////////////////////////
+
 /* 数据交互格式 */
 struct zMetaInfo {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录

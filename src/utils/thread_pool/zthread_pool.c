@@ -2,6 +2,8 @@
      #include "../../zmain.c"
  #endif
  
+typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
+
 // #define zThreadPollSiz 64
 // 
 // /* 优先使用线程池，若线程池满，则新建临时线程执行任务 */

@@ -66,7 +66,7 @@ iptables -t nat -A POSTROUTING -s 172.16.0.0/16 -o $zHostNatIf -j SNAT --to-sour
 zvm_func() {
     qemu-system-x86_64 \
     -enable-kvm \
-    -machine q35,accel=kvm -device intel-iommu \
+    -machine accel=kvm \
     -cpu host -smp $zCpuNum,sockets=$zCpuNum,cores=1,threads=1 \
     -m $zMem \
     -netdev tap,ifname=${zOS}_$1,script=tap.sh,downscript=no,vhost=on,id=vmNic_${zOS}_$1 -device virtio-net-pci,mac=00:e0:4c:49:$1:${zVersion},netdev=vmNic_${zOS}_$1 \

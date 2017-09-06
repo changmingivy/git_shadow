@@ -39,50 +39,6 @@
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
 
-/****************
- * 数据结构定义 *
- ****************/
-typedef void (* zThreadPoolOps) (void *);  // 线程池回调函数
-///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zObjInfo {
-    _s RepoId;  // 每个代码库对应的索引
-    _s RecursiveMark;  // 是否递归标志
-    _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char path[];  // 被监控对象的绝对路径名称
-};
-
-struct zNetServInfo {
-    char *p_host;  // 字符串形式的ipv4点分格式地式
-    char *p_port;  // 字符串形式的端口，如："80"
-    _i zServType;  // 网络服务类型：TCP/UDP
-};
-///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zCacheMetaInfo {  // 适用线程并发模型
-    _i TopObjTypeMark;  // 0 表示 commit cache，1 表示  deploy cache
-    _i RepoId;
-    _i CommitId;
-    _i FileId;
-};
-
-/* 用于接收前端传送的数据 */
-struct zRecvInfo {
-    _i OpsId;  // 操作指令（从0开始的连续排列的非负整数）
-    _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
-    _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
-    _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
-    _i FileId;  // 单个文件在差异文件列表中index
-    _ui HostIp;  // 32位IPv4地址转换而成的无符号整型格式
-    _i data[];  // 用于接收额外的数据，如：接收IP地址列表时
-};
-
-/* 用于向前端发送数据，struct iovec 中的 iov_base 字段指向此结构体 */
-struct zSendInfo {
-    _i SelfId;
-    _i DataLen;
-    _i data[];
-};
-
 /* 在zSendInfo之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefDataInfo {
     struct zVecWrapInfo *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据

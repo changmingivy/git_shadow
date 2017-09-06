@@ -161,7 +161,6 @@ zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //        zpRepoIf->p_MemPool = zppPrev;
 //    } while(NULL != zpRepoIf->p_MemPool);
 //
-//    free(zpRepoIf->p_TopObjIf);
 //    free(zpRepoIf->p_RepoPath);
 //    free(zpRepoIf);
 //
