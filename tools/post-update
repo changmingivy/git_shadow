@@ -27,7 +27,7 @@ git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
 echo -e "\n\n[`date`]" >> /tmp/____post-deploy.log 2>&1
-sh -x ./scripts/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/____post-deploy.log 2>&1
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/____post-deploy.log 2>&1
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 sh __PROJ_PATH/____post-deploy.sh &
@@ -43,5 +43,5 @@ git push --force ./.git master:server >/dev/null 2>&1
 
 # 自我更新
 rm ${zPathOnHost}/.git/hooks/post-update
-cp ${zPathOnHost}_SHADOW/scripts/post-update ${zPathOnHost}/.git/hooks/post-update
+cp ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}/.git/hooks/post-update
 chmod 0755 ${zPathOnHost}/.git/hooks/post-update

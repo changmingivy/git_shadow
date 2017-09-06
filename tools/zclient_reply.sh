@@ -15,15 +15,18 @@ do
     let zCnter++
 done
 
+# 首先使用 notice 工具回复，之后使用 BASH 回复
+./tools/notice "$zMasterAddr" "$zMasterPort" "8" "`cat ${zRelativeRepoIdPath}`" "$zIPv4NumAddr" "B"
+
 # 关闭套接字读写端，防止先前已打开相同描述符
-exec 777>&-
-exec 777<&-
+#exec 777>&-
+#exec 777<&-
 # 建立 TCP 连接
 exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
 echo "[{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr},\"ExtraData\":\"${zReplyType}\"}]">&777
 
-# 关闭套接字读写端
-exec 777<&-
+# 关闭读写端
+#exec 777<&-
 exec 777>&-

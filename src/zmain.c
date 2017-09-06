@@ -36,7 +36,7 @@
 
 #define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
-#define zServHashSiz 14
+#define zServHashSiz 16
 
 #define UDP 0
 #define TCP 1
@@ -53,24 +53,13 @@
 /****************
  * 数据结构定义 *
  ****************/
-typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
-///////////////////////////////////////////////////////////////////////////////////////////////////
-struct zObjInfo {
-    _s RepoId;  // 每个代码库对应的索引
-    _s RecursiveMark;  // 是否递归标志
-    _i UpperWid;  // 存储顶层路径的watch id，每个子路径的信息中均保留此项
-    zThreadPoolOps CallBack;  // 发生事件中对应的回调函数
-    char p_path[];  // 被监控对象的绝对路径名称
-};
-typedef struct zObjInfo zObjInfo;
-
 struct zNetServInfo {
     char *p_host;  // 字符串形式的ipv4点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 typedef struct zNetServInfo zNetServInfo;
-///////////////////////////////////////////////////////////////////////////////////////////////////
+
 /* 数据交互格式 */
 struct zMetaInfo {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
@@ -136,6 +125,7 @@ struct zRepoInfo {
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
 
+    _i SelfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
     _i LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
@@ -273,7 +263,7 @@ main(_i zArgc, char **zppArgv) {
     }
 
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
-//  zthread_poll_init();  // 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之
+    zthread_poll_init();  // 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之
     zinit_env(zpConfFilePath);  // 运行环境初始化
     zstart_server(&zNetServIf);  // 启动网络服务
 }

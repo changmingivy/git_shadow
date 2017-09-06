@@ -12,12 +12,10 @@ cd $zShadowPath
 git stash
 #git pull  # 有时候不希望更新到最新代码
 
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-update
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-update
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/post-merge
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/post-merge
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./scripts/zhost_init_repo.sh
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./scripts/zhost_init_repo.sh
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/post-update
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/post-update
+eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/zhost_init_repo.sh
+eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/zhost_init_repo.sh
 
 killall zauto_restart.sh
 killall -9 git
@@ -56,11 +54,11 @@ strip ${zShadowPath}/bin/git_shadow
 cc -Wall -Wextra -std=c99 -O2 \
     -D_XOPEN_SOURCE=700 \
     -I${zShadowPath}/inc \
-    -o ${zShadowPath}/bin/notice \
+    -o ${zShadowPath}/tools/notice \
     ${zShadowPath}/src/extra/znotice.c
-strip ${zShadowPath}/bin/notice
+strip ${zShadowPath}/tools/notice
 
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
 
 # 后台进入退出重启机制
-${zShadowPath}/scripts/zauto_restart.sh $zServAddr $zServPort &
+${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &

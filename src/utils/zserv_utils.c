@@ -160,7 +160,7 @@ zget_diff_content(void *zpIf) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
-    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zpShellRetHandler = popen(zShellBuf, "r");
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     zCnter = 0;
@@ -181,8 +181,12 @@ zget_diff_content(void *zpIf) {
             zpTmpBaseDataIf[1]->p_next = zpTmpBaseDataIf[0];
             zpTmpBaseDataIf[1] = zpTmpBaseDataIf[0];
         }
+
+        pclose(zpShellRetHandler);
+    } else {
+        pclose(zpShellRetHandler);
+        return (void *) -1;
     }
-    pclose(zpShellRetHandler);
 
     if (0 == zCnter) {
         zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId) = NULL;
@@ -416,7 +420,7 @@ zget_file_list(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型错误!");
-        return NULL;
+        return (void *) -1;
     }
 
     /* 必须在shell命令中切换到正确的工作路径 */
@@ -427,12 +431,17 @@ zget_file_list(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-    zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+    zpShellRetHandler = popen(zShellBuf, "r");
 
     /* 差异文件数量 >128 时使用 git 原生视图 */
-    if ((NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) && (128 < strtol(zShellBuf, NULL, 10))) {
-        zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
-        goto zMarkLarge;
+    if (NULL == zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
+        pclose(zpShellRetHandler);
+        return (void *) -1;
+    } else {
+        if (128 < strtol(zShellBuf, NULL, 10)) {
+            zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
+            goto zMarkLarge;
+        }
     }
 
     /* 差异文件数量 <=128 生成Tree图 */
@@ -507,7 +516,7 @@ zMarkOuter:;
         zSubMetaIf.FileId = -1;  // 置为 -1，不允许再查询下一级内容
         zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zSubMetaIf.DataType = zpMetaIf->DataType;
-        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "===> 最新的已布署版本 <===" : "===> 无差异 <===";
+        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <=";
         zSubMetaIf.p_ExtraData = NULL;
 
         /* 将zMetaInfo转换为JSON文本 */
@@ -579,13 +588,13 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         sprintf(zShellBuf, "cd \"%s\" && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
-        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+        zpShellRetHandler = popen(zShellBuf, "r");
     } else if (zIsDeployDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
-        zCheck_Null_Exit(zpShellRetHandler = popen(zShellBuf, "r"));
+        zpShellRetHandler = popen(zShellBuf, "r");
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
@@ -743,7 +752,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 正则匹配项目基本信息（5个字段） */
     zpInitIf = zpcre_init("(\\w|[[:punct:]])+");
     zpRetIf = zpcre_match(zpInitIf, zpRepoMetaData, 1);
-    if (5 != zpRetIf->cnt) {
+    if (5 > zpRetIf->cnt) {
         zPrint_Time();
         return -34;
     }
@@ -766,13 +775,14 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zppGlobRepoIf[zRepoId], zRepoInfo, 1);
     zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
+    zppGlobRepoIf[zRepoId]->SelfPushMark = (6 == zpRetIf->cnt) ? 1 : 0;
 
     /* 提取项目绝对路径 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zpRetIf->p_rets[1]));
     sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zpRetIf->p_rets[1]);
 
     /* 调用SHELL执行检查和创建，此处SHELL参数不能加引号 */
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zmaster_init_repo.sh %s", zpRepoMetaData);
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zmaster_init_repo.sh %s", zpRepoMetaData);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS(system(zShellBuf));
@@ -867,16 +877,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 上一次布署结果状态初始化 */
     zppGlobRepoIf[zRepoId]->RepoState = zRepoGood;
 
-    /* 提取最近一次布署的SHA1 sig */
+    /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
     sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
     if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
     } else {
-        pclose(zpShellRetHandler);
-        sprintf(zShellBuf, "cd \"%s\" && git log ____base.XXXXXXXX -1 --format=%%H", zppGlobRepoIf[zRepoId]->p_RepoPath);
-        zpShellRetHandler = popen(zShellBuf, "r");
-        zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler);
+        zppGlobRepoIf[zRepoId]->RepoState = zRepoDamaged;
     }
     pclose(zpShellRetHandler);
 
@@ -964,7 +971,7 @@ zinit_one_remote_host(void *zpIf) {
 
     zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
 
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/scripts/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zHostStrAddrBuf,
             zpMetaIf->RepoId,

@@ -24,11 +24,8 @@ fi
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     if [[ $zProjNo -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
         cd ${zDeployPath}_SHADOW
-        cp -rf ${zShadowPath}/scripts ./
-        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
-        chmod 0755 ./scripts/post-merge
-        mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
+        cp -rf ${zShadowPath}/tools ./
+        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
         exit 0
     else
         exit 255
@@ -72,14 +69,11 @@ if [[ "svn" == $zRemoteVcsType ]]; then
 fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
-mkdir -p ${zDeployPath}_SHADOW/scripts
-rm -rf ${zDeployPath}_SHADOW/scripts/*
-cp -r ${zShadowPath}/scripts/* ${zDeployPath}_SHADOW/scripts/
+mkdir -p ${zDeployPath}_SHADOW/tools
+rm -rf ${zDeployPath}_SHADOW/tools/*
+cp -r ${zShadowPath}/tools/* ${zDeployPath}_SHADOW/tools/
 cd ${zDeployPath}_SHADOW
-eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-update
-eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./scripts/post-merge
-chmod 0755 ./scripts/post-merge
-mv ./scripts/post-merge ${zDeployPath}/.git/hooks/
+eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
 git init .
 git config user.name "git_shadow"
