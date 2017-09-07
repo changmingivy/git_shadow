@@ -14,10 +14,12 @@ struct zParamInfo {
 typedef struct zParamInfo zParamInfo;
 
 struct zThreadTaskInfo {
-    _i Index;
     pthread_mutex_t MutexLock;
     pthread_cond_t CondVar;
+
+    _i Index;
     zParamInfo *p_ParamIf;
+//  char _[48];  // 应对伪共享问题??? pthread 之类数据结构本身很复杂，无法有效估量其本身所占大，故此处效用难以判定，暂不启用
 };
 typedef struct zThreadTaskInfo zThreadTaskInfo;
 
