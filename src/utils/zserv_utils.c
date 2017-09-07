@@ -680,9 +680,6 @@ zMarkSkip:
         ((char *)(zpSortedTopVecWrapIf->p_VecIf[0].iov_base))[0] = '[';
     }
 
-//    /* !!!!队列结构已经弃用!!!! 此后增量更新时，逆向写入，因此队列的下一个可写位置标记为最末一个位置 */
-//    zppGlobRepoIf[zpMetaIf->RepoId]->CommitCacheQueueHeadId = zCacheSiz - 1;
-
     /* 防止意外访问导致的程序崩溃 */
     memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
 
@@ -734,7 +731,9 @@ zwrite_log(_i zRepoId) {
     free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
     free(zppGlobRepoIf[zRepoId]);\
     zppGlobRepoIf[zRepoId] = NULL;\
-    zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
+    if (-1 != zGlobMaxRepoId) {\
+        zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
+    }\
     zpcre_free_tmpsource(zpRetIf);\
     zpcre_free_metasource(zpInitIf);\
 } while(0)
