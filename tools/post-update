@@ -45,3 +45,6 @@ git push --force ./.git master:server >/dev/null 2>&1
 rm ${zPathOnHost}/.git/hooks/post-update
 cp ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}/.git/hooks/post-update
 chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+
+# 更新开机请求布署自身的脚本，设置为隐藏文件
+mv ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
