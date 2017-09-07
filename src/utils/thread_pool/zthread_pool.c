@@ -23,8 +23,7 @@ struct zThreadTaskInfo {
 };
 typedef struct zThreadTaskInfo zThreadTaskInfo;
 
-//zThreadTaskInfo zTaskQueueIf[zThreadPollSiz] = {{.MutexLock = PTHREAD_MUTEX_INITIALIZER, .CondVar = PTHREAD_COND_INITIALIZER}};  // 线程任务队列
-zThreadTaskInfo zTaskQueueIf[zThreadPollSiz];
+zThreadTaskInfo zTaskQueueIf[zThreadPollSiz] = {{.MutexLock = PTHREAD_MUTEX_INITIALIZER, .CondVar = PTHREAD_COND_INITIALIZER}};  // 线程任务队列
 zParamInfo zParamQueueIf[zThreadPollSiz];  // 线程入参队列
 
 _ui zThreadPoolScheduler;
@@ -77,8 +76,8 @@ void
 zthread_poll_init(void) {
     for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
         zTaskQueueIf[zCnter].Index = zCnter;
-        pthread_mutex_init(&(zTaskQueueIf[zThreadPollSiz].MutexLock), NULL);
-        pthread_cond_init(&(zTaskQueueIf[zThreadPollSiz].CondVar), NULL);
+//        pthread_mutex_init(&(zTaskQueueIf[zThreadPollSiz].MutexLock), NULL);
+//        pthread_cond_init(&(zTaskQueueIf[zThreadPollSiz].CondVar), NULL);
         zCheck_Pthread_Func_Exit( pthread_create(&____zTidTrash____, NULL, zthread_func, &(zTaskQueueIf[zCnter])) );
     }
 }
