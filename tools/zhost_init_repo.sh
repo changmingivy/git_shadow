@@ -32,7 +32,6 @@ mkfifo -m 0700 $zPipePath
         git config user.email "git_shadow@"
         git commit --allow-empty -m "__init__"
         git branch -f server
-        echo ${zSlaveAddr} > /home/git/zself_ipv4_addr.txt
 \
         cd $zPathOnHost
         git init .

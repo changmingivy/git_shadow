@@ -113,14 +113,6 @@ _i zGlobRepoNum;  // 总共有多少个代码库
 /************
  * 配置文件 *
  ************/
-// 以下路径均是相对于所属代码库的顶级路径
-#define zAllIpPath ".git_shadow/info/host_ip_all.bin"  // 位于各自代码库路径下，以二进制形式存储后端所有主机的ipv4地址
-#define zSelfIpPath ".git_shadow/info/host_ip_self.bin"  // 格式同上，存储客户端自身的ipv4地址
-#define zAllIpTxtPath ".git_shadow/info/host_ip_all.txt"  // 存储点分格式的原始字符串ipv4地下信息，如：10.10.10.10
-#define zMajorIpTxtPath ".git_shadow/info/host_ip_major.txt"  // 与布署中控机直接对接的master机的ipv4地址（点分格式），目前是zdeploy.sh使用，后续版本使用libgit2库之后，将转为内部直接使用
-#define zRepoIdPath ".git_shadow/info/repo_id"
-#define zLogPath ".git_shadow/log/deploy/sig"  // 40位SHA1 sig字符串，需要通过meta日志提供的索引访问
-
 _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
     if (zSockType == 0) { zSockType = SOCK_STREAM; }
@@ -208,7 +200,7 @@ zclient(void) {
     // 重置（删除中转机与目标机上的项目文件，清空内存中的中转IP与目标IP列表）
     //char zStrBuf[] = "{\"OpsId\":14,\"ProjId\":11,\"data\":\"_\",\"ExtraData\":0}";
     
-    // 更新major IP数据
+    // 更新 proxy IP 数据
     //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":11,\"data\":\"192.168.1.254\"}";
 
     // 查询版本号列表

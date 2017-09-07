@@ -483,12 +483,12 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  * 4：更新中转机 IPv4
  */
 _i
-zupdate_ipv4_db_major(zMetaInfo *zpMetaIf, _i zSd) {
+zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     if (NULL == zpMetaIf->p_data || zBytes(15) < strlen(zpMetaIf->p_data) || zBytes(7) > strlen(zpMetaIf->p_data)) { return -22; }
     if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) { goto zMark; }
 
     char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_major.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
+    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->p_data,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
@@ -976,7 +976,7 @@ zstart_server(void *zpIf) {
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
-    zNetServ[4] = zupdate_ipv4_db_major;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
+    zNetServ[4] = zupdate_ipv4_db_proxy;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
     zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
     zNetServ[7] = NULL;
