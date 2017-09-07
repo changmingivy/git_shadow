@@ -1,28 +1,31 @@
- #ifndef _Z
-     #include "../../zmain.c"
- #endif
+#ifndef _Z
+    #include "../../zmain.c"
+#endif
  
 #define zThreadPollSiz 128
 
 typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
 
-struct zOpsObjInfo {
+struct zParamInfo {
     zThreadPoolOps func;
     void *p_param;
-    struct zOpsObjInfo *p_next;
+    struct zParamInfo *p_next;
 };
-typedef struct zOpsObjInfo zOpsObjInfo;
+typedef struct zParamInfo zParamInfo;
 
 struct zThreadTaskInfo {
     _i Index;
     pthread_mutex_t MutexLock;
     pthread_cond_t CondVar;
-    zOpsObjInfo *p_OpsObjIf;
+    zParamInfo *p_ParamIf;
 };
 typedef struct zThreadTaskInfo zThreadTaskInfo;
 
-zThreadTaskInfo zTaskQueueIf[zThreadPollSiz];
+zThreadTaskInfo zTaskQueueIf[zThreadPollSiz] = {{.MutexLock = PTHREAD_MUTEX_INITIALIZER, .CondVar = PTHREAD_COND_INITIALIZER}};  // 线程任务队列
+zParamInfo zParamQueueIf[zThreadPollSiz];  // 线程入参队列
+
 _ui zThreadPoolScheduler;
+pthread_mutex_t zParamLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_t ____zTidTrash____;
 
 void *
@@ -30,19 +33,23 @@ zthread_func(void *zpIf) {
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
     zThreadTaskInfo *zpThreadTaskIf = (zThreadTaskInfo *) zpIf;
 
-    zOpsObjInfo *zpOpsObjIf;
+    zParamInfo zParamIf, *zpParamIf;
 zMark:
     pthread_mutex_lock(&(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));
-    while (NULL == zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf) {
+    while (NULL == zTaskQueueIf[zpThreadTaskIf->Index].p_ParamIf) {
         pthread_cond_wait(&(zTaskQueueIf[zpThreadTaskIf->Index].CondVar), &(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));
     }
-    zpOpsObjIf = zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf;
-    zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf = zTaskQueueIf[zpThreadTaskIf->Index].p_OpsObjIf->p_next;
-    pthread_mutex_unlock(&(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));
 
-    zpOpsObjIf->func(zpOpsObjIf->p_param);
+    zpParamIf = zTaskQueueIf[zpThreadTaskIf->Index].p_ParamIf;
+    zParamIf.func = zpParamIf->func;
+    zParamIf.p_param = zpParamIf->p_param;
+    zpParamIf->func = NULL;  // 标记为NULL，表示该入参已用完，可以复用
 
-    free(zpOpsObjIf);  // 任务完成，释放静态参数内存
+    zTaskQueueIf[zpThreadTaskIf->Index].p_ParamIf = zTaskQueueIf[zpThreadTaskIf->Index].p_ParamIf->p_next;
+
+    zParamIf.func(zParamIf.p_param);
+    pthread_mutex_unlock(&(zTaskQueueIf[zpThreadTaskIf->Index].MutexLock));  // 执行完任务之后再放锁，防止提前放锁导致“忙则越忙，闲则越闲的问题”
+
     goto zMark;
     return (void *) -1;
 }
@@ -51,11 +58,15 @@ zMark:
 void *
 ztmp_thread_func(void *zpIf) {
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
-    zOpsObjInfo *zpOpsObjIf = (zOpsObjInfo *) zpIf;
+    zParamInfo zParamIf, *zpParamIf;
 
-    zpOpsObjIf->func(zpOpsObjIf->p_param);
+    zpParamIf = (zParamInfo *) zpIf;
+    zParamIf.func = zpParamIf->func;
+    zParamIf.p_param = zpParamIf->p_param;
+    zpParamIf->func = NULL;  // 标记为NULL，表示该入参已用完，可以复用
 
-    free(zpOpsObjIf);  // 任务完成，释放静态参数内存
+    zParamIf.func(zParamIf.p_param);
+
     return NULL;
 }
 
@@ -63,8 +74,6 @@ void
 zthread_poll_init(void) {
     for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
         zTaskQueueIf[zCnter].Index = zCnter;
-        pthread_mutex_init(&(zTaskQueueIf[zCnter].MutexLock), NULL);
-        pthread_cond_init(&(zTaskQueueIf[zCnter].CondVar), NULL);
         zCheck_Pthread_Func_Exit( pthread_create(&____zTidTrash____, NULL, zthread_func, &(zTaskQueueIf[zCnter])) );
     }
 }
@@ -73,30 +82,25 @@ zthread_poll_init(void) {
  * 优先使用线程池，若线程池满，则新建临时线程执行任务
  */
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
-    _i ____zKeepQueueId____, ____zKeepId____;\
-    ____zKeepQueueId____ = zThreadPoolScheduler++;\
-    ____zKeepId____ = ____zKeepQueueId____ % zThreadPollSiz;\
+    _i ____zKeepId____;\
+\
+    pthread_mutex_lock(&zParamLock);\
+    while (NULL != zParamQueueIf[(++zThreadPoolScheduler) % zThreadPollSiz].func);\
+    ____zKeepId____ = zThreadPoolScheduler % zThreadPollSiz;\
+    zParamQueueIf[____zKeepId____].func = zFunc;\
+    pthread_mutex_unlock(&zParamLock);\
+    zParamQueueIf[____zKeepId____].p_param = zParam;\
+    zParamQueueIf[____zKeepId____].p_next = NULL;\
 \
     if (0 > pthread_mutex_trylock(&(zTaskQueueIf[____zKeepId____].MutexLock))) {\
-        zOpsObjInfo *zpOpsObjIf;\
-        zMem_Alloc(zpOpsObjIf, zOpsObjInfo, 1);\
-        zpOpsObjIf->func = zFunc;\
-        zpOpsObjIf->p_param = zParam;\
-        pthread_create(&____zTidTrash____, NULL, ztmp_thread_func, zpOpsObjIf);\
+        pthread_create(&____zTidTrash____, NULL, ztmp_thread_func, &(zParamQueueIf[____zKeepId____]));\
     } else {\
-        if (NULL == zTaskQueueIf[____zKeepId____].p_OpsObjIf) {\
-            zMem_Alloc(zTaskQueueIf[____zKeepId____].p_OpsObjIf, zOpsObjInfo, 1);\
-            zTaskQueueIf[____zKeepId____].p_OpsObjIf->func = zFunc;\
-            zTaskQueueIf[____zKeepId____].p_OpsObjIf->p_param = zParam;\
-            zTaskQueueIf[____zKeepId____].p_OpsObjIf->p_next = NULL;\
+        if (NULL == zTaskQueueIf[____zKeepId____].p_ParamIf) {\
+            zTaskQueueIf[____zKeepId____].p_ParamIf = &(zParamQueueIf[____zKeepId____]);\
         } else {\
-            zOpsObjInfo *zpTmpIf;\
-            zpTmpIf = zTaskQueueIf[____zKeepId____].p_OpsObjIf;\
+            zParamInfo *zpTmpIf = zTaskQueueIf[____zKeepId____].p_ParamIf;\
             while (NULL != zpTmpIf->p_next) { zpTmpIf = zpTmpIf->p_next; }\
-            zMem_Alloc(zpTmpIf->p_next, zOpsObjInfo, 1);\
-            zpTmpIf->p_next->func = zFunc;\
-            zpTmpIf->p_next->p_param = zParam;\
-            zpTmpIf->p_next->p_next = NULL;\
+            zpTmpIf->p_next = &(zParamQueueIf[____zKeepId____]);\
         }\
         pthread_mutex_unlock(&(zTaskQueueIf[____zKeepId____].MutexLock));\
         pthread_cond_signal(&(zTaskQueueIf[____zKeepId____].CondVar));\
