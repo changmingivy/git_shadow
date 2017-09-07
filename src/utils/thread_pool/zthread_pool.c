@@ -87,7 +87,9 @@ zthread_poll_init(void) {
     _i ____zKeepId____;\
 \
     pthread_mutex_lock(&zParamLock);\
-    while (NULL != zParamQueueIf[(++zThreadPoolScheduler) % zThreadPollSiz].func);\
+    while (NULL != zParamQueueIf[zThreadPoolScheduler % zThreadPollSiz].func) {\
+        zThreadPoolScheduler++;\
+    }\
     ____zKeepId____ = zThreadPoolScheduler % zThreadPollSiz;\
     zParamQueueIf[____zKeepId____].func = zFunc;\
     pthread_mutex_unlock(&zParamLock);\
