@@ -124,8 +124,8 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 /* 删除项目与拉取远程代码两个动作需要互斥执行 */
 //pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
 
-_i
-zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
+//_i
+//zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    _i zErrNo;
 //    char zShellBuf[zCommonBufSiz];
 //
@@ -171,9 +171,9 @@ zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //        return -16;
 //    } else {
 //        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-        return 0;
+//        return 0;
 //    }
-}
+//}
 
 /*
  * 5：显示所有项目及其元信息
@@ -971,7 +971,6 @@ zMarkCommonAction:
 
 void
 zstart_server(void *zpIf) {
-    // 顺序不可变
     zNetServ[0] = NULL;
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
@@ -987,7 +986,7 @@ zstart_server(void *zpIf) {
     zNetServ[12] = zcommon_deploy;  // 布署或撤销
     zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
-    zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
+    zNetServ[15] = NULL;  // 删除指定项目及其所属的所有文件
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
