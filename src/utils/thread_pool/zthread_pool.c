@@ -26,7 +26,7 @@ zthread_func(void *zpIf) {
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
 
     zThreadPoolInfo *zpSelfTask;
-    zMem_Alloc(zpSelfTask, zThreadPoolInfo, 1);
+    zMem_C_Alloc(zpSelfTask, zThreadPoolInfo, 1);  // 分配已清零的空间
     pthread_cond_init(&(zpSelfTask->CondVar), NULL);
 
 zMark:
@@ -77,10 +77,11 @@ zthread_poll_init(void) {
         zpTmpIf->p_param = zParam;\
         pthread_create(&____zTidTrash____, NULL, ztmp_thread_func, zpTmpIf);\
     } else {\
+        _i ____zKeepStackHeader____ = zStackHeader;\
         zpPoolStackIf[zStackHeader]->func = zFunc;\
         zpPoolStackIf[zStackHeader]->p_param = zParam;\
         zStackHeader--;\
-        pthread_cond_signal(&(zpPoolStackIf[zStackHeader + 1]->CondVar));\
         pthread_mutex_unlock(&zStackHeaderLock);\
+        pthread_cond_signal(&(zpPoolStackIf[____zKeepStackHeader____]->CondVar));\
     }\
 } while(0)
