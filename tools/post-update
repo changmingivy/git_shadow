@@ -8,6 +8,10 @@ export zPathOnHost="__PROJ_PATH"
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod a-x ${zPathOnHost}/.git/hooks/post-update
 
+# 清除可能存在的由于 git 崩溃残留的锁文件
+rm -f ${zPathOnHost}/.git/index.lock
+rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
