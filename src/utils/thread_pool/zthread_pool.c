@@ -24,18 +24,21 @@ pthread_t ____zTidTrash____;
 void *
 zthread_func(void *zpIf) {
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
-    static zThreadPoolInfo zSelfTask = {.CondVar = PTHREAD_COND_INITIALIZER};
+
+    zThreadPoolInfo *zpSelfTask;
+    zMem_Alloc(zpSelfTask, zThreadPoolInfo, 1);
+    pthread_cond_init(&(zpSelfTask->CondVar), NULL);
 
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
-    zpPoolStackIf[++zStackHeader] = &zSelfTask;
-    while (NULL == zSelfTask.func) {
-        pthread_cond_wait( &(zSelfTask.CondVar), &(zStackHeaderLock) );
+    zpPoolStackIf[++zStackHeader] = zpSelfTask;
+    while (NULL == zpSelfTask->func) {
+        pthread_cond_wait( &(zpSelfTask->CondVar), &(zStackHeaderLock) );
     }
     pthread_mutex_unlock(&zStackHeaderLock);
 
-    zSelfTask.func(zSelfTask.p_param);
-    zSelfTask.func = NULL;
+    zpSelfTask->func(zpSelfTask->p_param);
+    zpSelfTask->func = NULL;
 
     goto zMark;
     return (void *) -1;
@@ -45,6 +48,7 @@ zMark:
 void *
 ztmp_thread_func(void *zpIf) {
     pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
+
     zThreadPoolInfo *zpTaskIf = (zThreadPoolInfo *) zpIf;
 
     zpTaskIf->func(zpTaskIf->p_param);  // 执行任务
