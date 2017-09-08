@@ -15,6 +15,7 @@ git stash
 #git stash clear
 git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 cd $zPathOnHost
 export GIT_DIR="${zPathOnHost}/.git"
@@ -23,6 +24,7 @@ git stash
 #git stash clear
 git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
