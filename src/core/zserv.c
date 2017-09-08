@@ -520,7 +520,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
     zDeployResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDeployHashSiz];
-    char *zpIpStrList;
     _ui zOffSet = 0;
 
     if (NULL == zpMetaIf->p_ExtraData) {
@@ -537,6 +536,19 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         return -28;
     }
 
+    /* 检测上一次的内存是否需要释放 */
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList != &(zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0])) {
+        free(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);
+    }
+
+    if (zForecastedHostNum < zpPcreResIf->cnt) {
+        /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
+        /* 加空格最长16字节，如："123.123.123.123 " */
+        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList, char, 16 * zpPcreResIf->cnt);
+    } else {
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList;
+    }
+
     /* 更新项目目标主机总数 */
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
 
@@ -550,9 +562,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
-
-    /* 加空格最长16字节，如："123.123.123.123 " */
-    zpIpStrList = zalloc_cache(zpMetaIf->RepoId, zBytes(16) * zpPcreResIf->cnt);
 
     /* 并发同步环境初始化 */
     zCcur_Init(zpMetaIf->RepoId, zpPcreResIf->cnt, A);
@@ -605,20 +614,18 @@ zMark:
          * 非定长字符串不好动态调整，因此无论是否已存在都要执行
          * 生成将要传递给布署脚本的参数：空整分隔的字符串形式的 IPv4 列表
          */
-        strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
+        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zpPcreResIf->p_rets[zCnter]);
         zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
-        zpIpStrList[zOffSet - 1] = ' ';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
     }
 
     if (0 < zOffSet) {
-        zpIpStrList[zOffSet - 1] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
     } else {
-        zpIpStrList[0] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
     }
 
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
-    /* 更新全量IP信息，存放于项目内存池中，不可free */
-    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zpIpStrList;
 
     /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
     zCcur_Wait(A);
@@ -640,17 +647,17 @@ zMark:
                 zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost--;
             } else {
                 /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
-                strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
+                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zpPcreResIf->p_rets[zCnter]);
                 zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
-                zpIpStrList[zOffSet - 1] = ' ';
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
             }
         }
         if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
         if (0 < zOffSet) {
-            zpIpStrList[zOffSet - 1] = '\0';
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
         } else {
-            zpIpStrList[0] = '\0';
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
         }
 
         zpcre_free_tmpsource(zpPcreResIf);

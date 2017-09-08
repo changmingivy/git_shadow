@@ -15,7 +15,6 @@
         munmap(zppGlobRepoIf[zRepoId]->p_MemPool, zMemPoolSiz);\
         zppGlobRepoIf[zRepoId]->p_MemPool = zppPrev;\
     }\
-    memset(zppGlobRepoIf[zRepoId]->p_MemPool, 0, zMemPoolSiz);\
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);\
     \
     pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));\
@@ -895,6 +894,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DeployVecIf;
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
+
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
 
     /* 初始化任务分发环境 */
     zCcur_Init(zRepoId, 1, A);  //___
