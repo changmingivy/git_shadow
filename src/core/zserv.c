@@ -255,8 +255,7 @@ zrefresh_cache(zMetaInfo *zpMetaIf) {
         zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
     }
 
-    zpMetaIf->p_CondVar = NULL;
-    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
+    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)
 
     zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
     if (zCnter[1] > zCnter[0]) {
@@ -678,7 +677,6 @@ zMark:
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
-    zMetaInfo *zpSubMetaIf[2];
     _i zErrNo;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
@@ -773,26 +771,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 如下部分：更新全局缓存 */
         zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
-        /* 同步锁初始化 */
-        zCcur_Init(zpMetaIf->RepoId, 1, A);  //___
-        zCcur_Fin_Mark(1 == 1, A);  //___
-        zCcur_Init(zpMetaIf->RepoId, 1, B);  //___
-        zCcur_Fin_Mark(1 == 1, B);  //___
-        /* 生成提交记录缓存 */
-        zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zCcur_Sub_Config(zpSubMetaIf[0], A);  //___
-        zpSubMetaIf[0]->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf[0]->DataType = zIsCommitDataType;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[0]);
-        /* 生成布署记录缓存 */
-        zpSubMetaIf[1] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zCcur_Sub_Config(zpSubMetaIf[1], B);  //___
-        zpSubMetaIf[1]->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf[1]->DataType = zIsDeployDataType;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[1]);
-        /* 等待两批任务完成，之后释放同步锁的资源占用 */
-        zCcur_Wait(A);  //___
-        zCcur_Wait(B);  //___
+
+        zMetaInfo zSubMetaIf;
+        zSubMetaIf.RepoId = zpMetaIf->RepoId;
+
+        zSubMetaIf.DataType = zIsCommitDataType;
+        zgenerate_cache(&zSubMetaIf);
+        zSubMetaIf.DataType = zIsDeployDataType;
+        zgenerate_cache(&zSubMetaIf);
     }
 
     return 0;
