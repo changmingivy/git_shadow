@@ -795,7 +795,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
         pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     } else {
-        if (0 > pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+        if (0 > pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
     }
 
     zErrNo = zdeploy(zpMetaIf, zSd);
