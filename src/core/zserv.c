@@ -239,7 +239,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
 }
 
 /*
- * 由 post-merge 通过 socket 通知有新的提交记录产生，需要刷新缓存（目前己改为全量刷新：只刷新版本号列表）
+ * 全量刷新：只刷新版本号列表
  * 需要继承下层已存在的缓存
  */
 _i
@@ -255,8 +255,7 @@ zrefresh_cache(zMetaInfo *zpMetaIf) {
         zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
     }
 
-    zpMetaIf->RepoId = zpMetaIf->RepoId;
-    zpMetaIf->DataType = zIsCommitDataType;
+    zpMetaIf->p_CondVar = NULL;
     zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
 
     zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
@@ -315,7 +314,10 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         || (0 != strncmp(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+                    zpMetaIf->DataType = zIsCommitDataType;
                     zrefresh_cache(zpMetaIf);
+
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     pthread_rwlock_rdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                 }
@@ -805,7 +807,7 @@ _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
@@ -815,7 +817,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     zErrNo = zdeploy(zpMetaIf, zSd);
 
-    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return zErrNo;
 }
 

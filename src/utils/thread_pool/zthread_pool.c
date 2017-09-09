@@ -23,7 +23,7 @@ pthread_t ____zTidTrash____;
 
 void *
 zthread_func(void *zpIf) {
-    pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
+    pthread_detach( pthread_self() );  // 即使该步出错，也无处理错误，故不必检查返回值
 
     zThreadPoolInfo *zpSelfTask;
     zMem_Alloc(zpSelfTask, zThreadPoolInfo, 1);
@@ -33,7 +33,7 @@ zMark:
     pthread_mutex_lock(&zStackHeaderLock);
     zpPoolStackIf[++zStackHeader] = zpSelfTask;
     while (NULL == zpSelfTask->func) {
-        pthread_cond_wait( &(zpSelfTask->CondVar), &(zStackHeaderLock) );
+        pthread_cond_wait( &(zpSelfTask->CondVar), &zStackHeaderLock );
     }
     pthread_mutex_unlock(&zStackHeaderLock);
 
@@ -47,7 +47,7 @@ zMark:
 /* 必须使用此外壳函数，否则新线程无法detach自身，将造成资源泻漏 */
 void *
 ztmp_thread_func(void *zpIf) {
-    pthread_detach(pthread_self());  // 即使该步出错，也无处理错误，故不必检查返回值
+    pthread_detach( pthread_self() );  // 即使该步出错，也无处理错误，故不必检查返回值
 
     zThreadPoolInfo *zpTaskIf = (zThreadPoolInfo *) zpIf;
 
