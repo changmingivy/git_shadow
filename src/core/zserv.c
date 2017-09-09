@@ -282,9 +282,7 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    };
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -368,9 +366,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* get rdlock */
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    }
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -426,9 +422,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    };
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -793,12 +787,15 @@ _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
-    pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpMetaIf->DataType = 1;
         zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf.VecSiz - 1;
+
+        /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
+        pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+    } else {
+        if (0 > pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
     }
 
     zErrNo = zdeploy(zpMetaIf, zSd);
