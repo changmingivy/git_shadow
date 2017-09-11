@@ -294,8 +294,9 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
          *     打印布署记录时不需要执行
          */
         if (10 < (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
-            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->SelfPushMark
-                    && 0 == pthread_mutex_trylock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) {
+            if ((0 == zppGlobRepoIf[zpMetaIf->RepoId]->SelfPushMark)
+                    && (0 == pthread_mutex_trylock( &(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) ) {
+
                 system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
                 zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 
