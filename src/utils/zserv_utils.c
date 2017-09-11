@@ -973,7 +973,7 @@ zinit_one_remote_host(void *zpIf) {
 void
 zwrite_analysis_data(_i zRepoId, char *zpDpSig, _ui zIpv4Addr, _i zDpTime) {
     _i zFd, zWrLen;
-    char zIpv4StrAddr[INET_ADDRSTRLEN], zDpTimeBuf[12], zPathBuf[64];
+    char zIpv4StrAddr[INET_ADDRSTRLEN], zDpTimeBuf[64], zPathBuf[zCommonBufSiz];
 
     zconvert_ipv4_bin_to_str(zIpv4Addr, zIpv4StrAddr);
     zWrLen = sprintf(zDpTimeBuf, "%s: %d\n", zIpv4StrAddr, zDpTime);
