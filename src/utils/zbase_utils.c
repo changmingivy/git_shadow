@@ -319,7 +319,7 @@ zreal_time() {
     if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
         return -1.0;
     } else {
-        return (zNanoSecIf.tv_sec + (_d)(zNanoSecIf.tv_nsec / 1000000000));
+        return (zNanoSecIf.tv_sec + (((_d) zNanoSecIf.tv_nsec) / 1000000000));
     }
 }
 
