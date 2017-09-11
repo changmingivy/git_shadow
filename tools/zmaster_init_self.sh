@@ -63,4 +63,4 @@ strip ${zShadowPath}/tools/notice
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
 
 # 后台进入退出重启机制
-${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &
+#${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &
