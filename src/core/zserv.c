@@ -823,7 +823,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             zpTmp->DpState = 1;
 
             /* 布署耗时统计，必须在锁内执行 */
-            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
+            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
 
             /* 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
             pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
