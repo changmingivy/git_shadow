@@ -978,7 +978,7 @@ zwrite_analysis_data(_i zRepoId, char *zpDpSig, _ui zIpv4Addr, _i zDpTime) {
     zconvert_ipv4_bin_to_str(zIpv4Addr, zIpv4StrAddr);
     zWrLen = sprintf(zDpTimeBuf, "%s: %d\n", zIpv4StrAddr, zDpTime);
     sprintf(zPathBuf, "%s_SHADOW/log/%s.DpTime", zppGlobRepoIf[zRepoId]->p_RepoPath, zpDpSig);
-    if (0 < (zFd = open(zppGlobRepoIf[zRepoId]->p_RepoPath, O_WRONLY | O_CREAT | O_APPEND, 0755))) {
+    if (0 < (zFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755))) {
         write(zFd, zDpTimeBuf, zWrLen);
         close(zFd);
     }
