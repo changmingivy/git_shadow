@@ -821,6 +821,10 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
         if (-1 == zpTmp->DpState && zpTmp->ClientAddr == zpMetaIf->HostId) {
             zpTmp->DpState = 1;
+
+            /* 布署耗时统计，必须在锁内执行 */
+            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
+
             /* 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
             pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
             if ('A' == zpMetaIf->p_ExtraData[0]) {
@@ -829,10 +833,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
             }
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-
-            /* 布署耗时统计 */
-            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
-            return 0;
+            break;
         }
     }
     return 0;
