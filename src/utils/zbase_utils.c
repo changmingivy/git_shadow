@@ -316,10 +316,10 @@ zsleep(_d zSecs) {
 _d
 zreal_time() {
     struct timespec zNanoSecIf;
-    if (0 < clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
-        return (zNanoSecIf.tv_sec + (_d)(zNanoSecIf.tv_nsec / 1000000000));
-    } else {
+    if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
         return -1.0;
+    } else {
+        return (zNanoSecIf.tv_sec + (_d)(zNanoSecIf.tv_nsec / 1000000000));
     }
 }
 
