@@ -123,13 +123,13 @@ typedef struct zDpResInfo zDpResInfo;
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
+    time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
 
     _i SelfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
-    _i LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
+    time_t LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
 
     _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
@@ -142,7 +142,7 @@ struct zRepoInfo {
     _i DpLock;
 
     /* 布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
-    _i DpStartTime;
+    time_t DpStartTime;
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
