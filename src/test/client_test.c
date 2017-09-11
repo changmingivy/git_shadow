@@ -34,7 +34,7 @@
 #include "../../inc/zutils.h"
 
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
@@ -52,11 +52,11 @@ struct zVecWrapInfo {
     struct zRefDataInfo *p_RefDataIf;
 };
 
-struct zDeployResInfo {
+struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i RepoId;  // 所属代码库
-    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
-    struct zDeployResInfo *p_next;
+    _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为0
+    struct zDpResInfo *p_next;
 };
 
 /* 用于存放每个项目的元信息 */
@@ -84,8 +84,8 @@ struct zRepoInfo {
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    struct zDeployResInfo *p_DpResList;  // 布署状态收集
-    struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    struct zDpResInfo *p_DpResList;  // 布署状态收集
+    struct zDpResInfo *p_DpResHash[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
@@ -95,9 +95,9 @@ struct zRepoInfo {
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
     struct iovec SortedCommitVecIf[zCacheSiz];
 
-    struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DeployVecIf[zCacheSiz];
-    struct zRefDataInfo DeployRefDataIf[zCacheSiz];
+    struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVecIf[zCacheSiz];
+    struct zRefDataInfo DpRefDataIf[zCacheSiz];
 };
 
 struct zRepoInfo *zpGlobRepoIf;

@@ -34,7 +34,7 @@
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 16
 
@@ -43,14 +43,14 @@
 #define UDP 0
 #define TCP 1
 
-#define zDeployUnLock 0
-#define zDeployLocked 1
+#define zDpUnLock 0
+#define zDpLocked 1
 
 #define zRepoGood 0
 #define zRepoDamaged 1
 
 #define zIsCommitDataType 0
-#define zIsDeployDataType 1
+#define zIsDpDataType 1
 
 /****************
  * 数据结构定义 *
@@ -70,7 +70,7 @@ struct zMetaInfo {
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
-    _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
+    _i DataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
 
@@ -113,12 +113,13 @@ struct zVecWrapInfo {
 };
 typedef struct zVecWrapInfo zVecWrapInfo;
 
-struct zDeployResInfo {
+struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
-    struct zDeployResInfo *p_next;
+    _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
+    _i DpTimeSpent;  // 布署耗时（大概时间，单位：秒）
+    struct zDpResInfo *p_next;
 };
-typedef struct zDeployResInfo zDeployResInfo;
+typedef struct zDpResInfo zDpResInfo;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
@@ -141,15 +142,17 @@ struct zRepoInfo {
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
     _i DpLock;
 
+    /* 布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
+    _i DpStartTime;
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
-    char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
+    char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
 
     char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
     char HostStrAddrList[16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
-    struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
-    struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
+    struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
 //    pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
@@ -163,12 +166,12 @@ struct zRepoInfo {
     _i ReplyCnt[2];  // [0]: 用于收集初始化远程主机的结果；[1]: 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DeployVecIf[zCacheSiz];
-    struct zRefDataInfo DeployRefDataIf[zCacheSiz];
+    struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVecIf[zCacheSiz];
+    struct zRefDataInfo DpRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo SortedDeployVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
-    struct iovec SortedDeployVecIf[zCacheSiz];
+    struct zVecWrapInfo SortedDpVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    struct iovec SortedDpVecIf[zCacheSiz];
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁

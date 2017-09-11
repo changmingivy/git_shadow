@@ -146,8 +146,8 @@ zget_diff_content(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         return NULL;
@@ -156,7 +156,7 @@ zget_diff_content(void *zpIf) {
     /* 必须在shell命令中切换到正确的工作路径 */
     sprintf(zShellBuf, "cd \"%s\" && git diff \"%s\" \"%s\" -- \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
@@ -416,8 +416,8 @@ zget_file_list(void *zpIf) {
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
     } else {
         zPrint_Err(0, NULL, "请求的数据类型错误!");
         return (void *) -1;
@@ -426,9 +426,9 @@ zget_file_list(void *zpIf) {
     /* 必须在shell命令中切换到正确的工作路径 */
     sprintf(zShellBuf, "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' && git diff --name-only \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
-            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
     zpShellRetHandler = popen(zShellBuf, "r");
@@ -516,7 +516,7 @@ zMarkOuter:;
         zSubMetaIf.FileId = -1;  // 置为 -1，不允许再查询下一级内容
         zSubMetaIf.CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zSubMetaIf.DataType = zpMetaIf->DataType;
-        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <=";
+        zSubMetaIf.p_data = (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <=";
         zSubMetaIf.p_ExtraData = NULL;
 
         /* 将zMetaInfo转换为JSON文本 */
@@ -589,9 +589,9 @@ zgenerate_cache(void *zpIf) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         sprintf(zShellBuf, "cd \"%s\" && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
         zpShellRetHandler = popen(zShellBuf, "r");
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
         zpShellRetHandler = popen(zShellBuf, "r");
@@ -605,7 +605,7 @@ zgenerate_cache(void *zpIf) {
     if (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)) {
         /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMetaIf->DataType)
-                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
+                && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zRes, zBytes(40))))) { goto zMarkSkip; }
         zBaseDataLen = strlen(zRes);
         zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
         zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
@@ -619,7 +619,7 @@ zgenerate_cache(void *zpIf) {
         for (; (zCnter < zCacheSiz) && (NULL != zget_one_line(zRes, zCommonBufSiz, zpShellRetHandler)); zCnter++) {
             /* 只提取比最近一次布署版本更新的提交记录 */
             if ((zIsCommitDataType == zpMetaIf->DataType)
-                    && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zRes, zBytes(40))))) { goto zMarkSkip; }
+                    && (0 == (strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zRes, zBytes(40))))) { goto zMarkSkip; }
             zBaseDataLen = strlen(zRes);
             zpTmpBaseDataIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zBaseDataInfo) + zBaseDataLen);
             zpTmpBaseDataIf[0]->DataLen = zBaseDataLen;
@@ -662,9 +662,9 @@ zMarkSkip:
             zpTopVecWrapIf->p_RefDataIf[i].p_SubVecWrapIf = NULL;
         }
 
-        if (zIsDeployDataType == zpMetaIf->DataType) {
+        if (zIsDpDataType == zpMetaIf->DataType) {
             // 存储最近一次布署的 SHA1 sig，执行布署是首先对比布署目标与最近一次布署，若相同，则直接返回成功
-            strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zpTopVecWrapIf->p_RefDataIf[zCnter - 1].p_data);
+            strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zpTopVecWrapIf->p_RefDataIf[zCnter - 1].p_data);
             /* 将布署记录按逆向时间排序（新记录显示在前面） */
             for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
                 zCnter--;
@@ -697,7 +697,7 @@ zwrite_log(_i zRepoId) {
     /* write last deploy SHA1_sig and it's timestamp to: <_SHADOW/log/meta> */
     sprintf(zShellBuf, "cd \"%s\" && git log \"%s\" -1 --format=\"%%H_%%ct\"",
             zppGlobRepoIf[zRepoId]->p_RepoPath,
-            zppGlobRepoIf[zRepoId]->zLastDeploySig);
+            zppGlobRepoIf[zRepoId]->zLastDpSig);
     zCheck_Null_Exit(zpFile = popen(zShellBuf, "r"));
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
@@ -876,8 +876,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
     sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
-    if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDeploySig, zBytes(40), zpShellRetHandler)) {
-        zppGlobRepoIf[zRepoId]->zLastDeploySig[40] = '\0';
+    if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
+        zppGlobRepoIf[zRepoId]->zLastDpSig[40] = '\0';
     } else {
         zppGlobRepoIf[zRepoId]->RepoState = zRepoDamaged;
     }
@@ -888,9 +888,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->CommitVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->CommitRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedCommitVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->CommitVecIf;  // 提交记录总是有序的，不需要再分配静态空间
 
-    zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DeployVecIf;
-    zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
-    zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
+    zppGlobRepoIf[zRepoId]->DpVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->DpVecIf;
+    zppGlobRepoIf[zRepoId]->DpVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DpRefDataIf;
+    zppGlobRepoIf[zRepoId]->SortedDpVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDpVecIf;
 
     zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
 
@@ -901,7 +901,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zMetaIf.DataType = zIsCommitDataType;
     zgenerate_cache(&zMetaIf);
 
-    zMetaIf.DataType = zIsDeployDataType;
+    zMetaIf.DataType = zIsDpDataType;
     zgenerate_cache(&zMetaIf);
 
     /**/

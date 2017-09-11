@@ -38,7 +38,7 @@
 
 /* 如果当前代码库处于写操作锁定状态，则解写锁，然后返回错误代码 */
 #define zCheck_Lock_State() do {\
-    if (zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) {\
+    if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) {\
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
         return -6;\
     }\
@@ -107,8 +107,8 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0] = '\0';
 
     /* 目标机元数据重置 */
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDeployResInfo));
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDpResInfo));
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
@@ -193,11 +193,11 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
             continue;
         };
 
-        sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"},",
+        sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"},",
                 zCnter,
                 zppGlobRepoIf[zCnter]->p_RepoPath,
-                zDeployLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
-                '\0' == zppGlobRepoIf[zCnter]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDeploySig,
+                zDpLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
+                '\0' == zppGlobRepoIf[zCnter]->zLastDpSig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDpSig,
                 zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
                 zppGlobRepoIf[zCnter]->ProxyHostStrAddr,
                 zppGlobRepoIf[zCnter]->TotalHost,
@@ -222,11 +222,11 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
 
     if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
-    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDeploy: %s\nLastDeployedRev: %s\nLastDeployState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-            zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
-            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig,
+            zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
+            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
@@ -323,8 +323,8 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
             }
         }
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDeployVecWrapIf);
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
     } else {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -10;
@@ -358,9 +358,9 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpMetaIf->DataType = zIsCommitDataType;
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-        zpMetaIf->DataType = zIsDeployDataType;
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
+        zpMetaIf->DataType = zIsDpDataType;
     } else {
         zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
@@ -415,9 +415,9 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpMetaIf->DataType = zIsCommitDataType;
-    } else if (zIsDeployDataType == zpMetaIf->DataType) {
-        zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf);
-        zpMetaIf->DataType = zIsDeployDataType;
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
+        zpMetaIf->DataType = zIsDpDataType;
     } else {
         zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
@@ -515,7 +515,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zMetaInfo *zpSubMetaIf;
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
-    zDeployResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDeployHashSiz];
+    zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
     _ui zOffSet = 0;
 
     if (NULL == zpMetaIf->p_ExtraData) {
@@ -550,14 +550,15 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
 
     /* 暂留旧数据 */
     zpOldDpResListIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf;
-    memcpy(zpOldDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDeployHashSiz * sizeof(zDeployResInfo *));
+    memcpy(zpOldDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDpHashSiz * sizeof(zDpResInfo *));
 
     /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配 */
-    zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDeployResInfo, zpPcreResIf->cnt);
+    zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDpResInfo, zpPcreResIf->cnt);
 
     /* 重置状态 */
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));  /* Clear hash buf before reuse it!!! */
+    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
 
     /* 并发同步环境初始化 */
     zCcur_Init(zpMetaIf->RepoId, zpPcreResIf->cnt, A);
@@ -567,25 +568,26 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
 
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ipv4_str_to_bin(zpPcreResIf->p_rets[zCnter]);
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState = 0;
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpTimeSpent = -1;
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].p_next = NULL;
 
         /* 更新HASH */
-        zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz];
+        zpTmpDpResIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDpHashSiz];
         if (NULL == zpTmpDpResIf) {  /* 若顶层为空，直接指向数组中对应的位置 */
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDeployHashSiz]
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) % zDpHashSiz]
                 = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         } else {
             while (NULL != zpTmpDpResIf->p_next) { zpTmpDpResIf = zpTmpDpResIf->p_next; }
             zpTmpDpResIf->p_next = &(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter]);
         }
 
-        zpTmpDpResIf = zpOldDpResHashIf[zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr % zDeployHashSiz];
+        zpTmpDpResIf = zpOldDpResHashIf[zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr % zDpHashSiz];
         while (NULL != zpTmpDpResIf) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
             if (zpTmpDpResIf->ClientAddr == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
                 /* 先前已被初始化过的主机，状态置1，防止后续收集结果时误报失败，同时计数递增 */
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState = 1;
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = 1;
                 pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
@@ -633,7 +635,7 @@ zMark:
         zpBasePtr = zpMetaIf->p_data;
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
         for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zpPcreResIf->cnt; zCnter++) {
-            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState) {
+            if (-1 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
                 zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
                 zpBasePtr += sprintf(zpBasePtr, "%s,", zIpv4StrAddrBuf);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strlen() 取得的值相同
                 zUnReplyCnt++;
@@ -675,11 +677,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
-    else if (zIsDeployDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf); }
+    else if (zIsDpDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf); }
     else { return -10; }
 
     /* 检查是否允许布署 */
-    if (zDeployLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) { return -6; }
+    if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) { return -6; }
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
     if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) { return -8; }
     /* 检查指定的版本号是否有效 */
@@ -704,12 +706,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return -26;
     }
 
-    /* 重置布署状态 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
-    for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DeployState = 0;
-    }
-
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
     sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
@@ -718,6 +714,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+
+    /* 重置布署状态 */
+    for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpTimeSpent = -1;
+    }
+    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
 
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
@@ -728,7 +732,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         if (120 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
-                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig[0] = '\0';
+                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             }
 
@@ -736,7 +740,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zpBasePtr = zpMetaIf->p_data;
             /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
             for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
-                if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DeployState) {
+                if (-1 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
                     zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
                     zpBasePtr += sprintf(zpBasePtr, "%s,", zIpv4StrAddrBuf);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strlen() 取得的值相同
                     zUnReplyCnt++;
@@ -754,9 +758,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
     /* 若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
-    if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig)) {
+    if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig)) {
         /* 更新最新一次布署版本号 */
-        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDeploySig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
+        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
         /* 将本次布署信息写入日志 */
         zwrite_log(zpMetaIf->RepoId);
@@ -772,7 +776,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
         zSubMetaIf.DataType = zIsCommitDataType;
         zgenerate_cache(&zSubMetaIf);
-        zSubMetaIf.DataType = zIsDeployDataType;
+        zSubMetaIf.DataType = zIsDpDataType;
         zgenerate_cache(&zSubMetaIf);
     }
 
@@ -791,7 +795,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpMetaIf->DataType = 1;
-        zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf.VecSiz - 1;
+        zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
 
         /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
         pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
@@ -811,11 +815,12 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
-    zDeployResInfo *zpTmp = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDeployHashSiz];
+    zDpResInfo *zpTmp = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDpHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
-        if (0 == zpTmp->DeployState && zpTmp->ClientAddr == zpMetaIf->HostId) {
-            zpTmp->DeployState = 1;
+        if (-1 == zpTmp->DpState && zpTmp->ClientAddr == zpMetaIf->HostId) {
+            zpTmp->DpState = 1;
+            zpTmp->DpTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime;
             // 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复
             pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
             if ('A' == zpMetaIf->p_ExtraData[0]) {
@@ -840,9 +845,9 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
     if (2 == zpMetaIf->OpsId) {
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpLock = zDeployLocked;
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpLock = zDpLocked;
     } else {
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpLock = zDeployUnLock;
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpLock = zDpUnLock;
     }
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
@@ -881,6 +886,7 @@ zops_route(void *zpSd) {
         return NULL;
     }
 
+    zRecvdLen *= 1.25;  // 扩展用于保留布署耗时秒数的空间
     char zDataBuf[zRecvdLen], zExtraDataBuf[zRecvdLen];
     memset(zDataBuf, 0, zRecvdLen);
     memset(zExtraDataBuf, 0, zRecvdLen);
