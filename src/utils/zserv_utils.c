@@ -683,9 +683,6 @@ zMarkSkip:
     /* 防止意外访问导致的程序崩溃 */
     memset(zpTopVecWrapIf->p_RefDataIf + zpTopVecWrapIf->VecSiz, 0, sizeof(zRefDataInfo) * (zCacheSiz - zpTopVecWrapIf->VecSiz));
 
-    /* >>>>任务完成，尝试通知上层调用者；若不是在新线程中执行，则不需要通知 */
-    if (NULL != zpMetaIf->p_CondVar) { zCcur_Fin_Signal(zpMetaIf); }
-
     return NULL;
 }
 
@@ -743,7 +740,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zPCREInitInfo *zpInitIf;
     zPCRERetInfo *zpRetIf;
 
-    zMetaInfo *zpMetaIf[2];
     char zShellBuf[zCommonBufSiz];
 
     _i zRepoId, zFd, zErrNo;
@@ -895,30 +891,19 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->DeployVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DeployRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDeployVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDeployVecIf;
 
-    /* 初始化任务分发环境 */
-    zCcur_Init(zRepoId, 1, A);  //___
-    zCcur_Fin_Mark(1 == 1, A);  //___
-    zCcur_Init(zRepoId, 1, B);  //___
-    zCcur_Fin_Mark(1 == 1, B);  //___
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
 
-    /* 生成提交记录缓存 */
-    zpMetaIf[0] = zalloc_cache(zRepoId, sizeof(zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf[0], A);  //___
-    zpMetaIf[0]->RepoId = zRepoId;
-    zpMetaIf[0]->DataType = zIsCommitDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[0]);
+    /* 生成缓存 */
+    zMetaInfo zMetaIf;
+    zMetaIf.RepoId = zRepoId;
 
-    /* 生成布署记录缓存 */
-    zpMetaIf[1] = zalloc_cache(zRepoId, sizeof(zMetaInfo));
-    zCcur_Sub_Config(zpMetaIf[1], B);  //___
-    zpMetaIf[1]->RepoId = zRepoId;
-    zpMetaIf[1]->DataType = zIsDeployDataType;
-    zAdd_To_Thread_Pool(zgenerate_cache, zpMetaIf[1]);
+    zMetaIf.DataType = zIsCommitDataType;
+    zgenerate_cache(&zMetaIf);
 
-    /* 等待两批任务完成，之后释放相关资源占用 */
-    zCcur_Wait(A);  //___
-    zCcur_Wait(B);  //___
+    zMetaIf.DataType = zIsDeployDataType;
+    zgenerate_cache(&zMetaIf);
 
+    /**/
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
 

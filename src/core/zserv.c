@@ -124,8 +124,8 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 /* 删除项目与拉取远程代码两个动作需要互斥执行 */
 //pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
 
-_i
-zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
+//_i
+//zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    _i zErrNo;
 //    char zShellBuf[zCommonBufSiz];
 //
@@ -171,9 +171,9 @@ zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //        return -16;
 //    } else {
 //        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
-        return 0;
+//        return 0;
 //    }
-}
+//}
 
 /*
  * 5：显示所有项目及其元信息
@@ -239,7 +239,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
 }
 
 /*
- * 由 post-merge 通过 socket 通知有新的提交记录产生，需要刷新缓存（目前己改为全量刷新：只刷新版本号列表）
+ * 全量刷新：只刷新版本号列表
  * 需要继承下层已存在的缓存
  */
 _i
@@ -255,9 +255,7 @@ zrefresh_cache(zMetaInfo *zpMetaIf) {
         zOldRefDataIf[zCnter[0]].p_SubVecWrapIf = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.p_RefDataIf[zCnter[0]].p_SubVecWrapIf;
     }
 
-    zpMetaIf->RepoId = zpMetaIf->RepoId;
-    zpMetaIf->DataType = zIsCommitDataType;
-    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)，不能将其作为线程参数，此处只有一个任务，也无必要启用新线程
+    zgenerate_cache(zpMetaIf);  // 复用了 zops_route 函数传下来的 MetaInfo 结构体(栈内存)
 
     zCnter[1] = zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf.VecSiz;
     if (zCnter[1] > zCnter[0]) {
@@ -284,9 +282,7 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    };
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -315,7 +311,10 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         || (0 != strncmp(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+                    zpMetaIf->DataType = zIsCommitDataType;
                     zrefresh_cache(zpMetaIf);
+
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                     pthread_rwlock_rdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
                 }
@@ -367,9 +366,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* get rdlock */
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    }
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -425,9 +422,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        return -11;
-    };
+    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -520,7 +515,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zPCREInitInfo *zpPcreInitIf;
     zPCRERetInfo *zpPcreResIf;
     zDeployResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDeployHashSiz];
-    char *zpIpStrList;
     _ui zOffSet = 0;
 
     if (NULL == zpMetaIf->p_ExtraData) {
@@ -537,6 +531,19 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         return -28;
     }
 
+    /* 检测上一次的内存是否需要释放 */
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList != &(zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0])) {
+        free(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);
+    }
+
+    if (zForecastedHostNum < zpPcreResIf->cnt) {
+        /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
+        /* 加空格最长16字节，如："123.123.123.123 " */
+        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList, char, 16 * zpPcreResIf->cnt);
+    } else {
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList;
+    }
+
     /* 更新项目目标主机总数 */
     zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zpPcreResIf->cnt;
 
@@ -550,9 +557,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDeployHashSiz * sizeof(zDeployResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
-
-    /* 加空格最长16字节，如："123.123.123.123 " */
-    zpIpStrList = zalloc_cache(zpMetaIf->RepoId, zBytes(16) * zpPcreResIf->cnt);
 
     /* 并发同步环境初始化 */
     zCcur_Init(zpMetaIf->RepoId, zpPcreResIf->cnt, A);
@@ -605,20 +609,18 @@ zMark:
          * 非定长字符串不好动态调整，因此无论是否已存在都要执行
          * 生成将要传递给布署脚本的参数：空整分隔的字符串形式的 IPv4 列表
          */
-        strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
+        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zpPcreResIf->p_rets[zCnter]);
         zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
-        zpIpStrList[zOffSet - 1] = ' ';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
     }
 
     if (0 < zOffSet) {
-        zpIpStrList[zOffSet - 1] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
     } else {
-        zpIpStrList[0] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
     }
 
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
-    /* 更新全量IP信息，存放于项目内存池中，不可free */
-    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zpIpStrList;
 
     /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
     zCcur_Wait(A);
@@ -640,17 +642,17 @@ zMark:
                 zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost--;
             } else {
                 /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
-                strcpy(zpIpStrList + zOffSet, zpPcreResIf->p_rets[zCnter]);
+                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zpPcreResIf->p_rets[zCnter]);
                 zOffSet += 1 + strlen(zpPcreResIf->p_rets[zCnter]);
-                zpIpStrList[zOffSet - 1] = ' ';
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
             }
         }
         if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
         if (0 < zOffSet) {
-            zpIpStrList[zOffSet - 1] = '\0';
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
         } else {
-            zpIpStrList[0] = '\0';
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
         }
 
         zpcre_free_tmpsource(zpPcreResIf);
@@ -669,7 +671,6 @@ zMark:
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
-    zMetaInfo *zpSubMetaIf[2];
     _i zErrNo;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
@@ -764,26 +765,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 如下部分：更新全局缓存 */
         zppGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
-        /* 同步锁初始化 */
-        zCcur_Init(zpMetaIf->RepoId, 1, A);  //___
-        zCcur_Fin_Mark(1 == 1, A);  //___
-        zCcur_Init(zpMetaIf->RepoId, 1, B);  //___
-        zCcur_Fin_Mark(1 == 1, B);  //___
-        /* 生成提交记录缓存 */
-        zpSubMetaIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zCcur_Sub_Config(zpSubMetaIf[0], A);  //___
-        zpSubMetaIf[0]->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf[0]->DataType = zIsCommitDataType;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[0]);
-        /* 生成布署记录缓存 */
-        zpSubMetaIf[1] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        zCcur_Sub_Config(zpSubMetaIf[1], B);  //___
-        zpSubMetaIf[1]->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf[1]->DataType = zIsDeployDataType;
-        zAdd_To_Thread_Pool(zgenerate_cache, zpSubMetaIf[1]);
-        /* 等待两批任务完成，之后释放同步锁的资源占用 */
-        zCcur_Wait(A);  //___
-        zCcur_Wait(B);  //___
+
+        zMetaInfo zSubMetaIf;
+        zSubMetaIf.RepoId = zpMetaIf->RepoId;
+
+        zSubMetaIf.DataType = zIsCommitDataType;
+        zgenerate_cache(&zSubMetaIf);
+        zSubMetaIf.DataType = zIsDeployDataType;
+        zgenerate_cache(&zSubMetaIf);
     }
 
     return 0;
@@ -798,17 +787,20 @@ _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpMetaIf->DataType = 1;
         zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DeployVecWrapIf.VecSiz - 1;
+
+        /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
+        pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+    } else {
+        if (0 > pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
     }
 
     zErrNo = zdeploy(zpMetaIf, zSd);
 
-    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     return zErrNo;
 }
 
@@ -971,7 +963,6 @@ zMarkCommonAction:
 
 void
 zstart_server(void *zpIf) {
-    // 顺序不可变
     zNetServ[0] = NULL;
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
@@ -987,7 +978,7 @@ zstart_server(void *zpIf) {
     zNetServ[12] = zcommon_deploy;  // 布署或撤销
     zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
-    zNetServ[15] = zdelete_repo;  // 删除指定项目及其所属的所有文件
+    zNetServ[15] = NULL;  // 删除指定项目及其所属的所有文件
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
