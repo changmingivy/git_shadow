@@ -116,7 +116,6 @@ typedef struct zVecWrapInfo zVecWrapInfo;
 struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
-    _i DpTimeSpent;  // 布署耗时（大概时间，单位：秒）
     struct zDpResInfo *p_next;
 };
 typedef struct zDpResInfo zDpResInfo;
@@ -147,6 +146,7 @@ struct zRepoInfo {
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
+    char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
     char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
     char HostStrAddrList[16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配

@@ -569,7 +569,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ipv4_str_to_bin(zpPcreResIf->p_rets[zCnter]);
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpTimeSpent = -1;
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].p_next = NULL;
 
         /* 更新HASH */
@@ -706,6 +705,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         return -26;
     }
 
+    /* 正在布署的版本号，用于布署耗时分析 */
+    strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(41));
+
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
     sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
@@ -718,7 +720,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 重置布署状态 */
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpTimeSpent = -1;
     }
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
@@ -820,8 +821,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
         if (-1 == zpTmp->DpState && zpTmp->ClientAddr == zpMetaIf->HostId) {
             zpTmp->DpState = 1;
-            zpTmp->DpTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime;
-            // 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复
+            /* 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
             pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
             if ('A' == zpMetaIf->p_ExtraData[0]) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
@@ -829,6 +829,9 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
             }
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+
+            /* 布署耗时统计 */
+            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
             return 0;
         }
     }
