@@ -758,14 +758,12 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
-    /* 将本次布署信息写入日志 */
+    /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
+    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
     zwrite_log(zpMetaIf->RepoId);
 
     /* 若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
     if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig)) {
-        /* 更新最新一次布署版本号 */
-        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
-
         /* 重置内存池状态 */
         zReset_Mem_Pool_State(zpMetaIf->RepoId);
 
