@@ -379,7 +379,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         }
     } else {
         /* 检测缓存是否正在生成过程中 */
-        if (0 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
+        if (-7 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -11;
         }
@@ -435,7 +435,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         }
     } else {
         /* 检测缓存是否正在生成过程中 */
-        if (0 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
+        if (-7 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -11;
         }
@@ -449,7 +449,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         }
     } else {
         /* 检测缓存是否正在生成过程中 */
-        if (0 == zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz) {
+        if (-7 == zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
             return -11;
         }
