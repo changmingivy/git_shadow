@@ -37,10 +37,11 @@
     pthread_cond_t *(zpCondVar##zSuffix) = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
     pthread_cond_init(zpCondVar##zSuffix, NULL);\
 \
-    pthread_mutex_t *(zpMutexLock##zSuffix) = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
+    pthread_mutex_t *(zpMutexLock##zSuffix) = zalloc_cache(zRepoId, 4 * sizeof(pthread_mutex_t));\
     pthread_mutex_init(zpMutexLock##zSuffix, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 1, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 2, NULL);\
+    pthread_mutex_init(zpMutexLock##zSuffix + 3, NULL);\
 \
     pthread_mutex_lock(zpMutexLock##zSuffix);
 
@@ -53,7 +54,8 @@
     zpSubIf->p_CondVar = zpCondVar##zSuffix;\
     zpSubIf->p_MutexLock[0] = zpMutexLock##zSuffix;\
     zpSubIf->p_MutexLock[1] = zpMutexLock##zSuffix + 1;\
-    zpSubIf->p_MutexLock[2] = zpMutexLock##zSuffix + 2;
+    zpSubIf->p_MutexLock[2] = zpMutexLock##zSuffix + 2;\
+    zpSubIf->p_MutexLock[3] = zpMutexLock##zSuffix + 3;
 
 /* 用于线程递归分发任务的场景，如处理树结构时 */
 #define zCcur_Sub_Config_Thread(zpSubIf, zpIf) \
@@ -64,7 +66,8 @@
     zpSubIf->p_CondVar = zpIf->p_CondVar;\
     zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
     zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
-    zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];
+    zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];\
+    zpSubIf->p_MutexLock[3] = zpIf->p_MutexLock[3];
 
 /* 放置于调用者每次分发任务之前(即调用工作线程之前)，其中zStopExpression指最后一次循环的判断条件，如：A > B && C < D */
 #define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
@@ -101,9 +104,9 @@
         while ((1 != *(zpFinMark##zSuffix)) || *(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix)) {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
         }\
-        pthread_mutex_lock(zpMutexLock##zSuffix + 2);\
+        pthread_mutex_lock(zpMutexLock##zSuffix + 3);\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
-        pthread_mutex_unlock(zpMutexLock##zSuffix + 2);\
+        pthread_mutex_unlock(zpMutexLock##zSuffix + 3);\
     } while(0)
 
 /* 放置于工作线程的回调函数末尾 */
@@ -114,19 +117,16 @@
         if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
             pthread_mutex_lock(zpIf->p_MutexLock[0]);\
             pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
+            pthread_cond_signal(zpIf->p_CondVar);\
 \
-            /* 此处一定要再次检查条件是否成立，避免任务分发过程中，已提前完成任务的线程恰好条件成立的情况 */\
-            if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
-                pthread_cond_signal(zpIf->p_CondVar);\
+            pthread_mutex_lock(zpIf->p_MutexLock[3]);\
+            pthread_mutex_unlock(zpIf->p_MutexLock[3]);\
 \
-                pthread_mutex_lock(zpIf->p_MutexLock[2]);\
-                pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
-\
-                pthread_cond_destroy(zpIf->p_CondVar);\
-                pthread_mutex_destroy(zpIf->p_MutexLock[2]);\
-                pthread_mutex_destroy(zpIf->p_MutexLock[1]);\
-                pthread_mutex_destroy(zpIf->p_MutexLock[0]);\
-            }\
+            pthread_cond_destroy(zpIf->p_CondVar);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[3]);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[2]);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[1]);\
+            pthread_mutex_destroy(zpIf->p_MutexLock[0]);\
         }\
     } while(0)
 
