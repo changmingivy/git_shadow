@@ -543,7 +543,6 @@ zMarkOuter:;
         /* Tree 图生成过程的并发控制 */
         zCcur_Init(zpMetaIf->RepoId, zLineCnter, A);
         zCcur_Sub_Config(zpRootNodeIf, A);
-        zCcur_Fin_Mark_Thread(zpRootNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
         zCcur_Wait(A);
 

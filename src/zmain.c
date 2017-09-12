@@ -86,7 +86,7 @@ struct zMetaInfo {
     _i *p_TaskCnter;  // 已分发出去的任务计数
     _i *p_TotalTask;  // 任务总数量
     _i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_MutexLock[3];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数
+    pthread_mutex_t *p_MutexLock[4];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数，[3]锁用作销毁这4个锁的临界条件
 };
 typedef struct zMetaInfo zMetaInfo;
 
