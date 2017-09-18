@@ -2,11 +2,11 @@
     #include "../../../inc/zutils.h"
 #endif
 
+#define PCRE2_STATIC
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
-//#define PCRE2_STATIC
 #include "pcre2.h"  //compile with '-lpcre2-8'
 
-#define zMatchLimit 1024
+#define zMatchLimit 64
 #define zErrBufLen 256
 
 struct zPCRERetInfo{
@@ -55,19 +55,21 @@ zPCRERetInfo *
 zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const _i zMatchAllMark) {
 // TEST: PASS
     _i zRetCnt, zMatchMax;
-
     zPCRERetInfo *zpRetIf;
-    zMem_C_Alloc(zpRetIf, zPCRERetInfo, 1);
 
-    size_t zSubjectLen = strlen(zpPCRESubject);
-    PCRE2_SPTR zSubject = (PCRE2_SPTR)zpPCRESubject;
+    size_t zSubjectLen, zSubStringLen;
+    PCRE2_SPTR zSubject, zSubStringStart;
 
     PCRE2_SIZE *zpRetVector;
 
+    zMem_C_Alloc(zpRetIf, zPCRERetInfo, 1);
+
+    zSubjectLen = strlen(zpPCRESubject);
+    zSubject = (PCRE2_SPTR)zpPCRESubject;
+
     zpRetIf->cnt = 0;
 
-    zMatchMax = (zMatchAllMark == 1) ? zMatchLimit : 1;
-    //zMatchAllMark == 1 means that it will act like 'm//g' in perl
+    zMatchMax = (zMatchAllMark == 1) ? zMatchLimit : 1;  //zMatchAllMark == 1 means that it will act like 'm//g' in perl
 
     for (_i i = 0; i < zMatchMax; i++) {
         zRetCnt = pcre2_match(zpPCREInitIf->p_pd, zSubject, zSubjectLen, 0, 0, zpPCREInitIf->p_MatchData, NULL);
@@ -86,10 +88,10 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
             break;
         }
 
-        PCRE2_SPTR zSubStringStart = zSubject + zpRetVector[0];
-        size_t zSubStringLen = zpRetVector[1] - zpRetVector[0];
+        zSubStringStart = zSubject + zpRetVector[0];
+        zSubStringLen = zpRetVector[1] - zpRetVector[0];
 
-        zMem_C_Alloc(zpRetIf->p_rets[i], char, zSubStringLen + 1);  // Must use calloc !!!
+        zMem_Alloc(zpRetIf->p_rets[i], char, zSubStringLen + 1);
         strncpy(zpRetIf->p_rets[i], (char *)zSubStringStart, zSubStringLen);
         zpRetIf->p_rets[i][zSubStringLen] = '\0';  // 需要手动加一个 '\0'
         zpRetIf->cnt += 1;

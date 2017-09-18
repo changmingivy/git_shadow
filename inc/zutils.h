@@ -173,44 +173,44 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 /*
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
  */
-//_i zSigSet[26] = {
-//    SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-//    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
-//    SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-//    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
-//    SIGIOT, SIGIO
-//};
-//
-//#define zIgnoreAllSignal() do {\
-//    struct sigaction zSigActionIf;\
-//    zSigActionIf.sa_handler = SIG_IGN;\
-//    sigfillset(&zSigActionIf.sa_mask);\
-//    zSigActionIf.sa_flags = 0;\
-//\
-//    sigaction(zSigSet[0], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[1], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[2], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[3], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[4], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[5], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[6], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[7], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[8], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[9], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[10], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[11], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[12], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[13], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[14], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[15], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[16], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[17], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[18], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[19], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[20], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[21], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[22], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[23], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[24], &zSigActionIf, NULL);\
-//    sigaction(zSigSet[25], &zSigActionIf, NULL);\
-//} while(0)
+_i zSigSet[26] = {
+    SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
+    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
+    SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
+    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
+    SIGIOT, SIGIO
+};
+
+#define zIgnoreAllSignal() do {\
+    struct sigaction zSigActionIf;\
+    zSigActionIf.sa_handler = SIG_IGN;\
+    sigfillset(&zSigActionIf.sa_mask);\
+    zSigActionIf.sa_flags = 0;\
+\
+    sigaction(zSigSet[0], &zSigActionIf, NULL);\
+    sigaction(zSigSet[1], &zSigActionIf, NULL);\
+    sigaction(zSigSet[2], &zSigActionIf, NULL);\
+    sigaction(zSigSet[3], &zSigActionIf, NULL);\
+    sigaction(zSigSet[4], &zSigActionIf, NULL);\
+    sigaction(zSigSet[5], &zSigActionIf, NULL);\
+    sigaction(zSigSet[6], &zSigActionIf, NULL);\
+    sigaction(zSigSet[7], &zSigActionIf, NULL);\
+    sigaction(zSigSet[8], &zSigActionIf, NULL);\
+    sigaction(zSigSet[9], &zSigActionIf, NULL);\
+    sigaction(zSigSet[10], &zSigActionIf, NULL);\
+    sigaction(zSigSet[11], &zSigActionIf, NULL);\
+    sigaction(zSigSet[12], &zSigActionIf, NULL);\
+    sigaction(zSigSet[13], &zSigActionIf, NULL);\
+    sigaction(zSigSet[14], &zSigActionIf, NULL);\
+    sigaction(zSigSet[15], &zSigActionIf, NULL);\
+    sigaction(zSigSet[16], &zSigActionIf, NULL);\
+    sigaction(zSigSet[17], &zSigActionIf, NULL);\
+    sigaction(zSigSet[18], &zSigActionIf, NULL);\
+    sigaction(zSigSet[19], &zSigActionIf, NULL);\
+    sigaction(zSigSet[20], &zSigActionIf, NULL);\
+    sigaction(zSigSet[21], &zSigActionIf, NULL);\
+    sigaction(zSigSet[22], &zSigActionIf, NULL);\
+    sigaction(zSigSet[23], &zSigActionIf, NULL);\
+    sigaction(zSigSet[24], &zSigActionIf, NULL);\
+    sigaction(zSigSet[25], &zSigActionIf, NULL);\
+} while(0)
