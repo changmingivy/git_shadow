@@ -12,9 +12,10 @@ main(_i zArgc, char **zppArgv) {
     zRegInitInfo zRegInitIf;
     zRegResInfo zRegResIf;
 
-	char *zpTestStr = "a/b/xxxxxxxxxxc";
+	char *zpTestStr = "[{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}]";
 
-    zreg_compile(&zRegInitIf, "[^/]+");
+    zreg_compile(&zRegInitIf, "[^:\",}{][^\",}{]*");
+    //zreg_compile(&zRegInitIf, "[^:\",}{\\]\\[][^\",}{\\]\\[]*");
     //zreg_compile(&zRegInitIf, zppArgv[1]);
     zreg_match(&zRegResIf, &zRegInitIf, zpTestStr);
     //zreg_match(&zRegResIf, &zRegInitIf, zppArgv[2]);

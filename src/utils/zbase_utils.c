@@ -413,7 +413,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
 
-    zreg_compile(zRegInitIf, "[^\",{}\\[\\]:]{1}[^\",{}\\[\\]]*");  // 暂时用于解析前端递送的 json string
+    zreg_compile(zRegInitIf, "[^\",{}:][^\",{}]*");  // 暂时用于解析前端递送的 json string，解析中括号有问题
     zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
     
     if (0 != (zRegResIf->cnt % 2)) {
