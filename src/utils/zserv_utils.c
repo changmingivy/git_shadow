@@ -469,9 +469,8 @@ zget_file_list(void *zpIf) {
     if (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
         zBaseDataLen = strlen(zShellBuf);
 
-        //zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+        zShellBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
-        //zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
         zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
@@ -481,9 +480,8 @@ zget_file_list(void *zpIf) {
         while (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
             zBaseDataLen = strlen(zShellBuf);
 
-            //zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+            zShellBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
-            //zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
             zpTmpNodeIf[0] = zpRootNodeIf;
             zpTmpNodeIf[2] = zpTmpNodeIf[1] = NULL;
