@@ -86,7 +86,7 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
         }
 
         zpRetVector = pcre2_get_ovector_pointer(zpPCREInitIf->p_MatchData);
-        if (zpRetVector[0] >= zpRetVector[1] || (zSubject >= zpEndPtr)) { break; }
+        if (zpRetVector[0] >= zpRetVector[1] || ((zSubject + zpRetVector[1]) >= zpEndPtr)) { break; }
 
         zSubStringStart = zSubject + zpRetVector[0];
         zSubStringLen = zpRetVector[1] - zpRetVector[0];

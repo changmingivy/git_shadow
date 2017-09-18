@@ -410,13 +410,15 @@ zparse_str(void *zpIn, void *zpOut) {
  */
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-// TEST:PASS
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}\\[\\]:]|(?<!\"):)+");
-    zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
+    zRegInitInfo zRegInitIf[1];
+    zRegResInfo zRegResIf[1];
+
+    zreg_compile(zRegInitIf, "[^\",{}\\[\\]:]{1}[^\",{}\\[\\]]*");  // 暂时用于解析前端递送的 json string
+    zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
     
-    if (0 != (zpPcreRetIf->cnt % 2)) {
-        zpcre_free_tmpsource(zpPcreRetIf);
-        zpcre_free_metasource(zpPcreInitIf);
+    if (0 != (zRegResIf->cnt % 2)) {
+        zreg_free_tmpsource(zRegResIf);
+        zreg_free_metasource(zRegInitIf);
         return -7;
     }
 
@@ -431,18 +433,18 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
     zpBuf['E'] = zpMetaIf->p_ExtraData;
 
-    for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
-        if (NULL == zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])]) {
-            zpcre_free_tmpsource(zpPcreRetIf);
-            zpcre_free_metasource(zpPcreInitIf);
+    for (_i i = 0; i < zRegResIf->cnt; i += 2) {
+        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[i][0])]) {
+            zreg_free_tmpsource(zRegResIf);
+            zreg_free_metasource(zRegInitIf);
             return -7;
         }
 
-        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]);
+        zJsonParseOps[(_i)(zRegResIf->p_rets[i][0])](zRegResIf->p_rets[i + 1], zpBuf[(_i)(zRegResIf->p_rets[i][0])]);
     }
 
-    zpcre_free_tmpsource(zpPcreRetIf);
-    zpcre_free_metasource(zpPcreInitIf);
+    zreg_free_tmpsource(zRegResIf);
+    zreg_free_metasource(zRegInitIf);
     return 0;
 }
 

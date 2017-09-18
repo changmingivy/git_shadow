@@ -231,7 +231,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     return zpX;
 }
 
-#include "utils/pcre2/zpcre.c"
+#include "utils/posix_regex/zregex.c"
 #include "utils/zbase_utils.c"
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"

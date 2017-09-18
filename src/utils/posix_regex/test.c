@@ -12,8 +12,12 @@ main(_i zArgc, char **zppArgv) {
     zRegInitInfo zRegInitIf;
     zRegResInfo zRegResIf;
 
-    zreg_compile(&zRegInitIf, zppArgv[1]);
-    zreg_match(&zRegResIf, &zRegInitIf, zppArgv[2]);
+	char *zpTestStr = "a/b/xxxxxxxxxxc";
+
+    zreg_compile(&zRegInitIf, "[^/]+");
+    //zreg_compile(&zRegInitIf, zppArgv[1]);
+    zreg_match(&zRegResIf, &zRegInitIf, zpTestStr);
+    //zreg_match(&zRegResIf, &zRegInitIf, zppArgv[2]);
 
     printf("%d\n", zRegResIf.cnt);
     for (_i zCnter = 0; zCnter < zRegResIf.cnt; zCnter++) {
