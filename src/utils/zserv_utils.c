@@ -44,10 +44,10 @@
     pthread_mutex_init(zpMutexLock##zSuffix + 3, NULL);\
 \
     pthread_mutex_lock(zpMutexLock##zSuffix);\
-    pthread_mutex_lock(zpMutexLock##zSuffix + 3);
+    pthread_mutex_lock(zpMutexLock##zSuffix + 3)
 
 /* 配置将要传递给工作线程的参数(结构体) */
-#define zCcur_Sub_Config(zpSubIf, zSuffix) \
+#define zCcur_Sub_Config(zpSubIf, zSuffix) do {\
     zpSubIf->p_FinMark = zpFinMark##zSuffix;\
     zpSubIf->p_TotalTask = zpTotalTask##zSuffix;\
     zpSubIf->p_TaskCnter = zpTaskCnter##zSuffix;\
@@ -56,10 +56,11 @@
     zpSubIf->p_MutexLock[0] = zpMutexLock##zSuffix;\
     zpSubIf->p_MutexLock[1] = zpMutexLock##zSuffix + 1;\
     zpSubIf->p_MutexLock[2] = zpMutexLock##zSuffix + 2;\
-    zpSubIf->p_MutexLock[3] = zpMutexLock##zSuffix + 3;
+    zpSubIf->p_MutexLock[3] = zpMutexLock##zSuffix + 3;\
+} while (0)
 
 /* 用于线程递归分发任务的场景，如处理树结构时 */
-#define zCcur_Sub_Config_Thread(zpSubIf, zpIf) \
+#define zCcur_Sub_Config_Thread(zpSubIf, zpIf) do {\
     zpSubIf->p_FinMark = zpIf->p_FinMark;\
     zpSubIf->p_TotalTask = zpIf->p_TotalTask;\
     zpSubIf->p_TaskCnter = zpIf->p_TaskCnter;\
@@ -68,7 +69,8 @@
     zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
     zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
     zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];\
-    zpSubIf->p_MutexLock[3] = zpIf->p_MutexLock[3];
+    zpSubIf->p_MutexLock[3] = zpIf->p_MutexLock[3];\
+} while (0)
 
 /* 放置于调用者每次分发任务之前(即调用工作线程之前)，其中zStopExpression指最后一次循环的判断条件，如：A > B && C < D */
 #define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
@@ -96,7 +98,7 @@
  */
 #define zCcur_Cnter_Subtract(zSuffix) do {\
         (*(zpTaskCnter##zSuffix))--;\
-} while(0)
+} while (0)
 
 /*
  * 当调用者任务分发完成之后执行，之后释放资源占用
@@ -107,7 +109,7 @@
         }\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_mutex_unlock(zpMutexLock##zSuffix + 3);\
-    } while(0)
+    } while (0)
 
 /* 放置于工作线程的回调函数末尾 */
 #define zCcur_Fin_Signal(zpIf) do {\
@@ -128,7 +130,7 @@
             pthread_mutex_destroy(zpIf->p_MutexLock[1]);\
             pthread_mutex_destroy(zpIf->p_MutexLock[0]);\
         }\
-    } while(0)
+    } while (0)
 
 /* 用于提取深层对象 */
 #define zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zCommitId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf)
@@ -463,13 +465,13 @@ zget_file_list(void *zpIf) {
 
     zpRootNodeIf = NULL;
     zLineCnter = 0;
-    zpPcreInitIf = zpcre_init("[^/]+");
+    zpPcreInitIf = zpcre_init(".*(?=/|$)");
     if (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
         zBaseDataLen = strlen(zShellBuf);
 
-        zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+        //zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
         zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
-        zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
+        //zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
         zNodeCnter = 0;
         zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
@@ -479,9 +481,9 @@ zget_file_list(void *zpIf) {
         while (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
             zBaseDataLen = strlen(zShellBuf);
 
-            zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
+            //zShellBuf[zBaseDataLen - 1] = '/';  // 由于 '非' 逻辑匹配无法取得最后一个字符，此处为适为 pcre 临时添加末尾标识
             zpPcreRetIf = zpcre_match(zpPcreInitIf, zShellBuf, 1);
-            zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
+            //zShellBuf[zBaseDataLen - 1] = '\0';  // 去除临时的多余字符
 
             zpTmpNodeIf[0] = zpRootNodeIf;
             zpTmpNodeIf[2] = zpTmpNodeIf[1] = NULL;

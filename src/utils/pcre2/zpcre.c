@@ -58,7 +58,7 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
     zPCRERetInfo *zpRetIf;
 
     size_t zSubjectLen, zSubStringLen;
-    PCRE2_SPTR zSubject, zSubStringStart;
+    PCRE2_SPTR zSubject, zSubStringStart, zpEndPtr;
 
     PCRE2_SIZE *zpRetVector;
 
@@ -66,6 +66,8 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
 
     zSubjectLen = strlen(zpPCRESubject);
     zSubject = (PCRE2_SPTR)zpPCRESubject;
+
+    zpEndPtr = zSubject + zSubjectLen;
 
     zpRetIf->cnt = 0;
 
@@ -84,9 +86,7 @@ zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const 
         }
 
         zpRetVector = pcre2_get_ovector_pointer(zpPCREInitIf->p_MatchData);
-        if (zpRetVector[0] == zpRetVector[1] || strlen((char *)zSubject) < zpRetVector[1]) {
-            break;
-        }
+        if (zpRetVector[0] >= zpRetVector[1] || (zSubject >= zpEndPtr)) { break; }
 
         zSubStringStart = zSubject + zpRetVector[0];
         zSubStringLen = zpRetVector[1] - zpRetVector[0];
