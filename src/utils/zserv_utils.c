@@ -43,7 +43,8 @@
     pthread_mutex_init(zpMutexLock##zSuffix + 2, NULL);\
     pthread_mutex_init(zpMutexLock##zSuffix + 3, NULL);\
 \
-    pthread_mutex_lock(zpMutexLock##zSuffix);
+    pthread_mutex_lock(zpMutexLock##zSuffix);\
+    pthread_mutex_lock(zpMutexLock##zSuffix + 3);
 
 /* 配置将要传递给工作线程的参数(结构体) */
 #define zCcur_Sub_Config(zpSubIf, zSuffix) \
@@ -104,7 +105,6 @@
         while ((1 != *(zpFinMark##zSuffix)) || *(zpTaskCnter##zSuffix) != *(zpThreadCnter##zSuffix)) {\
             pthread_cond_wait(zpCondVar##zSuffix, zpMutexLock##zSuffix);\
         }\
-        pthread_mutex_lock(zpMutexLock##zSuffix + 3);\
         pthread_mutex_unlock(zpMutexLock##zSuffix);\
         pthread_mutex_unlock(zpMutexLock##zSuffix + 3);\
     } while(0)
