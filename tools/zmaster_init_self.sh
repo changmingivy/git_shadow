@@ -48,7 +48,7 @@ cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/pcre2/include \
     -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/src/zmain.c \
+    ${zShadowPath}/src/zmain.c
 strip ${zShadowPath}/bin/git_shadow
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
