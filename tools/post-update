@@ -36,7 +36,7 @@ echo -e "\n\n[`date`]" >> /tmp/____post-deploy.log 2>&1
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/____post-deploy.log 2>&1
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
-(sh __PROJ_PATH/____post-deploy.sh) &
+(cd $zPathOnHost && sh __PROJ_PATH/____post-deploy.sh) &
 echo -e "\n\n\n\n#refresh date: `date`" >> __PROJ_PATH/____post-deploy.sh
 
 # 如下部分用于保障相同sig可以连接布署，应对失败重试场景；可能耗时很长，故放在回复成功状态之后
