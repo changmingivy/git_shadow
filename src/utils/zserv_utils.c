@@ -144,7 +144,7 @@
  */
 #define zCcur_Wait(zSuffix) do {\
         while ((1 != *____zpFinMark##zSuffix) || (*____zpTaskCnter##zSuffix != *____zpThreadCnter##zSuffix)) {\
-			zsleep(0.001);\
+            zsleep(0.001);\
         }\
         pthread_mutex_destroy(____zpMutexLock##zSuffix);\
         pthread_mutex_destroy(____zpMutexLock##zSuffix + 1);\
@@ -321,22 +321,27 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
-    zpTmpNodeIf = zpNodeIf->p_left;
-    if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
-        zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
+    /* 第一个左兄弟；不能用循环，会导致重复发放 */
+    if (NULL != zpNodeIf->p_left) {
+        zpNodeIf->p_left->pp_ResHash = zpNodeIf->pp_ResHash;
 
-        zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
+        zCcur_Sub_Config_Thread(zpNodeIf->p_left, zpNodeIf);
+        zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_left);
     }
 
-    zpTmpNodeIf = zpNodeIf->p_FirstChild;
-    if (NULL != zpTmpNodeIf) {  // 不能用循环，会导致重复发放
+    /* 嫡系长子直接处理；各级的左兄弟另行分发 */
+    for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpNodeIf->p_FirstChild) {
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
-
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf);
+
+        zAdd_To_Thread_Pool(zgenerate_graph, zpTmpNodeIf);
+
+        if (NULL != zpTmpNodeIf->p_left) {
+            zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf->p_left);
+        }
     }
 
+    /* 最后处自身信息 */
     zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
 
     return NULL;
@@ -519,7 +524,7 @@ zget_file_list(void *zpIf) {
 
     zpRootNodeIf = NULL;
     zLineCnter = 0;
-	zreg_compile(zRegInitIf, "[^/]+");
+    zreg_compile(zRegInitIf, "[^/]+");
     if (NULL != zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler)) {
         zBaseDataLen = strlen(zShellBuf);
 
