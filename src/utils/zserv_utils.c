@@ -505,10 +505,10 @@ zget_file_list(void *zpIf) {
         pclose(zpShellRetHandler);
         return (void *) -1;
     } else {
-        if (128 < strtol(zShellBuf, NULL, 10)) {
+//        if (128 < strtol(zShellBuf, NULL, 10)) {
             zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
             goto zMarkLarge;
-        }
+//        }
     }
 
     /* 差异文件数量 <=128 生成Tree图 */
