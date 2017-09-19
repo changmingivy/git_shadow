@@ -1,7 +1,8 @@
 #define _Z
-#define _Z_BSD
+//#define _Z_BSD
 
 #ifndef _Z_BSD
+    #define _XOPEN_SOURCE 700
     #define _DEFAULT_SOURCE
     #define _BSD_SOURCE
 #endif
@@ -95,11 +96,12 @@ struct zMetaInfo {
     _i OffSet;  // 纵向偏移
 
     pthread_cond_t *p_CondVar;  // 条件变量
+    //_i *p_LockState;  // 1 表示同步锁已被销毁
     _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
     _i *p_TaskCnter;  // 已分发出去的任务计数
     _i *p_TotalTask;  // 任务总数量
     _i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_MutexLock[4];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数，[3]锁用作销毁这4个锁的临界条件
+    pthread_mutex_t *p_MutexLock[3];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数
 };
 typedef struct zMetaInfo zMetaInfo;
 
