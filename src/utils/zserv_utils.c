@@ -29,20 +29,34 @@
     _i *____zpTotalTask##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
     _i *____zpTaskCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
     _i *____zpThreadCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    *(____zpFinMark##zSuffix) = 0;\
-    *(____zpTotalTask##zSuffix) = zTotalTask;\
-    *(____zpTaskCnter##zSuffix) = 0;\
-    *(____zpThreadCnter##zSuffix) = 0;\
+    *____zpFinMark##zSuffix = 0;\
+    *____zpTotalTask##zSuffix = zTotalTask;\
+    *____zpTaskCnter##zSuffix = 0;\
+    *____zpThreadCnter##zSuffix = 0;\
 \
-    pthread_cond_t *(____zpCondVar##zSuffix) = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
-    pthread_cond_init(____zpCondVar##zSuffix, NULL);\
-\
-    pthread_mutex_t *(____zpMutexLock##zSuffix) = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
+    pthread_mutex_t *____zpMutexLock##zSuffix = zalloc_cache(zRepoId, 2 * sizeof(pthread_mutex_t));\
     pthread_mutex_init(____zpMutexLock##zSuffix, NULL);\
     pthread_mutex_init(____zpMutexLock##zSuffix + 1, NULL);\
-    pthread_mutex_init(____zpMutexLock##zSuffix + 2, NULL);\
-\
-    pthread_mutex_lock(____zpMutexLock##zSuffix)
+
+//#define zCcur_Init(zRepoId, zTotalTask, zSuffix) \
+//    _i *____zpFinMark##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
+//    _i *____zpTotalTask##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
+//    _i *____zpTaskCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
+//    _i *____zpThreadCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
+//    *____zpFinMark##zSuffix = 0;\
+//    *____zpTotalTask##zSuffix = zTotalTask;\
+//    *____zpTaskCnter##zSuffix = 0;\
+//    *____zpThreadCnter##zSuffix = 0;\
+//\
+//    pthread_cond_t *____zpCondVar##zSuffix = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
+//    pthread_cond_init(____zpCondVar##zSuffix, NULL);\
+//\
+//    pthread_mutex_t *____zpMutexLock##zSuffix = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
+//    pthread_mutex_init(____zpMutexLock##zSuffix, NULL);\
+//    pthread_mutex_init(____zpMutexLock##zSuffix + 1, NULL);\
+//    pthread_mutex_init(____zpMutexLock##zSuffix + 2, NULL);\
+//\
+//    pthread_mutex_lock(____zpMutexLock##zSuffix)
 
 /* 配置将要传递给工作线程的参数(结构体) */
 #define zCcur_Sub_Config(zpSubIf, zSuffix) do {\
@@ -50,11 +64,20 @@
     zpSubIf->p_TotalTask = ____zpTotalTask##zSuffix;\
     zpSubIf->p_TaskCnter = ____zpTaskCnter##zSuffix;\
     zpSubIf->p_ThreadCnter = ____zpThreadCnter##zSuffix;\
-    zpSubIf->p_CondVar = ____zpCondVar##zSuffix;\
     zpSubIf->p_MutexLock[0] = ____zpMutexLock##zSuffix;\
     zpSubIf->p_MutexLock[1] = ____zpMutexLock##zSuffix + 1;\
-    zpSubIf->p_MutexLock[2] = ____zpMutexLock##zSuffix + 2;\
 } while (0)
+
+//#define zCcur_Sub_Config(zpSubIf, zSuffix) do {\
+//    zpSubIf->p_FinMark = ____zpFinMark##zSuffix;\
+//    zpSubIf->p_TotalTask = ____zpTotalTask##zSuffix;\
+//    zpSubIf->p_TaskCnter = ____zpTaskCnter##zSuffix;\
+//    zpSubIf->p_ThreadCnter = ____zpThreadCnter##zSuffix;\
+//    zpSubIf->p_CondVar = ____zpCondVar##zSuffix;\
+//    zpSubIf->p_MutexLock[0] = ____zpMutexLock##zSuffix;\
+//    zpSubIf->p_MutexLock[1] = ____zpMutexLock##zSuffix + 1;\
+//    zpSubIf->p_MutexLock[2] = ____zpMutexLock##zSuffix + 2;\
+//} while (0)
 
 /* 用于线程递归分发任务的场景，如处理树结构时 */
 #define zCcur_Sub_Config_Thread(zpSubIf, zpIf) do {\
@@ -65,63 +88,103 @@
     zpSubIf->p_CondVar = zpIf->p_CondVar;\
     zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
     zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
-    zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];\
 } while (0)
+
+//#define zCcur_Sub_Config_Thread(zpSubIf, zpIf) do {\
+//    zpSubIf->p_FinMark = zpIf->p_FinMark;\
+//    zpSubIf->p_TotalTask = zpIf->p_TotalTask;\
+//    zpSubIf->p_TaskCnter = zpIf->p_TaskCnter;\
+//    zpSubIf->p_ThreadCnter = zpIf->p_ThreadCnter;\
+//    zpSubIf->p_CondVar = zpIf->p_CondVar;\
+//    zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
+//    zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
+//    zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];\
+//} while (0)
 
 /* 放置于调用者每次分发任务之前(即调用工作线程之前)，其中zStopExpression指最后一次循环的判断条件，如：A > B && C < D */
 #define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
-        pthread_mutex_lock(____zpMutexLock##zSuffix + 2);\
-        (*(____zpTaskCnter##zSuffix))++;\
-        pthread_mutex_unlock(____zpMutexLock##zSuffix + 2);\
-        if (zStopExpression) {\
-            *(____zpFinMark##zSuffix) = 1;\
-        }\
+        pthread_mutex_lock(____zpMutexLock##zSuffix);\
+        (*____zpTaskCnter##zSuffix)++;\
+        pthread_mutex_unlock(____zpMutexLock##zSuffix);\
+        if (zStopExpression) { *(____zpFinMark##zSuffix) = 1; }\
     } while(0)
+
+//#define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
+//        pthread_mutex_lock(____zpMutexLock##zSuffix + 2);\
+//        (*____zpTaskCnter##zSuffix)++;\
+//        pthread_mutex_unlock(____zpMutexLock##zSuffix + 2);\
+//        if (zStopExpression) { *(____zpFinMark##zSuffix) = 1; }\
+//    } while(0)
 
 /* 用于线程递归分发任务的场景，如处理树结构时 */
 #define zCcur_Fin_Mark_Thread(zpIf) do {\
-        pthread_mutex_lock(zpIf->p_MutexLock[2]);\
-        (*(zpIf->p_TaskCnter))++;\
-        pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
-        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) {\
-            *(zpIf->p_FinMark) = 1;\
-        }\
+        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
+        (*zpIf->p_TaskCnter)++;\
+        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
+        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) { *(zpIf->p_FinMark) = 1; }\
     } while(0)
+
+//#define zCcur_Fin_Mark_Thread(zpIf) do {\
+//        pthread_mutex_lock(zpIf->p_MutexLock[2]);\
+//        (*zpIf->p_TaskCnter)++;\
+//        pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
+//        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) { *(zpIf->p_FinMark) = 1; }\
+//    } while(0)
 
 /*
  * 用于存在条件式跳转的循环场景
  * 每次跳过时，都必须让同步计数器递减一次
  */
 #define zCcur_Cnter_Subtract(zSuffix) do {\
-        (*(____zpTaskCnter##zSuffix))--;\
+        (*____zpTaskCnter##zSuffix)--;\
 } while (0)
 
 /*
  * 当调用者任务分发完成之后执行，之后释放资源占用
  */
 #define zCcur_Wait(zSuffix) do {\
-        while ((1 != *(____zpFinMark##zSuffix)) || *(____zpTaskCnter##zSuffix) != *(____zpThreadCnter##zSuffix)) {\
-            pthread_cond_wait(____zpCondVar##zSuffix, ____zpMutexLock##zSuffix);\
+        while ((1 != *____zpFinMark##zSuffix) || (*____zpTaskCnter##zSuffix != *____zpThreadCnter##zSuffix)) {\
+			zsleep(0.001);\
         }\
-        pthread_mutex_unlock(____zpMutexLock##zSuffix);\
-\
-        pthread_cond_destroy(____zpCondVar##zSuffix);\
         pthread_mutex_destroy(____zpMutexLock##zSuffix);\
         pthread_mutex_destroy(____zpMutexLock##zSuffix + 1);\
-        pthread_mutex_destroy(____zpMutexLock##zSuffix + 2);\
     } while (0)
+
+/*
+ ***************************************************************************************
+ * The futex facility returned an unexpected error code.!!!!!!!!!!!!!!!!!!!!!!!!!!
+ ***************************************************************************************
+ */
+
+//#define zCcur_Wait(zSuffix) do {\
+//        while ((1 != *____zpFinMark##zSuffix) || (*____zpTaskCnter##zSuffix != *____zpThreadCnter##zSuffix)) {\
+//            pthread_cond_wait(____zpCondVar##zSuffix, ____zpMutexLock##zSuffix);\
+//        }\
+//        pthread_mutex_unlock(____zpMutexLock##zSuffix);\
+//\
+//        pthread_cond_destroy(____zpCondVar##zSuffix);\
+//        pthread_mutex_destroy(____zpMutexLock##zSuffix);\
+//        pthread_mutex_destroy(____zpMutexLock##zSuffix + 1);\
+//        pthread_mutex_destroy(____zpMutexLock##zSuffix + 2);\
+//    } while (0)
 
 /* 放置于工作线程的回调函数末尾 */
 #define zCcur_Fin_Signal(zpIf) do {\
         pthread_mutex_lock(zpIf->p_MutexLock[1]);\
         (*(zpIf->p_ThreadCnter))++;\
         pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
-        if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
-            pthread_mutex_lock(zpIf->p_MutexLock[0]);\
-            pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
-            pthread_cond_signal(zpIf->p_CondVar);\
-        }\
     } while (0)
+
+//#define zCcur_Fin_Signal(zpIf) do {\
+//        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
+//        (*(zpIf->p_ThreadCnter))++;\
+//        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
+//        if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
+//            pthread_mutex_lock(zpIf->p_MutexLock[0]);\
+//            pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
+//            pthread_cond_signal(zpIf->p_CondVar);\
+//        }\
+//    } while (0)
 
 /* 用于提取深层对象 */
 #define zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zCommitId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf)
