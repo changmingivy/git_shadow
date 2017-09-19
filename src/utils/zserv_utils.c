@@ -118,9 +118,9 @@
 
 /* 用于线程递归分发任务的场景，如处理树结构时 */
 #define zCcur_Fin_Mark_Thread(zpIf) do {\
-        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
-        (*zpIf->p_TaskCnter)++;\
-        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
+        pthread_mutex_lock(zpIf->p_MutexLock[0]);\
+        (*(zpIf->p_TaskCnter))++;\
+        pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
         if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) { *(zpIf->p_FinMark) = 1; }\
     } while(0)
 
