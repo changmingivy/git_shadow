@@ -321,10 +321,12 @@ zdistribute_task(void *zpIf) {
     zMetaInfo *zpNodeIf, *zpTmpNodeIf;
     zpNodeIf = (zMetaInfo *)zpIf;
 
+    /* 自身信息 */
+    zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
+
     /* 第一个左兄弟；不能用循环，会导致重复发放 */
     if (NULL != zpNodeIf->p_left) {
         zpNodeIf->p_left->pp_ResHash = zpNodeIf->pp_ResHash;
-
         zCcur_Sub_Config_Thread(zpNodeIf->p_left, zpNodeIf);
         zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_left);
     }
@@ -333,16 +335,14 @@ zdistribute_task(void *zpIf) {
     for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpNodeIf->p_FirstChild) {
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-
         zAdd_To_Thread_Pool(zgenerate_graph, zpTmpNodeIf);
 
         if (NULL != zpTmpNodeIf->p_left) {
+            zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
+            zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
             zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf->p_left);
         }
     }
-
-    /* 最后处自身信息 */
-    zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
 
     return NULL;
 }
