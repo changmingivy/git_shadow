@@ -272,49 +272,46 @@ zget_diff_content(void *zpIf) {
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表
  */
-void *
-zgenerate_graph(void *zpIf) {
-    zMetaInfo *zpNodeIf, *zpTmpNodeIf;
-    _i zOffSet;
-
-    zpNodeIf = (zMetaInfo *)zpIf;
-    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpIf;
-    zOffSet = 6 * zpNodeIf->OffSet + 10;
-
-    zpNodeIf->p_data[--zOffSet] = ' ';
-    zpNodeIf->p_data[--zOffSet] = '\200';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
-    zpNodeIf->p_data[--zOffSet] = '\200';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
-    zpNodeIf->p_data[--zOffSet] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';
-    zpNodeIf->p_data[--zOffSet] = '\224';
-    zpNodeIf->p_data[--zOffSet] = '\342';
-
-    zpTmpNodeIf = zpNodeIf;
-    for (_i i = 0; i < zpNodeIf->OffSet; i++) {
-        zpNodeIf->p_data[--zOffSet] = ' ';
-        zpNodeIf->p_data[--zOffSet] = ' ';
-        zpNodeIf->p_data[--zOffSet] = ' ';
-
-        zpTmpNodeIf = zpTmpNodeIf->p_father;
-        if (NULL == zpTmpNodeIf->p_left) {
-            zpNodeIf->p_data[--zOffSet] = ' ';
-        } else {
-            zpNodeIf->p_data[--zOffSet] = '\202';
-            zpNodeIf->p_data[--zOffSet] = '\224';
-            zpNodeIf->p_data[--zOffSet] = '\342';
-        }
-    }
-
-    zpNodeIf->p_data = zpNodeIf->p_data + zOffSet;
-
-    zCcur_Fin_Mark_Thread(zpNodeIf);
-    zCcur_Fin_Signal(zpNodeIf);
-
-    return NULL;
-}
+#define zGenerate_Graph(zpNodeIf) do {\
+    zMetaInfo *____zpTmpNodeIf;\
+    _i ____zOffSet;\
+\
+    zpNodeIf = (zMetaInfo *)zpIf;\
+    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpIf;\
+    ____zOffSet = 6 * zpNodeIf->OffSet + 10;\
+\
+    zpNodeIf->p_data[--____zOffSet] = ' ';\
+    zpNodeIf->p_data[--____zOffSet] = '\200';\
+    zpNodeIf->p_data[--____zOffSet] = '\224';\
+    zpNodeIf->p_data[--____zOffSet] = '\342';\
+    zpNodeIf->p_data[--____zOffSet] = '\200';\
+    zpNodeIf->p_data[--____zOffSet] = '\224';\
+    zpNodeIf->p_data[--____zOffSet] = '\342';\
+    zpNodeIf->p_data[--____zOffSet] = (NULL == zpNodeIf->p_left) ? '\224' : '\234';\
+    zpNodeIf->p_data[--____zOffSet] = '\224';\
+    zpNodeIf->p_data[--____zOffSet] = '\342';\
+\
+    ____zpTmpNodeIf = zpNodeIf;\
+    for (_i i = 0; i < zpNodeIf->OffSet; i++) {\
+        zpNodeIf->p_data[--____zOffSet] = ' ';\
+        zpNodeIf->p_data[--____zOffSet] = ' ';\
+        zpNodeIf->p_data[--____zOffSet] = ' ';\
+\
+        ____zpTmpNodeIf = ____zpTmpNodeIf->p_father;\
+        if (NULL == ____zpTmpNodeIf->p_left) {\
+            zpNodeIf->p_data[--____zOffSet] = ' ';\
+        } else {\
+            zpNodeIf->p_data[--____zOffSet] = '\202';\
+            zpNodeIf->p_data[--____zOffSet] = '\224';\
+            zpNodeIf->p_data[--____zOffSet] = '\342';\
+        }\
+    }\
+\
+    zpNodeIf->p_data = zpNodeIf->p_data + ____zOffSet;\
+\
+    zCcur_Fin_Mark_Thread(zpNodeIf);\
+    zCcur_Fin_Signal(zpNodeIf);\
+} while (0)
 
 void *
 zdistribute_task(void *zpIf) {
@@ -322,7 +319,7 @@ zdistribute_task(void *zpIf) {
     zpNodeIf = (zMetaInfo *)zpIf;
 
     /* 自身信息 */
-    zAdd_To_Thread_Pool(zgenerate_graph, zpIf);
+    zGenerate_Graph(zpNodeIf);
 
     /* 第一个左兄弟；不能用循环，会导致重复发放 */
     if (NULL != zpNodeIf->p_left) {
@@ -335,7 +332,7 @@ zdistribute_task(void *zpIf) {
     for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpNodeIf->p_FirstChild) {
         zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
         zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zAdd_To_Thread_Pool(zgenerate_graph, zpTmpNodeIf);
+        zGenerate_Graph(zpTmpNodeIf);
 
         if (NULL != zpTmpNodeIf->p_left) {
             zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
@@ -505,10 +502,10 @@ zget_file_list(void *zpIf) {
         pclose(zpShellRetHandler);
         return (void *) -1;
     } else {
-//        if (128 < strtol(zShellBuf, NULL, 10)) {
+        if (128 < strtol(zShellBuf, NULL, 10)) {
             zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zShellBuf, zJsonBuf);
             goto zMarkLarge;
-//        }
+        }
     }
 
     /* 差异文件数量 <=128 生成Tree图 */
