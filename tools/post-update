@@ -30,24 +30,21 @@ git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 
 # 校验布署结果
-if [[ (0 -ne $?) || ("`cat ${zPathOnHost}_SHADOW/.____dp-MD5.txt`" != "`tar --exclude=.git -cf ${zPathOnHost}_SHADOW/____dp-MD5.tar \`find . -maxdepth 1 -regex '.*[^.].*'\` && md5sum ${zPathOnHost}_SHADOW/____dp-MD5.tar | grep -oE '^\w+'`") ]]; then exit 255; fi
+if [[ `cat ${zPathOnHost}_SHADOW/.____dp-MD5.txt` != `find . | grep -vE '(^|/)\.git($|/)' | sort | cpio -o > ${zPathOnHost}_SHADOW/.____dp-MD5.cpio && sha1sum ${zPathOnHost}_SHADOW/.____dp-MD5.cpio | grep -oP '^\S+'` ]]; then exit 255; fi
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-echo -e "\n\n[`date`]" >> /tmp/____post-deploy.log 2>&1
-sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/____post-deploy.log 2>&1
+echo -e "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/.____post-deploy.log 2>&1
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 (cd $zPathOnHost && sh __PROJ_PATH/____post-deploy.sh) &
 # echo -e "\n\n\n\n#refresh date: `date`" >> __PROJ_PATH/____post-deploy.sh # 需要检验 md5，不能追加额外内容
 
-# # 如下部分用于保障相同 sig 可以连续布署，应对失败重试场景(已不需要，改为使用 .____dp-MD5.txt 文件生成的 git log 区分)
-# cd $zPathOnHost
-# printf "`date +%s` $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM" > ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# git add ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# git commit -m "____MARK____"
-# rm ____mark.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# git push --force ./.git master:server >/dev/null 2>&1
+# 如下部分用于保障相同 sig 可以连续布署，应对失败重试场景
+cd $zPathOnHost
+git commit --allow-empty -m "____Auto Commit By Deploy System____"
+git push --force ./.git master:server >/dev/null 2>&1
 
 # 自我更新
 rm ${zPathOnHost}/.git/hooks/post-update

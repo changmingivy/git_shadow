@@ -24,14 +24,12 @@ zOps() {
     git branch -D master
     git checkout -b master
     git reset --hard ${zCommitSig}
-    tar --exclude=.git -cf /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar `find . -maxdepth 1 -regex '.*[^.].*'` && md5sum /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar | grep -oE '^\w+' > /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.txt
-    rm /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar &
-    git add .____dp-MD5.txt
-    git commit -m "Deploy System: add MD5 checksum file(.____dp-MD5.txt)"
+    find . | grep -vE '(^|/)\.git($|/)' | sort | cpio -o > /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.cpio && sha1sum /home/git/${zPathOnHost}_SHADOW/____dp-MD5.cpio | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.txt
+    rm /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.cpio
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
-    cp -ur ${zShadowPath}/tools/* ./tools/
+    cp -uR ${zShadowPath}/tools/* ./tools/
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
