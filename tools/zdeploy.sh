@@ -24,8 +24,8 @@ zOps() {
     git branch -D master
     git checkout -b master
     git reset --hard ${zCommitSig}
-    find . | grep -vE '(^|/)\.git($|/)' | sort | cpio -H crc -o > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.cpio && sha1sum /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.cpio | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.txt
-    rm /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.cpio
+    find . -path './.git' -prune -o -type f -print | sort | xargs cat > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.orig && sha1sum /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.orig | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
+    rm /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.orig
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW

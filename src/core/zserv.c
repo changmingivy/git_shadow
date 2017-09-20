@@ -554,7 +554,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
 
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
-    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
 
     /* 并发同步环境初始化 */
@@ -585,7 +585,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
                 /* 先前已被初始化过的主机，状态置1，防止后续收集结果时误报失败，同时计数递增 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = 1;
                 pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
+                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
 
                 /* 每次条件式跳过时，都必须让同步计数器递减一次 */
@@ -624,7 +624,7 @@ zMark:
     /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
     zCcur_Wait(A);
 
-    if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
         char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
         zpMetaIf->p_data[0] = '\0';
         zOffSet = 0;
@@ -718,18 +718,18 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
     }
-    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
 
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
     /* 等待所有主机的状态都得到确认，24 秒超时 */
-    for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
+    for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
         if (120 < zTimeCnter) {
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
-            if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
+            if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             }
@@ -814,19 +814,19 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
     zDpResInfo *zpTmp = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDpHashSiz];
 
     for (; zpTmp != NULL; zpTmp = zpTmp->p_next) {  // 遍历
-        if (-1 == zpTmp->DpState && zpTmp->ClientAddr == zpMetaIf->HostId) {
+        if ((-1 == zpTmp->DpState) && (zpTmp->ClientAddr == zpMetaIf->HostId)) {
+            /* 'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
+            if (('B' == zpMetaIf->p_ExtraData[0]) && (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, 40))) { break; }
             zpTmp->DpState = 1;
 
-            /* 布署耗时统计，必须在锁内执行 */
+            pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+
+            /* 需要原子性递增 */
+            zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
+
+            /* 调试功能：布署耗时统计，必须在锁内执行 */
             zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
 
-            /* 需要原子性递增，'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
-            pthread_mutex_lock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-            if ('A' == zpMetaIf->p_ExtraData[0]) {
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
-            } else {
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
-            }
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
             break;
         }

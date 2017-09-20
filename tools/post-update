@@ -30,12 +30,19 @@ git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 
 # 校验布署结果
-if [[ 0 -ne $? || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.txt` != `find . | grep -vE '(^|/)\.git($|/)' | sort | cpio -H crc -o > ${zPathOnHost}_SHADOW/.____dp-SHA1.cpio && sha1sum ${zPathOnHost}_SHADOW/.____dp-SHA1.cpio | grep -oP '^\S+'` ]]; then exit 255; fi
+zMasterSig=`git log master -1 --format=%H`
+zServerSig=`git log server -1 --format=%H`
+if [[ $zMasterSig != $zServerSig 
+    || 0 -ne `git status --short | wc -l`
+    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat > ${zPathOnHost}_SHADOW/.____dp-SHA1.orig && sha1sum ${zPathOnHost}_SHADOW/.____dp-SHA1.orig | grep -oP '^\S+'` ]]
+then
+    exit 255
+fi
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
 echo -e "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
-sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" >> /tmp/.____post-deploy.log 2>&1
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 (cd $zPathOnHost && sh __PROJ_PATH/____post-deploy.sh) &
