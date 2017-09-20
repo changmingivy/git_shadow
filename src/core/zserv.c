@@ -863,7 +863,6 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
 void *
 zops_route(void *zpSd) {
     _i zSd = *((_i *)zpSd);
-    _i zBufSiz = zCommonBufSiz;
     _i zRecvdLen;
     _i zErrNo;
     zMetaInfo zMetaIf;
@@ -874,7 +873,7 @@ zops_route(void *zpSd) {
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zCommonBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zBufSiz, 0))) {
+    if (zCommonBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zCommonBufSiz, 0))) {
         zMem_Alloc(zpJsonBuf, char, zCommonBufSiz * 1024);
         strcpy(zpJsonBuf, zJsonBuf);
         zRecvdLen += recv(zSd, zpJsonBuf + zRecvdLen, zCommonBufSiz * 1024 - zRecvdLen, 0);
