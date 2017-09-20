@@ -30,7 +30,7 @@ git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard  #git reset -q --hard `git log -1 server --format=%H`
 
 # 校验布署结果
-if [[ (0 -ne $?) || ("`cat ${zPathOnHost}_SHADOW/.____dp-MD5.txt`" != "`tar --exclude=.git -cf ${zPathOnHost}_SHADOW/____dp-MD5.tar \`find ${zPathOnHost} -maxdepth 1 -regex '.*[^.].*'\` && md5sum ${zPathOnHost}_SHADOW/____dp-MD5.tar | grep -oE '^\w+'`") ]]; then exit 255; fi
+if [[ (0 -ne $?) || ("`cat ${zPathOnHost}_SHADOW/.____dp-MD5.txt`" != "`tar --exclude=.git -cf ${zPathOnHost}_SHADOW/____dp-MD5.tar \`find . -maxdepth 1 -regex '.*[^.].*'\` && md5sum ${zPathOnHost}_SHADOW/____dp-MD5.tar | grep -oE '^\w+'`") ]]; then exit 255; fi
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径

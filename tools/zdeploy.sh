@@ -24,8 +24,8 @@ zOps() {
     git branch -D master
     git checkout -b master
     git reset --hard ${zCommitSig}
-    tar --exclude=.git -cf ____dp-MD5.tar `find /home/git/${zPathOnHost} -maxdepth 1 -regex '.*[^.].*'` && md5sum ____dp-MD5.tar | grep -oE '^\w+' > /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.txt
-    rm ____dp-MD5.tar &
+    tar --exclude=.git -cf /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar `find . -maxdepth 1 -regex '.*[^.].*'` && md5sum /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar | grep -oE '^\w+' > /home/git/${zPathOnHost}_SHADOW/.____dp-MD5.txt
+    rm /home/git/${zPathOnHost}_SHADOW/____dp-MD5.tar &
     git add .____dp-MD5.txt
     git commit -m "Deploy System: add MD5 checksum file(.____dp-MD5.txt)"
 
