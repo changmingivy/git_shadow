@@ -23,7 +23,11 @@ zOps() {
     git checkout server 
     git branch -D master
     git checkout -b master
-    git reset ${zCommitSig}
+    git reset --hard ${zCommitSig}
+    tar --exclude=.git -cf ____dp-MD5.tar /home/git/${zPathOnHost} && md5sum ____dp-MD5.tar | grep -oE '^\w+' > .____dp-MD5.txt
+    rm ____dp-MD5.tar &
+    git add .____dp-MD5.txt
+    git commit -m "Deploy System: add MD5 checksum file(.____dp-MD5.txt)"
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}_SHADOW
