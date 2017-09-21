@@ -2,7 +2,7 @@
 
 ###################
 zProjNo=$1  # 项目ID
-zPathOnHost=$(echo $2 | sed -n 's%/home/git/\+%/%p')  # 生产机上的绝对路径
+zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
 zPullAddr=$3  # 拉取代码所用的完整地址
 zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的分支名称
 zRemoteVcsType=$5  # svn 或 git
@@ -75,7 +75,9 @@ git commit --allow-empty -m "__init__"
 # 防止添加重复条目
 zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo}\s*"`
 if [[ 0 -eq $zExistMark ]];then
-    echo "${zProjNo} ${zPathOnHost} ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
+    zDirName=`dirname \`dirname ${zPathOnHost}\``
+    zBaseName=`basename ${zPathOnHost}`
+    echo "${zProjNo} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
 fi
 
 # 创建必要的目录与文件
