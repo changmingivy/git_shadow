@@ -352,7 +352,7 @@ zdistribute_task(void *zpIf) {
 \
     zpTmpNodeIf[0]->p_FirstChild = NULL;\
     zpTmpNodeIf[0]->p_left = NULL;\
-    zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + strlen(zRegResIf->p_rets[zNodeCnter]));\
+    zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + zRegResIf->ResLen[zNodeCnter]);\
     strcpy(zpTmpNodeIf[0]->p_data + 6 * zpTmpNodeIf[0]->OffSet + 10, zRegResIf->p_rets[zNodeCnter]);\
 \
     zpTmpNodeIf[0]->OpsId = 0;\
@@ -400,7 +400,7 @@ zdistribute_task(void *zpIf) {
         zLineCnter++;  /* 每个节点会占用一行显示输出 */\
         zpTmpNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
 \
-        zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + strlen(zRegResIf->p_rets[zNodeCnter]));\
+        zpTmpNodeIf[0]->p_data = zalloc_cache(zpMetaIf->RepoId, 6 * zpTmpNodeIf[0]->OffSet + 10 + 1 + zRegResIf->ResLen[zNodeCnter]);\
         strcpy(zpTmpNodeIf[0]->p_data + 6 * zpTmpNodeIf[0]->OffSet + 10, zRegResIf->p_rets[zNodeCnter]);\
 \
         zpTmpNodeIf[0]->OpsId = 0;\
@@ -794,13 +794,12 @@ zwrite_log(_i zRepoId) {
         zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
     }\
     zreg_free_tmpsource(zRegResIf);\
-    zreg_free_metasource(zRegInitIf);\
 } while(0)
 
 _i
 zinit_one_repo_env(char *zpRepoMetaData) {
-    zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegInitInfo zRegInitIf[2];
+    zRegResInfo zRegResIf[2];
 
     char zShellBuf[zCommonBufSiz];
 
@@ -809,6 +808,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 正则匹配项目基本信息（5个字段） */
     zreg_compile(zRegInitIf, "(\\w|[[:punct:]])+");
     zreg_match(zRegResIf, zRegInitIf, zpRepoMetaData);
+    zreg_free_metasource(zRegInitIf);
     if (5 > zRegResIf->cnt) {
         zPrint_Time();
         return -34;
@@ -824,7 +824,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     } else {
         if (NULL != zppGlobRepoIf[zRepoId]) {
             zreg_free_tmpsource(zRegResIf);
-            zreg_free_metasource(zRegInitIf);
             return -35;
         }
     }
@@ -834,9 +833,16 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->RepoId = zRepoId;
     zppGlobRepoIf[zRepoId]->SelfPushMark = (6 == zRegResIf->cnt) ? 1 : 0;
 
-    /* 提取项目绝对路径 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + sizeof("/home/git//.____DpSystem") + strlen(zRegResIf->p_rets[1]));
-    sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s", "/home/git/", zRegResIf->p_rets[1], "/.____DpSystem");
+    /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
+    zreg_compile(zRegInitIf + 1, "[^/]+[/]*$");
+    zreg_match(zRegResIf + 1, zRegInitIf + 1, zRegResIf->p_rets[1]);
+    zreg_free_metasource(zRegInitIf + 1);
+    /* 去掉 basename 部分 */
+    zRegResIf->p_rets[1][zRegResIf->ResLen[1] - (zRegResIf + 1)->ResLen[0]] = '\0';
+    /* 拼接结果字符串 */
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, sizeof("/home/git/.____DpSystem/") + zRegResIf->ResLen[1]);
+    sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s%s", "/home/git/", zRegResIf->p_rets[1], ".____DpSystem/", (zRegResIf + 1)->p_rets[0]);
+    zreg_free_tmpsource(zRegResIf + 1);
 
     /* 调用SHELL执行检查和创建，此处SHELL参数不能加引号 */
     sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zmaster_init_repo.sh %s", zpRepoMetaData);
@@ -901,7 +907,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 清理资源占用 */
     zreg_free_tmpsource(zRegResIf);
-    zreg_free_metasource(zRegInitIf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==

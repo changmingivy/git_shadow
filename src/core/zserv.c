@@ -51,7 +51,7 @@ _i
 zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
     if (0 == (zErrNo = zinit_one_repo_env(zpMetaIf->p_data))) {
-        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     }
 
     return zErrNo;
@@ -77,7 +77,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     _i zOffSet = 0;
     for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
         strcpy(zpMetaIf->p_data + zOffSet, zRegResIf->p_rets[zCnter]);
-        zOffSet += 1 + strlen(zRegResIf->p_rets[zCnter]);
+        zOffSet += 1 + zRegResIf->ResLen[zCnter];
         zpMetaIf->p_data[zOffSet - 1] = ' ';
     }
     if (0 < zOffSet) { zpMetaIf->p_data[zOffSet - 1] = '\0'; }
@@ -115,7 +115,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     return 0;
 }
 
@@ -173,7 +173,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    if (0 != zErrNo) {
 //        return -16;
 //    } else {
-//        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+//        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
 //        return 0;
 //    }
 //}
@@ -211,7 +211,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
     }
 
-    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", sizeof("{\"OpsId\":0,\"data\":\"__END__\"}]"), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
+    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", sizeof("{\"OpsId\":0,\"data\":\"__END__\"}]") - 1, 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
     return 0;
 }
 
@@ -500,7 +500,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
 zMark:
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     return 0;
 }
 
@@ -609,7 +609,7 @@ zMark:
          * 生成将要传递给布署脚本的参数：空整分隔的字符串形式的 IPv4 列表
          */
         strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zRegResIf->p_rets[zCnter]);
-        zOffSet += 1 + strlen(zRegResIf->p_rets[zCnter]);
+        zOffSet += 1 + zRegResIf->ResLen[zCnter];
         zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
     }
 
@@ -642,7 +642,7 @@ zMark:
             } else {
                 /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
                 strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zRegResIf->p_rets[zCnter]);
-                zOffSet += 1 + strlen(zRegResIf->p_rets[zCnter]);
+                zOffSet += 1 + zRegResIf->ResLen[zCnter];
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
             }
         }
@@ -751,7 +751,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
@@ -850,7 +850,7 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
 
     return 0;
 }
