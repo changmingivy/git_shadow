@@ -6,6 +6,7 @@ export HOME="/home/git"
 export zPathOnHost="__PROJ_PATH"
 
 zProjName=`basename ${zPathOnHost}`
+zProjOnLinePath=`dirname \`dirname ${zPathOnHost}\``
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod a-x ${zPathOnHost}/.git/hooks/post-update
@@ -55,9 +56,9 @@ mv ${zPathOnHost}_OnLine ${zPathOnHost}_OnLineOld
 mv ${zPathOnHost}_OnLineNew ${zPathOnHost}_OnLine
 rm -rf ${zPathOnHost}_OnLineOld &
 # 最后重建软链接
-rm -rf ../${zProjName}
-rm -rf ../${zProjName}_SHADOW  # 一次性使用，清理旧项目遗留的文件
-ln -sf ${zPathOnHost}_OnLine ../${zProjName}
+rm -rf ${zProjOnLinePath}/${zProjName}
+rm -rf ${zProjOnLinePath}/${zProjName}_SHADOW  # 一次性使用，清理旧项目遗留的文件
+ln -sf ${zPathOnHost}_OnLine ${zProjOnLinePath}/${zProjName}
 
 
 # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复

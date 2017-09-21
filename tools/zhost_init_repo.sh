@@ -14,7 +14,7 @@ do
     let zCnter++
 done
 
-zPipePath=/tmp/fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
+zPipePath=/home/git/.fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
 mkfifo -m 0700 $zPipePath
 
 (
