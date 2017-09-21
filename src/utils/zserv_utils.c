@@ -835,8 +835,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->SelfPushMark = (6 == zRegResIf->cnt) ? 1 : 0;
 
     /* 提取项目绝对路径 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/") + strlen(zRegResIf->p_rets[1]));
-    sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/", zRegResIf->p_rets[1]);
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git/.____DpSystem") + strlen(zRegResIf->p_rets[1]));
+    sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s", "/home/git/.____DpSystem", zRegResIf->p_rets[1]);
 
     /* 调用SHELL执行检查和创建，此处SHELL参数不能加引号 */
     sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zmaster_init_repo.sh %s", zpRepoMetaData);
@@ -883,13 +883,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zCommonBufSiz];
     if (0 == strcmp("git", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd /home/git/\"%s\" && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; git pull --force \"%s\" \"%s\":server; rm -f .git/index.lock",
-                zRegResIf->p_rets[1],
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; git pull --force \"%s\" \"%s\":server; rm -f .git/index.lock",
+                zppGlobRepoIf[zRepoId]->p_RepoPath,
                 zRegResIf->p_rets[2],
                 zRegResIf->p_rets[3]);
     } else if (0 == strcmp("svn", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd /home/git/\"%s\"/.sync_svn_to_git && svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
-                zRegResIf->p_rets[1]);
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
+                zppGlobRepoIf[zRepoId]->p_RepoPath);
     } else {
         close(zppGlobRepoIf[zRepoId]->LogFd);
         zFree_Source();
@@ -1022,7 +1022,7 @@ zinit_one_remote_host(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zHostStrAddrBuf,
             zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 23);  // 去掉最前面的 "/home/git/.____DpSystem" 共计 23 个字符
 
     system(zShellBuf);
 

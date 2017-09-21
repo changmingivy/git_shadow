@@ -96,7 +96,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     char zShellBuf[zCommonBufSiz];
     sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 23,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git/.____DpSystem" 合计 23 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
 
@@ -149,7 +149,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    /* 生成待执行的外部动作指令 */
 //    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zdelete_repo.sh %s %s %s",
 //            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
-//            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+//            zpRepoIf->p_RepoPath + 23,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git/.____DpSystem" 合计 23 个字符
 //            zpRepoIf->ProxyHostStrAddr,
 //            NULL == zpRepoIf->p_HostStrAddrList ? "" : zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 //
@@ -484,7 +484,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->p_data,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 23);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git/.____DpSystem" 合计 23 个字符
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
@@ -710,7 +710,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 23,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git/.____DpSystem" 合计 23 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
 

@@ -9,7 +9,7 @@ zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=/home/git/zgit_shadow
-zDeployPath=/home/git/$zPathOnHost
+zDeployPath=/home/git/.____DpSystem/$zPathOnHost
 
 if [[ "" == $zProjNo
     || "" == $zPathOnHost
@@ -37,7 +37,12 @@ mkdir -p $zDeployPath
 if [[ $? -ne 0 ]]; then exit 254; fi
 
 # 拉取远程代码
-git clone $zPullAddr $zDeployPath
+if [[ "svn" == $zRemoteVcsType ]]; then
+    svn co $zPullAddr $zDeployPath
+else
+    git clone $zPullAddr $zDeployPath
+fi
+
 if [[ $? -ne 0 ]]; then
     rm -rf $zDeployPath
     exit 253
@@ -45,6 +50,7 @@ fi
 
 # 环境初始化
 cd $zDeployPath
+git init .  # FOR svn
 git config user.name "$zProjNo"
 git config user.email "${zProjNo}@${zPathOnHost}"
 printf ".svn/" > .gitignore  # 忽略<.svn>目录
@@ -52,21 +58,6 @@ git add --all .
 git commit -m "__init__"
 git branch -f CURRENT
 git branch -f server  # 远程代码接收到server分支
-
-# 专用于远程库VCS是svn的场景
-if [[ "svn" == $zRemoteVcsType ]]; then
-    rm -rf ${zDeployPath}_SYNC_SVN_TO_GIT
-    mkdir ${zDeployPath}_SYNC_SVN_TO_GIT
-
-    svn co $zPullAddr ${zDeployPath}_SYNC_SVN_TO_GIT  # 将 svn 代码库内嵌在 git 仓库下建一个子目录中
-    cd ${zDeployPath}_SYNC_SVN_TO_GIT
-    git init .
-    git config user.name "sync_svn_to_git"
-    git config user.email "sync_svn_to_git@${zProjNo}"
-    printf ".svn/" > .gitignore
-    git add --all .
-    git commit -m "__init__"
-fi
 
 # 创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
 mkdir -p ${zDeployPath}_SHADOW/tools
