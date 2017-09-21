@@ -23,8 +23,10 @@ mkfifo -m 0700 $zPipePath
         echo '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
         exec 777>&-
 \
-        mkdir -p ${zPathOnHost}
+        rm ${zPathOnHost}_SHADOW
+        rm ${zPathOnHost}
         mkdir -p ${zPathOnHost}_SHADOW
+        mkdir -p ${zPathOnHost}
 \
         cd ${zPathOnHost}_SHADOW
         git init .

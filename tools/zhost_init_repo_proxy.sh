@@ -7,6 +7,8 @@ mkfifo -m 0700 $zPipePath
 
 (
     ssh $zMajorAddr "
+        rm ${zPathOnHost}_SHADOW
+        rm ${zPathOnHost}
         mkdir -p ${zPathOnHost}_SHADOW &&
         mkdir -p ${zPathOnHost} &&
 \
