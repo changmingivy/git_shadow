@@ -51,7 +51,7 @@ _i
 zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
     if (0 == (zErrNo = zinit_one_repo_env(zpMetaIf->p_data))) {
-        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
     }
 
     return zErrNo;
@@ -115,7 +115,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
     return 0;
 }
 
@@ -173,7 +173,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    if (0 != zErrNo) {
 //        return -16;
 //    } else {
-//        zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+//        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
 //        return 0;
 //    }
 //}
@@ -211,7 +211,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zCnter]->RwLock));
     }
 
-    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", strlen("{\"OpsId\":0,\"data\":\"__END__\"}]"), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
+    zsendto(zSd, "{\"OpsId\":0,\"data\":\"__END__\"}]", sizeof("{\"OpsId\":0,\"data\":\"__END__\"}]"), 0, NULL);  // 凑足json格式，同时防止内容为空时，前端无法解析
     return 0;
 }
 
@@ -500,7 +500,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
 zMark:
-    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
     return 0;
 }
 
@@ -751,7 +751,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
-    zsendto(zSd, "[{\"OpsId\":0}]", zBytes(13), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
     shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
@@ -840,7 +840,6 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
-    char zJsonBuf[64];
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
     if (2 == zpMetaIf->OpsId) {
@@ -851,8 +850,7 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-    sprintf(zJsonBuf, "[{\"OpsId\":0}]");
-    zsendto(zSd, zJsonBuf, zBytes(13), 0, NULL);
+    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]"), 0, NULL);
 
     return 0;
 }

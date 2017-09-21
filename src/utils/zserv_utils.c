@@ -835,7 +835,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->SelfPushMark = (6 == zRegResIf->cnt) ? 1 : 0;
 
     /* 提取项目绝对路径 */
-    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + strlen("/home/git//.____DpSystem") + strlen(zRegResIf->p_rets[1]));
+    zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, 1 + sizeof("/home/git//.____DpSystem") + strlen(zRegResIf->p_rets[1]));
     sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s", "/home/git/", zRegResIf->p_rets[1], "/.____DpSystem");
 
     /* 调用SHELL执行检查和创建，此处SHELL参数不能加引号 */
