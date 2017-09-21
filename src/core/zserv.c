@@ -529,6 +529,9 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         return -28;
     }
 
+    /* 用于统计分析初始化远程主机的耗时，文件：Init_Remote_Host.TimeCnt */
+    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, "Init_Remote_Host");
+
     /* 检测上一次的内存是否需要释放 */
     if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList != &(zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0])) {
         free(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);

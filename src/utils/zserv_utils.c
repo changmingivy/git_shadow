@@ -1038,15 +1038,15 @@ zinit_one_remote_host(void *zpIf) {
 
 /* 布署耗时信息写入本地文件，产出仅用作参考，不必检查返回值 */
 void
-zwrite_analysis_data(_i zRepoId, char *zpDpSig, _ui zIpv4Addr, _d zDpTime) {
+zwrite_analysis_data(_i zRepoId, char *zpDpSig, _ui zIpv4Addr, _d zTimeCnt) {
     _i zFd, zWrLen;
-    char zIpv4StrAddr[INET_ADDRSTRLEN], zDpTimeBuf[64], zPathBuf[zCommonBufSiz];
+    char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[64], zPathBuf[zCommonBufSiz];
 
     zconvert_ipv4_bin_to_str(zIpv4Addr, zIpv4StrAddr);
-    zWrLen = sprintf(zDpTimeBuf, "[%s]: %lf\n", zIpv4StrAddr, zDpTime);
-    sprintf(zPathBuf, "%s_SHADOW/log/%s.DpTime", zppGlobRepoIf[zRepoId]->p_RepoPath, zpDpSig);
+    zWrLen = sprintf(zTimeCntBuf, "[%s]: %lf\n", zIpv4StrAddr, zTimeCnt);
+    sprintf(zPathBuf, "%s_SHADOW/log/%s.TimeCnt", zppGlobRepoIf[zRepoId]->p_RepoPath, zpDpSig);
     if (0 < (zFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755))) {
-        write(zFd, zDpTimeBuf, zWrLen);
+        write(zFd, zTimeCntBuf, zWrLen);
         close(zFd);
     }
 }
