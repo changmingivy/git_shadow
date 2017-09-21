@@ -52,8 +52,8 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
         zResStrLen = zMatchResIf[1].rm_eo - zMatchResIf[1].rm_so;
         if (0 == zResStrLen) { break; }
 
-        zpRegResIf->cnt++;
         zpRegResIf->ResLen[zpRegResIf->cnt] = zResStrLen;
+        zpRegResIf->cnt++;
 
         zMem_Alloc(zpRegResIf->p_rets[zCnter], char, 1 + zResStrLen);
         strncpy(zpRegResIf->p_rets[zCnter], zpRegSubject + zMatchResIf[1].rm_so, zResStrLen);
