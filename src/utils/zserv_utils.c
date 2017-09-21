@@ -1022,7 +1022,7 @@ zinit_one_remote_host(void *zpIf) {
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zHostStrAddrBuf,
             zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 23);  // 去掉最前面的 "/home/git/.____DpSystem" 共计 23 个字符
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
     system(zShellBuf);
 
