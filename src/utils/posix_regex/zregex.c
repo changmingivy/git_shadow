@@ -8,6 +8,7 @@
 
 struct zRegResInfo {
     char *p_rets[zMatchLimit];  //matched results
+    _i ResLen[zMatchLimit];  // results' strlen
     _i cnt;         //total num of matched substrings
 };
 typedef struct zRegResInfo zRegResInfo;
@@ -52,6 +53,7 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
         if (0 == zResStrLen) { break; }
 
         zpRegResIf->cnt++;
+        zpRegResIf->ResLen[zpRegResIf->cnt] = zResStrLen;
 
         zMem_Alloc(zpRegResIf->p_rets[zCnter], char, 1 + zResStrLen);
         strncpy(zpRegResIf->p_rets[zCnter], zpRegSubject + zMatchResIf[1].rm_so, zResStrLen);

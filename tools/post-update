@@ -36,7 +36,7 @@ zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log server -1 --format=%H`
 if [[ $zMasterSig != $zServerSig 
     || 0 -ne `git status --short | wc -l`
-    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat > ${zPathOnHost}_SHADOW/.____dp-SHA1.orig && sha1sum ${zPathOnHost}_SHADOW/.____dp-SHA1.orig | grep -oP '^\S+'` ]]
+    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
 then
     exit 255
 fi

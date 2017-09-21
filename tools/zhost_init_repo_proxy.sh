@@ -2,7 +2,7 @@
 zMajorAddr=$1
 zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
 
-zPipePath=/tmp/____fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
+zPipePath=/home/git/.____fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
 mkfifo -m 0700 $zPipePath
 
 (
