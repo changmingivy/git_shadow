@@ -20,9 +20,8 @@ zOps() {
 
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
-    git checkout server 
-    git branch -D master
-    git checkout -b master
+    git stash clear
+    git pull --force ./.git server:master
     git reset --hard ${zCommitSig}
     find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
