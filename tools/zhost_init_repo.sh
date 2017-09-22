@@ -64,6 +64,6 @@ if [[ "Success" == `cat ${zPipePath}` ]]; then
     exit 0
 else
     rm $zPipePath
-    kill -9 `ps ax -o pid,cmd | grep -oP "\d+(?=\s+ssh -t $zMajorAddr \"ssh $zSlaveAddr)"`
+    kill -9 `ps ax -o pid,cmd | grep -oP "\d+(?=\s.*${zMajorAddr}.*${zSlaveAddr})"`
     exit 255  # 若失败，则以退出码 255 结束进程
 fi

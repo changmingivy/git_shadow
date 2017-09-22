@@ -8,6 +8,9 @@ export zPathOnHost="__PROJ_PATH"
 zProjName=`basename ${zPathOnHost}`
 zProjOnLinePath=`dirname \`dirname ${zPathOnHost}\``
 
+# kill 掉可能存在的僵死进程
+kill -9 `ps ax -o pid,cmd | grep -oP "\d+(?=\s.*post-update)"`
+
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod a-x ${zPathOnHost}/.git/hooks/post-update
 
