@@ -9,7 +9,7 @@ zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=/home/git/zgit_shadow
-zDeployPath=$2
+zDeployPath=/home/git/${zPathOnHost}
 
 if [[ "" == $zProjNo
     || "" == $zDeployPath
