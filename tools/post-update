@@ -48,6 +48,11 @@ then
     exit 255
 fi
 
+# 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
+cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
+echo -e "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
+
 
 ######################################################################
 # 采取换软链接的方式，避免推送大量代码过程中线上代码出现不一致的情况 #
@@ -65,16 +70,8 @@ rm -rf ${zPathOnHost}_OnLineOld &
 rm -rf ${zProjOnLinePath}/${zProjName}
 rm -rf ${zProjOnLinePath}/${zProjName}_SHADOW  # 一次性使用，清理旧项目遗留的文件
 ln -sf ${zPathOnHost}_OnLine ${zProjOnLinePath}/${zProjName}
-
-
-# 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
-cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-echo -e "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
-sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
-
 # 布署完成之后需要执行的动作：<项目名称.sh>
 (cd $zPathOnHost && sh __PROJ_PATH/____post-deploy.sh) &
-# echo -e "\n\n\n\n#refresh date: `date`" >> __PROJ_PATH/____post-deploy.sh # 需要检验 md5，不能追加额外内容
 
 # 如下部分用于保障相同 sig 可以连续布署，应对失败重试场景
 cd $zPathOnHost
