@@ -787,7 +787,7 @@ zMarkFailReTry:
                 /* 重置中转机状态 */
                 sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                        zpMetaIf->p_data,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS(system(zShellBuf))) { return -27; }
 
