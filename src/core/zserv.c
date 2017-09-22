@@ -285,7 +285,7 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (0 != pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -300,7 +300,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
             if ((0 == zppGlobRepoIf[zpMetaIf->RepoId]->SelfPushMark)
                     && (0 == pthread_mutex_trylock( &(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock))) ) {
 
-                system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);
+                system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);  /* 不能多线程，因为多个 git pull 会产生文件锁竞争 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 
                 char zShellBuf[zCommonBufSiz];
@@ -314,7 +314,15 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 if ((NULL == zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data)
                         || (0 != strncmp(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
                     zpMetaIf->DataType = zIsCommitDataType;
+
+                    /* 此处进行换锁：读锁与写锁进行两次互换 */
+                    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                    if (0 != pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+
                     zrefresh_cache(zpMetaIf);
+
+                    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+                    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
                 }
 
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
