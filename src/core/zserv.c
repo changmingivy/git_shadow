@@ -190,7 +190,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
     for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
         if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
 
-        if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) {
+        if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) {
             sprintf(zSendBuf, "{\"OpsId\":-11,\"data\":\"Id: %d\"},", zCnter);
             zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
             continue;
@@ -223,7 +223,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
     zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
     char zSendBuf[zCommonBufSiz];
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zpMetaIf->RepoId,
@@ -285,7 +285,7 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (0 > pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -364,7 +364,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* get rdlock */
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -420,7 +420,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -487,7 +487,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (0 > pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     /* system 返回值是 waitpid 状态，不是错误码，错误码需要用 WEXITSTATUS 宏提取 */
     if (0 != WEXITSTATUS(system(zShellBuf))) {
@@ -807,7 +807,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
         pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     } else {
-        if (0 > pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+        if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
     }
 
     zErrNo = zdeploy(zpMetaIf, zSd);
