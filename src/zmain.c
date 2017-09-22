@@ -178,7 +178,7 @@ struct zRepoInfo {
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    _i ReplyCnt;
+    _i ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
