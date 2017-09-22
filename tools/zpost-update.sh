@@ -3,8 +3,8 @@
 # 通知中控机已收到代码；
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
-export zPathOnHost="__PROJ_PATH"
 
+zPathOnHost=$1
 zProjName=`basename ${zPathOnHost}`
 zProjOnLinePath=`dirname \`dirname ${zPathOnHost}\``
 

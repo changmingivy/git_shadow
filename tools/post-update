@@ -45,4 +45,4 @@ echo -e "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
 
 # 其它额外的动作
-sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh >/tmp/zpost-update.log 2>/tmp/zpost-update.err
+sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} >/tmp/zpost-update.log 2>/tmp/zpost-update.err
