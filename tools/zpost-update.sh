@@ -41,16 +41,3 @@ ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}/${zProjName}
 
 # 布署完成之后需要执行的动作：<项目名称.sh>
 (cd $zPathOnHost && sh ${zPathOnHost}/____post-deploy.sh) &
-
-# 如下部分用于保障相同 sig 可以连续布署，应对失败重试场景
-cd $zPathOnHost
-git commit --allow-empty -m "____Auto Commit By Deploy System____"
-git push --force ./.git master:server >/dev/null 2>&1
-
-# 更新 post-update
-rm ${zPathOnHost}/.git/hooks/post-update
-cp ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}/.git/hooks/post-update
-chmod 0755 ${zPathOnHost}/.git/hooks/post-update
-
-# 更新开机请求布署自身的脚本，设置为隐藏文件
-mv ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
