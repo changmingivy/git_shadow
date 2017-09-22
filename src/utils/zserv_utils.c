@@ -959,7 +959,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->DpVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DpRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDpVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDpVecIf;
 
-    zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[0] = zppGlobRepoIf[zRepoId]->HostStrAddrList[0];
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[1] = zppGlobRepoIf[zRepoId]->HostStrAddrList[1];
 
     /* 生成缓存 */
     zMetaInfo zMetaIf;
@@ -1011,28 +1012,6 @@ zinit_env(const char *zpConfPath) {
     if (0 > zGlobMaxRepoId) { zPrint_Err(0, NULL, "未读取到有效代码库信息!"); }
 
     fclose(zpFile);
-    return NULL;
-}
-
-/* 通过 SSH 远程初始化一个目标主机，完成任务后通知上层调用者 */
-void *
-zinit_one_remote_host(void *zpIf) {
-    zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
-    char zShellBuf[zCommonBufSiz];
-    char zHostStrAddrBuf[16];
-
-    zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zHostStrAddrBuf);
-
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
-            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zHostStrAddrBuf,
-            zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
-
-    system(zShellBuf);
-
-    zCcur_Fin_Signal(zpMetaIf);
-
     return NULL;
 }
 

@@ -40,10 +40,15 @@ mkfifo -m 0700 $zPipePath
     fi
 ) &
 
-if [[ "Success" == `cat ${zPipePath}` ]]; then
-    rm $zPipePath
-    exit 0
-else
-    rm $zPipePath
-    exit 255  # 若失败，则以退出码 255 结束进程
-fi
+while :
+do
+    sleep 0.2
+
+    if [[ "Success" == `cat ${zPipePath}` ]]; then
+        rm $zPipePath
+        exit 0
+    elif [[ "Fail" == `cat ${zPipePath}` ]]; then
+        rm $zPipePath
+        exit 255  # 若失败，则以退出码 255 结束进程
+    fi
+done

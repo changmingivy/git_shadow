@@ -204,7 +204,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
                 zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
                 zppGlobRepoIf[zCnter]->ProxyHostStrAddr,
                 zppGlobRepoIf[zCnter]->TotalHost,
-                NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
+                NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList[0] ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList[0]
                 );
         zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
 
@@ -233,7 +233,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
             zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
-            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+            NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]
             );
     zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
 
@@ -509,7 +509,6 @@ zMark:
  */
 _i
 zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
-    zMetaInfo *zpSubMetaIf;
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
     _ui zOffSet = 0;
 
@@ -533,16 +532,18 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, "Init_Remote_Host");
 
     /* 检测上一次的内存是否需要释放 */
-    if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList != &(zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0])) {
-        free(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] != zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0]) {
+        free(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);
     }
 
     if (zForecastedHostNum < zRegResIf->cnt) {
         /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
         /* 加空格最长16字节，如："123.123.123.123 " */
-        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList, char, 16 * zRegResIf->cnt);
+        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0], char, 16 * zRegResIf->cnt);
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1] = zalloc_cache(zpMetaIf->RepoId, zBytes(16 * zRegResIf->cnt));
     } else {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList;
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0];
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1] = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[1];
     }
 
     /* 更新项目目标主机总数 */
@@ -559,13 +560,9 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
+    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1][0] = '\0';
 
-    /* 并发同步环境初始化 */
-    zCcur_Init(zpMetaIf->RepoId, zRegResIf->cnt, A);
     for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
-        /* 检测是否是最后一次循环 */
-        zCcur_Fin_Mark((zRegResIf->cnt - 1) == zCnter, A);
-
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ipv4_str_to_bin(zRegResIf->p_rets[zCnter]);
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
@@ -591,78 +588,89 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
 
-                /* 每次条件式跳过时，都必须让同步计数器递减一次 */
-                zCcur_Cnter_Subtract(A);
                 goto zMark;
             }
             zpTmpDpResIf = zpTmpDpResIf->p_next;
         }
 
-        zpSubMetaIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));
-        /* 调度一个新的线程执行初始化远程主机的任务 */
-        zCcur_Sub_Config(zpSubMetaIf, A);
-        /* 仅需要 RepoId 与 HostId 两个字段 */
-        zpSubMetaIf->RepoId = zpMetaIf->RepoId;
-        zpSubMetaIf->HostId = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr;
-
-        zAdd_To_Thread_Pool(zinit_one_remote_host, zpSubMetaIf);
+        /* 收集新加入的主机 IP 列表 */
+        strcat(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1], zRegResIf->p_rets[zCnter]);
+        strcat(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1], " ");
 zMark:
         /*
          * 非定长字符串不好动态调整，因此无论是否已存在都要执行
          * 生成将要传递给布署脚本的参数：空整分隔的字符串形式的 IPv4 列表
          */
-        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zRegResIf->p_rets[zCnter]);
+        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] + zOffSet, zRegResIf->p_rets[zCnter]);
         zOffSet += 1 + zRegResIf->ResLen[zCnter];
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = ' ';
     }
 
     if (0 < zOffSet) {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = '\0';
     } else {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][0] = '\0';
     }
 
+    /* 执行外部命令 */
+    char zShellBuf[zCommonBufSiz];
+    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
+            zpMetaIf->RepoId,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+
+    system(zShellBuf);
+
+    /* 释放资源 */
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
 
-    /* 初始化远端新主机可能耗时较长，因此在更靠后的位置等待信号，以防长时间阻塞其它操作 */
-    zCcur_Wait(A);
+    /* 
+     * 等待所有主机的状态都得到确认，6+ 秒超时
+     * 主机数量达到 30 台时，每增加一台，超时上限递增 0.2 秒
+     * 由于初始化远程主机动作的工作量是固定的，可按目标主机数量运态调整超时时间
+     * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
+     */
+    _i zWaitTimeLimit = 5 * (6 + 0.2 * ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost < 30) ? 0 : (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost - 30)));
+    for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
+        zsleep(0.2);
+        if (zWaitTimeLimit < zTimeCnter) {
+            char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+            zpMetaIf->p_data[0] = '\0';
+            zOffSet = 0;
+            zpBasePtr = zpMetaIf->p_data;
+            /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
+            for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zRegResIf->cnt; zCnter++) {
+                if (-1 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
+                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
+                    zpBasePtr += sprintf(zpBasePtr, "%s,", zIpv4StrAddrBuf);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strlen() 取得的值相同
+                    zUnReplyCnt++;
 
-    if (zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) {
-        char *zpBasePtr, zIpv4StrAddrBuf[INET_ADDRSTRLEN];
-        zpMetaIf->p_data[0] = '\0';
-        zOffSet = 0;
-        zpBasePtr = zpMetaIf->p_data;
-        /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-        for (_i zCnter = 0, zUnReplyCnt = 0; zCnter < zRegResIf->cnt; zCnter++) {
-            if (-1 == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
-                zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                zpBasePtr += sprintf(zpBasePtr, "%s,", zIpv4StrAddrBuf);  // sprintf 将返回除 ‘\0’ 之外的字符总数，与 strlen() 取得的值相同
-                zUnReplyCnt++;
-
-                /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行；同时主机总数递减 */
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
-                zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost--;
-            } else {
-                /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
-                strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList+ zOffSet, zRegResIf->p_rets[zCnter]);
-                zOffSet += 1 + zRegResIf->ResLen[zCnter];
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = ' ';
+                    /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行；同时主机总数递减 */
+                    zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost--;
+                } else {
+                    /* 此处重新生成有效的全量主机IP地址字符串，过滤掉失败的部分 */
+                    strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] + zOffSet, zRegResIf->p_rets[zCnter]);
+                    zOffSet += 1 + zRegResIf->ResLen[zCnter];
+                    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = ' ';
+                }
             }
-        }
-        if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
+            if (zpBasePtr > zpMetaIf->p_data) { (--zpBasePtr)[0] = '\0'; }  // 若至少取到一个值，则需要去掉最后一个逗号
 
-        if (0 < zOffSet) {
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[zOffSet - 1] = '\0';
-        } else {
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
-        }
+            if (0 < zOffSet) {
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = '\0';
+            } else {
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][0] = '\0';
+            }
 
-        zreg_free_tmpsource(zRegResIf);
-        return -23;
-    } else {
-        zreg_free_tmpsource(zRegResIf);
-        return 0;
+            zreg_free_tmpsource(zRegResIf);
+            return -23;
+        }
     }
+
+    zreg_free_tmpsource(zRegResIf);
+    return 0;
 }
 
 /*
@@ -700,7 +708,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 检查部署目标主机集合是否存在 */
     if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost
-            || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+            || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]
             || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
         return -26;
     }
@@ -715,7 +723,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 集群主机的点分格式文本 IPv4 列表
 
     /* 重置布署状态 */
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
@@ -943,6 +951,7 @@ zMarkCommonAction:
  *  -15：最近的布署记录之后，无新的提交记录
  *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
+ *  -21：更新全量IP列表时，连接中转机失败（即由中控到中转的数据链路环节有问题）
  *  -22：指定的代理分发主机IP地址格式错误
  *  -23：更新全量IP列表时：部分或全部目标初始化失败
  *  -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
