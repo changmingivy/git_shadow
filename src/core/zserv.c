@@ -700,6 +700,10 @@ zMark:
 
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
+    char *zpShellBuf, zShellBuf[zCommonBufSiz];
+    FILE *zpShellRetHandler;
+
+    _l zDiffBytes, zWaitTimeLimit;
     zVecWrapInfo *zpTopVecWrapIf;
     _i zErrNo, zMarkReTry = 2;
 
@@ -737,7 +741,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(41));
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
-    char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
+    zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
     sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
@@ -756,11 +760,27 @@ zMarkFailReTry:
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
-    /* 等待所有主机的状态都得到确认，60 秒超时 */
-    for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
-        zsleep(0.2);
-        if (300 < zTimeCnter) {
-            char zShellBuf[zCommonBufSiz];
+    /* 测算超时时间 */
+    if (2 == zMarkReTry) {
+        sprintf(zShellBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
+                zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
+                );
+
+        zpShellRetHandler = popen(zShellBuf, "r");
+        zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler);
+        pclose(zpShellRetHandler);
+        zDiffBytes = strtol(zShellBuf, NULL, 10);
+
+        /* [基数 10 秒] [网络数据总量每增加 102400 kB ，超时上限递增 0.1 秒] [网络数据总量 == 主机数 X 每台的数据量] [单位：0.1 秒] */
+        zWaitTimeLimit = 100 + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 102400.0;
+    }
+
+    /* 等待所有主机的状态都得到确认 */
+    for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
+        zsleep(0.1);
+        if (zWaitTimeLimit < zTimeCnter) {
             if (2 == zMarkReTry) {  /* 第一次失败，执行轻度重置 */
                 /* 重置所有目标机状态 */
                 sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
@@ -774,6 +794,7 @@ zMarkFailReTry:
                 //zCheck_Remote_Host_Init_Res();
 
                 zMarkReTry--;
+                zWaitTimeLimit *= 1.5;  // 延长超时上限
                 goto zMarkFailReTry;
             } else if (1== zMarkReTry) {  /* 第二次失败，执行重度重置 */
                 /* 清理本地及所有远程主机上的项目文件；中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回 */
@@ -803,6 +824,7 @@ zMarkFailReTry:
                 zCheck_Remote_Host_Init_Res();
 
                 zMarkReTry--;
+                zWaitTimeLimit *= 1.5;  // 延长超时上限
                 goto zMarkFailReTry;
             }
 
