@@ -689,7 +689,7 @@ zMark:
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpTopVecWrapIf;
-    _i zErrNo;
+    _i zErrNo, zMarkReTry = 2;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
     else if (zIsDpDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf); }
@@ -733,6 +733,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 集群主机的点分格式文本 IPv4 列表
 
+zMarkSecondTry:
     /* 重置布署状态 */
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
@@ -743,10 +744,50 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
-    /* 等待所有主机的状态都得到确认，120 秒超时 */
+    /* 等待所有主机的状态都得到确认，60 秒超时 */
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.2);
-        if (600 < zTimeCnter) {
+        if (300 < zTimeCnter) {
+            char zShellBuf[zCommonBufSiz];
+            if (2 == zMarkReTry) {  /* 第一次失败，执行轻度重置 */
+                /* 重置所有目标机状态 */
+                sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0],  // 此处执行全量初始化，使用 [0]
+                        zpMetaIf->RepoId,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+                system(zShellBuf);
+
+                zMarkReTry--;
+                goto zMarkSecondTry;
+            } else if (1== zMarkReTry) {  /* 第二次失败，执行重度重置 */
+                /* 清理本地及所有远程主机上的项目文件；中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回 */
+                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+                        zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
+                if (255 == WEXITSTATUS( system(zShellBuf)) ) { return -60; }
+
+                /* 重置中转机状态 */
+                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                        zpMetaIf->p_data,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+                if (0 != WEXITSTATUS(system(zShellBuf))) { return -27; }
+
+                /* 重置所有目标机状态 */
+                sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0],  // 此处执行全量初始化，使用 [0]
+                        zpMetaIf->RepoId,
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+                system(zShellBuf);
+
+                zMarkReTry--;
+                goto zMarkSecondTry;
+            }
+
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
