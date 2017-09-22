@@ -2,8 +2,9 @@
 zMajorAddr=$1
 zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
 
-zPipePath=/home/git/.____fifo.$$  # 以 fifo.<自身进程号> 命名保证管道名称唯一性
-mkfifo -m 0700 $zPipePath
+zFinMarkFilePath=/home/git/.____fifo.$$  # 以 <自身进程号> 命名保证名称唯一
+rm $zFinMarkFilePath
+touch $zFinMarkFilePath
 
 (
     ssh $zMajorAddr "
@@ -27,16 +28,16 @@ mkfifo -m 0700 $zPipePath
         git branch -f server
         "
 
-        if [[ (0 -eq $?) && (1 -eq `ls ${zPipePath} | wc -l`) ]]; then
-            echo "Success" > $zPipePath
+        if [[ (0 -eq $?) && (1 -eq `ls ${zFinMarkFilePath} | wc -l`) ]]; then
+            echo "Success" > $zFinMarkFilePath
         fi
 ) &
 
 # 防止遇到无效IP时，长时间阻塞
 (
     sleep 6
-    if [[ 1 -eq `ls ${zPipePath} | wc -l` ]]; then
-        echo "Fail" > $zPipePath
+    if [[ 1 -eq `ls ${zFinMarkFilePath} | wc -l` ]]; then
+        echo "Fail" > $zFinMarkFilePath
     fi
 ) &
 
@@ -44,11 +45,11 @@ while :
 do
     sleep 0.2
 
-    if [[ "Success" == `cat ${zPipePath}` ]]; then
-        rm $zPipePath
+    if [[ "Success" == `cat ${zFinMarkFilePath}` ]]; then
+        rm $zFinMarkFilePath
         exit 0
-    elif [[ "Fail" == `cat ${zPipePath}` ]]; then
-        rm $zPipePath
+    elif [[ "Fail" == `cat ${zFinMarkFilePath}` ]]; then
+        rm $zFinMarkFilePath
         exit 255  # 若失败，则以退出码 255 结束进程
     fi
 done
