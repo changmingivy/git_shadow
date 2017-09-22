@@ -58,6 +58,12 @@ zOps() {
     git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 }
 
+# kill 掉可能存在的僵死进程
+for zOldPid in `ps ax -o pid,cmd | grep -oP "\d+(?=\s.*${zMajorAddr}.*${zHostList})"`
+do
+    if [[ $$ -ne ${zOldPid} ]]; then kill -9 $zOldPid; fi
+done
+
 echo -e "====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 echo -e "\n\n\n\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
