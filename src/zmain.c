@@ -157,8 +157,8 @@ struct zRepoInfo {
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
     _i DpLock;
 
-    /* 布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
-    time_t DpStartTime;
+    /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
+    time_t DpBaseTimeStamp;
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
