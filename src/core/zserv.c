@@ -749,9 +749,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 集群主机的点分格式文本 IPv4 列表
 
-    /* 重置布署状态，布署计时不能随失败重试而重置 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);
 zMarkFailReTry:
+    /* 重置布署状态 */
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
     }
@@ -762,6 +761,8 @@ zMarkFailReTry:
 
     /* 测算超时时间 */
     if (2 == zMarkReTry) {
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);  // 耗时基数，只计算一次
+
         sprintf(zShellBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                 zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
@@ -773,8 +774,18 @@ zMarkFailReTry:
         pclose(zpShellRetHandler);
         zDiffBytes = strtol(zShellBuf, NULL, 10);
 
-        /* [基数 10 秒] [网络数据总量每增加 102400 kB ，超时上限递增 0.1 秒] [网络数据总量 == 主机数 X 每台的数据量] [单位：0.1 秒] */
-        zWaitTimeLimit = 100 + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 102400.0;
+        /*
+         * [基数 10 秒] + [中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 204800 kB ，超时上限递增 0.1 秒]
+         * [网络数据总量 == 主机数 X 每台的数据量]
+         * [单位：0.1 秒]
+         */
+        zWaitTimeLimit = 100 + 10 * (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime) + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 204800;
+
+        /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
+        if (600 <= zWaitTimeLimit) {
+            zsendto(zSd, "[{\"OpsId\":-14}]", sizeof("[{\"OpsId\":-14}]") - 1, 0, NULL);
+            shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
+        }
     }
 
     /* 等待所有主机的状态都得到确认 */
@@ -851,12 +862,14 @@ zMarkFailReTry:
         }
     }
 
-    /* 布署成功：向前端确认成功，更新最近一次布署的版本号到项目元信息中，复位代码库状态 */
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
-    shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
+    /* 若先前测算的布署耗时 <60s ，此处向前端返回布署成功消息 */
+    if (600 > zWaitTimeLimit) {
+        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
+    }
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
-    /* 若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
+    /* 更新最近一次布署的版本号到项目元信息中，复位代码库状态；若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
     if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig)) {
         /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
         strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
@@ -1043,7 +1056,7 @@ zMarkCommonAction:
  *  -11：正在布署／撤销过程中（请稍后重试？）
  *  -12：布署失败（超时？未全部返回成功状态）
  *  -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
- *  -14：
+ *  -14：系统测算的布署耗时超过 60 秒，通知前端不必阻塞等待，可异步于布署列表中查询布署结果
  *  -15：最近的布署记录之后，无新的提交记录
  *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
