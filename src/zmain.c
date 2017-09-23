@@ -147,7 +147,8 @@ struct zRepoInfo {
     time_t LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
 
-    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
+    _i DpSigLogFd;  // 每个代码库的布署日志日志文件，用于存储 SHA1-sig+TimeStamp
+    _i DpTimeSpentLogFd;  // 布署耗时日志
 
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
@@ -212,7 +213,8 @@ zJsonParseFunc zJsonParseOps[128];
  * 配置文件 *
  ************/
 #define zRepoIdPath "_SHADOW/info/repo_id"
-#define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 
 /**********
  * 子模块 *

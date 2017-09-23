@@ -655,7 +655,7 @@ zgenerate_cache(void *zpIf) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
-        sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zLogPath);
+        sprintf(zShellBuf, "cat \"%s\"\"%s\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
         zpShellRetHandler = popen(zShellBuf, "r");
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
@@ -764,7 +764,7 @@ zwrite_log(_i zRepoId) {
     zget_one_line(zRes, zCommonBufSiz, zpFile);
     zLen = strlen(zRes);  // 写入文件时，不能写入最后的 '\0'
 
-    if (zLen != write(zppGlobRepoIf[zRepoId]->LogFd, zRes, zLen)) {
+    if (zLen != write(zppGlobRepoIf[zRepoId]->DpSigLogFd, zRes, zLen)) {
         zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
         exit(1);
     }
@@ -862,15 +862,20 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 打开日志文件 */
     char zPathBuf[zCommonBufSiz];
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
-    zppGlobRepoIf[zRepoId]->LogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpSigLogPath);
+    zppGlobRepoIf[zRepoId]->DpSigLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
+
+    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpTimeSpentLogPath);
+    zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
 
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
     zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 
-    if (-1 == zFd || -1 == zppGlobRepoIf[zRepoId]->LogFd) {
+    if ((-1 == zFd)
+            || (-1 == zppGlobRepoIf[zRepoId]->DpSigLogFd)
+            || (-1 == zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd)) {
         close(zFd);
-        close(zppGlobRepoIf[zRepoId]->LogFd);
+        close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -39;
     }
@@ -880,7 +885,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
     if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
         close(zFd);
-        close(zppGlobRepoIf[zRepoId]->LogFd);
+        close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -39;
     }
@@ -897,7 +902,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zppGlobRepoIf[zRepoId]->p_RepoPath);
     } else {
-        close(zppGlobRepoIf[zRepoId]->LogFd);
+        close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -37;
     }
@@ -941,7 +946,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->RepoState = zRepoGood;
 
     /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
-    sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zLogPath);
+    sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpSigLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
     if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDpSig[40] = '\0';
@@ -1013,19 +1018,4 @@ zinit_env(const char *zpConfPath) {
 
     fclose(zpFile);
     return NULL;
-}
-
-/* 布署耗时信息写入本地文件，产出仅用作参考，不必检查返回值 */
-void
-zwrite_analysis_data(_i zRepoId, char *zpDpSig, _ui zIpv4Addr, _d zTimeCnt) {
-    _i zFd, zWrLen;
-    char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[64], zPathBuf[zCommonBufSiz];
-
-    zconvert_ipv4_bin_to_str(zIpv4Addr, zIpv4StrAddr);
-    zWrLen = sprintf(zTimeCntBuf, "[%s]: %lf\n", zIpv4StrAddr, zTimeCnt);
-    sprintf(zPathBuf, "%s_SHADOW/log/%s.TimeCnt", zppGlobRepoIf[zRepoId]->p_RepoPath, zpDpSig);
-    if (0 < (zFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755))) {
-        write(zFd, zTimeCntBuf, zWrLen);
-        close(zFd);
-    }
 }

@@ -945,7 +945,13 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             }
 
             /* 调试功能：布署耗时统计，必须在锁内执行 */
-            zwrite_analysis_data(zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->HostId, zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
+            char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
+            zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4StrAddr);
+            _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]: [TimeSpent(s): %f]\n",
+                    zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig,
+                    zIpv4StrAddr,
+                    zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime);
+            write(zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeSpentLogFd, zTimeCntBuf, zWrLen);
 
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
             return 0;
