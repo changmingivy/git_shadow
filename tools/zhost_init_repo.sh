@@ -25,8 +25,12 @@ do
 \
             rm ${zPathOnHost}_SHADOW
             rm ${zPathOnHost}
+\
             mkdir -p ${zPathOnHost}_SHADOW
             mkdir -p ${zPathOnHost}
+\
+            rm -f ${zPathOnHost}/.git/index.lock
+            rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 \
             cd ${zPathOnHost}_SHADOW
             git init .
