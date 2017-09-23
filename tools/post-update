@@ -29,6 +29,7 @@ git pull --force ./.git server:master >/dev/null 2>&1
 git reset -q --hard `git log -1 server --format=%H`
 
 # 校验布署结果
+cd ${zPathOnHost}
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log server -1 --format=%H`
 if [[ $zMasterSig != $zServerSig
