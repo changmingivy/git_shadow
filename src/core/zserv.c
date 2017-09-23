@@ -735,7 +735,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 正在布署的版本号，用于布署耗时分析 */
-    strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(41));
+    strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
@@ -939,7 +939,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             char *zpLogStrId;
             /* 'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复 */
             if ('B' == zpMetaIf->p_ExtraData[0]){
-                if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, 40)) {
+                if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return 0;
                 }
