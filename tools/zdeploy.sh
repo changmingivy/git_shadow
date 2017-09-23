@@ -31,6 +31,8 @@ zOps() {
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
+    echo "\n\n##${RANDOM}## `date`" >> ./tools/post-update  # 用于保证每次推送 post-upate 都能执行
+
     git add --all .
     git commit -m "__DP__"
     git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
@@ -38,14 +40,14 @@ zOps() {
     cd /home/git/${zPathOnHost}
     git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
 
-    # 通过中转机布署到终端集群
+    # 通过中转机布署到终端集群，先推项目代码，后推 <_SHADOW>
     ssh $zMajorAddr "
         for zHostAddr in $zHostList; do
             (\
-                cd ${zPathOnHost}_SHADOW &&\
-                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server;\
                 cd ${zPathOnHost} &&\
-                git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server\
+                git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server;\
+                cd ${zPathOnHost}_SHADOW &&\
+                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server\
             )&
         done
     "

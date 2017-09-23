@@ -23,23 +23,23 @@ do
             echo '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
             exec 777>&-
 \
-            rm ${zPathOnHost}_SHADOW
             rm ${zPathOnHost}
+            rm ${zPathOnHost}_SHADOW
 \
-            mkdir -p ${zPathOnHost}_SHADOW
             mkdir -p ${zPathOnHost}
+            mkdir -p ${zPathOnHost}_SHADOW
 \
             rm -f ${zPathOnHost}/.git/index.lock
             rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 \
-            cd ${zPathOnHost}_SHADOW
+            cd $zPathOnHost
             git init .
             git config user.name "git_shadow"
             git config user.email "git_shadow@"
             git commit --allow-empty -m "__init__"
             git branch -f server
 \
-            cd $zPathOnHost
+            cd ${zPathOnHost}_SHADOW
             git init .
             git config user.name "_"
             git config user.email "_@"

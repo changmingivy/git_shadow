@@ -22,22 +22,5 @@ git clone $zPathOnHost/.git ${zPathOnHost}_OnLine
 rm -rf ${zProjOnLinePath}/${zProjName}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}/${zProjName}
 
-#######################################
-# 弃用！git clone 比直接复制快2倍左右 #
-#######################################
-# cd $zPathOnHost
-# # 首先复制新版本文件
-# rm -rf ${zPathOnHost}_OnLineNew
-# mkdir ${zPathOnHost}_OnLineNew
-# find . -maxdepth 1 | grep -vE '(^|/)(\.|\.git)$' | xargs cp -R -t ${zPathOnHost}_OnLineNew/
-# # 然后互换名称，同时后台新线程清除旧文件
-# mv ${zPathOnHost}_OnLine ${zPathOnHost}_OnLineOld
-# mv ${zPathOnHost}_OnLineNew ${zPathOnHost}_OnLine
-# rm -rf ${zPathOnHost}_OnLineOld &
-# # 最后重建软链接
-# rm -rf ${zProjOnLinePath}/${zProjName}  # 一次性使用，清理旧项目遗留的文件
-# rm -rf ${zProjOnLinePath}/${zProjName}_SHADOW  # 一次性使用，清理旧项目遗留的文件
-# ln -sf ${zPathOnHost}_OnLine ${zProjOnLinePath}/${zProjName}
-
 # 布署完成之后需要执行的动作：<项目名称.sh>
-(cd $zPathOnHost && sh ${zPathOnHost}/____post-deploy.sh) &
+(cd ${zPathOnHost}_OnLine && sh ${zPathOnHost}_OnLine/____post-deploy.sh) &
