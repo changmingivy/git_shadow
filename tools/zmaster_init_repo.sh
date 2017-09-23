@@ -2,7 +2,7 @@
 
 ###################
 zProjNo=$1  # 项目ID
-zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
+zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
 zPullAddr=$3  # 拉取代码所用的完整地址
 zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的分支名称
 zRemoteVcsType=$5  # svn 或 git
@@ -53,7 +53,7 @@ cd $zDeployPath
 git init .  # FOR svn
 git config user.name "$zProjNo"
 git config user.email "${zProjNo}@${zPathOnHost}"
-printf ".svn/" > .gitignore  # 忽略<.svn>目录
+printf ".svn/\n" > .gitignore  # 忽略<.svn>目录
 git add --all .
 git commit -m "__init__"
 git branch -f CURRENT
@@ -77,7 +77,7 @@ zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjNo
 if [[ 0 -eq $zExistMark ]];then
     zDirName=`dirname \`dirname ${zPathOnHost}\``
     zBaseName=`basename ${zPathOnHost}`
-    echo "${zProjNo} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}" >> ${zShadowPath}/conf/master.conf
+    printf "${zProjNo} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}\n" >> ${zShadowPath}/conf/master.conf
 fi
 
 # 创建必要的目录与文件
@@ -97,6 +97,6 @@ git branch ____base.XXXXXXXX &&\
         git commit --allow-empty -m "_";\
         zOrigLog=`git log -1 --format="%H_%ct"`;\
         git branch ${zOrigLog};\
-        echo ${zOrigLog} > ${zDeployPath}_SHADOW/log/deploy/meta;\
+        printf "${zOrigLog}\n" > ${zDeployPath}_SHADOW/log/deploy/meta;\
         git checkout master\
     )

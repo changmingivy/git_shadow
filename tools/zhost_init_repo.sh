@@ -2,7 +2,7 @@
 zMajorAddr=$1
 zSlaveAddrList=$2
 zProjId=$3
-zPathOnHost=$(echo $4 | sed -n 's%/\+%/%p')
+zPathOnHost=$(printf $4 | sed -n 's%/\+%/%p')
 zShadowPath=/home/git/zgit_shadow
 
 for zSlaveAddr in $zSlaveAddrList
@@ -10,7 +10,7 @@ do
     # 将点分格式的 IPv4 地址转换为数字格式
     zIPv4NumAddr=0
     zCnter=0
-    for zField in `echo ${zSlaveAddr} | grep -oP '\d+'`
+    for zField in `printf ${zSlaveAddr} | grep -oP '\d+'`
     do
         let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]
         let zCnter++
@@ -20,7 +20,7 @@ do
     (
         ssh -t $zMajorAddr "ssh $zSlaveAddr \"
             exec 777>/dev/tcp/__MASTER_ADDR/__MASTER_PORT
-            echo '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
+            printf '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
             exec 777>&-
 \
             rm ${zPathOnHost}

@@ -6,6 +6,6 @@ zProjId=`cat ./info/repo_id`
 for zIpv4StrAddr in $@
 do
     exec 777>/dev/tcp/__MASTER_ADDR/__MASTER_PORT
-    echo "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpv4StrAddr},\"ExtraData\":1}]">&777
+    printf "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpv4StrAddr},\"ExtraData\":1}]">&777
     exec 777>&-
 done

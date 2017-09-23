@@ -11,7 +11,7 @@ do
     # 将点分格式的 IPv4 地址转换为数字格式
     zIPv4NumAddr=0
     zCnter=0
-    for zField in `echo ${zIpv4StrAddr} | grep -oP '\d+'`
+    for zField in `printf ${zIpv4StrAddr} | grep -oP '\d+'`
     do
         let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]
         let zCnter++
@@ -27,7 +27,7 @@ do
     exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
     
     # 发送正文
-    echo "[{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr},\"data\":${zMasterSig},\"ExtraData\":${zReplyType}}]">&777
+    printf "[{\"OpsId\":8,\"ProjId\":`cat ${zRelativeRepoIdPath}`,\"HostId\":${zIPv4NumAddr},\"data\":${zMasterSig},\"ExtraData\":${zReplyType}}]">&777
     
     # 关闭读写端
     #exec 777<&-

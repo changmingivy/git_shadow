@@ -1,6 +1,6 @@
 #!/bin/sh
 zCommitSig=$1
-zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
+zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
 zMajorAddr=$3  # 中转机IPv4地址
 
 shift 3
@@ -35,7 +35,7 @@ zOps() {
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
-    echo "\n\n##${RANDOM}## `date`" >> ./tools/post-update  # 用于保证每次推送 post-upate 都能执行
+    printf "\n\n\n\n##${RANDOM}## `date`" >> ./tools/post-update  # 用于保证每次推送 post-upate 都能执行
 
     git add --all .
     git commit -m "__DP__"
@@ -66,6 +66,5 @@ do
     if [[ $$ -ne ${zOldPid} ]]; then kill -9 $zOldPid; fi
 done
 
-echo -e "====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
+printf "\n\n\n\n====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
-echo -e "\n\n\n\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1

@@ -1,6 +1,6 @@
 #!/bin/sh
 zMajorAddr=$1
-zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
+zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')
 
 zFinMarkFilePath=/home/git/.____fifo.$$  # 以 <自身进程号> 命名保证名称唯一
 rm -f $zFinMarkFilePath
@@ -33,7 +33,7 @@ touch $zFinMarkFilePath
         "
 
         if [[ (0 -eq $?) && (1 -eq `ls ${zFinMarkFilePath} | wc -l`) ]]; then
-            echo "Success" > $zFinMarkFilePath
+            printf "Success" > $zFinMarkFilePath
         fi
 ) &
 
@@ -41,7 +41,7 @@ touch $zFinMarkFilePath
 (
     sleep 6
     if [[ 1 -eq `ls ${zFinMarkFilePath} | wc -l` ]]; then
-        echo "Fail" > $zFinMarkFilePath
+        printf "Fail" > $zFinMarkFilePath
     fi
 ) &
 

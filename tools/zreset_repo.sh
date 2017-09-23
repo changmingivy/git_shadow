@@ -1,5 +1,5 @@
 #!/bin/sh
-zPathOnHost=$(echo $1 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
+zPathOnHost=$(printf $1 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
 zMajorAddr=$2  # 中转机IPv4地址
 
 shift 2
