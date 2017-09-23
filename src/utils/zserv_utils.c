@@ -894,12 +894,12 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zCommonBufSiz];
     if (0 == strcmp("git", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; git pull --force \"%s\" \"%s\":server; rm -f .git/index.lock",
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server",
                 zppGlobRepoIf[zRepoId]->p_RepoPath,
                 zRegResIf->p_rets[2],
                 zRegResIf->p_rets[3]);
     } else if (0 == strcmp("svn", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
                 zppGlobRepoIf[zRepoId]->p_RepoPath);
     } else {
         close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
