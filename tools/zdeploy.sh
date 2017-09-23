@@ -26,8 +26,12 @@ zOps() {
     find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
     # 更新中转机(MajorHost)
+    cd /home/git/${zPathOnHost}
+    git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
+
     cd /home/git/${zPathOnHost}_SHADOW
-    cp -uR ${zShadowPath}/tools/* ./tools/
+    rm -rf ./tools
+    cp -R ${zShadowPath}/tools ./
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
@@ -36,9 +40,6 @@ zOps() {
     git add --all .
     git commit -m "__DP__"
     git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
-
-    cd /home/git/${zPathOnHost}
-    git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
 
     # 通过中转机布署到终端集群，先推项目代码，后推 <_SHADOW>
     ssh $zMajorAddr "
