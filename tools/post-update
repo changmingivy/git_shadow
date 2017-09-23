@@ -48,8 +48,7 @@ sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig
 sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} >/tmp/zpost-update.log 2>/tmp/zpost-update.err &
 
 # 更新 post-update
-rm ${zPathOnHost}_SHADOW/.git/hooks/post-update
-cp ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
+cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
 chmod 0555 ${zPathOnHost}_SHADOW/.git/hooks/post-update
 
 # 更新开机请求布署自身的脚本，设置为隐藏文件

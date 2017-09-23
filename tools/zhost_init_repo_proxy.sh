@@ -3,7 +3,7 @@ zMajorAddr=$1
 zPathOnHost=$(echo $2 | sed -n 's%/\+%/%p')
 
 zFinMarkFilePath=/home/git/.____fifo.$$  # 以 <自身进程号> 命名保证名称唯一
-rm $zFinMarkFilePath
+rm -f $zFinMarkFilePath
 touch $zFinMarkFilePath
 
 (
@@ -50,10 +50,10 @@ do
     sleep 0.2
 
     if [[ "Success" == `cat ${zFinMarkFilePath}` ]]; then
-        rm $zFinMarkFilePath
+        rm -f $zFinMarkFilePath
         exit 0
     elif [[ "Fail" == `cat ${zFinMarkFilePath}` ]]; then
-        rm $zFinMarkFilePath
+        rm -f $zFinMarkFilePath
         exit 255  # 若失败，则以退出码 255 结束进程
     fi
 done
