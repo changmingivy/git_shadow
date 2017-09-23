@@ -946,12 +946,10 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->RepoState = zRepoGood;
 
     /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
-    sprintf(zShellBuf, "cat \"%s\"\"%s\" | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpSigLogPath);
+    sprintf(zShellBuf, "cat %s%s | tail -1", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpSigLogPath);
     FILE *zpShellRetHandler = popen(zShellBuf, "r");
-    if (zBytes(40) == zget_str_content(zppGlobRepoIf[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
+    if (zBytes(40) != zget_str_content(zppGlobRepoIf[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
         zppGlobRepoIf[zRepoId]->zLastDpSig[40] = '\0';
-    } else {
-        zppGlobRepoIf[zRepoId]->RepoState = zRepoDamaged;
     }
     pclose(zpShellRetHandler);
 

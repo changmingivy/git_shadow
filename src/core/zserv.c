@@ -763,23 +763,28 @@ zMarkFailReTry:
     if (2 == zMarkReTry) {
         zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime = time(NULL);  // 耗时基数，只计算一次
 
-        sprintf(zShellBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
-                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
-                zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
-                );
+        if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
+                || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
+            zWaitTimeLimit = 600;  // 无法测算时，默认超时时间为 60s
+        } else {
+            sprintf(zShellBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
+                    zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                    zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
+                    zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
+                    );
 
-        zpShellRetHandler = popen(zShellBuf, "r");
-        zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler);
-        pclose(zpShellRetHandler);
-        zDiffBytes = strtol(zShellBuf, NULL, 10);
+            zpShellRetHandler = popen(zShellBuf, "r");
+            zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler);
+            pclose(zpShellRetHandler);
+            zDiffBytes = strtol(zShellBuf, NULL, 10);
 
-        /*
-         * [基数 10 秒] + [中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 204800 kB ，超时上限递增 0.1 秒]
-         * [网络数据总量 == 主机数 X 每台的数据量]
-         * [单位：0.1 秒]
-         */
-        zWaitTimeLimit = 100 + 10 * (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime) + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 204800;
+            /*
+             * [基数 10 秒] + [中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 204800 kB ，超时上限递增 0.1 秒]
+             * [网络数据总量 == 主机数 X 每台的数据量]
+             * [单位：0.1 秒]
+             */
+            zWaitTimeLimit = 100 + 10 * (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpStartTime) + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 204800;
+        }
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
         if (600 <= zWaitTimeLimit) {
