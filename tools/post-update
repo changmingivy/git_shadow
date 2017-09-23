@@ -6,7 +6,7 @@ export HOME="/home/git"
 export zPathOnHost="__PROJ_PATH"
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
-chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
+chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
 
 # 清除可能存在的由于 git 崩溃残留的锁文件
 rm -f ${zPathOnHost}/.git/index.lock
@@ -30,13 +30,14 @@ git reset -q --hard `git log -1 server --format=%H`
 
 # 校验布署结果
 cd ${zPathOnHost}
+export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log server -1 --format=%H`
 if [[ $zMasterSig != $zServerSig
     || 0 -ne `git status --short | wc -l`
     || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
 then
-    chmod 0555 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
+    chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 fi
 
@@ -50,7 +51,7 @@ sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} >/tmp/zpost-upd
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
-chmod 0555 ${zPathOnHost}_SHADOW/.git/hooks/post-update
+chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
 
 # 更新开机请求布署自身的脚本，设置为隐藏文件
 cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
