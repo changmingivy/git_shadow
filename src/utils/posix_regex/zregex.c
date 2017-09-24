@@ -4,7 +4,7 @@
 
 #include <regex.h>
 
-#define zMatchLimit 64
+#define zMatchLimit 1024
 
 struct zRegResInfo {
     char *p_rets[zMatchLimit];  //matched results
