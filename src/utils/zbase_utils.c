@@ -413,14 +413,10 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
 
-    zreg_compile(zRegInitIf, "[^][}{\"\n,:][^][}{\"\n,]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
+    zreg_compile(zRegInitIf, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
     zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
-    
-    if (0 != (zRegResIf->cnt % 2)) {
-        zreg_free_tmpsource(zRegResIf);
-        zreg_free_metasource(zRegInitIf);
-        return -7;
-    }
+
+    zRegResIf->cnt -= zRegResIf->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
 
     void *zpBuf[128];
     zpBuf['O'] = &(zpMetaIf->OpsId);
