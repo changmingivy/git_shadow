@@ -136,7 +136,7 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 //    /* 取 Destroy 锁 */
 //    pthread_mutex_lock(&zDestroyLock);
 //
-//    /* 
+//    /*
 //     * 取项目写锁
 //     * 元数据指针置为NULL
 //     * 销毁读写锁
@@ -560,8 +560,8 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zpOldDpResListIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf;
     memcpy(zpOldDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDpHashSiz * sizeof(zDpResInfo *));
 
-    /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配 */
-    zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDpResInfo, zRegResIf->cnt);
+    /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配；分配清零的空间，方便检查重复 IP */
+    zMem_C_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDpResInfo, zRegResIf->cnt);
 
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
@@ -570,6 +570,13 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1][0] = '\0';
 
     for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
+        /* 检测是否存在重复IP */
+        if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
+            strcpy(zpMetaIf->p_data, zRegResIf->p_rets[zCnter]);
+            zreg_free_tmpsource(zRegResIf);
+            return -19;
+        }
+
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ipv4_str_to_bin(zRegResIf->p_rets[zCnter]);
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
@@ -719,7 +726,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 检查指定的版本号是否有效 */
     if ((0 > zpMetaIf->CommitId)
             || ((zCacheSiz - 1) < zpMetaIf->CommitId)
-            || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) { 
+            || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {
         return -3;
     }
 
@@ -1067,15 +1074,16 @@ zMarkCommonAction:
  *  -15：最近的布署记录之后，无新的提交记录
  *  -16：清理远程主机上的项目文件失败（删除项目时）
  *
- *  -21：更新全量IP列表时，连接中转机失败（即由中控到中转的数据链路环节有问题）
- *  -22：指定的代理分发主机IP地址格式错误
- *  -23：更新全量IP列表时：部分或全部目标初始化失败
- *  -24：更新全量IP列表时，没有在 ExtraData 字段指明IP总数量
- *  -25：集群主节点(与中控机直连的主机)IP地址数据库不存在
- *  -26：集群全量节点(所有主机)IP地址数据库不存在，或为空
- *  -27：代理分发节点主机初始化失败
+ *  -19：更新目标机IP列表时，存在重复IP
+ *  -21：更新目标机IP列表时，连接中转机失败（即由中控到中转的数据链路环节有问题）
+ *  -22：中转机IP地址格式错误
+ *  -23：更新目标机IP列表时：部分或全部目标初始化失败
+ *  -24：更新目标机IP列表时，没有在 ExtraData 字段指明IP总数量
+ *  -25：中转机 IP 不存在
+ *  -26：目标机IP列表为空
+ *  -27：中转机初始化失败
  *  -28：前端指定的IP数量与实际解析出的数量不一致
- *  -29：更新IP数据库时集群中有一台或多台主机初始化失败（每次更新IP地址库时，需要检测每一个IP所指向的主机是否已具备布署条件，若是新机器，则需要推送初始化脚本而后执行之）
+ *  -29：一台或多台目标机环境初化失败(SSH 连接至目标机建立接收项目文件的元信息——git 仓库)
  *
  *  -33：无法创建请求的项目路径
  *  -34：请求创建的新项目信息格式错误（合法字段数量少于 5 个或大于 6 个，第6个字段用于标记是被动拉取代码还是主动推送代码）
