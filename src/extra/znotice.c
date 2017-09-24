@@ -67,7 +67,7 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 _i
 main(_i zArgc, char **zppArgv) {
     _i zSd, zLen;
-    char zSendBuf[zCommonBufSiz];
+    char zSendBuf[1024];
 
     if (7 != zArgc) { _exit(1); }
     zLen = sprintf(zSendBuf, "[{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"ExtraData\":%s}]", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6]);
