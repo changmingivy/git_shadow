@@ -74,14 +74,11 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
         return -28;
     }
 
-    _i zOffSet = 0;
+    zpMetaIf->p_data[0] = '\0';
     for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
-        strcpy(zpMetaIf->p_data + zOffSet, zRegResIf->p_rets[zCnter]);
-        zOffSet += 1 + zRegResIf->ResLen[zCnter];
-        zpMetaIf->p_data[zOffSet - 1] = ' ';
+        strcat(zpMetaIf->p_data, zRegResIf->p_rets[zCnter]);
+        strcat(zpMetaIf->p_data, " ");
     }
-    if (0 < zOffSet) { zpMetaIf->p_data[zOffSet - 1] = '\0'; }
-    else { zpMetaIf->p_data[0] = '\0'; }
     zreg_free_tmpsource(zRegResIf);
 
     pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
@@ -520,7 +517,6 @@ zMark:
 _i
 zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
-    _ui zOffSet = 0;
 
     if (NULL == zpMetaIf->p_ExtraData) {
         zpMetaIf->p_data = NULL;
@@ -546,8 +542,8 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     if (zForecastedHostNum < zRegResIf->cnt) {
         /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
         /* 加空格最长16字节，如："123.123.123.123 " */
-        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0], char, 16 * zRegResIf->cnt);
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1] = zalloc_cache(zpMetaIf->RepoId, zBytes(16 * zRegResIf->cnt));
+        zMem_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0], char, 4 + 16 * zRegResIf->cnt);
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1] = zalloc_cache(zpMetaIf->RepoId, zBytes(4 + 16 * zRegResIf->cnt));
     } else {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0];
         zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1] = zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[1];
@@ -567,6 +563,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+    zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][0] = '\0';
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1][0] = '\0';
 
     for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
@@ -615,15 +612,8 @@ zMark:
          * 非定长字符串不好动态调整，因此无论是否已存在都要执行
          * 生成将要传递给布署脚本的参数：空整分隔的字符串形式的 IPv4 列表
          */
-        strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] + zOffSet, zRegResIf->p_rets[zCnter]);
-        zOffSet += 1 + zRegResIf->ResLen[zCnter];
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = ' ';
-    }
-
-    if (0 < zOffSet) {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][zOffSet - 1] = '\0';
-    } else {
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][0] = '\0';
+        strcat(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0], zRegResIf->p_rets[zCnter]);
+        strcat(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0], " ");
     }
 
     /* 执行外部命令 */

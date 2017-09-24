@@ -11,7 +11,7 @@
 #define zCommonBufSiz 1024
 #endif
 
-#define zBytes(zNum) ((_i)(zNum * sizeof(char)))
+#define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
 /*

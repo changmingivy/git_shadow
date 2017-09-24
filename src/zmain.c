@@ -165,8 +165,8 @@ struct zRepoInfo {
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
     char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
-    char HostStrAddrList[2][16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
-    char *p_HostStrAddrList[2];  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
+    char HostStrAddrList[2][4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
+    char *p_HostStrAddrList[2];  // [0]：以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本；[1] 用于收集新增的IP，增量初始化远程主机
     struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
