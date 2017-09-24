@@ -5,34 +5,36 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
 zPathOnHost="__PROJ_PATH"
-zServBranchName="`basename $1`"  # hook 会给定参数，形如： refs/master/server14
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
-chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
+chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
 
 # 清除可能存在的由于 git 崩溃残留的锁文件
-rm -f ${zPathOnHost}/.git/index.lock
-rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+# rm -f ${zPathOnHost}/.git/index.lock
+# rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
-cd $zPathOnHost
-export GIT_DIR="${zPathOnHost}/.git"
-\ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
+# 元数据布署
+cd ${zPathOnHost}_SHADOW
+export GIT_DIR="${zPathOnHost}_SHADOW/.git"
+zServBranchName="`git branch | grep -oP 'server\d+'`"  # 取 server${zProjId} 分支名称
+\ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
-cd ${zPathOnHost}_SHADOW
-export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-\ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
+# 项目数据布署
+cd $zPathOnHost
+export GIT_DIR="${zPathOnHost}/.git"
+\ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
 # 校验布署结果
-cd ${zPathOnHost}
-export GIT_DIR="${zPathOnHost}/.git"
+# cd ${zPathOnHost}
+# export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
 if [[ $zMasterSig != $zServerSig

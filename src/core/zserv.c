@@ -58,72 +58,6 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 7：重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
- */
-_i
-zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
-    zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
-
-    zreg_compile(zRegInitIf, "([0-9]{1,3}\\.){3}[0-9]{1,3}");
-    zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
-    zreg_free_metasource(zRegInitIf);
-
-    if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zRegResIf->cnt) {
-        zreg_free_tmpsource(zRegResIf);
-        return -28;
-    }
-
-    zpMetaIf->p_data[0] = '\0';
-    for (_i zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
-        strcat(zpMetaIf->p_data, zRegResIf->p_rets[zCnter]);
-        strcat(zpMetaIf->p_data, " ");
-    }
-    zreg_free_tmpsource(zRegResIf);
-
-    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-
-    /* 检查中转机 IPv4 存在性 */
-    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        return -25;
-    }
-
-    /* 生成待执行的外部动作指令 */
-    char zCommonBuf[128
-        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
-        + 12
-        + 0
-        + 16
-        + strlen(zpMetaIf->p_data)];
-
-    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
-            zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zpMetaIf->p_data);  // 目标机的点分格式文本 IPv4 列表
-
-    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-    if (255 == WEXITSTATUS( system(zCommonBuf)) ) {  // 中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-        return -60;
-    }
-
-    /* 中转机元数据重置 */
-    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0] = '\0';
-
-    /* 目标机元数据重置 */
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, 0, zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * sizeof(zDpResInfo));
-    memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));
-
-    pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-
-    zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
-    return 0;
-}
-
-/*
  * 5：显示所有项目及其元信息
  * 6：显示单个项目及其元信息
  */
@@ -781,16 +715,7 @@ zMarkFailReTry:
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
             if (1== zMarkReTry) {  /* 首次布署失败，执行重置 */
-                /* 重置整个布署系统状态 */ /* 复用最大的缓冲区 */
-                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
-                        zpMetaIf->RepoId,
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 目标机的点分格式文本 IPv4 列表
-                if (255 == WEXITSTATUS( system(zCommonBuf)) ) { return -60; }
-
-                /* 初始化中转机 */ /* 复用最大的缓冲区 */
+                /* 中转机重置 复用缓冲区 */
                 sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId,
@@ -798,7 +723,7 @@ zMarkFailReTry:
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS(system(zCommonBuf))) { return -27; }
 
-                /* 初始化所有目标机 */ /* 复用最大的缓冲区 */
+                /* 目标机重置 复用缓冲区 */
                 sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
@@ -1074,8 +999,6 @@ zMarkCommonAction:
  *  -38：拉取远程代码库失败（git clone 失败）
  *  -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
  *
- *  -60：中转机项目文件清理失败
- *
  *  -70：服务器版本号列表缓存存在错误
  *  -71：服务器差异文件列表缓存存在错误
  *  -72：服务器单个文件的差异内容缓存存在错误
@@ -1097,8 +1020,8 @@ zstart_server(void *zpIf) {
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zcommon_deploy;  // 布署或撤销
     zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
-    zNetServ[14] = zreset_repo;  // 重置指定项目为原始状态（删除所有主机上的所有项目文件，保留中控机上的 _SHADOW 元文件）
-    zNetServ[15] = NULL;  // 删除指定项目及其所属的所有文件
+    zNetServ[14] = NULL;
+    zNetServ[15] = NULL;
 
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;

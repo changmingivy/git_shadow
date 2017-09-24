@@ -5,14 +5,21 @@ zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')
 
 zServBranchName="server${zProjId}"
 
-zFinMarkFilePath=/home/git/.____fifo.$$  # 以 <自身进程号> 命名保证名称唯一
+zFinMarkFilePath=/home/git/.____FinMark.$$  # 以 <自身进程号> 命名保证名称唯一
 rm -f $zFinMarkFilePath
 touch $zFinMarkFilePath
 
+# 清理中控机本地进程
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | grep -oP "^\s*\d+(?=\s.*${zProxyHostAddr}.*${zHostList})" | grep -v "$$" | tr '\n' ' '`
+
 (
     ssh $zProxyHostAddr "
-        rm ${zPathOnHost}_SHADOW
-        rm ${zPathOnHost}
+        kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"^\s*\d+(?=\s.*${zServBranchName})\" | grep -v \"\$$\" | tr '\n' ' '\`
+        rm -rf ${zPathOnHost}/.git
+        rm -rf ${zPathOnHost}_SHADOW/.git
+\
+        rm -f ${zPathOnHost}_SHADOW
+        rm -f ${zPathOnHost}
 \
         mkdir -p ${zPathOnHost} &&
         mkdir -p ${zPathOnHost}_SHADOW &&

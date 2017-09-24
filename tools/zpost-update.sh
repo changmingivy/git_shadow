@@ -3,7 +3,7 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
 zPathOnHost=$1
-zServBranchName=$2
+# zServBranchName=$2
 zProjName=`basename ${zPathOnHost}`
 zProjOnLinePath=`dirname \`dirname ${zPathOnHost}\``
 
