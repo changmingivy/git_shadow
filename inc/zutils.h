@@ -213,3 +213,5 @@ _i zSigSet[26] = {
     sigaction(zSigSet[24], &zSigActionIf, NULL);\
     sigaction(zSigSet[25], &zSigActionIf, NULL);\
 } while(0)
+
+#undef zCommonBufSiz

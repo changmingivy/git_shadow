@@ -90,16 +90,22 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* 生成待执行的外部动作指令 */
-    char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
+    char zCommonBuf[128
+        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
+        + 12
+        + 0
+        + 16
+        + strlen(zpMetaIf->p_data)];
+
+    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
+            zpMetaIf->p_data);  // 目标机的点分格式文本 IPv4 列表
 
     /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-    if (255 == WEXITSTATUS( system(zShellBuf)) ) {  // 中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回
+    if (255 == WEXITSTATUS( system(zCommonBuf)) ) {  // 中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -60;
     }
@@ -118,71 +124,12 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 }
 
 /*
- * 存在较大风险，暂不使用!!!!
- * 13：删除项目（代码库）
- */
-
-/* 删除项目与拉取远程代码两个动作需要互斥执行 */
-//pthread_mutex_t zDestroyLock = PTHREAD_MUTEX_INITIALIZER;
-
-//_i
-//zdelete_repo(zMetaInfo *zpMetaIf, _i zSd) {
-//    _i zErrNo;
-//    char zShellBuf[zCommonBufSiz];
-//
-//    /* 取 Destroy 锁 */
-//    pthread_mutex_lock(&zDestroyLock);
-//
-//    /*
-//     * 取项目写锁
-//     * 元数据指针置为NULL
-//     * 销毁读写锁
-//     */
-//    pthread_rwlock_wrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-//    zRepoInfo *zpRepoIf = zppGlobRepoIf[zpMetaIf->RepoId];
-//    zppGlobRepoIf[zpMetaIf->RepoId] = NULL;
-//    pthread_rwlock_unlock(&(zpRepoIf->RwLock));
-//    pthread_rwlock_destroy(&(zpRepoIf->RwLock));
-//
-//    /* 生成待执行的外部动作指令 */
-//    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zdelete_repo.sh %s %s %s",
-//            zpRepoIf->p_RepoPath,  // 指定代码库的绝对路径
-//            zpRepoIf->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-//            zpRepoIf->ProxyHostStrAddr,
-//            NULL == zpRepoIf->p_HostStrAddrList ? "" : zpRepoIf->p_HostStrAddrList);  // 集群主机的点分格式文本 IPv4 列表
-//
-//    /* 执行动作，清理本地及所有远程主机上的项目文件，system返回值是wait状态，不是错误码，错误码需要用WEXITSTATUS宏提取 */
-//    zErrNo = WEXITSTATUS(system(zShellBuf));
-//
-//    /* 清理该项目占用的资源 */
-//    void **zppPrev = zpRepoIf->p_MemPool;
-//    do {
-//        zppPrev = zppPrev[0];
-//        munmap(zpRepoIf->p_MemPool, zMemPoolSiz);
-//        zpRepoIf->p_MemPool = zppPrev;
-//    } while(NULL != zpRepoIf->p_MemPool);
-//
-//    free(zpRepoIf->p_RepoPath);
-//    free(zpRepoIf);
-//
-//    /* 放 Destroy 锁 */
-//    pthread_mutex_unlock(&zDestroyLock);
-//
-//    if (0 != zErrNo) {
-//        return -16;
-//    } else {
-//        zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
-//        return 0;
-//    }
-//}
-
-/*
  * 5：显示所有项目及其元信息
  * 6：显示单个项目及其元信息
  */
 _i
 zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
-    char zSendBuf[zCommonBufSiz];
+    char zSendBuf[zGlobBufSiz];
 
     zsendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
     for(_i zCnter = 0; zCnter <= zGlobMaxRepoId; zCnter++) {
@@ -219,7 +166,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
     zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
-    char zSendBuf[zCommonBufSiz];
+    char zSendBuf[zGlobBufSiz];
 
     if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
 
@@ -301,16 +248,21 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 system(zppGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);  /* 不能多线程，因为多个 git pull 会产生文件锁竞争 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 
-                char zShellBuf[zCommonBufSiz];
                 FILE *zpShellRetHandler;
+                char zCommonBuf[128
+                    + zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
+                    + 12];
 
-                sprintf(zShellBuf, "cd %s && git log server%d -1 --format=%%H", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId);
-                zpShellRetHandler = popen(zShellBuf, "r");
-                zget_str_content(zShellBuf, zBytes(40), zpShellRetHandler);
+                sprintf(zCommonBuf, "cd %s && git log server%d -1 --format=%%H",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                        zpMetaIf->RepoId);
+
+                zpShellRetHandler = popen(zCommonBuf, "r");
+                zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
 
                 if ((NULL == zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data)
-                        || (0 != strncmp(zShellBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
+                        || (0 != strncmp(zCommonBuf, zppGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
                     zpMetaIf->DataType = zIsCommitDataType;
 
                     /* 此处进行换锁：读锁与写锁进行两次互换 */
@@ -483,21 +435,41 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
-    if (NULL == zpMetaIf->p_data || zBytes(15) < strlen(zpMetaIf->p_data) || zBytes(7) > strlen(zpMetaIf->p_data)) { return -22; }
-    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) { goto zMark; }
+    if (NULL == zpMetaIf->p_data) { return -22; }
 
-    char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
+    zRegInitInfo zRegInitIf[1];
+    zRegResInfo zRegResIf[1];
+    zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
+    zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
+    zreg_free_metasource(zRegInitIf);
+
+    if (0 == zRegResIf->cnt) {
+        zreg_free_tmpsource(zRegResIf);
+        return -22;
+    }
+
+    /* 动态栈必须在 goto 之前 */
+    char zCommonBuf[128
+        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
+        + 12
+        + zRegResIf->ResLen[0]
+        + 0];
+
+    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $1:RepoId $2:ProxyHostAddr；$3:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->RepoId,
-            zpMetaIf->p_data,
+            zRegResIf->p_rets[0],
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+
+    zreg_free_tmpsource(zRegResIf);
+
+    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zRegResIf->p_rets[0])) { goto zMark; }
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
 
     /* system 返回值是 waitpid 状态，不是错误码，错误码需要用 WEXITSTATUS 宏提取 */
-    if (0 != WEXITSTATUS(system(zShellBuf))) {
+    if (0 != WEXITSTATUS( system(zCommonBuf)) ) {
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
         return -27;
     }
@@ -617,25 +589,32 @@ zMark:
     }
 
     /* 执行外部命令 */
-    char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+    char zCommonBuf[128
+        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
+        + 16
+        + strlen(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1])
+        + 12
+        + 0];
+
+    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
-    system(zShellBuf);
+    system(zCommonBuf);
 
     /* 释放资源 */
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
 
     /*
      * 等待所有主机的状态都得到确认，6+ 秒超时
-     * 主机数量达到 30 台时，每增加一台，超时上限递增 0.2 秒
+     * 目标主机数量 >20 时，每增加一台，超时上限递增 0.1 秒
      * 由于初始化远程主机动作的工作量是固定的，可按目标主机数量运态调整超时时间
      * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
      */
-    _i zWaitTimeLimit = 10 * (6 + 0.2 * ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost < 30) ? 0 : (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost - 30)));
+    _i zWaitTimeLimit = 10 * (6 + 0.1 * ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > 20) ? (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost - 20) : 0));
     for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
@@ -696,7 +675,6 @@ zMark:
 
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
-    char *zpShellBuf, zShellBuf[zCommonBufSiz];
     FILE *zpShellRetHandler;
 
     _l zDiffBytes, zWaitTimeLimit;
@@ -738,15 +716,18 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 正在布署的版本号，用于布署耗时分析 */
     strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
 
+    /* 计算本函数用到的最大 BufSiz */
+    _i zMaxBufLen = 128 + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen - 9 + 12 + 40 + 16 + strlen(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);
+
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
-    zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
+    char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zMaxBufLen);
     sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 集群主机的点分格式文本 IPv4 列表
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 目标机的点分格式文本 IPv4 列表
 
 zMarkFailReTry:
     /* 重置布署相关状态 */
@@ -759,22 +740,26 @@ zMarkFailReTry:
     /* 调用 git 命令执行布署 */
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
+    /* 动态栈空间 */
+    char zCommonBuf[zMaxBufLen];
+
     /* 测算超时时间 */
     if (1 == zMarkReTry) {
         if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
                 || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
             zWaitTimeLimit = 600;  // 无法测算时，默认超时时间为 60s
         } else {
-            sprintf(zShellBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
+            /* 复用最大的缓冲区 */
+            sprintf(zCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                     zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
                     zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
                     );
 
-            zpShellRetHandler = popen(zShellBuf, "r");
-            zget_one_line(zShellBuf, zCommonBufSiz, zpShellRetHandler);
+            zpShellRetHandler = popen(zCommonBuf, "r");
+            zget_one_line(zCommonBuf, 128, zpShellRetHandler);
             pclose(zpShellRetHandler);
-            zDiffBytes = strtol(zShellBuf, NULL, 10);
+            zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
             /*
              * [基数 12 秒] + [中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
@@ -796,32 +781,33 @@ zMarkFailReTry:
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
             if (1== zMarkReTry) {  /* 首次布署失败，执行重置 */
-                /* 重置整个布署系统状态 */
-                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
+                /* 重置整个布署系统状态 */ /* 复用最大的缓冲区 */
+                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
                         zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-                        zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
-                if (255 == WEXITSTATUS( system(zShellBuf)) ) { return -60; }
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 目标机的点分格式文本 IPv4 列表
+                if (255 == WEXITSTATUS( system(zCommonBuf)) ) { return -60; }
 
-                /* 初始化中转机 */
-                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
+                /* 初始化中转机 */ /* 复用最大的缓冲区 */
+                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-                if (0 != WEXITSTATUS(system(zShellBuf))) { return -27; }
+                if (0 != WEXITSTATUS(system(zCommonBuf))) { return -27; }
 
-                /* 初始化所有目标机 */
-                sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                /* 初始化所有目标机 */ /* 复用最大的缓冲区 */
+                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0],  // 此处执行全量初始化，使用 [0]
                         zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
-                system(zShellBuf);
+                system(zCommonBuf);
 
                 /* 检查本次远程主机初始化结果 */
                 zCheck_Remote_Host_Init_Res();
@@ -834,7 +820,7 @@ zMarkFailReTry:
 
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
             if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
-                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
+                //zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             }
 
@@ -866,7 +852,12 @@ zMarkFailReTry:
     if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig)) {
         /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
         strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
-        zwrite_log(zpMetaIf->RepoId);
+
+        _i zLogStrLen = sprintf(zCommonBuf, "%s_%zd", zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, time(NULL));
+        if (zLogStrLen != write(zppGlobRepoIf[zpMetaIf->RepoId]->DpSigLogFd, zCommonBuf, zLogStrLen)) {
+            zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
+            exit(1);
+        }
 
         /* 重置内存池状态 */
         zReset_Mem_Pool_State(zpMetaIf->RepoId);
@@ -988,17 +979,17 @@ zops_route(void *zpSd) {
     _i zRecvdLen;
     _i zErrNo;
     zMetaInfo zMetaIf;
-    char zJsonBuf[zCommonBufSiz] = {'\0'};
+    char zJsonBuf[zGlobBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
 
     /* 必须清零，以防脏栈数据导致问题 */
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zCommonBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zCommonBufSiz, 0))) {
-        zMem_Alloc(zpJsonBuf, char, zCommonBufSiz * 1024);
+    if (zGlobBufSiz == (zRecvdLen = recv(zSd, zpJsonBuf, zGlobBufSiz, 0))) {
+        zMem_Alloc(zpJsonBuf, char, zGlobBufSiz * 1024);
         strcpy(zpJsonBuf, zJsonBuf);
-        zRecvdLen += recv(zSd, zpJsonBuf + zRecvdLen, zCommonBufSiz * 1024 - zRecvdLen, 0);
+        zRecvdLen += recv(zSd, zpJsonBuf + zRecvdLen, zGlobBufSiz * 1024 - zRecvdLen, 0);
     }
 
     if (zBytes(6) > zRecvdLen) {

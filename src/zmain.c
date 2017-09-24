@@ -43,7 +43,7 @@
 
 #include "../inc/zutils.h"
 
-#define zCommonBufSiz 1024
+#define zGlobBufSiz 1024
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
@@ -141,6 +141,8 @@ struct zRepoInfo {
     time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     _i TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
+    _i RepoPathLen;  // 项目路径长度，避免后续的使用者重复计算
+    _i MaxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
 
     _i SelfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
