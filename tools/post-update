@@ -5,8 +5,7 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
 zPathOnHost="__PROJ_PATH"
-zProjId=`cat ${zPathOnHost}_SHADOW/info/repo_id`
-zServBranchName="server${zProjId}"
+zServBranchName="`basename $1`"  # hook 会给定参数，形如： refs/master/server14
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
