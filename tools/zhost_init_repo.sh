@@ -1,9 +1,11 @@
 #!/bin/sh
-zMajorAddr=$1
+zProxyHostAddr=$1
 zSlaveAddrList=$2
 zProjId=$3
 zPathOnHost=$(printf $4 | sed -n 's%/\+%/%p')
 zShadowPath=/home/git/zgit_shadow
+
+zServBranchName="server${zProjId}"
 
 for zSlaveAddr in $zSlaveAddrList
 do
@@ -18,7 +20,7 @@ do
 
     # 多进程模型后执行，不用线程模型
     (
-        ssh -t $zMajorAddr "ssh $zSlaveAddr \"
+        ssh -t $zProxyHostAddr "ssh $zSlaveAddr \"
             exec 777>/dev/tcp/__MASTER_ADDR/__MASTER_PORT
             printf '[{\\\"OpsId\\\":8,\\\"ProjId\\\":${zProjId},\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]'>&777
             exec 777>&-
@@ -37,14 +39,14 @@ do
             git config user.name "git_shadow"
             git config user.email "git_shadow@"
             git commit --allow-empty -m "__init__"
-            git branch -f server
+            git branch -f ${zServBranchName}
 \
             cd ${zPathOnHost}_SHADOW
             git init .
             git config user.name "_"
             git config user.email "_@"
             git commit --allow-empty -m "__init__"
-            git branch -f server
+            git branch -f ${zServBranchName}
 \
             cat > .git/hooks/post-update
             chmod 0755 .git/hooks/post-update

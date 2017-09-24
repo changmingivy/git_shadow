@@ -1,16 +1,18 @@
 #!/bin/sh
-zCommitSig=$1
-zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
-zMajorAddr=$3  # 中转机IPv4地址
+zProjId=$1
+zCommitSig=$2
+zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
+zProxyHostAddr=$4  # 中转机IPv4地址
+zHostList=$5
 
-shift 3
-zHostList=$@
+zServBranchName="server${zProjId}"
 zShadowPath=/home/git/zgit_shadow
 
 zOps() {
-    if [[ "" == ${zCommitSig}
+    if [[ "" == ${zProjId}
+        || "" == ${zCommitSig}
         || "" == ${zPathOnHost}
-        || "" == ${zMajorAddr}
+        || "" == ${zProxyHostAddr}
         || "" == ${zHostList} ]]; then
         exit 1
     fi
@@ -21,13 +23,13 @@ zOps() {
     \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
     git stash
     git stash clear
-    git pull --force ./.git server:master
+    git pull --force ./.git ${zServBranchName}:master
     git reset --hard ${zCommitSig}
     find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}
-    git push --force git@${zMajorAddr}:${zPathOnHost}/.git master:server
+    git push --force git@${zProxyHostAddr}:${zPathOnHost}/.git master:${zServBranchName}
 
     cd /home/git/${zPathOnHost}_SHADOW
     rm -rf ./tools
@@ -39,16 +41,16 @@ zOps() {
 
     git add --all .
     git commit -m "__DP__"
-    git push --force git@${zMajorAddr}:${zPathOnHost}_SHADOW/.git master:server
+    git push --force git@${zProxyHostAddr}:${zPathOnHost}_SHADOW/.git master:${zServBranchName}
 
     # 通过中转机布署到终端集群，先推项目代码，后推 <_SHADOW>
-    ssh $zMajorAddr "
+    ssh $zProxyHostAddr "
         for zHostAddr in $zHostList; do
             (\
                 cd ${zPathOnHost} &&\
-                git push --force git@\${zHostAddr}:${zPathOnHost}/.git server:server;\
+                git push --force git@\${zHostAddr}:${zPathOnHost}/.git ${zServBranchName}:${zServBranchName};\
                 cd ${zPathOnHost}_SHADOW &&\
-                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git server:server\
+                git push --force git@\${zHostAddr}:${zPathOnHost}_SHADOW/.git ${zServBranchName}:${zServBranchName}\
             )&
         done
     "
@@ -60,11 +62,14 @@ zOps() {
     git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 }
 
-# kill 掉可能存在的僵死进程
-for zOldPid in `ps ax -o pid,cmd | grep -oP "\d+(?=\s.*${zMajorAddr}.*${zHostList})"`
+# kill 掉可能存在的本地僵死进程
+for zOldPid in `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s.*${zProxyHostAddr}.*${zHostList})"`
 do
     if [[ $$ -ne ${zOldPid} ]]; then kill -9 $zOldPid; fi
 done
+
+# 清理中转机的本项目布署进程，清除index.lock文件
+ssh $zProxyHostAddr "kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"\d+(?=\s.*${zServBranchName})\" | tr '\n' ' '\`; rm -rf ${zPathOnHost}/.git/index.lock; rm -rf ${zPathOnHost}_SHADOW/.git/index.lock"
 
 printf "\n\n\n\n====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1

@@ -649,7 +649,7 @@ zgenerate_cache(void *zpIf) {
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
-        sprintf(zShellBuf, "cd \"%s\" && git log server --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath); // 取 server 分支的提交记录
+        sprintf(zShellBuf, "cd \"%s\" && git log server%d --format=\"%%H_%%ct\"", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId); // 取 server 分支的提交记录
         zpShellRetHandler = popen(zShellBuf, "r");
     } else if (zIsDpDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
@@ -894,13 +894,15 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zCommonBufSiz];
     if (0 == strcmp("git", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server",
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zppGlobRepoIf[zRepoId]->p_RepoPath,
                 zRegResIf->p_rets[2],
-                zRegResIf->p_rets[3]);
+                zRegResIf->p_rets[3],
+                zRepoId);
     } else if (0 == strcmp("svn", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server",
-                zppGlobRepoIf[zRepoId]->p_RepoPath);
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
+                zppGlobRepoIf[zRepoId]->p_RepoPath,
+                zRepoId);
     } else {
         close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();

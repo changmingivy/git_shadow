@@ -1,9 +1,12 @@
 #!/bin/sh
-# 拉取server分支分代码到master分支；
+# 拉取 server${ProjId} 分支分代码到 master 分支；
 # 通知中控机已收到代码；
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
-export zPathOnHost="__PROJ_PATH"
+
+zPathOnHost="__PROJ_PATH"
+zProjId=`cat ${zPathOnHost}_SHADOW/info/repo_id`
+zServBranchName="server${zProjId}"
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
@@ -17,22 +20,22 @@ export GIT_DIR="${zPathOnHost}/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
-git pull --force ./.git server:master >/dev/null 2>&1
-git reset -q --hard `git log -1 server --format=%H`
+git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
+git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
 \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
-git pull --force ./.git server:master >/dev/null 2>&1
-git reset -q --hard `git log -1 server --format=%H`
+git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
+git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
 # 校验布署结果
 cd ${zPathOnHost}
 export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
-zServerSig=`git log server -1 --format=%H`
+zServerSig=`git log ${zServBranchName} -1 --format=%H`
 if [[ $zMasterSig != $zServerSig
     || 0 -ne `git status --short | wc -l`
     || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
@@ -47,7 +50,7 @@ printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
 
 # 其它额外的动作
-sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} >/tmp/zpost-update.log 2>/tmp/zpost-update.err &
+sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} ${zServBranchName} >/tmp/zpost-update.log 2>/tmp/zpost-update.err &
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update

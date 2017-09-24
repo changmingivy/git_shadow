@@ -94,8 +94,9 @@ zreset_repo(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 生成待执行的外部动作指令 */
     char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
+    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+            zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
@@ -306,7 +307,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 char zShellBuf[zCommonBufSiz];
                 FILE *zpShellRetHandler;
 
-                sprintf(zShellBuf, "cd %s && git log server -1 --format=%%H", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+                sprintf(zShellBuf, "cd %s && git log server%d -1 --format=%%H", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId);
                 zpShellRetHandler = popen(zShellBuf, "r");
                 zget_str_content(zShellBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
@@ -489,8 +490,9 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data)) { goto zMark; }
 
     char zShellBuf[zCommonBufSiz];
-    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
+    sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zpMetaIf->RepoId,
             zpMetaIf->p_data,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
@@ -739,8 +741,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zBytes(256));
-    sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%s\" \"%s\" \"%s\" \"%s\"",
+    sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+            zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
@@ -812,16 +815,18 @@ zMarkFailReTry:
                 goto zMarkFailReTry;
             } else if (1== zMarkReTry) {  /* 第二次失败，执行重度重置 */
                 /* 清理本地及所有远程主机上的项目文件；中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回 */
-                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh %s %s %s",
+                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+                        zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
                 if (255 == WEXITSTATUS( system(zShellBuf)) ) { return -60; }
 
                 /* 重置中转机状态 */
-                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%s\" \"%s\"",  // $1:MajorHostAddr；$2:PathOnHost
+                sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                        zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS(system(zShellBuf))) { return -27; }

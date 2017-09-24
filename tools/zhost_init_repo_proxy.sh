@@ -1,13 +1,16 @@
 #!/bin/sh
-zMajorAddr=$1
-zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')
+zProjId=$1
+zProxyHostAddr=$2
+zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')
+
+zServBranchName="server${zProjId}"
 
 zFinMarkFilePath=/home/git/.____fifo.$$  # 以 <自身进程号> 命名保证名称唯一
 rm -f $zFinMarkFilePath
 touch $zFinMarkFilePath
 
 (
-    ssh $zMajorAddr "
+    ssh $zProxyHostAddr "
         rm ${zPathOnHost}_SHADOW
         rm ${zPathOnHost}
 \
@@ -22,14 +25,14 @@ touch $zFinMarkFilePath
         git config user.name "git_shadow" &&
         git config user.email "git_shadow@$x" &&
         git commit --allow-empty -m "__init__" &&
-        git branch -f server &&
+        git branch -f ${zServBranchName} &&
 \
         cd ${zPathOnHost}_SHADOW &&
         git init . &&
         git config user.name "MajorHost" &&
         git config user.email "MajorHost@$x" &&
         git commit --allow-empty -m "__init__" &&
-        git branch -f server
+        git branch -f ${zServBranchName}
         "
 
         if [[ (0 -eq $?) && (1 -eq `ls ${zFinMarkFilePath} | wc -l`) ]]; then
