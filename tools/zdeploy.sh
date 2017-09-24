@@ -62,14 +62,5 @@ zOps() {
     git branch -f CURRENT  # 下一次布署的时候会冲掉既有的 CURRENT 分支
 }
 
-# kill 掉可能存在的本地僵死进程
-for zOldPid in `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s.*${zProxyHostAddr}.*${zHostList})"`
-do
-    if [[ $$ -ne ${zOldPid} ]]; then kill -9 $zOldPid; fi
-done
-
-# 清理中转机的本项目布署进程，清除index.lock文件
-ssh $zProxyHostAddr "kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"\d+(?=\s.*${zServBranchName})\" | tr '\n' ' '\`; rm -rf ${zPathOnHost}/.git/index.lock; rm -rf ${zPathOnHost}_SHADOW/.git/index.lock"
-
 printf "\n\n\n\n====[`date`]====\n" >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
 zOps >> /home/git/${zPathOnHost}_SHADOW/log/${zCommitSig}.log 2>&1
