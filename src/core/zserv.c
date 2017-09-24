@@ -778,7 +778,8 @@ zMarkFailReTry:
         /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
         strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-        _i zLogStrLen = sprintf(zCommonBuf, "%s_%zd", zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, time(NULL));
+        /* 换行符要写入，但'\0' 不能写入 */
+        _i zLogStrLen = sprintf(zCommonBuf, "%s_%zd\n", zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, time(NULL));
         if (zLogStrLen != write(zppGlobRepoIf[zpMetaIf->RepoId]->DpSigLogFd, zCommonBuf, zLogStrLen)) {
             zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
             exit(1);
