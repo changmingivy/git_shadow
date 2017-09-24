@@ -704,7 +704,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     _l zDiffBytes, zWaitTimeLimit;
     zVecWrapInfo *zpTopVecWrapIf;
-    _i zErrNo, zMarkReTry = 2;
+    _i zErrNo, zMarkReTry = 1;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
     else if (zIsDpDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf); }
@@ -712,8 +712,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 检查是否允许布署 */
     if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) { return -6; }
+
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
     if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) { return -8; }
+
     /* 检查指定的版本号是否有效 */
     if ((0 > zpMetaIf->CommitId)
             || ((zCacheSiz - 1) < zpMetaIf->CommitId)
@@ -761,7 +763,7 @@ zMarkFailReTry:
     zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
 
     /* 测算超时时间 */
-    if (2 == zMarkReTry) {
+    if (1 == zMarkReTry) {
         if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
                 || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
             zWaitTimeLimit = 600;  // 无法测算时，默认超时时间为 60s
@@ -786,7 +788,7 @@ zMarkFailReTry:
         }
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
-        if (600 <= zWaitTimeLimit) {
+        if (600 < zWaitTimeLimit) {
             zsendto(zSd, "[{\"OpsId\":-14}]", sizeof("[{\"OpsId\":-14}]") - 1, 0, NULL);
             shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
         }
@@ -796,25 +798,8 @@ zMarkFailReTry:
     for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
-            if (2 == zMarkReTry) {  /* 第一次失败，执行轻度重置 */
-                /* 重置所有目标机状态 */
-                sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
-                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0],  // 此处执行全量初始化，使用 [0]
-                        zpMetaIf->RepoId,
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
-
-                zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
-                system(zShellBuf);
-
-                /* 第一次重试时，并未做彻底的状态刷系，因此不检查本次远程主机初始化结果，防止中转机原因导致在此处退出，从而不能进行第二次重试 */
-                //zCheck_Remote_Host_Init_Res();
-
-                zMarkReTry--;
-                zWaitTimeLimit *= 1.5;  // 延长超时上限
-                goto zMarkFailReTry;
-            } else if (1== zMarkReTry) {  /* 第二次失败，执行重度重置 */
-                /* 清理本地及所有远程主机上的项目文件；中转机清理动作出错会返回 255 错误码，其它机器暂不处理错误返回 */
+            if (1== zMarkReTry) {  /* 首次布署失败，执行重置 */
+                /* 重置整个布署系统状态 */
                 sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zreset_repo.sh \"%d\" \"%s\" \"%s\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
                         zpMetaIf->RepoId,
@@ -823,7 +808,7 @@ zMarkFailReTry:
                         zpMetaIf->p_data);  // 集群主机的点分格式文本 IPv4 列表
                 if (255 == WEXITSTATUS( system(zShellBuf)) ) { return -60; }
 
-                /* 重置中转机状态 */
+                /* 初始化中转机 */
                 sprintf(zShellBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId,
@@ -831,7 +816,7 @@ zMarkFailReTry:
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS(system(zShellBuf))) { return -27; }
 
-                /* 重置所有目标机状态 */
+                /* 初始化所有目标机 */
                 sprintf(zShellBuf, "sh -x /home/git/zgit_shadow/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0],  // 此处执行全量初始化，使用 [0]
@@ -844,8 +829,9 @@ zMarkFailReTry:
                 /* 检查本次远程主机初始化结果 */
                 zCheck_Remote_Host_Init_Res();
 
-                zMarkReTry--;
-                zWaitTimeLimit *= 1.5;  // 延长超时上限
+                zWaitTimeLimit *= 2;  // 超时上限延长为 2 倍
+
+                zMarkReTry = 0;  // 若第二次布署仍失败，则不再重试
                 goto zMarkFailReTry;
             }
 
