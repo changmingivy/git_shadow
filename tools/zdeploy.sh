@@ -25,7 +25,7 @@ zOps() {
     git stash clear
     git pull --force ./.git ${zServBranchName}:master
     git reset --hard ${zCommitSig}
-    find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
+    find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
     # 更新中转机(MajorHost)
     cd /home/git/${zPathOnHost}

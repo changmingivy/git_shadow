@@ -43,7 +43,7 @@ zServerSig=`git log ${zServBranchName} -1 --format=%H`
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 if [[ $zMasterSig != $zServerSig
     || 0 -ne `git status --short | wc -l`
-    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
+    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
 then
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
