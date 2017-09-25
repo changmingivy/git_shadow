@@ -885,7 +885,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobBufSiz];
     if (0 == strcmp("git", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull \"%s\" \"%s\":server%d",
                 zppGlobRepoIf[zRepoId]->p_RepoPath,
                 zRegResIf->p_rets[2],
                 zRegResIf->p_rets[3],
