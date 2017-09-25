@@ -462,7 +462,10 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zpOldDpResListIf = zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf;
     memcpy(zpOldDpResHashIf, zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDpHashSiz * sizeof(zDpResInfo *));
 
-    /* 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配；分配清零的空间，方便检查重复 IP */
+    /*
+     * 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配
+     * 分配清零的空间，用于重置状态及检查重复 IP
+     */
     zMem_C_Alloc(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDpResInfo, zRegResIf->cnt);
 
     /* 重置状态 */
@@ -664,7 +667,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 目标机的点分格式文本 IPv4 列表
 
 zMarkFailReTry:
-    /* 重置布署相关状态 */
+    /* 重置布署相关状态：置为 -1 后，可分别进行一次布署与远程主机初始化确认 */
     for (_i i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].DpState = -1;
     }
@@ -723,7 +726,7 @@ zMarkFailReTry:
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS(system(zCommonBuf))) { return -27; }
 
-                /* 目标机重置 复用缓冲区 */
+                /* 目标机重置 复用缓冲区；不必重置 ConfirmState，布署与远程主机初始化两项操作的状态度认码不同：0 与 1 */
                 sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
