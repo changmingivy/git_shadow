@@ -131,6 +131,7 @@ typedef struct zVecWrapInfo zVecWrapInfo;
 struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
+    _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
     struct zDpResInfo *p_next;
 };
 typedef struct zDpResInfo zDpResInfo;
@@ -163,6 +164,9 @@ struct zRepoInfo {
     time_t DpBaseTimeStamp;
     /* 布署超时上限 */
     time_t DpTimeWaitLimit;
+    /* 目标机在重要动作执行前回发的keep alive消息 */
+    time_t DpKeepAliveStamp;
+
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig

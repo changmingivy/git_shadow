@@ -67,10 +67,11 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 _i
 main(_i zArgc, char **zppArgv) {
     _i zSd, zLen;
-    char zSendBuf[1024];
+    char zSendBuf[4096];
 
-    if (7 != zArgc) { _exit(1); }
-    zLen = sprintf(zSendBuf, "[{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"ExtraData\":%s}]", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6]);
+    if (8 != zArgc) { _exit(1); }
+    zLen = sprintf(zSendBuf, "[{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"data\":%s,\"ExtraData\":%s}]", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6], zppArgv[7]);
+
     if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) {
         zsendto(zSd, zSendBuf, zLen, 0, NULL);
         close(zSd);  // 只有连接成功才需要关闭

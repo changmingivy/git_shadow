@@ -20,7 +20,9 @@ zServBranchName="`git branch | grep -oP 'server\d+'`"  # 取 server${zProjId} �
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
 # 项目数据布署
@@ -29,6 +31,7 @@ export GIT_DIR="${zPathOnHost}/.git"
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 
@@ -37,6 +40,7 @@ git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 # export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
+sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 if [[ $zMasterSig != $zServerSig
     || 0 -ne `git status --short | wc -l`
     || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
