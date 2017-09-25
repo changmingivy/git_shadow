@@ -44,6 +44,8 @@
 #include "../inc/zutils.h"
 
 #define zGlobBufSiz 1024
+#define zErrMsgBufSiz 256
+
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
@@ -86,7 +88,9 @@ struct zMetaInfo {
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
+    _ui DataLen;
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
+    _ui ExtraDataLen;
 
     struct zMetaInfo *p_father;  // Tree 父节点
     struct zMetaInfo *p_left;  // Tree 左节点
@@ -132,6 +136,7 @@ struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
+    char ErrMsg[zErrMsgBufSiz];  // 存放目标主机返回的错误信息
     struct zDpResInfo *p_next;
 };
 typedef struct zDpResInfo zDpResInfo;
@@ -140,7 +145,7 @@ typedef struct zDpResInfo zDpResInfo;
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-    _i TotalHost;  // 每个项目的集群的主机数量
+    _ui TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i RepoPathLen;  // 项目路径长度，避免后续的使用者重复计算
     _i MaxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
@@ -187,7 +192,7 @@ struct zRepoInfo {
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    _i ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息

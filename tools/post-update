@@ -5,6 +5,12 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
 zPathOnHost="__PROJ_PATH"
+zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
+
+# 检测必要的路径下是存在权限异常的文件
+mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
+chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
+if [[ 0 -ne $? ]]; then exit 255; fi
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
@@ -55,7 +61,7 @@ printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
 
 # 其它额外的动作
-sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} ${zServBranchName} >/tmp/zpost-update.log 2>/tmp/zpost-update.err &
+sh -x ${zPathOnHost}_SHADOW/tools/zpost-update.sh ${zPathOnHost} ${zProjOnLinePath} ${zServBranchName} >/tmp/zpost-update.log 2>/tmp/zpost-update.err &
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update

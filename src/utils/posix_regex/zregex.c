@@ -8,8 +8,8 @@
 
 struct zRegResInfo {
     char *p_rets[zMatchLimit];  //matched results
-    _i ResLen[zMatchLimit];  // results' strlen
-    _i cnt;         //total num of matched substrings
+    _ui ResLen[zMatchLimit];  // results' strlen
+    _ui cnt;         //total num of matched substrings
 };
 typedef struct zRegResInfo zRegResInfo;
 
@@ -66,7 +66,7 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
 
 void
 zreg_free_tmpsource(zRegResInfo *zpRes) {
-    for (_i zCnter = 0; zCnter < zpRes->cnt; zCnter++) {
+    for (_ui zCnter = 0; zCnter < zpRes->cnt; zCnter++) {
         free(zpRes->p_rets[zCnter]);
     }
 }

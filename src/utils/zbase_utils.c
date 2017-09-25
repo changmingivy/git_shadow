@@ -429,14 +429,14 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
     zpBuf['E'] = zpMetaIf->p_ExtraData;
 
-    for (_i i = 0; i < zRegResIf->cnt; i += 2) {
-        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[i][0])]) {
+    for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
+        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
             zreg_free_tmpsource(zRegResIf);
             zreg_free_metasource(zRegInitIf);
             return -7;
         }
 
-        zJsonParseOps[(_i)(zRegResIf->p_rets[i][0])](zRegResIf->p_rets[i + 1], zpBuf[(_i)(zRegResIf->p_rets[i][0])]);
+        zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
     }
 
     zreg_free_tmpsource(zRegResIf);
