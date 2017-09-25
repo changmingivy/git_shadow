@@ -10,7 +10,10 @@ zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
 # 检测必要的路径下是存在权限异常的文件
 mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
 chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
-if [[ 0 -ne $? ]]; then exit 255; fi
+if [[ 0 -ne $? ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "permision denied: ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW"
+    exit 255
+fi
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
@@ -26,10 +29,14 @@ zServBranchName="`git branch | grep -oP 'server\d+'`"  # 取 server${zProjId} �
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
-sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
+sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" & # KeepAlive
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
-sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
+sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" & # KeepAlive
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
+if [[ 0 -ne $? ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "git reset failed: ${zPathOnHost}_SHADOW"
+    exit 255
+fi
 
 # 项目数据布署
 cd $zPathOnHost
@@ -40,6 +47,10 @@ git stash clear
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
+if [[ 0 -ne $? ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "git reset failed: ${zPathOnHost}"
+    exit 255
+fi
 
 # 校验布署结果
 # cd ${zPathOnHost}
@@ -47,10 +58,16 @@ git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
 sh -x ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "C" "_" >> /tmp/.____post-deploy.log 2>&1 & # KeepAlive
-if [[ $zMasterSig != $zServerSig
-    || 0 -ne `git status --short | wc -l`
-    || `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]
-then
+if [[ $zMasterSig != $zServerSig ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "git log inconsistent: branch ${zServBranchName} != branch master"
+    chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
+    exit 255
+elif [[ 0 -ne `git status --short | wc -l` ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "work area inconsistent(git status): ${zPathOnHost}"
+    chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
+    exit 255
+elif [[ `cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res` != `find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'` ]]; then
+    sh ./tools/zclient_reply.sh "__MASTER_ADDR" "__MASTER_PORT" "D" "full sha1sum failed: ${zPathOnHost}"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 fi
