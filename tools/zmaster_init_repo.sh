@@ -24,6 +24,8 @@ fi
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     if [[ $zProjId -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
+        cd ${zDeployPath}
+        git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
         cp -rf ${zShadowPath}/tools ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
