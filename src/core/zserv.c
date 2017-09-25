@@ -702,13 +702,13 @@ zMarkFailReTry:
             zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
             /*
-             * [基数 = 中控机动作耗时] + 2 * [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
+             * [基数 = 中控机动作耗时] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
              * [网络数据总量 == 主机数 X 每台的数据量]
              * [单位：0.1 秒]
              */
             zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit =
                 (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp)  // 以中控机本地所有动作耗时之和作为基数
-                + 2 * 10 * (zRemoteHostInitTimeSpent + (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp))
+                + 10 * (zRemoteHostInitTimeSpent + (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp))
                 + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 409600;
         }
 
