@@ -702,14 +702,15 @@ zMarkFailReTry:
             zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
             /*
-             * [基数 = 中控机动作耗时] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
+             * [基数 = 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
              * [网络数据总量 == 主机数 X 每台的数据量]
              * [单位：0.1 秒]
              */
-            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit =
-                (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp)  // 以中控机本地所有动作耗时之和作为基数
-                + 10 * (zRemoteHostInitTimeSpent + (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp))
-                + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 409600;
+            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 10 * (
+                    zRemoteHostInitTimeSpent
+                    + zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
+                    + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000.0
+                    );
         }
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
