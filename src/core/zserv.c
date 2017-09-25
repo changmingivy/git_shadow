@@ -614,9 +614,9 @@ _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     FILE *zpShellRetHandler;
 
-    _l zDiffBytes, zWaitTimeLimit;
     zVecWrapInfo *zpTopVecWrapIf;
-    _i zErrNo, zMarkReTry = 1;
+    _i zErrNo;
+    _l zDiffBytes, zRemoteHostInitTimeSpent, zMarkReTry = 1;
 
     if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
     else if (zIsDpDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf); }
@@ -641,6 +641,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
         if (0 > (zErrNo = zupdate_ipv4_db_all(zpMetaIf))) { return zErrNo; }
+        zRemoteHostInitTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
 
     /* 检查部署目标主机集合是否存在 */
@@ -674,8 +675,8 @@ zMarkFailReTry:
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
-    /* 调用 git 命令执行布署 */
-    zAdd_To_Thread_Pool(zthread_system, zpShellBuf);
+    /* 调用 git 命令执行布署；阻塞执行，用于测算中控机本机所有动作耗时，用作布署超时基数 */
+    system(zpShellBuf);
 
     /* 动态栈空间 */
     char zCommonBuf[zMaxBufLen];
@@ -684,7 +685,8 @@ zMarkFailReTry:
     if (1 == zMarkReTry) {
         if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
                 || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
-            zWaitTimeLimit = 600;  // 无法测算时，默认超时时间为 60s
+            /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
+            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
         } else {
             /* 复用最大的缓冲区 */
             sprintf(zCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
@@ -699,15 +701,18 @@ zMarkFailReTry:
             zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
             /*
-             * [基数 12 秒] + [中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
+             * [基数 = 中控机动作耗时] + 2 * [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 409600 kB ，超时上限递增 0.1 秒]
              * [网络数据总量 == 主机数 X 每台的数据量]
              * [单位：0.1 秒]
              */
-            zWaitTimeLimit = 120 + 10 * (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp) + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 409600;
+            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit =
+                (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp)  // 以中控机本地所有动作耗时之和作为基数
+                + 2 * 10 * (zRemoteHostInitTimeSpent + (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp))
+                + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 409600;
         }
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
-        if (600 < zWaitTimeLimit) {
+        if (600 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
             zsendto(zSd, "[{\"OpsId\":-14}]", sizeof("[{\"OpsId\":-14}]") - 1, 0, NULL);
             shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
         }
@@ -716,7 +721,7 @@ zMarkFailReTry:
     /* 等待所有主机的状态都得到确认 */
     for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.1);
-        if (zWaitTimeLimit < zTimeCnter) {
+        if (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
             if (1== zMarkReTry) {  /* 首次布署失败，执行重置 */
                 /* 中转机重置 复用缓冲区 */
                 sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
@@ -740,7 +745,7 @@ zMarkFailReTry:
                 /* 检查本次远程主机初始化结果 */
                 zCheck_Remote_Host_Init_Res();
 
-                zWaitTimeLimit *= 2;  // 超时上限延长为 2 倍
+                zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit *= 2;  // 超时上限延长为 2 倍
 
                 zMarkReTry = 0;  // 若第二次布署仍失败，则不再重试
                 goto zMarkFailReTry;
@@ -770,7 +775,7 @@ zMarkFailReTry:
     }
 
     /* 若先前测算的布署耗时 <60s ，此处向前端返回布署成功消息 */
-    if (600 > zWaitTimeLimit) {
+    if (600 > zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
         zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
@@ -1024,7 +1029,7 @@ zstart_server(void *zpIf) {
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zcommon_deploy;  // 布署或撤销
     zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
-    zNetServ[14] = NULL;
+    zNetServ[14] = NULL;  // 布署主要耗时环节执行之前发送 keep alive 消息，延长超时上限????
     zNetServ[15] = NULL;
 
     /* 如下部分配置网络服务 */
