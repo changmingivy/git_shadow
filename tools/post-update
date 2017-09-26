@@ -46,6 +46,8 @@ zTcpReply() {
     done
 }
 
+printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+
 # 检测必要的路径下是存在权限异常的文件
 mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
 chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
@@ -103,9 +105,8 @@ ln -s ${zPathOnHost} ${zProjOnLinePath}
 zTcpReply "_" "C"
 rm -rf ${zPathOnHost}_OnLine
 mkdir ${zPathOnHost}_OnLine
-# git clone 在勾子中执行无效，故写入外部脚本执行
 zTcpReply "_" "C"
-sh ${zPathOnHost}_SHADOW/tools/zpost-update.sh "$zPathOnHost/.git" "${zPathOnHost}_OnLine"
+git clone $zPathOnHost/.git ${zPathOnHost}_OnLine >> /tmp/.____post-deploy.log 2>&1
 # 切换回线上仓库工作区
 rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
@@ -137,8 +138,7 @@ fi
 # 布署成功：'B' 用于标识这是布署状态回复 #
 ##########################################
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
-sh ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
+sh -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
