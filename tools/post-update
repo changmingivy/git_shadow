@@ -49,11 +49,10 @@ zTcpReply() {
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 # 检测必要的路径下是存在权限异常的文件
-mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
-chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
+mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}`
+chown -R git:git ${zProjOnLinePath} `dirname ${zPathOnHost}`
 if [[ 0 -ne $? ]]; then
-    # 将错误信息中可能与 json 标识符混淆的字符替换为 '='
-    zTcpReply "`chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW > /dev/null | sed -n 's/[][}{\",:]/=/gp'`" "D"
+    zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "D"
     exit 255
 fi
 

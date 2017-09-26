@@ -533,7 +533,8 @@ zMark:
         + 12
         + 0];
 
-    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+    /* 只取保留 stderr 输出 */
+    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
@@ -660,7 +661,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zMaxBufLen);
-    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+    /* 只取保留 stderr 输出 */
+    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
             zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
@@ -758,8 +760,8 @@ zMarkFailReTry:
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                 if (0 != WEXITSTATUS( system(zCommonBuf)) ) { return -27; }
 
-                /* 仅对重置失败的那部分目标主机 复用缓冲区 */
-                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+                /* 仅对重置失败的那部分目标主机 复用缓冲区 */ /* 只取保留 stderr 输出 */
+                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zpMetaIf->p_data,
@@ -783,8 +785,8 @@ zMarkFailReTry:
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit *= 2;
                 zMarkReTry = 0;
 
-                /* 基于失败列表，重新构建布署指令 */
-                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+                /* 基于失败列表，重新构建布署指令 */ /* 只取保留 stderr 输出 */
+                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
                         zpMetaIf->RepoId,
                         zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
@@ -991,11 +993,15 @@ zops_route(void *zpSd) {
         return NULL;
     }
 
-    char zDataBuf[2 * zMetaIf.DataLen], zExtraDataBuf[zMetaIf.DataLen];
-    memset(zDataBuf, 0, 2 * zMetaIf.DataLen);
-    memset(zExtraDataBuf, 0, zMetaIf.DataLen);
+    /* .p_data 与 .p_ExtraData 成员空间 */
+    zMetaIf.DataLen += zGlobBufSiz;
+    zMetaIf.ExtraDataLen = zGlobBufSiz;
+    char zDataBuf[zMetaIf.DataLen], zExtraDataBuf[zMetaIf.ExtraDataLen];
+    memset(zDataBuf, 0, zMetaIf.DataLen);
+    memset(zExtraDataBuf, 0, zMetaIf.ExtraDataLen);
     zMetaIf.p_data = zDataBuf;
     zMetaIf.p_ExtraData = zExtraDataBuf;
+
     if (0 > (zErrNo = zconvert_json_str_to_struct(zpJsonBuf, &zMetaIf))) {
         zMetaIf.OpsId = zErrNo;
         goto zMarkCommonAction;
