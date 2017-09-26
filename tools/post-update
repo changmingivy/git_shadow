@@ -125,7 +125,7 @@ elif [[ '0' != "`git status --short | wc -l`" ]]; then
     zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
-elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find -L ${zProjOnLinePath} -path \"${zProjOnLinePath}/.git\" -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
+elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`cd ${zProjOnLinePath} && find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
     zTcpReply "full sha1sum failed: ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
@@ -134,7 +134,7 @@ fi
 # 布署完成之后需要执行的动作：____post-deploy.sh
 (cd ${zProjOnLinePath} && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &
 
-# 若有 ____pre-deploy.sh 产生的版本号，则消除之
+# 若有 ____pre-deploy.sh 产生的版本号，则消除之，用于兼容页面检验工具
 cd ${zProjOnLinePath}
 if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then git reset `git log -2 --format=%H | tail -1`; fi
 
