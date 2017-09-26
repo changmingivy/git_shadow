@@ -32,7 +32,7 @@ do
     done
 
     let zIpv4Cnter++
-    if [[ 8 -lt zIpv4Cnter ]]; then break; fi
+    if [[ '8' == "$zIpv4Cnter" ]]; then break; fi
 done
 
 # 'A'目标机初始伦；'B'布署结果返回；'C'KeepAlive；'D'错误信息返回
@@ -100,9 +100,12 @@ rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文�
 ln -s ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
 # 临时切换至布署仓库工作区
 ln -s ${zPathOnHost} ${zProjOnLinePath}
+zTcpReply "_" "C" &
 rm -rf ${zPathOnHost}_OnLine
 mkdir ${zPathOnHost}_OnLine
-git clone $zPathOnHost/.git ${zPathOnHost}_OnLine
+# git clone 在勾子中执行无效，故写入外部脚本执行
+zTcpReply "_" "C" &
+sh ${zPathOnHost}_SHADOW/tools/zpost-update.sh "$zPathOnHost/.git" "${zPathOnHost}_OnLine"
 # 切换回线上仓库工作区
 rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
@@ -111,8 +114,8 @@ ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 (cd ${zPathOnHost}_OnLine && sh ${zPathOnHost}_OnLine/____post-deploy.sh) &
 
 # 校验布署结果
-cd ${zProjOnLinePath}
-export GIT_DIR="${zProjOnLinePath}/.git"
+cd ${zPathOnHost}
+export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
 zTcpReply "_" "C" &
