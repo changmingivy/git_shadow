@@ -127,7 +127,7 @@ elif [[ '0' != "`git status --short | wc -l`" ]]; then
     zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
-elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find ${zProjOnLinePath} -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
+elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find ${zProjOnLinePath} -path \'${zProjOnLinePath}/.git\' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
     zTcpReply "full sha1sum failed: ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
