@@ -42,6 +42,7 @@ zOps() {
     cp -R ${zShadowPath}/tools ./
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
+    git add --all .
     git commit --allow-empty -m "_"  # 提交一次空记录，用于保证每次推送 post-upate 都能执行
     git push --force git@${zProxyHostAddr}:${zPathOnHost}_SHADOW/.git master:${zServBranchName}
 
