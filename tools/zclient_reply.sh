@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 zMasterAddr=$1
 zMasterPort=$2
 zMasterSig=$3

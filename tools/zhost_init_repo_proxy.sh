@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 zProjId=$1
 zProxyHostAddr=$2
 zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')

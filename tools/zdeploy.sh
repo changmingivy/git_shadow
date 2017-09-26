@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 zProjId=$1
 zCommitSig=$2
 zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
@@ -25,6 +25,12 @@ zOps() {
     git stash clear
     git pull --force ./.git ${zServBranchName}:master
     git reset --hard ${zCommitSig}
+
+    # 用户指定的在部置之前执行的操作
+    bash ____pre-deploy.sh
+    git add --all .
+    git commit --allow-empty -m "commit for ____pre-deploy.sh"
+
     find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
     # 更新中转机(MajorHost)
@@ -36,11 +42,7 @@ zOps() {
     cp -R ${zShadowPath}/tools ./
     chmod 0755 ./tools/post-update
     eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
-
-    printf "\n\n\n\n##${RANDOM}## `date`" >> ./tools/post-update  # 用于保证每次推送 post-upate 都能执行
-
-    git add --all .
-    git commit -m "__DP__"
+    git commit --allow-empty -m "_"  # 提交一次空记录，用于保证每次推送 post-upate 都能执行
     git push --force git@${zProxyHostAddr}:${zPathOnHost}_SHADOW/.git master:${zServBranchName}
 
     # 通过中转机布署到终端集群，先推项目代码，后推 <_SHADOW>

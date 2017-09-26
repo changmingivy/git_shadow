@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # 拉取 server${ProjId} 分支分代码到 master 分支
 # 通知中控机已收到代码
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
@@ -112,7 +112,7 @@ rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
 # 布署完成之后需要执行的动作：____post-deploy.sh
-(cd ${zPathOnHost}_OnLine && sh ${zPathOnHost}_OnLine/____post-deploy.sh) &
+(cd ${zPathOnHost}_OnLine && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &
 
 # 校验布署结果
 cd ${zPathOnHost}
@@ -138,7 +138,7 @@ fi
 # 布署成功：'B' 用于标识这是布署状态回复 #
 ##########################################
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-sh -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B" >> /tmp/.____post-deploy.log 2>&1
+bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B" >> /tmp/.____post-deploy.log 2>&1
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update

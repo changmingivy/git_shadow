@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 zProxyHostAddr=$1
 zSlaveAddrList=$2
 zProjId=$3

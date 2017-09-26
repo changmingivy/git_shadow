@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 # 预环境要求：
 #   (1) /etc/ssh/sshd_config 中的 MaxStartups 参数指定为 1024 以上
