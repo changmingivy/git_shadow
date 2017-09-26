@@ -389,7 +389,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
         + zRegResIf->ResLen[0]
         + 0];
 
-    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $1:RepoId $2:ProxyHostAddr；$3:PathOnHost
+    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $1:RepoId $2:ProxyHostAddr；$3:PathOnHost
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->RepoId,
             zRegResIf->p_rets[0],
@@ -533,7 +533,7 @@ zMark:
         + 12
         + 0];
 
-    sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
@@ -658,7 +658,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zMaxBufLen);
-    sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
             zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
@@ -744,7 +744,7 @@ zMarkFailReTry:
                 zpMetaIf->p_data[zOffSet] = '\0';
 
                 /* 中转机重置 复用缓冲区 */
-                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
+                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $2:ProxyHostAddr；$3:PathOnHost
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
@@ -752,7 +752,7 @@ zMarkFailReTry:
                 if (0 != WEXITSTATUS( system(zCommonBuf)) ) { return -27; }
 
                 /* 仅对重置失败的那部分目标主机 复用缓冲区 */
-                sprintf(zCommonBuf, "sh -x %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zpMetaIf->p_data,
@@ -774,7 +774,7 @@ zMarkFailReTry:
                 zMarkReTry = 0;
 
                 /* 基于失败列表，重新构建布署指令 */
-                sprintf(zpShellBuf, "sh -x %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
                         zpMetaIf->RepoId,
                         zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
@@ -970,7 +970,7 @@ zops_route(void *zpSd) {
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
     if (zGlobBufSiz == (zMetaIf.DataLen = recv(zSd, zpJsonBuf, zGlobBufSiz, 0))) {
-        zMem_Alloc(zpJsonBuf, char, zGlobBufSiz * 1024);
+        zMem_C_Alloc(zpJsonBuf, char, zGlobBufSiz * 1024);  // 用清零的空间，保障正则匹配不出现混乱
         strcpy(zpJsonBuf, zJsonBuf);
         zMetaIf.DataLen += recv(zSd, zpJsonBuf + zMetaIf.DataLen, zGlobBufSiz * 1024 - zMetaIf.DataLen, 0);
     }
