@@ -111,9 +111,6 @@ git clone $zPathOnHost/.git ${zPathOnHost}_OnLine >> /tmp/.____post-deploy.log 2
 rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
-# 布署完成之后需要执行的动作：____post-deploy.sh
-(cd ${zPathOnHost}_OnLine && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &
-
 # 校验布署结果
 cd ${zPathOnHost}
 export GIT_DIR="${zPathOnHost}/.git"
@@ -133,6 +130,13 @@ elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find -L ${zProjOnLin
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 fi
+
+# 布署完成之后需要执行的动作：____post-deploy.sh
+(cd ${zProjOnLinePath} && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &
+
+# 若有 ____pre-deploy.sh 产生的版本号，则消除之
+cd ${zProjOnLinePath}
+if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then git reset `git log -2 --format=%H | tail -1`; fi
 
 ##########################################
 # 布署成功：'B' 用于标识这是布署状态回复 #

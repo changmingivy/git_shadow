@@ -29,7 +29,7 @@ zOps() {
     # 用户指定的在部置之前执行的操作
     bash ____pre-deploy.sh
     git add --all .
-    git commit --allow-empty -m "commit for ____pre-deploy.sh"
+    git commit -m "____pre-deploy.sh"
 
     find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
