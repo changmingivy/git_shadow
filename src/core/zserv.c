@@ -533,14 +533,16 @@ zMark:
         + 12
         + 0];
 
-    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
-    system(zCommonBuf);
+    FILE *zpShellRetHandler = popen(zCommonBuf, "r");
+    zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+    pclose(zpShellRetHandler);
 
     /* 释放资源 */
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
@@ -561,9 +563,9 @@ zMark:
                 /* 初始化远程主机的成功返回码是 0，布署的成功返回码是 1，原始置位码是 -1 */
                 if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
                     zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "(%s: %s)",
+                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
                             zIpv4StrAddrBuf,
-                            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
+                            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
                             );
 
                     /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
@@ -596,9 +598,9 @@ zMark:
             for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {\
                 if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {\
                     zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);\
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "(%s: %s)",\
+                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",\
                             zIpv4StrAddrBuf,\
-                            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg\
+                            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg\
                             );\
 \
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;\
@@ -658,13 +660,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zMaxBufLen);
-    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
             zpMetaIf->RepoId,
-            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
+            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);  // 目标机的点分格式文本 IPv4 列表
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]  // 目标机的点分格式文本 IPv4 列表
+            );
 
 zMarkFailReTry:
     /* 重置布署相关状态 */
@@ -675,7 +678,9 @@ zMarkFailReTry:
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
     /* 调用 git 命令执行布署；阻塞执行，用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    system(zpShellBuf);
+    zpShellRetHandler = popen(zpShellBuf, "r");
+    zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+    pclose(zpShellRetHandler);
 
     /* 动态栈空间 */
     char zCommonBuf[zMaxBufLen];
@@ -697,6 +702,7 @@ zMarkFailReTry:
             zpShellRetHandler = popen(zCommonBuf, "r");
             zget_one_line(zCommonBuf, 128, zpShellRetHandler);
             pclose(zpShellRetHandler);
+
             zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
             /*
@@ -716,7 +722,8 @@ zMarkFailReTry:
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
         if (600 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
-            zsendto(zSd, "[{\"OpsId\":-14}]", sizeof("[{\"OpsId\":-14}]") - 1, 0, NULL);
+            _i zSendLen = sprintf(zCommonBuf, "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+            zsendto(zSd, zCommonBuf, zSendLen, 0, NULL);
             shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
         }
     }
@@ -752,7 +759,7 @@ zMarkFailReTry:
                 if (0 != WEXITSTATUS( system(zCommonBuf)) ) { return -27; }
 
                 /* 仅对重置失败的那部分目标主机 复用缓冲区 */
-                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\"",
+                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zpMetaIf->p_data,
@@ -764,7 +771,10 @@ zMarkFailReTry:
                 }
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
-                system(zCommonBuf);
+
+                zpShellRetHandler = popen(zCommonBuf, "r");
+                zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+                pclose(zpShellRetHandler);
 
                 /* 检查本次远程主机初始化结果 */
                 zCheck_Remote_Host_Init_Res();
@@ -774,13 +784,14 @@ zMarkFailReTry:
                 zMarkReTry = 0;
 
                 /* 基于失败列表，重新构建布署指令 */
-                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 指定代码库的绝对路径
+                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
                         zpMetaIf->RepoId,
-                        zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // 指定40位SHA1  commit sig
+                        zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-                        zpMetaIf->p_data);
+                        zpMetaIf->p_data
+                        );
 
                 goto zMarkFailReTry;
             }
@@ -797,9 +808,9 @@ zMarkFailReTry:
                 /* 初始化远程主机的成功返回码是 0，布署的成功返回码是 1，原始置位码是 -1 */
                 if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
                     zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "(%s: %s)",
+                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
                             zIpv4StrAddrBuf,
-                            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
+                            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
                             );
 
                     /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */

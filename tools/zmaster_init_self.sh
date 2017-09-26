@@ -59,7 +59,7 @@ cc -Wall -Wextra -std=c99 -O2 \
     ${zShadowPath}/src/extra/znotice.c
 strip ${zShadowPath}/tools/notice
 
-${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort 2>${zShadowPath}/log/log 1>&2
+${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 # 后台进入退出重启机制
 #${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &

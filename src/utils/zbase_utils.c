@@ -450,22 +450,16 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
  */
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
-    if (0 > zpMetaIf->OpsId) {
-        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d,\"data\":\"%s\"}",
-                zpMetaIf->OpsId,
-                (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data
-                );
-    } else {
-        sprintf(
-                //zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                zpJsonStrBuf, ",{\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                zpMetaIf->CommitId,
-                zpMetaIf->FileId,
-                zpMetaIf->CacheId,
-                (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
-                (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
-                );
-    }
+    sprintf(
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpMetaIf->OpsId,
+            zpMetaIf->CacheId,
+            zpMetaIf->RepoId,
+            zpMetaIf->CommitId,
+            zpMetaIf->DataType,
+            (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
+            (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
+            );
 }
 
 // /*

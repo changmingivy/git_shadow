@@ -52,7 +52,8 @@ printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
 chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW
 if [[ 0 -ne $? ]]; then
-    zTcpReply "permision denied: ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW" "D"
+    # 将错误信息中可能与 json 标识符混淆的字符替换为 '='
+    zTcpReply "`chown -R git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_OnLine ${zPathOnHost}_SHADOW > /dev/null | sed -n 's/[][}{\",:]/=/gp'`" "D"
     exit 255
 fi
 
