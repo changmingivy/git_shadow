@@ -709,6 +709,9 @@ zMarkFailReTry:
                     + zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
                     + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000.0
                     );
+
+            /* 最长 10 分钟 */
+            if (6000 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
         }
 
         /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */

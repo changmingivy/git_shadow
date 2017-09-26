@@ -78,14 +78,14 @@ fi
 # 项目数据布署
 cd $zPathOnHost
 export GIT_DIR="${zPathOnHost}/.git"
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 git stash
 git stash clear
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 if [[ 0 -ne $? ]]; then
     zTcpReply "git reset failed: ${zPathOnHost}" "D"
@@ -100,11 +100,11 @@ rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文�
 ln -s ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
 # 临时切换至布署仓库工作区
 ln -s ${zPathOnHost} ${zProjOnLinePath}
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 rm -rf ${zPathOnHost}_OnLine
 mkdir ${zPathOnHost}_OnLine
 # git clone 在勾子中执行无效，故写入外部脚本执行
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 sh ${zPathOnHost}_SHADOW/tools/zpost-update.sh "$zPathOnHost/.git" "${zPathOnHost}_OnLine"
 # 切换回线上仓库工作区
 rm -rf ${zProjOnLinePath}
@@ -118,7 +118,7 @@ cd ${zPathOnHost}
 export GIT_DIR="${zPathOnHost}/.git"
 zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
-zTcpReply "_" "C" &
+zTcpReply "_" "C"
 if [[ "$zMasterSig" != "$zServerSig" ]]; then
     zTcpReply "git log inconsistent: branch ${zServBranchName} != branch master" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
@@ -127,7 +127,7 @@ elif [[ '0' != "`git status --short | wc -l`" ]]; then
     zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
-elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find ${zProjOnLinePath} -path \'${zProjOnLinePath}/.git\' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
+elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`find ${zProjOnLinePath} -path \"${zProjOnLinePath}/.git\" -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
     zTcpReply "full sha1sum failed: ${zPathOnHost}" "D"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
