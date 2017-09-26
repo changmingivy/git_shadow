@@ -41,7 +41,7 @@ zTcpReply() {
     do
         if [[ '0' == `eval echo \$\{zIpv4NumAddr${zCnter}\}` ]]; then break; fi
         exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zIpv4NumAddr}${zCnter},\"data\":${1},\"ExtraData\":${2}}]">&777
+        printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":`eval echo \$\{zIpv4NumAddr${zCnter}\}`,\"data\":${1},\"ExtraData\":${2}}]">&777
         exec 777>&-
     done
 }
@@ -138,7 +138,7 @@ fi
 # 布署成功：'B' 用于标识这是布署状态回复 #
 ##########################################
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-sh -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "B" "${zMasterSig}" >> /tmp/.____post-deploy.log 2>&1
+sh -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B" >> /tmp/.____post-deploy.log 2>&1
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
