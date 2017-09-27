@@ -27,7 +27,7 @@ do
     zCnter=0
     for zField in `printf ${zIpv4StrAddr} | grep -oP '\d+'`
     do
-        eval let zIpv4NumAddr${zIpv4Cnter}+=$[${zField} << (8 * ${zCnter})]
+        eval let zIpv4NumAddr${zIpv4Cnter}+=$((${zField} << (8 * ${zCnter})))
         let zCnter++
     done
 
@@ -49,8 +49,8 @@ zTcpReply() {
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 # 检测必要的路径下是存在权限异常的文件
-mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}`
-chown -R git:git ${zProjOnLinePath} `dirname ${zPathOnHost}`
+mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
+chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 if [[ 0 -ne $? ]]; then
     zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "D"
     exit 255
@@ -136,7 +136,10 @@ fi
 
 # 若有 ____pre-deploy.sh 产生的版本号，则消除之，用于兼容页面检验工具
 cd ${zProjOnLinePath}
-if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then git reset `git log -2 --format=%H | tail -1`; fi
+if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then
+    zMasterSig=`git log -2 --format=%H | tail -1`
+    git reset ${zMasterSig}
+fi
 
 ##########################################
 # 布署成功：'B' 用于标识这是布署状态回复 #

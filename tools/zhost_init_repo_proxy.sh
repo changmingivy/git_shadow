@@ -10,35 +10,35 @@ rm -f $zFinMarkFilePath
 touch $zFinMarkFilePath
 
 # 清理中控机本地进程
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | grep -oP "^\s*\d+(?=\s.*${zProxyHostAddr}.*${zHostList})" | grep -v "$$" | tr '\n' ' '`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | grep -oP "^\s*\d+(?=\s.*${zProxyHostAddr}.*${zHostList})" | grep -v "$$"`
 
 (
     ssh $zProxyHostAddr "
-        kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"^\s*\d+(?=\s.*${zServBranchName})\" | grep -v \"\$$\" | tr '\n' ' '\`
+        kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"^\s*\d+(?=\s.*${zServBranchName})\" | grep -v \"\$$\"\`
         rm -rf ${zPathOnHost}/.git
         rm -rf ${zPathOnHost}_SHADOW/.git
 \
         rm -f ${zPathOnHost}_SHADOW
         rm -f ${zPathOnHost}
 \
-        mkdir -p ${zPathOnHost} &&
-        mkdir -p ${zPathOnHost}_SHADOW &&
+        mkdir -p ${zPathOnHost}
+        mkdir -p ${zPathOnHost}_SHADOW
 \
         rm -f ${zPathOnHost}/.git/index.lock
         rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 \
-        cd $zPathOnHost &&
-        git init . &&
-        git config user.name "git_shadow" &&
-        git config user.email "git_shadow@$x" &&
-        git commit --allow-empty -m "__init__" &&
-        git branch -f ${zServBranchName} &&
+        cd $zPathOnHost
+        git init .
+        git config user.name "git_shadow"
+        git config user.email "git_shadow@$x"
+        git commit --allow-empty -m "__init__"
+        git branch -f ${zServBranchName}
 \
-        cd ${zPathOnHost}_SHADOW &&
-        git init . &&
-        git config user.name "MajorHost" &&
-        git config user.email "MajorHost@$x" &&
-        git commit --allow-empty -m "__init__" &&
+        cd ${zPathOnHost}_SHADOW
+        git init .
+        git config user.name "MajorHost"
+        git config user.email "MajorHost@$x"
+        git commit --allow-empty -m "__init__"
         git branch -f ${zServBranchName}
         "
 
@@ -49,7 +49,7 @@ kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | 
 
 # 防止遇到无效IP时，长时间阻塞
 (
-    sleep 6
+    sleep 20
     if [[ 1 -eq `ls ${zFinMarkFilePath} | wc -l` ]]; then
         printf "Fail" > $zFinMarkFilePath
     fi

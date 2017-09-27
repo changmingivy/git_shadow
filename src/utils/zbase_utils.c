@@ -146,7 +146,7 @@ _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
     _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
-    zCheck_Negative_Return(zSentSiz, -1);
+    //zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
@@ -451,11 +451,12 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
             zpMetaIf->OpsId,
             zpMetaIf->CacheId,
             zpMetaIf->RepoId,
             zpMetaIf->CommitId,
+            zpMetaIf->FileId,
             zpMetaIf->DataType,
             (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
             (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
