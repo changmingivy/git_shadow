@@ -746,6 +746,10 @@ zMarkFailReTry:
                     if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
                         zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
                         zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "%s ", zIpv4StrAddrBuf);
+
+                        /* 调整目标机初始化状态数据（布署状态数据不调整！）*/
+                        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = -1;
+                        zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] -= 1;
                     }
                 }
                 zpMetaIf->p_data[zOffSet] = '\0';
@@ -766,10 +770,7 @@ zMarkFailReTry:
                         zpMetaIf->RepoId,
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
-                for (_ui i = 0; i < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; i++) {
-                    zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[i].InitState = -1;
-                }
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
+                /* 重置时间戳，其它相关状态在查失败列表时已增量重置 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
                 zpShellRetHandler = popen(zCommonBuf, "r");
