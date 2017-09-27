@@ -21,24 +21,24 @@ kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | 
         rm -f ${zPathOnHost}_SHADOW
         rm -f ${zPathOnHost}
 \
-        mkdir -p ${zPathOnHost} &&
-        mkdir -p ${zPathOnHost}_SHADOW &&
+        mkdir -p ${zPathOnHost}
+        mkdir -p ${zPathOnHost}_SHADOW
 \
         rm -f ${zPathOnHost}/.git/index.lock
         rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 \
-        cd $zPathOnHost &&
-        git init . &&
-        git config user.name "git_shadow" &&
-        git config user.email "git_shadow@$x" &&
-        git commit --allow-empty -m "__init__" &&
-        git branch -f ${zServBranchName} &&
+        cd $zPathOnHost
+        git init .
+        git config user.name "git_shadow"
+        git config user.email "git_shadow@$x"
+        git commit --allow-empty -m "__init__"
+        git branch -f ${zServBranchName}
 \
-        cd ${zPathOnHost}_SHADOW &&
-        git init . &&
-        git config user.name "MajorHost" &&
-        git config user.email "MajorHost@$x" &&
-        git commit --allow-empty -m "__init__" &&
+        cd ${zPathOnHost}_SHADOW
+        git init .
+        git config user.name "MajorHost"
+        git config user.email "MajorHost@$x"
+        git commit --allow-empty -m "__init__"
         git branch -f ${zServBranchName}
         "
 
