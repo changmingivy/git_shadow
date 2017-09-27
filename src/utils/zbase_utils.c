@@ -451,11 +451,12 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
     sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
             zpMetaIf->OpsId,
             zpMetaIf->CacheId,
             zpMetaIf->RepoId,
             zpMetaIf->CommitId,
+            zpMetaIf->FileId,
             zpMetaIf->DataType,
             (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
             (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
