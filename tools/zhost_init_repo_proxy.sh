@@ -49,7 +49,7 @@ kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | 
 
 # 防止遇到无效IP时，长时间阻塞
 (
-    sleep 6
+    sleep 20
     if [[ 1 -eq `ls ${zFinMarkFilePath} | wc -l` ]]; then
         printf "Fail" > $zFinMarkFilePath
     fi
