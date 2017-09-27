@@ -671,7 +671,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]  // 目标机的点分格式文本 IPv4 列表
             );
 
-zMarkFailReTry:
     /* 重置布署相关状态 */
     for (_ui zCnter = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
@@ -932,7 +931,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                 return 0;
             } else {
-                snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpTmpIf->ErrMsg);
+                snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                 return -102;  // 返回负数，用于打印日志
             }
