@@ -70,7 +70,7 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
         if (NULL == zppGlobRepoIf[zCnter] || 0 == zppGlobRepoIf[zCnter]->zInitRepoFinMark) { continue; }
 
         if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zCnter]->RwLock))) {
-            sprintf(zSendBuf, "{\"OpsId\":-11,\"data\":\"Id: %d\"},", zCnter);
+            sprintf(zSendBuf, "{\"OpsId\":-11,\"data\":\"Id %d\"},", zCnter);
             zsendto(zSd, zSendBuf, strlen(zSendBuf), 0, NULL);
             continue;
         };
@@ -102,9 +102,18 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
     zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
     char zSendBuf[zGlobBufSiz];
 
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+        }
 
-    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+        return -11;
+    };
+
+    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
@@ -164,7 +173,16 @@ _i
 zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
     zVecWrapInfo *zpSortedTopVecWrapIf;
 
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+        }
+
+        return -11;
+    };
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpSortedTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
@@ -201,12 +219,30 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
 
                     /* 此处进行换锁：读锁与写锁进行两次互换 */
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-                    if (0 != pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+                    if (0 != pthread_rwlock_trywrlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+                        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+                        } else {
+                            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                        }
+
+                        return -11;
+                    };
 
                     zrefresh_cache(zpMetaIf);
 
                     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
-                    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+                    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+                        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+                        } else {
+                            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                        }
+
+                        return -11;
+                    };
                 }
 
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->PullLock));
@@ -256,7 +292,16 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     /* get rdlock */
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+        }
+
+        return -11;
+    }
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -270,6 +315,14 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         /* 检测缓存是否正在生成过程中 */
         if (-7 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+            } else {
+                sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+            }
+
             return -11;
         }
     }
@@ -312,7 +365,16 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         return -10;
     }
 
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; };
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+        }
+
+        return -11;
+    };
 
     zCheck_CacheId();  // 宏内部会解锁
 
@@ -326,6 +388,14 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         /* 检测缓存是否正在生成过程中 */
         if (-7 == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+            } else {
+                sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+            }
+
             return -11;
         }
     }
@@ -340,6 +410,14 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         /* 检测缓存是否正在生成过程中 */
         if (-7 == zGet_OneFileVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId)->VecSiz) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+
+            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+            } else {
+                sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+            }
+
             return -11;
         }
     }
@@ -400,7 +478,16 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zRegResIf->p_rets[0])) { goto zMark; }
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+        }
+
+        return -11;
+    }
 
     /* system 返回值是 waitpid 状态，不是错误码，错误码需要用 WEXITSTATUS 宏提取 */
     if (0 != WEXITSTATUS( system(zCommonBuf)) ) {
@@ -884,12 +971,24 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
         pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
     } else {
-        if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) { return -11; }
+        if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+            } else {
+                sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能需要 %zd 秒",
+                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+            }
+
+            return -11;
+        }
     }
+    zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;
 
     zErrNo = zdeploy(zpMetaIf, zSd);
 
     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+    zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 0;
+
     return zErrNo;
 }
 
