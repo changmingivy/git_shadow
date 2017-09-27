@@ -550,11 +550,11 @@ zMark:
 
     /*
      * 等待所有主机的状态都得到确认，6+ 秒超时
-     * 目标主机数量 >20 时，每增加一台，超时上限递增 0.1 秒
+     * 每台目标机额外递增 0.1 秒
      * 由于初始化远程主机动作的工作量是固定的，可按目标主机数量运态调整超时时间
      * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
      */
-    _ui zWaitTimeLimit = 10 * (6 + 0.1 * ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > 20) ? (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost - 20) : 0));
+    _ui zWaitTimeLimit = 10 * (6 + 0.1 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
     for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
