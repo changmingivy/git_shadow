@@ -1002,6 +1002,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 在没有新的布署动作之前，持续尝试布署失败的目标机 */
         while(1) {
+            sleep(10);
             pthread_rwlock_rdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
             if (0 ==  strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
@@ -1027,7 +1028,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                         );
 
                 /* 重置时间戳，其它相关状态无须重置 */
-                zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+                //zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
                 /* 调用 git 命令执行布署；阻塞执行 */
                 if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
@@ -1047,7 +1048,6 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                 }
 
                 pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-                sleep(10);
             } else {
                 pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
                 break;
