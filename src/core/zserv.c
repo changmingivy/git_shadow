@@ -969,10 +969,8 @@ _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
-    /* 预算本函数用到的最大 BufSiz */
-    _i zMaxBufLen = 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
-    /* 动态栈空间 */
-    char zCommonBuf[zMaxBufLen];
+    /* 预算本函数用到的最大 BufSiz */ /* 开辟动态栈空间 */
+    char zCommonBuf[2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen];
 
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
@@ -1006,8 +1004,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         while(1) {
             pthread_rwlock_rdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
 
-            if ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) 
-                    && (0 ==  strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40))) {
+            if (0 ==  strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
                 /* 取出失败的IP列表 */
                 char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
                 _ui zOffSet = 0;
@@ -1031,8 +1028,14 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
                 /* 重置时间戳，其它相关状态无须重置 */
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+
                 /* 调用 git 命令执行布署；阻塞执行 */
-                system(zCommonBuf);
+                if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
+                    system(zCommonBuf);
+                } else {
+                    pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+                    return 0;
+                }
 
                 /* 等待剩余的所有主机状态都得到确认 */
                 for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
