@@ -819,8 +819,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
 //        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
 //    }
 
-    /* 等待至少 80％ 的主机状态都得到确认 */
-    _ui zMinAcceptCnt = (10 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.8 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+    /* 等待至少 90％ 的主机状态都得到确认 */
+    _ui zMinAcceptCnt = (20 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.9 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     for (_l zTimeCnter = 0; zMinAcceptCnt > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.1);
         if (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
