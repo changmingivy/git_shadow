@@ -969,8 +969,8 @@ _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
 
-    /* 计算本函数用到的最大 BufSiz */
-    _i zMaxBufLen = 128 + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen - 9 + 12 + 40 + 16 + strlen(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]);
+    /* 预算本函数用到的最大 BufSiz */
+    _i zMaxBufLen = 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
     /* 动态栈空间 */
     char zCommonBuf[zMaxBufLen];
 
