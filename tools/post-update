@@ -49,8 +49,8 @@ zTcpReply() {
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 # 检测必要的路径下是存在权限异常的文件
-mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}`
-chown -R git:git ${zProjOnLinePath} `dirname ${zPathOnHost}`
+mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
+chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 if [[ 0 -ne $? ]]; then
     zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "D"
     exit 255

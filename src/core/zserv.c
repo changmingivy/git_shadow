@@ -918,7 +918,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             } else if ('B' == zpMetaIf->p_ExtraData[0]){
                 if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                    return 0;
+                    return -101;  // 返回负数，用于打印日志
                 }
 
                 if (1 != zpTmpIf->DpState) {
@@ -934,7 +934,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             } else {
                 snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpTmpIf->ErrMsg);
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                return 0;
+                return -102;  // 返回负数，用于打印日志
             }
 
             /* 调试功能：布署耗时统计，必须在锁内执行 */
@@ -1086,6 +1086,9 @@ zMarkCommonAction:
  *  -70：服务器版本号列表缓存存在错误
  *  -71：服务器差异文件列表缓存存在错误
  *  -72：服务器单个文件的差异内容缓存存在错误
+ *
+ *  -101：目标机返回的版本号与正在布署的不一致
+ *  -102：目标机返回的错误信息
  */
 
 void

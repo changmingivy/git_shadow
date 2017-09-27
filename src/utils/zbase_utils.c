@@ -146,7 +146,7 @@ _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
     _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
-    zCheck_Negative_Return(zSentSiz, -1);
+    //zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
