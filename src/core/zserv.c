@@ -813,11 +813,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     }
 
     /* 耗时预测超过 120 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
-    if (1200 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
-        _i zSendLen = sprintf(zpCommonBuf, "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
-        zsendto(zSd, zpCommonBuf, zSendLen, 0, NULL);
-        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
-    }
+//    if (1200 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
+//        _i zSendLen = sprintf(zpCommonBuf, "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+//        zsendto(zSd, zpCommonBuf, zSendLen, 0, NULL);
+//        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
+//    }
 
     /* 等待至少 80％ 的主机状态都得到确认 */
     _ui zMinAcceptCnt = (10 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.8 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
@@ -924,10 +924,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     }
 
     /* 若先前测算的布署耗时 <= 120s ，此处向前端返回布署成功消息 */
-    if (1200 >= zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
+//    if (1200 >= zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
         zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
-    }
+//    }
     zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoGood;
 
     /* 更新最近一次布署的版本号到项目元信息中，复位代码库状态；若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
