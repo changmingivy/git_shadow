@@ -11,7 +11,8 @@
             || ((zCacheSiz - 1) < zpMetaIf->CommitId)\
             || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {\
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
-        zPrint_Err(0, NULL, "CommitId 不存在或内容为空（空提交）");\
+        zpMetaIf->p_data[0] = '\0';\
+        zpMetaIf->p_ExtraData[0] = '\0';\
         return -3;\
     }\
 } while(0)
@@ -22,7 +23,8 @@
             || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf)\
             || ((zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_SubVecWrapIf->VecSiz - 1) < zpMetaIf->FileId)) {\
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
-        zPrint_Err(0, NULL, "差异文件ID不存在");\
+        zpMetaIf->p_data[0] = '\0';\
+        zpMetaIf->p_ExtraData[0] = '\0';\
         return -4;\
     }\
 } while(0)
@@ -31,7 +33,8 @@
 #define zCheck_CacheId() do {\
     if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) {\
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
-        zPrint_Err(0, NULL, "前端发送的缓存ID已失效");\
+        zpMetaIf->p_data[0] = '\0';\
+        zpMetaIf->p_ExtraData[0] = '\0';\
         return -8;\
     }\
 } while(0)
@@ -40,6 +43,8 @@
 #define zCheck_Lock_State() do {\
     if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) {\
         pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
+        zpMetaIf->p_data[0] = '\0';\
+        zpMetaIf->p_ExtraData[0] = '\0';\
         return -6;\
     }\
 } while(0)
@@ -278,7 +283,9 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     _i zSplitCnt;
 
     /* 若上一次布署是部分失败的，返回 -13 错误 */
-    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) { return -13; }
+    if (zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
+        return -13;
+    }
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -287,7 +294,6 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpMetaIf->DataType = zIsDpDataType;
     } else {
-        zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
     }
 
@@ -361,7 +367,6 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpMetaIf->DataType = zIsDpDataType;
     } else {
-        zPrint_Err(0, NULL, "请求的数据类型不存在");
         return -10;
     }
 
@@ -447,8 +452,6 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 _i
 zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
-    if (NULL == zpMetaIf->p_data) { return -22; }
-
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
     zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
@@ -473,9 +476,9 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             zRegResIf->p_rets[0],
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
 
-    zreg_free_tmpsource(zRegResIf);
-
+    /* 在 regex 结果释放之前执行 */
     if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zRegResIf->p_rets[0])) { goto zMark; }
+    zreg_free_tmpsource(zRegResIf);
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
@@ -510,11 +513,6 @@ zMark:
 _i
 zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
-
-    if (NULL == zpMetaIf->p_ExtraData) {
-        zpMetaIf->p_data = NULL;
-        return -24;
-    }
 
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
@@ -566,6 +564,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         /* 检测是否存在重复IP */
         if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
             strcpy(zpMetaIf->p_data, zRegResIf->p_rets[zCnter]);
+            zpMetaIf->p_ExtraData[0] = '\0';
             zreg_free_tmpsource(zRegResIf);
             return -19;
         }
@@ -636,12 +635,12 @@ zMark:
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
 
     /*
-     * 等待所有主机的状态都得到确认，6+ 秒超时
+     * 等待所有主机的状态都得到确认，30+ 秒超时
      * 每台目标机额外递增 0.1 秒
      * 由于初始化远程主机动作的工作量是固定的，可按目标主机数量运态调整超时时间
      * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
      */
-    _ui zWaitTimeLimit = 10 * (6 + 0.1 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
+    _ui zWaitTimeLimit = 10 * (30 + 0.1 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
     for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
@@ -707,25 +706,45 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
     _l zDiffBytes, zRemoteHostInitTimeSpent, zMarkReTry = 1;
 
-    if (zIsCommitDataType == zpMetaIf->DataType) { zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf); }
-    else if (zIsDpDataType == zpMetaIf->DataType) { zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf); }
-    else { return -10; }
+    if (zIsCommitDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
+    } else if (zIsDpDataType == zpMetaIf->DataType) {
+        zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
+    } else {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
+        return -10;
+    }
 
     /* 检查是否允许布署 */
-    if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) { return -6; }
+    if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
+        return -6;
+    }
 
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
-    if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) { return -8; }
+    if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
+        return -8;
+    }
 
     /* 检查指定的版本号是否有效 */
     if ((0 > zpMetaIf->CommitId)
             || ((zCacheSiz - 1) < zpMetaIf->CommitId)
             || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
         return -3;
     }
 
     /* 检查中转机 IPv4 存在性 */
-    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) { return -25; }
+    if ('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr[0]) {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
+        return -25;
+    }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
@@ -737,6 +756,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost
             || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]
             || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
+        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_ExtraData[0] = '\0';
         return -26;
     }
 
@@ -776,8 +797,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 测算超时时间 */
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
             || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
-        /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+        /* 无法测算时: 默认超时时间 ==  120s + 中控机本地所有动作耗时 */
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 1200 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
     } else {
         /* 复用最大的缓冲区 */
         sprintf(zCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
@@ -793,11 +814,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
         zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
         /*
-         * [基数 = 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
+         * [基数 = 30s + 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
          * [网络数据总量 == 主机数 X 每台的数据量]
          * [单位：0.1 秒]
          */
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 10 + 10 * (
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 300 + 10 * (
                 zRemoteHostInitTimeSpent
                 + time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
                 + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000
