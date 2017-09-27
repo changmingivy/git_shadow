@@ -819,8 +819,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
 //        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
 //    }
 
-    /* 等待至少 90％ 的主机状态都得到确认 */
-    _ui zMinAcceptCnt = (20 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.9 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+    /* 首次布署尝试等待所有目标机返回成功状态 */
+    _ui zMinAcceptCnt = zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     for (_l zTimeCnter = 0; zMinAcceptCnt > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.1);
         if (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
@@ -831,6 +831,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
             }
 
             if (1== zMarkReTry) {  /* 首次布署失败，对失败的部分进行重试 */
+                /* 第二次重试时，若目标机数量超过 10 台，则完成 90％ 即返回成功，尚未收到确认的目标机进行异步重试，直到全部成功或下一次布署请求到来 */
+                zMinAcceptCnt = (10 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.9 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+
                 /* 取出失败的IP列表 */
                 char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
                 _ui zOffSet = 0;
