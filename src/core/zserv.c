@@ -1002,58 +1002,55 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
         /* 在没有新的布署动作之前，持续尝试布署失败的目标机 */
         while(1) {
-            sleep(10);
-            pthread_rwlock_rdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-
-            if (0 ==  strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
-                /* 取出失败的IP列表 */
-                char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
-                _ui zOffSet = 0;
-                for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
-                    if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
-                        zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                        zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "%s ", zIpv4StrAddrBuf);
-                    }
-                }
-                zpMetaIf->p_data[zOffSet] = '\0';
-
-                /* 基于失败列表，重新构建布署指令 */
-                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null",
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
-                        zpMetaIf->RepoId,
-                        zpMetaIf->p_ExtraData,  // 目标版本号在 zdeploy() 中已被复制到了这个字段
-                        zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-                        zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-                        zpMetaIf->p_data
-                        );
-
-                /* 重置时间戳，其它相关状态无须重置 */
-                //zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
-
-                /* 调用 git 命令执行布署；阻塞执行 */
-                if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
-                    system(zCommonBuf);
-                } else {
+            /* 等待剩余的所有主机状态都得到确认，不必在锁内执行 */
+            for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
+                zsleep(0.1);
+                if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost == zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
                     pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
                     return 0;
                 }
+            }
 
-                /* 等待剩余的所有主机状态都得到确认 */
-                for (_l zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
-                    zsleep(0.1);
-                    if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost == zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
-                        pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-                        return 0;
-                    }
-                }
-
+            pthread_rwlock_rdlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+            if (0 !=  strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
                 pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+                return 0;
+            }
+
+            /* 取出失败的 IP 列表 */
+            char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+            _ui zOffSet = 0;
+            for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
+                if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
+                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
+                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "%s ", zIpv4StrAddrBuf);
+                }
+            }
+            zpMetaIf->p_data[zOffSet] = '\0';
+
+            /* 基于失败列表，重新构建布署指令 */
+            sprintf(zCommonBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null",
+                    zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
+                    zpMetaIf->RepoId,
+                    zpMetaIf->p_ExtraData,  // 目标版本号在 zdeploy() 中已被复制到了这个字段
+                    zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
+                    zpMetaIf->p_data
+                    );
+
+            /* 重置时间戳，其它相关状态无须重置 */
+            //zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+
+            /* 调用 git 命令执行布署；阻塞执行 */
+            if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
+                system(zCommonBuf);
             } else {
                 pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-                break;
+                return 0;
             }
+
+            pthread_rwlock_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         }
-        return 0;
     }
 }
 
