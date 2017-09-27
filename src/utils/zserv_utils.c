@@ -1010,3 +1010,23 @@ zinit_env(const char *zpConfPath) {
     fclose(zpFile);
     return NULL;
 }
+
+
+/* 去除json标识符:  ][}{\",:  */
+void
+zclear_json_identifier(char *zpStr, _i zStrLen) {
+    char zDb[256] = {0};
+    zDb['['] = 1;
+    zDb[']'] = 1;
+    zDb['{'] = 1;
+    zDb['}'] = 1;
+    zDb[','] = 1;
+    zDb[':'] = 1;
+    zDb['\"'] = 1;
+
+    for (_i zCnter = 0; zCnter < zStrLen; zCnter++) {
+        if (1 == zDb[(_i)zpStr[zCnter]]) {
+            zpStr[zCnter] = '=';
+        }
+    }
+}

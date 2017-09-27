@@ -534,7 +534,7 @@ zMark:
         + 0];
 
     /* 只取保留 stderr 输出 */
-    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
@@ -542,7 +542,7 @@ zMark:
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
     FILE *zpShellRetHandler = popen(zCommonBuf, "r");
-    zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+    zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
     pclose(zpShellRetHandler);
 
     /* 释放资源 */
@@ -662,7 +662,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 执行外部脚本使用 git 进行布署；因为要传递给新线程执行，故而不能用栈内存 */
     char *zpShellBuf = zalloc_cache(zpMetaIf->RepoId, zMaxBufLen);
     /* 只取保留 stderr 输出 */
-    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+    sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
             zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
@@ -681,53 +681,51 @@ zMarkFailReTry:
 
     /* 调用 git 命令执行布署；阻塞执行，用于测算中控机本机所有动作耗时，用作布署超时基数 */
     zpShellRetHandler = popen(zpShellBuf, "r");
-    zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+    zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
     pclose(zpShellRetHandler);
 
     /* 动态栈空间 */
     char zCommonBuf[zMaxBufLen];
 
     /* 测算超时时间 */
-    if (1 == zMarkReTry) {
-        if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
-                || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
-            /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
-        } else {
-            /* 复用最大的缓冲区 */
-            sprintf(zCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
-                    zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                    zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
-                    zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
-                    );
+    if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
+            || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
+        /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+    } else {
+        /* 复用最大的缓冲区 */
+        sprintf(zCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
+                zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
+                zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
+                );
 
-            zpShellRetHandler = popen(zCommonBuf, "r");
-            zget_one_line(zCommonBuf, 128, zpShellRetHandler);
-            pclose(zpShellRetHandler);
+        zpShellRetHandler = popen(zCommonBuf, "r");
+        zget_one_line(zCommonBuf, 128, zpShellRetHandler);
+        pclose(zpShellRetHandler);
 
-            zDiffBytes = strtol(zCommonBuf, NULL, 10);
+        zDiffBytes = strtol(zCommonBuf, NULL, 10);
 
-            /*
-             * [基数 = 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
-             * [网络数据总量 == 主机数 X 每台的数据量]
-             * [单位：0.1 秒]
-             */
-            zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 10 + 10 * (
-                    zRemoteHostInitTimeSpent
-                    + time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
-                    + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000
-                    );
+        /*
+         * [基数 = 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
+         * [网络数据总量 == 主机数 X 每台的数据量]
+         * [单位：0.1 秒]
+         */
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 10 + 10 * (
+                zRemoteHostInitTimeSpent
+                + time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
+                + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000
+                );
 
-            /* 最长 10 分钟 */
-            if (6000 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
-        }
+        /* 最长 10 分钟 */
+        if (6000 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
+    }
 
-        /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
-        if (600 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
-            _i zSendLen = sprintf(zCommonBuf, "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
-            zsendto(zSd, zCommonBuf, zSendLen, 0, NULL);
-            shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
-        }
+    /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
+    if (600 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
+        _i zSendLen = sprintf(zCommonBuf, "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+        zsendto(zSd, zCommonBuf, zSendLen, 0, NULL);
+        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
 
     /* 等待所有主机的状态都得到确认 */
@@ -761,7 +759,7 @@ zMarkFailReTry:
                 if (0 != WEXITSTATUS( system(zCommonBuf)) ) { return -27; }
 
                 /* 仅对重置失败的那部分目标主机 复用缓冲区 */ /* 只取保留 stderr 输出 */
-                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+                sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                         zpMetaIf->p_data,
@@ -775,18 +773,14 @@ zMarkFailReTry:
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
                 zpShellRetHandler = popen(zCommonBuf, "r");
-                zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler);
+                zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
                 pclose(zpShellRetHandler);
 
                 /* 检查本次远程主机初始化结果 */
                 zCheck_Remote_Host_Init_Res();
 
-                /* 超时上限延长为 2 倍，并标记重试结束 */
-                zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit *= 2;
-                zMarkReTry = 0;
-
                 /* 基于失败列表，重新构建布署指令 */ /* 只取保留 stderr 输出 */
-                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" 2>&1 >/dev/null | sed -n 's/[][}{\",:]/=/gp'",
+                sprintf(zpShellBuf, "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\" >/dev/null",
                         zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
                         zpMetaIf->RepoId,
                         zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
@@ -795,7 +789,20 @@ zMarkFailReTry:
                         zpMetaIf->p_data
                         );
 
-                goto zMarkFailReTry;
+                /* 重置时间戳，其它相关状态无须重置 */
+                zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+
+                /* 调用 git 命令执行布署；阻塞执行 */
+                zpShellRetHandler = popen(zpShellBuf, "r");
+                zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
+                pclose(zpShellRetHandler);
+
+                /* 超时上限延长为 2 倍，并标记重试结束，计数器置 0 */
+                zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit *= 2;
+                zMarkReTry = 0;
+                zTimeCnter =0;
+
+                continue;
             }
 
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
