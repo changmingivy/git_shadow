@@ -112,7 +112,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
         }
 
         return -11;
@@ -183,7 +183,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
         }
 
         return -11;
@@ -229,7 +229,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
                             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
                         }
 
                         return -11;
@@ -243,7 +243,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
                             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
                         }
 
                         return -11;
@@ -303,7 +303,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
         }
 
         return -11;
@@ -326,7 +326,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                    2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
             }
 
             return -11;
@@ -375,7 +375,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
         }
 
         return -11;
@@ -398,7 +398,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                    2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
             }
 
             return -11;
@@ -420,7 +420,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                    2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
             }
 
             return -11;
@@ -486,7 +486,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
         }
 
         return -11;
@@ -1000,7 +1000,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，剩余时间最长可能还需要 %zd 秒",
-                    2 * (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL)));
+                    2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10 + zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp - time(NULL));
             }
 
             return -11;

@@ -21,7 +21,7 @@ do
     # 多进程模型后执行，不用线程模型
     (
         ssh -t $zProxyHostAddr "ssh $zSlaveAddr \"
-            kill -9 \\\`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \\\"^\s*\d+(?=\s.*${zServBranchName})\\\" | grep -v \\\"\\\$$\\\" | tr '\n' ' '\\\`
+            kill -9 \\\`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \\\"^\s*\d+(?=\s.*${zServBranchName})\\\" | grep -v \\\"\\\$$\\\"\\\`
             rm -rf ${zPathOnHost}/.git
             rm -rf ${zPathOnHost}_SHADOW/.git
 \

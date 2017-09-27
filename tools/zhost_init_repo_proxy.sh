@@ -10,11 +10,11 @@ rm -f $zFinMarkFilePath
 touch $zFinMarkFilePath
 
 # 清理中控机本地进程
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | grep -oP "^\s*\d+(?=\s.*${zProxyHostAddr}.*${zHostList})" | grep -v "$$" | tr '\n' ' '`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -E "[^0-9]${zProjId}[^0-9]" | grep -oP "^\s*\d+(?=\s.*${zProxyHostAddr}.*${zHostList})" | grep -v "$$"`
 
 (
     ssh $zProxyHostAddr "
-        kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"^\s*\d+(?=\s.*${zServBranchName})\" | grep -v \"\$$\" | tr '\n' ' '\`
+        kill -9 \`ps ax -o pid,cmd | grep -v 'grep' | grep -oP \"^\s*\d+(?=\s.*${zServBranchName})\" | grep -v \"\$$\"\`
         rm -rf ${zPathOnHost}/.git
         rm -rf ${zPathOnHost}_SHADOW/.git
 \
