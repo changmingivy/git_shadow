@@ -1106,7 +1106,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             /* 调试功能：布署耗时统计，必须在锁内执行 */
             char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
             zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4StrAddr);
-            _i zWrLen = sprintf(zTimeCntBuf, "[%s][%s]\t\t[TimeSpent(s): %f]\n",
+            _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %f]\n",
                     zpLogStrId,
                     zIpv4StrAddr,
                     zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);

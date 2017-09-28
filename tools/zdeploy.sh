@@ -33,7 +33,8 @@ bash ____pre-deploy.sh
 git add --all .
 git commit -m "____pre-deploy.sh"
 
-find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
+# 暂停全量sha1sum校验
+#find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
 
 # 更新中转机(MajorHost)
 cd /home/git/${zPathOnHost}
