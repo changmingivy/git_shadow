@@ -631,7 +631,8 @@ zMark:
      * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
      */
     _ui zWaitTimeLimit = 10 * (120 + 0.5 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
-    for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
+    _ui zWaitCntLimit = (10 <= zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * 9 / 10) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+    for (_ui zTimeCnter = 0; zWaitCntLimit > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
             /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
@@ -665,29 +666,6 @@ zMark:
  * 12：布署／撤销
  * 13：新加入的主机请求布署自身
  */
-
-#define zCheck_Remote_Host_Init_Res() do {\
-    _ui ____zWaitTimeLimit = 10 * (120 + 0.5 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);\
-    for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {\
-        zsleep(0.1);\
-        if (____zWaitTimeLimit < zTimeCnter) {\
-            char zIpv4StrAddrBuf[INET_ADDRSTRLEN];\
-            for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {\
-                if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {\
-                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);\
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",\
-                            zIpv4StrAddrBuf,\
-                            '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg\
-                            );\
-\
-                    zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;\
-                }\
-            }\
-            return -23;\
-        }\
-    }\
-} while (0)
-
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     FILE *zpShellRetHandler;
@@ -913,11 +891,11 @@ zMark:
 _i
 zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
-	char *zppCommonBuf[2];
+    char *zppCommonBuf[2];
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen);
-	zppCommonBuf[1] = zppCommonBuf[0] + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+    zppCommonBuf[1] = zppCommonBuf[0] + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
 
     if (13 == zpMetaIf->OpsId) {
         zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
@@ -1011,6 +989,8 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
             /* 执行并检查本次远程主机初始化结果 */
             zAdd_To_Thread_Pool(zthread_system, zppCommonBuf[0]);
+
+            /* 重试时使用不再以 90％ 成功为条件，必须使用 100% */
             for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
                 zsleep(0.1);
                 if ((10 * (120 + 0.5 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost)) < zTimeCnter) {
