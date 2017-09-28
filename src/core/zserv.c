@@ -903,16 +903,11 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
 
         /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
-        pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
         pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
+        zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;  // 置为 1，通知旧的版本重试动作中止
+        pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
     } else {
-        if (0 != pthread_mutex_trylock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) )) {
-            sprintf(zpMetaIf->p_data, "本项目有其它布署任务正在运行，请 5 分钟后重试");
-            return -11;
-        }
-
         if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-            pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
@@ -920,8 +915,10 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
             }
             return -11;
         }
+
+        zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;  // 置为 1，通知旧的版本重试动作中止
+        pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
     }
-    zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;
 
     if (0 > (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf))) {
         zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 0;
@@ -992,24 +989,14 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
             /* 重试时使用不再以 90％ 成功为条件，必须使用 100% */
             for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
-                zsleep(0.1);
-                if ((10 * (120 + 0.5 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost)) < zTimeCnter) {
-                    char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
-                    for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
-                        if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
-                            zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                            zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
-                                    zIpv4StrAddrBuf,
-                                    '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
-                                    );
-
-                            zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
-                        }
-                    }
-
+                /* 如果有新的布署请求到达，立即让路退出  */
+                if (1 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                     pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
-                    return -23;
+                    return 0;
                 }
+
+                zsleep(0.1);  // 0.1 秒轮循一次
+                if (2400 < zTimeCnter) { break; }  //  4 分钟没收到结果，不再等待，直接尝试再次布署
             }
 
             /* 基于失败列表，重新构建布署指令 */
