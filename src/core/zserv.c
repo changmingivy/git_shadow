@@ -773,16 +773,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
-    /* 调用 git 命令执行布署；阻塞执行，用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    zpShellRetHandler = popen(zpCommonBuf, "r");
-    zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
-    pclose(zpShellRetHandler);
+    /* 调用 git 命令执行布署；用于测算中控机本机所有动作耗时，用作布署超时基数 */
+    zAdd_To_Thread_Pool(zthread_system, zpCommonBuf);
 
     /* 测算超时时间 */
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
             || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
         /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + zRemoteHostInitTimeSpent + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
     } else {
         sprintf(zpCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
@@ -811,6 +809,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
         if (6000 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
     }
 
+    /* DEBUG */
     fprintf(stderr, "\n\033[31;01m[ DEBUG ] 布署时间测算结果：%zd 秒\033[00m", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
 
     /* 耗时预测超过 60 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
