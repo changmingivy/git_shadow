@@ -774,7 +774,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
     /* 调用 git 命令执行布署；用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    zAdd_To_Thread_Pool(zthread_system, zpCommonBuf);
+    system(zpCommonBuf);  // 阻塞执行
 
     /* 测算超时时间 */
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
