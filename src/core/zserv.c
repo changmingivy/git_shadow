@@ -667,8 +667,8 @@ zMark:
  */
 
 #define zCheck_Remote_Host_Init_Res() do {\
-    _i ____zWaitTimeLimit = 10 * (6 + 0.2 * ((zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost < 30) ? 0 : (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost - 30)));\
-    for (_i zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {\
+    _ui ____zWaitTimeLimit = 10 * (120 + 0.5 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost);\
+    for (_ui zTimeCnter = 0; zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {\
         zsleep(0.1);\
         if (____zWaitTimeLimit < zTimeCnter) {\
             char zIpv4StrAddrBuf[INET_ADDRSTRLEN];\
@@ -819,8 +819,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
 //        shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
 //    }
 
-    /* 等待至少 90％ 的主机状态都得到确认 */
-    _ui zMinAcceptCnt = (20 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.9 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+    /* 对于10 台以上的目标机集群，等待至少 90％ 的主机状态都得到确认；10 台以下，则全部确认 */
+    _ui zMinAcceptCnt = (10 < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (0.9 * zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost) : zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     for (_l zTimeCnter = 0; zMinAcceptCnt > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]; zTimeCnter++) {
         zsleep(0.1);
         if (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
