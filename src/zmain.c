@@ -186,6 +186,7 @@ struct zRepoInfo {
     struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
+    pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
 
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
