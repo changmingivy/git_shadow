@@ -111,7 +111,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
         }
 
         return -11;
@@ -181,7 +181,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
         }
 
         return -11;
@@ -226,7 +226,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
-                            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
                         }
 
                         return -11;
@@ -239,7 +239,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
-                            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
                         }
 
                         return -11;
@@ -298,7 +298,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
         }
 
         return -11;
@@ -310,6 +310,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
     if (NULL == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
         if ((void *) -1 == zget_file_list(zpMetaIf)) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            zpMetaIf->p_data = "==== 无差异 ====";
             return -71;
         }
     } else {
@@ -320,7 +321,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
-                sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
             }
 
             return -11;
@@ -368,7 +369,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
         }
 
         return -11;
@@ -380,6 +381,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
     if (NULL == zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)) {
         if ((void *) -1 == zget_file_list(zpMetaIf)) {
             pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+            zpMetaIf->p_data = "==== 无差异 ====";
             return -71;
         }
     } else {
@@ -390,7 +392,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
-                sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
             }
 
             return -11;
@@ -411,7 +413,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
-                sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
             }
 
             return -11;
@@ -476,7 +478,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+            sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
         }
 
         return -11;
@@ -911,7 +913,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
             if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
-                sprintf(zpMetaIf->p_data, "正在布署，请 5 分钟后查看布署列表，确认布署结果");
+                sprintf(zpMetaIf->p_data, "正在布署，请 %02f 分钟后查看布署列表，确认布署结果", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 60.0);
             }
             return -11;
         }
