@@ -168,11 +168,11 @@ struct zRepoInfo {
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
     _i zWhoGetWrLock;
     /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
-    time_t DpBaseTimeStamp;
+    _f DpBaseTimeStamp;
     /* 布署超时上限 */
-    time_t DpTimeWaitLimit;
+    _f DpTimeWaitLimit;
     /* 目标机在重要动作执行前回发的keep alive消息 */
-    time_t DpKeepAliveStamp;
+    _f DpKeepAliveStamp;
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
