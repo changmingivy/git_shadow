@@ -546,7 +546,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
-    zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = zreal_time();
+    zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0][0] = '\0';
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1][0] = '\0';
 
@@ -694,7 +694,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
 
     zVecWrapInfo *zpTopVecWrapIf;
     _i zErrNo, zDiffBytes;
-    _f zRemoteHostInitTimeSpent;
+    time_t zRemoteHostInitTimeSpent;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -739,7 +739,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
         if (0 > (zErrNo = zupdate_ipv4_db_all(zpMetaIf))) { return zErrNo; }
-        zRemoteHostInitTimeSpent = zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
+        zRemoteHostInitTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
 
     /* 检查部署目标主机集合是否存在 */
@@ -771,7 +771,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = -1;
     }
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
-    zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = zreal_time();
+    zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
     /* 调用 git 命令执行布署；用于测算中控机本机所有动作耗时，用作布署超时基数 */
     system(zpCommonBuf);  // 阻塞执行
@@ -780,7 +780,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
             || (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
         /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + zRemoteHostInitTimeSpent + (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+        zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + zRemoteHostInitTimeSpent + (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
     } else {
         sprintf(zpCommonBuf, "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
                 zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
@@ -801,7 +801,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
          */
         zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 300 + 10 * (
                 zRemoteHostInitTimeSpent
-                + zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
+                + time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
                 + zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000
                 );
 
@@ -823,7 +823,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char *zpCommonBuf) {
         zsleep(0.1);
         if (zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
             /* 若 10 秒内收到过keepalive消息，则延长超时时间20 秒*/
-            if (10 > (zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp)) {
+            if (10 > (time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp)) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit += 20;
                 continue;
             }
@@ -1005,7 +1005,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
 
             /* 重置时间戳，其它相关状态在查失败列表时已增量重置 */
-            zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = zreal_time();
+            zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
             /* 执行并检查本次远程主机初始化结果 */
             zAdd_To_Thread_Pool(zthread_system, zpCommonBuf);
@@ -1041,7 +1041,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                     );
 
             /* 重置时间戳，其它相关状态无须重置 */
-            zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = zreal_time();
+            zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
             /* 在执行动作之前再检查一次布署结果，防止重新初始化的时间里已全部返回成功状态，从而造成无用的布署重试 */
             if (zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
@@ -1093,7 +1093,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
 
                 zpLogStrId = zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
             } else if ('C' == zpMetaIf->p_ExtraData[0]) {
-                zppGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp = zreal_time();
+                zppGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp = time(NULL);
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                 return 0;
             } else {
@@ -1105,10 +1105,10 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             /* 调试功能：布署耗时统计，必须在锁内执行 */
             char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
             zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4StrAddr);
-            _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %f]\n",
+            _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
                     zpLogStrId,
                     zIpv4StrAddr,
-                    zreal_time() - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+                    time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
             write(zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeSpentLogFd, zTimeCntBuf, zWrLen);
 
             pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
