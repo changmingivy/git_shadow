@@ -170,8 +170,7 @@ zdistribute_task(void *zpIf) {
 
         zGenerate_Graph(zpNodeIf);
         zpNodeIf = zpNodeIf->p_left;
-        zpNodeIf->pp_ResHash = zppKeepPtr;
-    } while (NULL != zpNodeIf);
+    } while ((NULL != zpNodeIf) && (zpNodeIf->pp_ResHash = zppKeepPtr));
 
     return NULL;
 }
