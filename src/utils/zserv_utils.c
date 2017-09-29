@@ -163,12 +163,16 @@ zdistribute_task(void *zpIf) {
     zMetaInfo **zppKeepPtr = zpNodeIf->pp_ResHash;
 
     do {
+        /* 自身 */
+        zGenerate_Graph(zpNodeIf);
+
+        /* 分发直连的子节点 */
         if (NULL != zpNodeIf->p_FirstChild) {
             zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
             zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
         }
 
-        zGenerate_Graph(zpNodeIf);
+        /* 所有的左兄弟 */
         zpNodeIf = zpNodeIf->p_left;
     } while ((NULL != zpNodeIf) && (zpNodeIf->pp_ResHash = zppKeepPtr));
 
@@ -446,7 +450,7 @@ zMarkOuter:;
         zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask = zLineCnter;
         zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter = 0;
 
-        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
+        zdistribute_task(zpRootNodeIf);
 
         pthread_mutex_lock(zpRootNodeIf->p_MutexLock);
         while(*(zpRootNodeIf->p_TotalTask) > *(zpRootNodeIf->p_FinCnter)) {
