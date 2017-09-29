@@ -149,12 +149,13 @@ zget_diff_content(void *zpIf) {
 \
     zpNodeIf->p_data = zpNodeIf->p_data + ____zOffSet;\
 \
+    /*
     pthread_mutex_lock(zpNodeIf->p_MutexLock);\
     (*(zpNodeIf->p_FinCnter))++;\
     pthread_mutex_unlock(zpNodeIf->p_MutexLock);\
     if ((*(zpNodeIf->p_TotalTask)) == (*(zpNodeIf->p_FinCnter))) {\
         pthread_cond_signal(zpNodeIf->p_CondVar);\
-    }\
+    }*/\
 } while (0)
 
 void *
@@ -166,7 +167,8 @@ zdistribute_task(void *zpIf) {
         /* 分发直连的子节点 */
         if (NULL != zpNodeIf->p_FirstChild) {
             zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
-            zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
+            //zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
+            zdistribute_task(zpNodeIf->p_FirstChild);  // 暂时以递归处理，线程模型会有收集不齐全部任务的问题
         }
 
         /* 自身及所有的左兄弟 */
@@ -179,10 +181,12 @@ zdistribute_task(void *zpIf) {
 
 #define zGenerate_Tree_Node() do {\
     zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+    /*
     zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
     zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
     zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
-    zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);\
+    zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);
+    */\
 \
     zpTmpNodeIf[0]->LineNum = zLineCnter;  /* 横向偏移 */\
     zLineCnter++;  /* 每个节点会占用一行显示输出 */\
@@ -231,10 +235,12 @@ zdistribute_task(void *zpIf) {
         zpTmpNodeIf[1] = zpTmpNodeIf[0];\
 \
         zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;\
+        /*
         zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
         zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
         zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
         zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);\
+        */\
 \
         zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
         zpTmpNodeIf[0]->p_FirstChild = NULL;\
@@ -450,11 +456,12 @@ zMarkOuter:;
 
         zdistribute_task(zpRootNodeIf);
 
-        pthread_mutex_lock(zpRootNodeIf->p_MutexLock);
-        while(*(zpRootNodeIf->p_TotalTask) > *(zpRootNodeIf->p_FinCnter)) {
-            pthread_cond_wait(zpRootNodeIf->p_CondVar, zpRootNodeIf->p_MutexLock);
-        }
-        pthread_mutex_unlock(zpRootNodeIf->p_MutexLock);
+        /* 暂时以递归处理，线程模型问题解决后再启用；因限定了差文件数量 <128 才生成Tree图，因此并无爆栈问题 */
+        //pthread_mutex_lock(zpRootNodeIf->p_MutexLock);
+        //while(*(zpRootNodeIf->p_TotalTask) > *(zpRootNodeIf->p_FinCnter)) {
+        //    pthread_cond_wait(zpRootNodeIf->p_CondVar, zpRootNodeIf->p_MutexLock);
+        //}
+        //pthread_mutex_unlock(zpRootNodeIf->p_MutexLock);
 
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf 
             = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(zRefDataInfo));
