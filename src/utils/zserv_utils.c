@@ -168,9 +168,9 @@ zdistribute_task(void *zpIf) {
             zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
         }
 
-        zpNodeIf->pp_ResHash = zppKeepPtr;
         zGenerate_Graph(zpNodeIf);
         zpNodeIf = zpNodeIf->p_left;
+        zpNodeIf->pp_ResHash = zppKeepPtr;
     } while (NULL != zpNodeIf);
 
     return NULL;
