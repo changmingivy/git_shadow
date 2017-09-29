@@ -92,6 +92,7 @@ struct zMetaInfo {
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
     _ui ExtraDataLen;
 
+    /* 以下为 Tree 专属数据 */
     struct zMetaInfo *p_father;  // Tree 父节点
     struct zMetaInfo *p_left;  // Tree 左节点
     struct zMetaInfo *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
@@ -99,13 +100,10 @@ struct zMetaInfo {
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
 
-    pthread_cond_t *p_CondVar;  // 条件变量
-    //_i *p_LockState;  // 1 表示同步锁已被销毁
-    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
-    _i *p_TaskCnter;  // 已分发出去的任务计数
+    pthread_cond_t *p_CondVar;
+    pthread_mutex_t *p_MutexLock;
     _i *p_TotalTask;  // 任务总数量
-    _i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_MutexLock[3];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数
+    _i *p_FinCnter;  // 已完成的任务计数
 };
 typedef struct zMetaInfo zMetaInfo;
 
@@ -173,6 +171,12 @@ struct zRepoInfo {
     time_t DpTimeWaitLimit;
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
+
+    /* Tree 图专用 */
+    pthread_cond_t TreeCondVar;  // 条件变量
+    pthread_mutex_t TreeMutexLock;
+    _i TreeTotalTask;  // 总任务数（节点数）
+    _i TreeFinCnter;  // 线程已完成的任务计数
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
