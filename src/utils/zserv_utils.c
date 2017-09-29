@@ -117,8 +117,7 @@ zget_diff_content(void *zpIf) {
     zMetaInfo *____zpTmpNodeIf;\
     _i ____zOffSet;\
 \
-    zpNodeIf = (zMetaInfo *)zpIf;\
-    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpIf;\
+    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;\
     ____zOffSet = 6 * zpNodeIf->OffSet + 10;\
 \
     zpNodeIf->p_data[--____zOffSet] = ' ';\
@@ -158,46 +157,32 @@ zget_diff_content(void *zpIf) {
     }\
 } while (0)
 
-#define zCcur_Sub_Config(zpNodeIf, zpBaseNodeIf) do {\
-    zpNodeIf->p_MutexLock = zpBaseNodeIf->p_MutexLock;\
-    zpNodeIf->p_CondVar = zpBaseNodeIf->p_CondVar;\
-    zpNodeIf->p_TotalTask = zpBaseNodeIf->p_TotalTask;\
-    zpNodeIf->p_FinCnter = zpBaseNodeIf->p_FinCnter;\
-} while (0)
-
 void *
 zdistribute_task(void *zpIf) {
-    zMetaInfo *zpNodeIf, *zpTmpNodeIf;
-    zpNodeIf = (zMetaInfo *)zpIf;
+    zMetaInfo *zpNodeIf = (zMetaInfo *)zpIf;
+    zMetaInfo **zppKeepPtr = zpNodeIf->pp_ResHash;
 
-    /* 自身信息 */
-    zGenerate_Graph(zpNodeIf);
-
-    /* 第一个左兄弟；不能用循环，会导致重复发放 */
-    if (NULL != zpNodeIf->p_left) {
-        zpNodeIf->p_left->pp_ResHash = zpNodeIf->pp_ResHash;
-        zCcur_Sub_Config(zpNodeIf->p_left, zpNodeIf);
-        zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_left);
-    }
-
-    /* 嫡系长子直接处理；各级的左兄弟另行分发 */
-    for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpNodeIf->p_FirstChild) {
-        zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
-        zCcur_Sub_Config(zpTmpNodeIf, zpNodeIf);
-        zGenerate_Graph(zpTmpNodeIf);
-
-        if (NULL != zpTmpNodeIf->p_left) {
-            zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
-            zCcur_Sub_Config(zpTmpNodeIf, zpNodeIf);
-            zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf->p_left);
+    do {
+        if (NULL != zpNodeIf->p_FirstChild) {
+            zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
+            zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
         }
-    }
+
+        zpNodeIf->pp_ResHash = zppKeepPtr;
+        zGenerate_Graph(zpNodeIf);
+        zpNodeIf = zpNodeIf->p_left;
+    } while (NULL != zpNodeIf);
 
     return NULL;
 }
 
 #define zGenerate_Tree_Node() do {\
     zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+    zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
+    zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
+    zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
+    zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);\
+\
     zpTmpNodeIf[0]->LineNum = zLineCnter;  /* 横向偏移 */\
     zLineCnter++;  /* 每个节点会占用一行显示输出 */\
     zpTmpNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
@@ -243,7 +228,13 @@ zdistribute_task(void *zpIf) {
     for (; zNodeCnter < zRegResIf->cnt; zNodeCnter++) {\
         zpTmpNodeIf[0]->p_FirstChild = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
         zpTmpNodeIf[1] = zpTmpNodeIf[0];\
+\
         zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;\
+        zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
+        zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
+        zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
+        zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);\
+\
         zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
         zpTmpNodeIf[0]->p_FirstChild = NULL;\
         zpTmpNodeIf[0]->p_left = NULL;\
@@ -455,10 +446,6 @@ zMarkOuter:;
         /* Tree 图生成过程的并发控制 */
         zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask = zLineCnter;
         zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter = 0;
-        zpRootNodeIf->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);
-        zpRootNodeIf->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);
-        zpRootNodeIf->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);
-        zpRootNodeIf->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);
 
         zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
 
