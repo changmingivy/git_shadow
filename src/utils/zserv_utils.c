@@ -150,9 +150,9 @@ zget_diff_content(void *zpIf) {
     zpNodeIf->p_data = zpNodeIf->p_data + ____zOffSet;\
 \
     pthread_mutex_lock(zpNodeIf->p_MutexLock);\
-    (*zpNodeIf->p_FinCnter)++;\
+    (*(zpNodeIf->p_FinCnter))++;\
     pthread_mutex_unlock(zpNodeIf->p_MutexLock);\
-    if ((*zpNodeIf->p_TotalTask) == (*zpNodeIf->p_FinCnter)) {\
+    if ((*(zpNodeIf->p_TotalTask)) == (*(zpNodeIf->p_FinCnter))) {\
         pthread_cond_signal(zpNodeIf->p_CondVar);\
     }\
 } while (0)
@@ -163,16 +163,14 @@ zdistribute_task(void *zpIf) {
     zMetaInfo **zppKeepPtr = zpNodeIf->pp_ResHash;
 
     do {
-        /* 自身 */
-        zGenerate_Graph(zpNodeIf);
-
         /* 分发直连的子节点 */
         if (NULL != zpNodeIf->p_FirstChild) {
             zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
             zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
         }
 
-        /* 所有的左兄弟 */
+        /* 自身及所有的左兄弟 */
+        zGenerate_Graph(zpNodeIf);
         zpNodeIf = zpNodeIf->p_left;
     } while ((NULL != zpNodeIf) && (zpNodeIf->pp_ResHash = zppKeepPtr));
 

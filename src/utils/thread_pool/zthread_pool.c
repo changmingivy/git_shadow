@@ -17,9 +17,9 @@ typedef struct zThreadPoolInfo zThreadPoolInfo;
 /* 线程池栈结构 */
 zThreadPoolInfo *zpPoolStackIf[zThreadPollSiz];
 
-_i zStackHeader = -1;
+_i ____zStackHeader = -1;
 pthread_mutex_t zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_t ____zTidTrash____;
+pthread_t ____zThreadPoolTidTrash;
 
 void *
 zthread_func(void *zpIf) {
@@ -31,7 +31,7 @@ zthread_func(void *zpIf) {
 
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
-    zpPoolStackIf[++zStackHeader] = zpSelfTask;
+    zpPoolStackIf[++____zStackHeader] = zpSelfTask;
     while (NULL == zpSelfTask->func) {
         pthread_cond_wait( &(zpSelfTask->CondVar), &zStackHeaderLock );
     }
@@ -60,7 +60,7 @@ ztmp_thread_func(void *zpIf) {
 void
 zthread_poll_init(void) {
     for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
-        zCheck_Pthread_Func_Exit( pthread_create(&____zTidTrash____, NULL, zthread_func, NULL) );
+        zCheck_Pthread_Func_Exit( pthread_create(&____zThreadPoolTidTrash, NULL, zthread_func, NULL) );
     }
 }
 
@@ -69,19 +69,19 @@ zthread_poll_init(void) {
  */
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
     pthread_mutex_lock(&zStackHeaderLock);\
-    if (0 > zStackHeader) {\
+    if (0 > ____zStackHeader) {\
         pthread_mutex_unlock(&zStackHeaderLock);\
-        zThreadPoolInfo *zpTmpIf;\
-        zMem_Alloc(zpTmpIf, zThreadPoolInfo, 1);\
-        zpTmpIf->func = zFunc;\
-        zpTmpIf->p_param = zParam;\
-        pthread_create(&____zTidTrash____, NULL, ztmp_thread_func, zpTmpIf);\
+        zThreadPoolInfo *____zpTmpJobIf;\
+        zMem_Alloc(____zpTmpJobIf, zThreadPoolInfo, 1);\
+        ____zpTmpJobIf->func = zFunc;\
+        ____zpTmpJobIf->p_param = zParam;\
+        pthread_create(&____zThreadPoolTidTrash, NULL, ztmp_thread_func, ____zpTmpJobIf);\
     } else {\
-        _i ____zKeepStackHeader____ = zStackHeader;\
-        zpPoolStackIf[zStackHeader]->func = zFunc;\
-        zpPoolStackIf[zStackHeader]->p_param = zParam;\
-        zStackHeader--;\
+        _i ____zKeepStackHeader= ____zStackHeader;\
+        zpPoolStackIf[____zStackHeader]->func = zFunc;\
+        zpPoolStackIf[____zStackHeader]->p_param = zParam;\
+        ____zStackHeader--;\
         pthread_mutex_unlock(&zStackHeaderLock);\
-        pthread_cond_signal(&(zpPoolStackIf[____zKeepStackHeader____]->CondVar));\
+        pthread_cond_signal(&(zpPoolStackIf[____zKeepStackHeader]->CondVar));\
     }\
 } while(0)
