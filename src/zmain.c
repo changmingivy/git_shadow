@@ -170,11 +170,8 @@ struct zRepoInfo {
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
 
-    /* Tree 图专用 */
-    pthread_cond_t TreeCondVar;  // 条件变量
-    pthread_mutex_t TreeMutexLock;
-    _i TreeTotalTask;  // 总任务数（节点数）
-    _i TreeFinCnter;  // 线程已完成的任务计数
+    /* libssh2 并发同步锁 */
+    pthread_mutex_t SshLock;
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;

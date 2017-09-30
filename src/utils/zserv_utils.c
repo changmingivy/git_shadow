@@ -149,13 +149,6 @@ zget_diff_content(void *zpIf) {
 \
     zpNodeIf->p_data = zpNodeIf->p_data + ____zOffSet;\
 \
-    /*
-    pthread_mutex_lock(zpNodeIf->p_MutexLock);\
-    (*(zpNodeIf->p_FinCnter))++;\
-    pthread_mutex_unlock(zpNodeIf->p_MutexLock);\
-    if ((*(zpNodeIf->p_TotalTask)) == (*(zpNodeIf->p_FinCnter))) {\
-        pthread_cond_signal(zpNodeIf->p_CondVar);\
-    }*/\
 } while (0)
 
 void *
@@ -181,12 +174,6 @@ zdistribute_task(void *zpIf) {
 
 #define zGenerate_Tree_Node() do {\
     zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
-    /*
-    zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
-    zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
-    zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
-    zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);
-    */\
 \
     zpTmpNodeIf[0]->LineNum = zLineCnter;  /* 横向偏移 */\
     zLineCnter++;  /* 每个节点会占用一行显示输出 */\
@@ -235,12 +222,6 @@ zdistribute_task(void *zpIf) {
         zpTmpNodeIf[1] = zpTmpNodeIf[0];\
 \
         zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;\
-        /*
-        zpTmpNodeIf[0]->p_TotalTask = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask);\
-        zpTmpNodeIf[0]->p_FinCnter= &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter);\
-        zpTmpNodeIf[0]->p_CondVar = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeCondVar);\
-        zpTmpNodeIf[0]->p_MutexLock = &(zppGlobRepoIf[zpMetaIf->RepoId]->TreeMutexLock);\
-        */\
 \
         zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
         zpTmpNodeIf[0]->p_FirstChild = NULL;\
@@ -351,18 +332,18 @@ zget_file_list(void *zpIf) {
 
     zpShellRetHandler = popen(zCommonBuf, "r");
 
-    /* 差异文件数量 >128 时使用 git 原生视图 */
+    /* 差异文件数量 >24 时使用 git 原生视图，避免占用太多资源，同时避免爆栈 */
     if (NULL == zget_one_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         pclose(zpShellRetHandler);
         return (void *) -1;
     } else {
-        if (128 < strtol(zCommonBuf, NULL, 10)) {
+        if (24 < strtol(zCommonBuf, NULL, 10)) {
             zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zCommonBuf, zMaxBufLen);
             goto zMarkLarge;
         }
     }
 
-    /* 差异文件数量 <=128 生成Tree图 */
+    /* 差异文件数量 <=24 生成Tree图 */
     zMetaInfo zSubMetaIf;
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
@@ -450,18 +431,8 @@ zMarkOuter:;
         /* 用于存储最终的每一行已格式化的文本 */
         zpRootNodeIf->pp_ResHash = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(zMetaInfo *));
 
-        /* Tree 图生成过程的并发控制 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->TreeTotalTask = zLineCnter;
-        zppGlobRepoIf[zpMetaIf->RepoId]->TreeFinCnter = 0;
-
+        /* Tree 图 */
         zdistribute_task(zpRootNodeIf);
-
-        /* 暂时以递归处理，线程模型问题解决后再启用；因限定了差文件数量 <128 才生成Tree图，因此并无爆栈问题 */
-        //pthread_mutex_lock(zpRootNodeIf->p_MutexLock);
-        //while(*(zpRootNodeIf->p_TotalTask) > *(zpRootNodeIf->p_FinCnter)) {
-        //    pthread_cond_wait(zpRootNodeIf->p_CondVar, zpRootNodeIf->p_MutexLock);
-        //}
-        //pthread_mutex_unlock(zpRootNodeIf->p_MutexLock);
 
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf 
             = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(zRefDataInfo));
@@ -774,9 +745,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 布署重试锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->DpRetryLock), NULL) );
 
-    /* Tree 图条件变量及配套的互拆锁 */
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->TreeMutexLock), NULL) );
-    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zppGlobRepoIf[zRepoId]->TreeCondVar), NULL) );
+    /* libssh2 并发锁 */
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->SshLock), NULL) );
 
     /* 为每个代码库生成一把读写锁 */
     zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), NULL) );

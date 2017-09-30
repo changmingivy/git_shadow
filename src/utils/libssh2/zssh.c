@@ -29,26 +29,24 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
 }
 
 /*
- * 多线程并必环境，改须指定 zpCcurLock 参数
+ * 专用于多线程环境，必须指定 zpCcurLock 参数
  * zAuthType 置为 0 表示密码认证，置为 1 则表示 rsa 公钥认证
  * 若不需要远程执行结果返回，zpRemoteOutPutBuf 置为 NULL
  */
 _i
-zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
-        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType,
-        char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcutLock) {
+zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
 
     _i zSd, zRet, zErrNo;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
 
-    if (NULL != zpCcutLock) { pthread_mutex_lock(zpCcutLock); }
+    pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
-        if (NULL != zpCcutLock) { pthread_mutex_unlock(zpCcutLock); }
+        pthread_mutex_unlock(zpCcurLock);
         return -1;
     }
-    if (NULL != zpCcutLock) { pthread_mutex_unlock(zpCcutLock); }
+    pthread_mutex_unlock(zpCcurLock);
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         libssh2_exit();
