@@ -415,10 +415,11 @@ zparse_str(void *zpIn, void *zpOut) {
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池，不可调用 zReg_Free_Tmpsource();
 
     zreg_compile(zRegInitIf, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
     zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
+    zReg_Free_Metasource(zRegInitIf);
 
     zRegResIf->cnt -= zRegResIf->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
 
@@ -434,17 +435,10 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['E'] = zpMetaIf->p_ExtraData;
 
     for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
-        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
-            zreg_free_tmpsource(zRegResIf);
-            zreg_free_metasource(zRegInitIf);
-            return -7;
-        }
-
+        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) { return -7; }
         zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
     }
 
-    zreg_free_tmpsource(zRegResIf);
-    zreg_free_metasource(zRegInitIf);
     return 0;
 }
 

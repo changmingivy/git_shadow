@@ -455,16 +455,13 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
 
     zreg_compile(zRegInitIf, "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
 
-    if (0 == zRegResIf->cnt) {
-        zreg_free_tmpsource(zRegResIf);
-        return -22;
-    }
+    if (0 == zRegResIf->cnt) { return -22; }
 
     /* 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符 */
     char zCommonBuf[512 + 8 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen];
@@ -494,7 +491,6 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
     zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
-    zreg_free_tmpsource(zRegResIf);
     return 0;
 }
 
@@ -506,15 +502,13 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
 
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
+
     zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
 
-    if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zRegResIf->cnt) {
-        zreg_free_tmpsource(zRegResIf);
-        return -28;
-    }
+    if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zRegResIf->cnt) { return -28; }
 
     /* 检测上一次的内存是否需要释放 */
     if (zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] != zppGlobRepoIf[zpMetaIf->RepoId]->HostStrAddrList[0]) {
@@ -556,7 +550,6 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr) {
             strcpy(zpMetaIf->p_data, zRegResIf->p_rets[zCnter]);
             zpMetaIf->p_ExtraData[0] = '\0';
-            zreg_free_tmpsource(zRegResIf);
             return -19;
         }
 
@@ -651,14 +644,12 @@ zMark:
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
                 }
             }
-            zreg_free_tmpsource(zRegResIf);
 
             if ('\0' == zpMetaIf->p_data[0]) { return 0; }  // 用于防止遍历过程中状态得到确认
             else { return -23; }
         }
     }
 
-    zreg_free_tmpsource(zRegResIf);
     return 0;
 }
 

@@ -348,7 +348,7 @@ zget_file_list(void *zpIf) {
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
@@ -366,7 +366,6 @@ zget_file_list(void *zpIf) {
         zNodeCnter = 0;
         zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
-        zreg_free_tmpsource(zRegResIf);
 
         while (NULL != zget_one_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
             zBaseDataLen = strlen(zCommonBuf);
@@ -397,10 +396,9 @@ zMarkInner:;
             }
 zMarkOuter:;
             zGenerate_Tree_Node(); /* 添加树节点 */
-            zreg_free_tmpsource(zRegResIf);
         }
     }
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
     pclose(zpShellRetHandler);
 
     if (NULL == zpRootNodeIf) {
@@ -605,13 +603,13 @@ zMarkSkip:
     if (-1 != zGlobMaxRepoId) {\
         zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
     }\
-    zreg_free_tmpsource(zRegResIf);\
+    zReg_Free_Tmpsource(zRegResIf);\
 } while(0)
 
 _i
 zinit_one_repo_env(char *zpRepoMetaData) {
     zRegInitInfo zRegInitIf[2];
-    zRegResInfo zRegResIf[2];
+    zRegResInfo zRegResIf[2] = {{.RepoId = -1}, {.RepoId = -1}};  // 使用系统 *alloc 函数分配内存
 
     char zCommonBuf[zGlobBufSiz];
 
@@ -620,7 +618,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 正则匹配项目基本信息（5个字段） */
     zreg_compile(zRegInitIf, "(\\w|[[:punct:]])+");
     zreg_match(zRegResIf, zRegInitIf, zpRepoMetaData);
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
     if (5 > zRegResIf->cnt) {
         zPrint_Time();
         return -34;
@@ -635,7 +633,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         }
     } else {
         if (NULL != zppGlobRepoIf[zRepoId]) {
-            zreg_free_tmpsource(zRegResIf);
+            zReg_Free_Tmpsource(zRegResIf);
             return -35;
         }
     }
@@ -648,13 +646,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zreg_compile(zRegInitIf + 1, "[^/]+[/]*$");
     zreg_match(zRegResIf + 1, zRegInitIf + 1, zRegResIf->p_rets[1]);
-    zreg_free_metasource(zRegInitIf + 1);
+    zReg_Free_Metasource(zRegInitIf + 1);
     /* 去掉 basename 部分 */
     zRegResIf->p_rets[1][zRegResIf->ResLen[1] - (zRegResIf + 1)->ResLen[0]] = '\0';
     /* 拼接结果字符串 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, sizeof("/home/git/.____DpSystem/") + zRegResIf->ResLen[1]);
     zppGlobRepoIf[zRepoId]->RepoPathLen = sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s%s", "/home/git/", zRegResIf->p_rets[1], ".____DpSystem/", (zRegResIf + 1)->p_rets[0]);
-    zreg_free_tmpsource(zRegResIf + 1);
+    zReg_Free_Tmpsource(zRegResIf + 1);
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zppGlobRepoIf[zRepoId]->MaxPathLen = pathconf(zppGlobRepoIf[zRepoId]->p_RepoPath, _PC_PATH_MAX);
@@ -728,7 +726,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
 
     /* 清理资源占用 */
-    zreg_free_tmpsource(zRegResIf);
+    zReg_Free_Tmpsource(zRegResIf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
