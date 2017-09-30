@@ -1,10 +1,23 @@
 #define _Z
-#define _XOPEN_SOURCE 700
+#define _Z_BSD
+
+#ifndef _Z_BSD
+    #define _XOPEN_SOURCE 700
+    #define _DEFAULT_SOURCE
+    #define _BSD_SOURCE
+#endif
+
+#ifdef _Z_BSD
+    #include <netinet/in.h>
+    #include <signal.h>
+#else
+    #include <sys/signal.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <sys/signal.h>
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>

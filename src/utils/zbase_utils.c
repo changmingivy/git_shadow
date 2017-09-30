@@ -92,7 +92,11 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     zCheck_Negative_Return(zSd, -1);
 
     _i zReuseMark = 1;
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址
+#ifdef _Z_BSD
+    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+#else
+    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+#endif
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
     zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
 

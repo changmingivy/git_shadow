@@ -19,8 +19,8 @@
     #include <sys/signal.h>
 #endif
 
-#include <pthread.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include <unistd.h>
 #include <fcntl.h>
