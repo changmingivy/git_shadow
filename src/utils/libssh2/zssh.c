@@ -3,7 +3,7 @@
 #endif
 
 #include <libssh2.h>
- 
+
 /* select events dirven */
 _i
 zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
@@ -12,22 +12,22 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
     fd_set *zWriteFd = NULL;
     fd_set *zReadFd = NULL;
     _i zDirection;
- 
+
     zTimeOut.tv_sec = 10;
     zTimeOut.tv_usec = 0;
- 
+
     FD_ZERO(&zFd);
     FD_SET(zSd, &zFd);
- 
-    /* now make sure we wait in the correct direction */ 
+
+    /* now make sure we wait in the correct direction */
     zDirection = libssh2_session_block_directions(zSession);
- 
+
     if(zDirection & LIBSSH2_SESSION_BLOCK_INBOUND) { zReadFd = &zFd; }
     if(zDirection & LIBSSH2_SESSION_BLOCK_OUTBOUND) { zWriteFd = &zFd; }
- 
+
     return select(zSd + 1, zReadFd, zWriteFd, NULL, &zTimeOut);
 }
- 
+
 /*
  * 多线程并必环境，改须指定 zpCcurLock 参数
  * zAuthType 置为 0 表示密码认证，置为 1 则表示 rsa 公钥认证
@@ -42,12 +42,13 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
- 
+
     if (NULL != zpCcutLock) { pthread_mutex_lock(zpCcutLock); }
     if (0 != (zRet = libssh2_init(0))) {
         if (NULL != zpCcutLock) { pthread_mutex_unlock(zpCcutLock); }
         return -1;
     }
+    if (NULL != zpCcutLock) { pthread_mutex_unlock(zpCcutLock); }
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         libssh2_exit();
@@ -60,19 +61,19 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
         return -1;
     }
 
-    /* tell libssh2 we want it all done non-blocking */ 
+    /* tell libssh2 we want it all done non-blocking */
     libssh2_session_set_blocking(zSession, 0);
- 
+
     while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd)));
     if (0 != zRet) {
         libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
     }
- 
-    if (0 == zAuthType) {  /* authenticate via zpPassWd */ 
+
+    if (0 == zAuthType) {  /* authenticate via zpPassWd */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd)));
-    } else {  /* public key */ 
+    } else {  /* public key */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd)));
     }
     if (0 != zRet) {
@@ -80,8 +81,8 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
         libssh2_exit();
         return -1;
     }
- 
-    /* Exec non-blocking on the remove host */ 
+
+    /* Exec non-blocking on the remove host */
     while((NULL ==  (zChannel= libssh2_channel_open_session(zSession)))
             && (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))) {
         zwait_socket(zSd, zSession);
@@ -119,7 +120,7 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
                     }
                 }
             } while(0 < zRet);
- 
+
             if( zRet == LIBSSH2_ERROR_EAGAIN ) {
                 zwait_socket(zSd, zSession);
             } else {
@@ -130,29 +131,84 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
     }
 
     zErrNo = -1;
-    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); } 
+    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); }
     if(0 == zRet) {
         zErrNo = libssh2_channel_get_exit_status(zChannel);
         libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
     if (NULL != zpExitSingal) { zErrNo = -1; }
- 
+
     libssh2_channel_free(zChannel);
     zChannel= NULL;
- 
+
     libssh2_session_disconnect(zSession, "Bye");
     libssh2_session_free(zSession);
 
     close(zSd);
     libssh2_exit();
- 
+
     return 0;
 }
 
-// !!! TEST !!!
+struct zSshCcurInfo {
+    char *zpHostIpv4Addr;  // 单个目标机 Ipv4，如："10.0.0.1"
+    char *zpHostServPort;  // 字符串形式的端口号，如："22"
+    const char *zpCmd;  // 需要执行的指令集合
+
+    _i zAuthType;
+    const char *zpUserName;
+    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *zpPassWd;  // 登陆密码或公钥加密密码
+
+    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui zRemoteOutPutBufSiz;
+
+    pthread_mutex_t *zpCcurLock;  // ssh 并发锁
+};
+typedef struct zSshCcurInfo zSshCcurInfo;
+
+/*
+ * 线程并发函数
+ */
+void *
+zssh_ccur(void  *zpIf) {
+    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+
+    zssh_exec(zpSshCcurIf->zpHostIpv4Addr, zpSshCcurIf->zpHostServPort, zpSshCcurIf->zpCmd,
+            zpSshCcurIf->zpUserName, zpSshCcurIf->zpPubKeyPath, zpSshCcurIf->zpPrivateKeyPath, zpSshCcurIf->zpPassWd, zpSshCcurIf->zAuthType,
+            zpSshCcurIf->zpRemoteOutPutBuf, zpSshCcurIf->zRemoteOutPutBufSiz, zpSshCcurIf->zpCcurLock);
+
+    return NULL;
+};
+
+
+
+
+// // !!! TEST !!!
+// pthread_mutex_t zTestLock = PTHREAD_MUTEX_INITIALIZER;
 // _i
 // main(void) {
-// 	char zBuf[4096];
-//     zssh_exec("127.0.0.1", "22", "printf 'Hello!\n'; echo \"libssh2 test [`date`]\" >> /tmp/testfile", "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", "", 1, zBuf, 4096, NULL);
-// 	return 0;
+//     static char zBuf[4096];
+//     static zSshCcurInfo zSshCcurIf;
+//
+//     zSshCcurIf.zpHostIpv4Addr = "127.0.0.1";
+//     zSshCcurIf.zpHostServPort = "22";
+//     zSshCcurIf.zpCmd = "echo \"libssh2 test [`date`]\" >> /tmp/testfile";
+//     zSshCcurIf.zAuthType = 1;
+//     zSshCcurIf.zpUserName = "fh";
+//     zSshCcurIf.zpPubKeyPath = "/home/fh/.ssh/id_rsa.pub";
+//     zSshCcurIf.zpPrivateKeyPath = "/home/fh/.ssh/id_rsa";
+//     zSshCcurIf.zpPassWd = NULL;
+//     zSshCcurIf.zpRemoteOutPutBuf = zBuf;
+//     zSshCcurIf.zRemoteOutPutBufSiz = 4096;
+//     zSshCcurIf.zpCcurLock = &zTestLock;
+//
+//     for (_i zCnter = 0; zCnter < 200; zCnter++) {
+//     //    fprintf(stderr, "%d\n", zCnter);
+//         zAdd_To_Thread_Pool(zssh_ccur, &zSshCcurIf);
+//     }
+//
+//     //zssh_exec("127.0.0.1", "22", "printf 'Hello!\n'; echo \"libssh2 test [`date`]\" >> /tmp/testfile", "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", "", 1, zBuf, 4096, NULL);
+//     return 0;
 // }

@@ -19,8 +19,8 @@
     #include <sys/signal.h>
 #endif
 
-#include <sys/mman.h>
 #include <pthread.h>
+#include <sys/mman.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -31,8 +31,6 @@
 #include <time.h>
 #include <errno.h>
 #include <limits.h>
-
-#include <regex.h>
 
 #include <stdio.h>
 #include <stdlib.h>

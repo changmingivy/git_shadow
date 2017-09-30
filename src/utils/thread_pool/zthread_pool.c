@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
  
-#define zThreadPollSiz 128
+#define zThreadPollSiz 64
 
 typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
 

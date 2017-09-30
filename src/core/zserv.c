@@ -456,7 +456,7 @@ _i
 zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
-    zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
+    zreg_compile(zRegInitIf, "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
     zreg_free_metasource(zRegInitIf);
 
