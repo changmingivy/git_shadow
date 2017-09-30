@@ -49,7 +49,7 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
         return -1;
     }
 
-    if (0 != (zSession = libssh2_session_init())) {  // need lock ???
+    if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         libssh2_exit();
         return -1;
     }
@@ -120,8 +120,12 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
                 }
             } while(0 < zRet);
  
-            if( zRet == LIBSSH2_ERROR_EAGAIN ) { zwait_socket(zSd, zSession); }
-            else { break; }
+            if( zRet == LIBSSH2_ERROR_EAGAIN ) {
+                zwait_socket(zSd, zSession);
+            } else {
+                (zpRemoteOutPutBuf + 1)[0] = '\0';
+                break;
+            }
         }
     }
 
@@ -144,3 +148,11 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd,
  
     return 0;
 }
+
+// !!! TEST !!!
+// _i
+// main(void) {
+// 	char zBuf[4096];
+//     zssh_exec("127.0.0.1", "22", "printf 'Hello!\n'; echo \"libssh2 test [`date`]\" >> /tmp/testfile", "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", "", 1, zBuf, 4096, NULL);
+// 	return 0;
+// }
