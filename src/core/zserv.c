@@ -456,6 +456,7 @@ _i
 zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1];
+
     zreg_compile(zRegInitIf, "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
     zreg_free_metasource(zRegInitIf);
@@ -465,47 +466,35 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
         return -22;
     }
 
-    /* 动态栈必须在 goto 之前 */
-    char zCommonBuf[128
-        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
-        + 12
-        + zRegResIf->ResLen[0]
-        + 0];
-
-    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo_proxy.sh \"%d\" \"%s\" \"%s\"",  // $1:RepoId $2:ProxyHostAddr；$3:PathOnHost
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+    /* 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符 */
+    char zCommonBuf[512 + 8 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen];
+    sprintf(zCommonBuf,
+            "kill -9 `ps ax -o pid,cmd | fgrep 'zssh_%d' | grep -oE '[0-9]+'`;"
+            "rm -f %s %s_SHADOW;"
+            "mkdir -p %s %s_SHADOW;"
+            "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"
+            "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
+            "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d",
             zpMetaIf->RepoId,
-            zRegResIf->p_rets[0],
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-
-    /* 在 regex 结果释放之前执行 */
-    if (0 == strcmp(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zRegResIf->p_rets[0])) { goto zMark; }
-    zreg_free_tmpsource(zRegResIf);
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId
+            );
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
-    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
-        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
-            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
-        } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
-        }
-
-        return -11;
-    }
-
-    /* system 返回值是 waitpid 状态，不是错误码，错误码需要用 WEXITSTATUS 宏提取 */
-    if (0 != WEXITSTATUS( system(zCommonBuf)) ) {
-        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+    if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
+    if (0 != zssh_exec(zRegResIf->p_rets[0], "22", zCommonBuf,
+                "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1,
+                NULL, 0, &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) {
         return -27;
     }
-
     strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data);
-
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
-zMark:
     zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+    zreg_free_tmpsource(zRegResIf);
     return 0;
 }
 
