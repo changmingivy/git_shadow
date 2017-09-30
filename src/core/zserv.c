@@ -1103,6 +1103,21 @@ zlock_repo(zMetaInfo *zpMetaIf, _i zSd) {
     return 0;
 }
 
+/* 14: 向目标机传输指定的文件 */
+_i
+zreq_file(zMetaInfo *zpMetaIf, _i zSd) {
+    char zSendBuf[4096];
+    _i zFd, zDataLen;
+
+    zCheck_Negative_Exit(zFd = open(zpMetaIf->p_data, O_RDONLY));
+    while (0 < (zDataLen = read(zFd, zSendBuf, 4096))) {
+        zsendto(zSd, zSendBuf, zDataLen, 0, NULL);
+    }
+
+    close(zFd);
+    return 0;
+}
+
 /*
  * 网络服务路由函数
  */
@@ -1235,7 +1250,7 @@ zstart_server(void *zpIf) {
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
     zNetServ[12] = zcommon_deploy;  // 布署或撤销
     zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
-    zNetServ[14] = NULL;  // 布署主要耗时环节执行之前发送 keep alive 消息，延长超时上限????
+    zNetServ[14] = zreq_file;  // 请求服务器传输指定的文件
     zNetServ[15] = NULL;
 
     /* 如下部分配置网络服务 */

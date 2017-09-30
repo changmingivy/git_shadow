@@ -97,11 +97,6 @@ struct zMetaInfo {
     struct zMetaInfo **pp_ResHash;  // Tree 按行号对应的散列
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
-
-//    pthread_cond_t *p_CondVar;
-//    pthread_mutex_t *p_MutexLock;
-//    _i *p_TotalTask;  // 任务总数量
-//    _i *p_FinCnter;  // 已完成的任务计数
 };
 typedef struct zMetaInfo zMetaInfo;
 

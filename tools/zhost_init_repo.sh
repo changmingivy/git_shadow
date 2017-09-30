@@ -57,3 +57,23 @@ do
             \"" < /home/git/${zPathOnHost}_SHADOW/tools/post-update
     ) &
 done
+
+
+###########################################################################################################################################
+#            "'rm -f %s %s_SHADOW;"
+#            "mkdir -p %s %s_SHADOW;"
+#            "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"
+#            "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
+#            "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;",
+#            ""
+#            "exec 777<>/dev/tcp/%s/%s;"
+#            "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/post-update}]'>&777;"
+#            "cat <&777 >.git/hooks/post-update;"
+#            "chmod 0755 .git/hooks/post-update;"
+#            "exec 777>&-;"
+#            "exec 777<&-;"
+#            ""
+#            "zIPv4NumAddr=0; zCnter=0; for zField in `printf ${zSlaveAddr} | grep -oP '\d+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"
+#            "exec 777>/dev/tcp/%s/%s;"
+#            "printf '[{\"OpsId\":8,\"ProjId\":%d,\"HostId\":${zIPv4NumAddr},\"ExtraData\":\"A\"}]'>&777;"
+#            "exec 777>&-'"
