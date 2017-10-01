@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
 
-#include <libssh2.h>
+#include "libssh2.h"
 
 /* select events dirven */
 _i
@@ -151,7 +151,7 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     close(zSd);
     libssh2_exit();
 
-    return 0;
+    return zErrNo;
 }
 
 

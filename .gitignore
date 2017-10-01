@@ -4,9 +4,7 @@ images/
 conf/
 bin/
 log/
-pcre2/
-pcre2-10.21/
-pcre2-10.23/
+lib/
 
 *.gz
 *.xz

@@ -857,7 +857,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             }
 
             /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
-            if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
+            if (0 < zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
                 //zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] = '\0';
                 zppGlobRepoIf[zpMetaIf->RepoId]->RepoState = zRepoDamaged;
             }
