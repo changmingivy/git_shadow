@@ -52,6 +52,8 @@
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 16
 
+#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
+
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
 
 #define UDP 0
@@ -70,7 +72,7 @@
  * 数据结构定义 *
  ****************/
 struct zNetServInfo {
-    char *p_host;  // 字符串形式的ipv4点分格式地式
+    char *p_Ipv4Addr;  // 字符串形式的ipv4点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
@@ -208,6 +210,8 @@ typedef struct zRepoInfo zRepoInfo;
 /************
  * 全局变量 *
  ************/
+struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
+
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
 
@@ -270,13 +274,12 @@ _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
-    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
         switch (zOpt) {
             case 'h':
-                zNetServIf.p_host= optarg; break;
+                zNetServIf.p_Ipv4Addr = optarg; break;
             case 'p':
                 zNetServIf.p_port = optarg; break;
             case 'U':

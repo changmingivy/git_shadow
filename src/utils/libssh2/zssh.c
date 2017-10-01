@@ -34,9 +34,9 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
  * 若不需要远程执行结果返回，zpRemoteOutPutBuf 置为 NULL
  */
 _i
-zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
+zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
 
-    _i zSd, zRet, zErrNo;
+    _i zSd, zRet, zErrNo, zSelfIpDeclareLen;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
@@ -53,7 +53,7 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd, const char 
         return -1;
     }
 
-    if (0 > (zSd = ztcp_connect(zpHostIpv4Addr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+    if (0 > (zSd = ztcp_connect(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
@@ -90,6 +90,12 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd, const char 
         libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
+    }
+
+    /* 在命令的最前端追加用于告知自身IP的Shell变量声明 */
+    zSelfIpDeclareLen = sprintf(zpCmd, "export ____zSelfIp='%s';", zpHostIpAddr);
+    for (_i zCnter = zSelfIpDeclareLen; zCnter < zSshSelfIpDeclareBufSiz; zCnter++) {
+        zpCmd[zCnter] = ' ';
     }
 
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpCmd))) { zwait_socket(zSd, zSession); }
@@ -149,7 +155,7 @@ zssh_exec(char *zpHostIpv4Addr, char *zpHostPort, const char *zpCmd, const char 
 }
 
 struct zSshCcurInfo {
-    char *zpHostIpv4Addr;  // 单个目标机 Ipv4，如："10.0.0.1"
+    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
     char *zpHostServPort;  // 字符串形式的端口号，如："22"
     const char *zpCmd;  // 需要执行的指令集合
 
@@ -173,7 +179,7 @@ void *
 zssh_ccur(void  *zpIf) {
     zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
 
-    zssh_exec(zpSshCcurIf->zpHostIpv4Addr, zpSshCcurIf->zpHostServPort, zpSshCcurIf->zpCmd,
+    zssh_exec(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpHostServPort, zpSshCcurIf->zpCmd,
             zpSshCcurIf->zpUserName, zpSshCcurIf->zpPubKeyPath, zpSshCcurIf->zpPrivateKeyPath, zpSshCcurIf->zpPassWd, zpSshCcurIf->zAuthType,
             zpSshCcurIf->zpRemoteOutPutBuf, zpSshCcurIf->zRemoteOutPutBufSiz, zpSshCcurIf->zpCcurLock);
 
@@ -190,7 +196,7 @@ zssh_ccur(void  *zpIf) {
 //     static char zBuf[4096];
 //     static zSshCcurInfo zSshCcurIf;
 //
-//     zSshCcurIf.zpHostIpv4Addr = "127.0.0.1";
+//     zSshCcurIf.zpHostIpAddr = "127.0.0.1";
 //     zSshCcurIf.zpHostServPort = "22";
 //     zSshCcurIf.zpCmd = "echo \"libssh2 test [`date`]\" >> /tmp/testfile";
 //     zSshCcurIf.zAuthType = 1;

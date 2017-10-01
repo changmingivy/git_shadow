@@ -464,20 +464,33 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     if (0 == zRegResIf->cnt) { return -22; }
 
     /* 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符 */
-    char zCommonBuf[512 + 8 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen];
-    sprintf(zCommonBuf,
+    char zCommonBuf[zSshSelfIpDeclareBufSiz + 1024 + 9 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen];
+    sprintf(zCommonBuf + zSshSelfIpDeclareBufSiz,
             "kill -9 `ps ax -o pid,cmd | fgrep 'zssh_%d' | grep -oE '[0-9]+'`;"
             "rm -f %s %s_SHADOW;"
             "mkdir -p %s %s_SHADOW;"
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"
             "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
-            "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d",
+            "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
+
+            "exec 777<>/dev/tcp/%s/%s;"
+            "printf \"[{\\\"OpsId\":13,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/zssh}]\">&777;"
+            "cat <&777 >tools/zssh_%d;"
+            "chmod 0755 tools/zssh_%d;"
+            "exec 777>&-;"
+            "exec 777<&-;",
+
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
+
+            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zpMetaIf->RepoId,
+            zpMetaIf->RepoId
             );
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
@@ -596,24 +609,48 @@ zMark:
     }
 
     /* 执行外部命令 */
-    char zCommonBuf[128
-        + 2 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
-        + 16
-        + strlen(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1])
-        + 12
-        + 0];
+    char zCommonBuf[zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + strlen(zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1])];
+    sprintf(zCommonBuf + zSshSelfIpDeclareBufSiz,
+            "%s_SHADOW/tools/zssh_%d "
+            "'%s' "
+            "'rm -f %s %s_SHADOW;"
+            "mkdir -p %s %s_SHADOW;"
+            "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"
+            "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
+            "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
 
-    /* 只取保留 stderr 输出 */
-    sprintf(zCommonBuf, "sh %s_SHADOW/tools/zhost_init_repo.sh \"%s\" \"%s\" \"%d\" \"%s\" >/dev/null",
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],
-            zpMetaIf->RepoId,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9);  // 去掉最前面的 "/home/git" 共计 9 个字符
+            "exec 777<>/dev/tcp/%s/%s;"
+            "printf \"[{\\\"OpsId\":13,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}]\">&777;"
+            "cat <&777 >.git/hooks/post-update;"
+            "chmod 0755 .git/hooks/post-update;"
+            "exec 777>&-;"
+            "exec 777<&-;"
 
-    FILE *zpShellRetHandler = popen(zCommonBuf, "r");
-    zclear_json_identifier(zpMetaIf->p_ExtraData, zget_str_content(zpMetaIf->p_ExtraData, zpMetaIf->ExtraDataLen, zpShellRetHandler));
-    pclose(zpShellRetHandler);
+            "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"
+            "exec 777>/dev/tcp/%s/%s;"
+            "printf \"[{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]\">&777;"
+            "exec 777>&-'",
+
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[1],  // 已经过处理的空格分割的IP列表
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
+
+            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+
+            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zpMetaIf->RepoId
+            );
+
+    if (0 != zssh_exec(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, "22", zCommonBuf,
+                "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1,
+                NULL, 0, &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) {
+        return -23;
+    }
 
     /* 释放资源 */
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
@@ -1256,7 +1293,7 @@ zstart_server(void *zpIf) {
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
     _i zMajorSd;
-    zMajorSd = zgenerate_serv_SD(zpNetServIf->p_host, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
+    zMajorSd = zgenerate_serv_SD(zpNetServIf->p_Ipv4Addr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
     /* 会传向新线程，使用静态变量；使用数组防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况(此法不够严谨，权宜之计) */
     static _i zConnSd[64];
