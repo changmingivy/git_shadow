@@ -154,6 +154,13 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     return 0;
 }
 
+
+/* 简化参数版函数 */
+_i
+zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, _i zRepoId) {
+    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, &(zppGlobRepoIf[zRepoId]->SshLock));
+}
+
 struct zSshCcurInfo {
     char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
     char *zpHostServPort;  // 字符串形式的端口号，如："22"
