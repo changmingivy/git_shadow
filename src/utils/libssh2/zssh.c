@@ -157,7 +157,7 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
 struct zSshCcurInfo {
     char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
     char *zpHostServPort;  // 字符串形式的端口号，如："22"
-    const char *zpCmd;  // 需要执行的指令集合
+    char *zpCmd;  // 需要执行的指令集合
 
     _i zAuthType;
     const char *zpUserName;

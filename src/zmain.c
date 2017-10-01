@@ -72,7 +72,7 @@
  * 数据结构定义 *
  ****************/
 struct zNetServInfo {
-    char *p_Ipv4Addr;  // 字符串形式的ipv4点分格式地式
+    char *p_IpAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
@@ -210,7 +210,7 @@ typedef struct zRepoInfo zRepoInfo;
 /************
  * 全局变量 *
  ************/
-struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
+struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
 
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
@@ -279,7 +279,7 @@ main(_i zArgc, char **zppArgv) {
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
         switch (zOpt) {
             case 'h':
-                zNetServIf.p_Ipv4Addr = optarg; break;
+                zNetServIf.p_IpAddr = optarg; break;
             case 'p':
                 zNetServIf.p_port = optarg; break;
             case 'U':

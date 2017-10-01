@@ -360,27 +360,27 @@ zthread_system(void *zpCmd) {
 // }
 
 /*
- * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
+ * 将文本格式的ip地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
  */
 _ui
-zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
-    struct in_addr zIpv4Addr;
-    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpv4Addr) );
-    return zIpv4Addr.s_addr;
+zconvert_ip_str_to_bin(const char *zpStrAddr) {
+    struct in_addr zIpAddr;
+    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpAddr) );
+    return zIpAddr.s_addr;
 }
 
 void
-zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
-    struct in_addr zIpv4Addr;
-    zIpv4Addr.s_addr = zIpv4BinAddr;
-    inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
+zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT) {
+    struct in_addr zIpAddr;
+    zIpAddr.s_addr = zIpBinAddr;
+    inet_ntop(AF_INET, &zIpAddr, zpBufOUT, INET_ADDRSTRLEN);
 }
 
 // /*
 //  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
 //  */
 // _ui
-// zconvert_ipv4_str_to_bin_1(char *zpStrAddr) {
+// zconvert_ip_str_to_bin_1(char *zpStrAddr) {
 //     char zBuf[INET_ADDRSTRLEN];
 //     _uc zRes[4];
 //     _i zOffSet = 0, zLen;

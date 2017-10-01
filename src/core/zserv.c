@@ -453,7 +453,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  * 4：更新中转机 IPv4
  */
 _i
-zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
+zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     zRegInitInfo zRegInitIf[1];
     zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
 
@@ -487,7 +487,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
 
-            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zNetServIf.p_IpAddr, zNetServIf.p_port,
             zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zpMetaIf->RepoId,
             zpMetaIf->RepoId
@@ -511,7 +511,7 @@ zupdate_ipv4_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
  * 注：完全内嵌于 zdeploy() 中，不再需要读写锁
  */
 _i
-zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
+zupdate_ip_db_all(zMetaInfo *zpMetaIf) {
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
 
     zRegInitInfo zRegInitIf[1];
@@ -567,7 +567,7 @@ zupdate_ipv4_db_all(zMetaInfo *zpMetaIf) {
         }
 
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
-        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ipv4_str_to_bin(zRegResIf->p_rets[zCnter]);
+        zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ip_str_to_bin(zRegResIf->p_rets[zCnter]);
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = -1;
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].p_next = NULL;
 
@@ -618,6 +618,7 @@ zMark:
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"
             "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
             "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"
+            "echo ${____zSelfIp} >info/zself_ip_addr.txt;"
 
             "exec 777<>/dev/tcp/%s/%s;"
             "printf \"[{\\\"OpsId\":13,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}]\">&777;"
@@ -639,10 +640,10 @@ zMark:
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,
 
-            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zNetServIf.p_IpAddr, zNetServIf.p_port,
             zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
 
-            zNetServIf.p_Ipv4Addr, zNetServIf.p_port,
+            zNetServIf.p_IpAddr, zNetServIf.p_port,
             zpMetaIf->RepoId
             );
 
@@ -667,13 +668,13 @@ zMark:
         zsleep(0.1);
         if (zWaitTimeLimit < zTimeCnter) {
             /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-            char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+            char zIpStrAddrBuf[INET_ADDRSTRLEN];
             for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zRegResIf->cnt); zCnter++) {
                 /* 初始化远程主机的成功返回码是 0，布署的成功返回码是 1，原始置位码是 -1 */
                 if (0 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
-                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
+                    zconvert_ip_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
                     zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
-                            zIpv4StrAddrBuf,
+                            zIpStrAddrBuf,
                             '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
                             );
 
@@ -745,7 +746,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMetaIf->p_data[0]) {
-        if (0 > (zErrNo = zupdate_ipv4_db_all(zpMetaIf))) { return zErrNo; }
+        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf))) { return zErrNo; }
         zRemoteHostInitTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
 
@@ -857,13 +858,13 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             }
 
             /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-            char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+            char zIpStrAddrBuf[INET_ADDRSTRLEN];
             for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
                 /* 初始化远程主机的成功返回码是 0，布署的成功返回码是 1，原始置位码是 -1 */
                 if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
-                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
+                    zconvert_ip_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
                     zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
-                            zIpv4StrAddrBuf,
+                            zIpStrAddrBuf,
                             '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
                             );
 
@@ -978,12 +979,12 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
             }
 
             /* 取出失败的IP列表 */
-            char zIpv4StrAddrBuf[INET_ADDRSTRLEN];
+            char zIpStrAddrBuf[INET_ADDRSTRLEN];
             _ui zOffSet = 0;
             for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
                 if (1 != zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
-                    zconvert_ipv4_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpv4StrAddrBuf);
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "%s ", zIpv4StrAddrBuf);
+                    zconvert_ip_bin_to_str(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
+                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "%s ", zIpStrAddrBuf);
 
                     /* 调整目标机初始化状态数据（布署状态数据不调整！）*/
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = -1;
@@ -1103,11 +1104,11 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             }
 
             /* 调试功能：布署耗时统计，必须在锁内执行 */
-            char zIpv4StrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
-            zconvert_ipv4_bin_to_str(zpMetaIf->HostId, zIpv4StrAddr);
+            char zIpStrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
+            zconvert_ip_bin_to_str(zpMetaIf->HostId, zIpStrAddr);
             _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
                     zpLogStrId,
-                    zIpv4StrAddr,
+                    zIpStrAddr,
                     time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
             write(zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeSpentLogFd, zTimeCntBuf, zWrLen);
 
@@ -1277,7 +1278,7 @@ zstart_server(void *zpIf) {
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
-    zNetServ[4] = zupdate_ipv4_db_proxy;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
+    zNetServ[4] = zupdate_ip_db_proxy;  // 仅更新集群中负责与中控机直接通信的主机的 ip 列表
     zNetServ[5] = zshow_all_repo_meta;  // 显示所有有效项目的元信息
     zNetServ[6] = zshow_one_repo_meta;  // 显示单个有效项目的元信息
     zNetServ[7] = NULL;
@@ -1293,7 +1294,7 @@ zstart_server(void *zpIf) {
     /* 如下部分配置网络服务 */
     zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
     _i zMajorSd;
-    zMajorSd = zgenerate_serv_SD(zpNetServIf->p_Ipv4Addr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
+    zMajorSd = zgenerate_serv_SD(zpNetServIf->p_IpAddr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
     /* 会传向新线程，使用静态变量；使用数组防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况(此法不够严谨，权宜之计) */
     static _i zConnSd[64];

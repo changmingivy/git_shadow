@@ -11,37 +11,37 @@ zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
 zProjId=`cat ${zPathOnHost}_SHADOW/info/repo_id`
 zServBranchName=""
 
-# 转换Ipv4 String为数字格式，至多取本地的8个Ip地址
-zIpv4NumAddr0=0
-zIpv4NumAddr1=0
-zIpv4NumAddr2=0
-zIpv4NumAddr3=0
-zIpv4NumAddr4=0
-zIpv4NumAddr5=0
-zIpv4NumAddr6=0
-zIpv4NumAddr7=0
+# 转换Ip String为数字格式，至多取本地的8个Ip地址
+zIpNumAddr0=0
+zIpNumAddr1=0
+zIpNumAddr2=0
+zIpNumAddr3=0
+zIpNumAddr4=0
+zIpNumAddr5=0
+zIpNumAddr6=0
+zIpNumAddr7=0
 
-zIpv4Cnter=0
-for zIpv4StrAddr in `ip addr | grep -oP '(\d{1,3}\.){3}\d{1,3}(?=/\d+)' | grep -vE '^(127|169|0)\.'`
+zIpCnter=0
+for zIpStrAddr in `ip addr | grep -oP '(\d{1,3}\.){3}\d{1,3}(?=/\d+)' | grep -vE '^(127|169|0)\.'`
 do
     zCnter=0
-    for zField in `printf ${zIpv4StrAddr} | grep -oP '\d+'`
+    for zField in `printf ${zIpStrAddr} | grep -oP '\d+'`
     do
-        eval let zIpv4NumAddr${zIpv4Cnter}+=$((${zField} << (8 * ${zCnter})))
+        eval let zIpNumAddr${zIpCnter}+=$((${zField} << (8 * ${zCnter})))
         let zCnter++
     done
 
-    let zIpv4Cnter++
-    if [[ '8' == "$zIpv4Cnter" ]]; then break; fi
+    let zIpCnter++
+    if [[ '8' == "$zIpCnter" ]]; then break; fi
 done
 
 # 'A'目标机初始伦；'B'布署结果返回；'C'KeepAlive；'D'错误信息返回
 zTcpReply() {
     for zCnter in {0..7}
     do
-        if [[ '0' == `eval echo \$\{zIpv4NumAddr${zCnter}\}` ]]; then break; fi
+        if [[ '0' == `eval echo \$\{zIpNumAddr${zCnter}\}` ]]; then break; fi
         exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":`eval echo \$\{zIpv4NumAddr${zCnter}\}`,\"data\":${1},\"ExtraData\":${2}}]">&777
+        printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":`eval echo \$\{zIpNumAddr${zCnter}\}`,\"data\":${1},\"ExtraData\":${2}}]">&777
         exec 777>&-
     done
 }
