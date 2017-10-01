@@ -24,26 +24,27 @@ mkdir -p ${zShadowPath}/conf
 touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
-# 编译正则库
-# cd ${zShadowPath}/lib/pcre2
-# if [[ 0 -ne $? ]]; then
-#     cd ${zShadowPath}/lib
-#     rm -rf pcre2*
-#     wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
-#     mkdir pcre2
-#     tar -xf pcre2-10.23.tar.gz
-#     cd pcre2-10.23
-#     ./configure --prefix=$HOME/zgit_shadow/lib/pcre2
-#     make -j 9 && make install
-# fi
-
 # 编译主程序，静态库文件路径一定要放在源文件之后
-cc -Wall -Wextra -std=c99 -g -O2 -lpthread \
+cc -Wall -Wextra -std=c99 -O2 -lpthread \
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/pcre2/include \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c
-# strip ${zShadowPath}/bin/git_shadow
+strip ${zShadowPath}/bin/git_shadow
+
+# 编译 libssh2 静态库
+mkdir -p ${zShadowPath}/lib/libssh2_source/____build
+cd ${zShadowPath}/lib/libssh2_source/____build && rm -rf * .*
+cmake -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 -DBUILD_SHARED_LIBS=OFF ..
+cmake --build . --target install
+
+# 编译 zssh_XXXX 程序，用于中转机代替 OpenSSH 更高效并发执行 SSH 连接
+cc -Wall -Wextra -std=c99 -O2 -lpthead \
+    -I${zShadowPath}/inc \
+    -o ${zShadowPath}/tools/zssh \
+    ${zShadowPath}/lib/libssh2/lib64/libssh2.a \
+    ${zShadowPath}/src/extra/zssh_cli.c
+strip ${zShadowPath}/tools/zssh
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
 cc -Wall -Wextra -std=c99 -O2 \
