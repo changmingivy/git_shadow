@@ -114,11 +114,12 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 
     _i zSd = socket(AF_INET, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
-    for (_i i = 4; i > 0; --i) {
+
+//    for (_i i = 4; i > 0; --i) {
         if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
         close(zSd);
-        sleep(i);
-    }
+//        sleep(i);
+//    }
 
     return -1;
 }
@@ -127,8 +128,8 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 // TEST: PASS
-    struct addrinfo *zpRes, *zpTmp, *zpHints;
-    _i zSockD, zErr;
+    struct addrinfo *zpRes = NULL, *zpTmp = NULL, *zpHints = NULL;
+    _i zSd, zErr;
 
     zpHints = zgenerate_hint(zFlags);
 
@@ -136,9 +137,9 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
     if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
 
     for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
-        if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
+        if(0 < (zSd = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
             freeaddrinfo(zpRes);
-            return zSockD;
+            return zSd;
         }
     }
 

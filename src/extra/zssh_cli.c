@@ -271,10 +271,42 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
  ***************************/
 _i
 main(_i zArgc, char **zppArgv) {
-	if (2 != zArgc) {
-		printf("Need 2 arguments: [1] host ip list; [2] command to exec on remote hosts\n");
-		return -1;
-	}
+    if (3 != zArgc) {
+        printf("Need 2 arguments: [1] host ip list; [2] command to exec on remote hosts\n");
+        return -1;
+    }
 
-	return 0;
+    zRegInitInfo zRegInitIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = -1}};
+    zSshCcurInfo *zpSshCcurIf;
+    pthread_t zTid;
+    static pthread_mutex_t zCcurLock = PTHREAD_MUTEX_INITIALIZER;
+    static pthread_cond_t zCcurCond = PTHREAD_COND_INITIALIZER;
+    static _ui zTaskCnt = 0;
+    char *zpCmdBuf;
+
+    zreg_compile(zRegInitIf, "([0-9]{1,3}\\.){3}[0-9]{1,3}");  // 仅支持 Ipv4 地址
+    zreg_match(zRegResIf, zRegInitIf, zppArgv[1]);  // 一次性执行，不必显式调用 zReg_Rree_Tmpsource() 宏
+    zReg_Free_Metasource(zRegInitIf);
+
+    zMem_Alloc(zpCmdBuf, char, zSshSelfIpDeclareBufSiz + 1 + strlen(zppArgv[2]));
+    strcpy(zpCmdBuf + zSshSelfIpDeclareBufSiz, zppArgv[2]);
+
+    zMem_Alloc(zpSshCcurIf, char, zRegResIf->cnt * sizeof(zSshCcurInfo));
+
+    for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter++) {
+        zpSshCcurIf[zCnter].zpHostIpAddr = zRegResIf->p_rets[zCnter];
+        zpSshCcurIf[zCnter].zpCmd = zpCmdBuf;
+        zpSshCcurIf[zCnter].zpCcurLock = &zCcurLock;
+        zpSshCcurIf[zCnter].zpCcurCond = &zCcurCond;
+        zpSshCcurIf[zCnter].zpTaskCnt = &zTaskCnt;
+
+        zCheck_Pthread_Func_Exit( pthread_create(&zTid, NULL, zssh_ccur_simple, &(zpSshCcurIf[zCnter])) );
+    }
+
+    pthread_mutex_lock(&zCcurLock);
+    while (zTaskCnt < zRegResIf->cnt) { pthread_cond_wait(&zCcurCond, &zCcurLock); }
+    pthread_mutex_unlock(&zCcurLock);
+
+    return 0;
 }

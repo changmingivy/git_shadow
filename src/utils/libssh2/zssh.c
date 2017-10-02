@@ -157,7 +157,8 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
 /* 简化参数版函数 */
 _i
 zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
-    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
+    return zssh_exec(zpHostIpAddr, "22", zpCmd, "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
+    //return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
 }
 
 struct zSshCcurInfo {
@@ -174,7 +175,9 @@ struct zSshCcurInfo {
     char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
     _ui zRemoteOutPutBufSiz;
 
-    pthread_mutex_t *zpCcurLock;  // ssh 并发锁
+    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
+    pthread_mutex_t *zpCcurLock;  // 同步锁
+    _ui *zpTaskCnt;  // SSH 任务完成计数
 };
 typedef struct zSshCcurInfo zSshCcurInfo;
 
@@ -189,6 +192,11 @@ zssh_ccur(void  *zpIf) {
             zpSshCcurIf->zpUserName, zpSshCcurIf->zpPubKeyPath, zpSshCcurIf->zpPrivateKeyPath, zpSshCcurIf->zpPassWd, zpSshCcurIf->zAuthType,
             zpSshCcurIf->zpRemoteOutPutBuf, zpSshCcurIf->zRemoteOutPutBufSiz, zpSshCcurIf->zpCcurLock);
 
+    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
+    (* (zpSshCcurIf->zpTaskCnt))++;
+    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
+    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
+
     return NULL;
 };
 
@@ -198,6 +206,11 @@ zssh_ccur_simple(void  *zpIf) {
     zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
 
     zssh_exec_simple(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpCmd, zpSshCcurIf->zpCcurLock);
+
+    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
+    (* (zpSshCcurIf->zpTaskCnt))++;
+    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
+    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
 
     return NULL;
 };

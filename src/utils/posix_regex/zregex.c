@@ -33,8 +33,9 @@ zreg_compile(zRegInitInfo *zpRegInitIf, const char *zpRegPattern) {
 void
 zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubject) {
     _i zErrNo, zDynSubjectlen, zResStrLen;
+    _ui zOffSet = 0;
     char zErrBuf[256];
-    regmatch_t zMatchResIf[2];
+    regmatch_t zMatchResIf;
 
     zpRegResIf->cnt = 0;
     zDynSubjectlen = strlen(zpRegSubject);
@@ -47,7 +48,7 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
-        if (0 != (zErrNo = regexec(zpRegInitIf, zpRegSubject, 1, &(zMatchResIf[1]), 0))) {
+        if (0 != (zErrNo = regexec(zpRegInitIf, zpRegSubject, 1, &zMatchResIf, 0))) {
             if (REG_NOMATCH == zErrNo) { break; }
             else {
                 zPrint_Time();
@@ -58,18 +59,19 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
             }
         }
 
-        zResStrLen = zMatchResIf[1].rm_eo - zMatchResIf[1].rm_so;
+        zResStrLen = zMatchResIf.rm_eo - zMatchResIf.rm_so;
         if (0 == zResStrLen) { break; }
 
         zpRegResIf->ResLen[zpRegResIf->cnt] = zResStrLen;
         zpRegResIf->cnt++;
 
-        zpRegResIf->p_rets[zCnter] = zpRegResIf->p_rets[zCnter] + zMatchResIf[1].rm_so + zCnter;
-        strncpy(zpRegResIf->p_rets[zCnter], zpRegSubject + zMatchResIf[1].rm_so, zResStrLen);
+        zpRegResIf->p_rets[zCnter] = zpRegResIf->p_rets[0] + zOffSet;
+        strncpy(zpRegResIf->p_rets[zCnter], zpRegSubject + zMatchResIf.rm_so, zResStrLen);
         zpRegResIf->p_rets[zCnter][zResStrLen] = '\0';
 
-        zpRegSubject += zMatchResIf[1].rm_eo + 1;
-        zDynSubjectlen -= zMatchResIf[1].rm_eo + 1;
+        zOffSet += zMatchResIf.rm_eo + 1;  // '+ 1' for '\0'
+        zpRegSubject += zMatchResIf.rm_eo + 1;
+        zDynSubjectlen -= zMatchResIf.rm_eo + 1;
     }
 }
 
