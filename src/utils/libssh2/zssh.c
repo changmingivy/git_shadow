@@ -154,11 +154,10 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     return zErrNo;
 }
 
-
 /* 简化参数版函数 */
 _i
-zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, _i zRepoId) {
-    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, &(zppGlobRepoIf[zRepoId]->SshLock));
+zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
+    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
 }
 
 struct zSshCcurInfo {
@@ -193,6 +192,15 @@ zssh_ccur(void  *zpIf) {
     return NULL;
 };
 
+/* 简化参数版函数 */
+void *
+zssh_ccur_simple(void  *zpIf) {
+    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+
+    zssh_exec_simple(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpCmd, zpSshCcurIf->zpCcurLock);
+
+    return NULL;
+};
 
 
 

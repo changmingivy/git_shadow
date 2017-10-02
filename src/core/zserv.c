@@ -500,7 +500,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
-    if (0 != zssh_exec_simple(zRegResIf->p_rets[0], zCommonBuf, zpMetaIf->RepoId)) { return -27; }
+    if (0 != zssh_exec_simple(zRegResIf->p_rets[0], zCommonBuf, &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) { return -27; }
     strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data);
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
@@ -1000,7 +1000,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
             /* 中转机重置 */
             zConfig_Proxy_Host_Ssh_Cmd(zppCommonBuf[0]);
-            if (0 != zssh_exec_simple(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zppCommonBuf[0], zpMetaIf->RepoId)) {
+            if (0 != zssh_exec_simple(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zppCommonBuf[0], &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) {
                 pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
                 return -27;
             }
@@ -1008,7 +1008,7 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
             /* 仅对重置失败的那部分目标主机 */
             zConfig_Dp_Host_Ssh_Cmd(zppCommonBuf[0], zpMetaIf->p_data);
             zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);  /* 重置时间戳，其它相关状态在查失败列表时已增量重置 */
-            if (0 != zssh_exec_simple(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zppCommonBuf[0], zpMetaIf->RepoId)) {
+            if (0 != zssh_exec_simple(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zppCommonBuf[0], &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) {
                 pthread_mutex_unlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
                 return -23;
             }
