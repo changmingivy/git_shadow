@@ -923,17 +923,22 @@ zSuccessMark:
  */
 _i
 zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
-    char *zppCommonBuf[2];
+    /* 若目标机上已是最新代码，则无需布署 */
+    if (0 == strncmp(zpMetaIf->p_ExtraData, zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, 40)) {
+        return 0;
+    } else {
+        char *zppCommonBuf[2];
 
-    /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
-    zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * (zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen));
-    zppCommonBuf[1] = zppCommonBuf[0] + zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+        /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
+        zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * (zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen));
+        zppCommonBuf[1] = zppCommonBuf[0] + zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
 
-    zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-    zpMetaIf->DataType = 1;
-    zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
+        zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+        zpMetaIf->DataType = 1;
+        zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
 
-    return zdeploy(zpMetaIf, zSd, zppCommonBuf);
+        return zdeploy(zpMetaIf, zSd, zppCommonBuf);
+    }
 }
 
 /*
