@@ -52,7 +52,7 @@ printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 if [[ 0 -ne $? ]]; then
-    zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "D"
+    zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
     exit 255
 fi
 
@@ -73,7 +73,7 @@ git stash clear
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 if [[ 0 -ne $? ]]; then
-    zTcpReply "git reset failed: ${zPathOnHost}_SHADOW" "D"
+    zTcpReply "git reset failed: ${zPathOnHost}_SHADOW" "B-"
     exit 255
 fi
 
@@ -90,7 +90,7 @@ git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 zTcpReply "_" "C"
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 if [[ 0 -ne $? ]]; then
-    zTcpReply "git reset failed: ${zPathOnHost}" "D"
+    zTcpReply "git reset failed: ${zPathOnHost}" "B-"
     exit 255
 fi
 
@@ -118,15 +118,15 @@ zMasterSig=`git log master -1 --format=%H`
 zServerSig=`git log ${zServBranchName} -1 --format=%H`
 zTcpReply "_" "C"
 if [[ "$zMasterSig" != "$zServerSig" ]]; then
-    zTcpReply "git log inconsistent: branch ${zServBranchName} != branch master" "D"
+    zTcpReply "git log inconsistent: branch ${zServBranchName} != branch master" "B-"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 elif [[ '0' != "`git status --short | wc -l`" ]]; then
-    zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "D"
+    zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "B-"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 # elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`cd ${zProjOnLinePath} && find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
-#     zTcpReply "full sha1sum failed: ${zPathOnHost}" "D"
+#     zTcpReply "full sha1sum failed: ${zPathOnHost}" "B-"
 #     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
 #     exit 255
 fi
@@ -142,10 +142,10 @@ if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then
 fi
 
 ##########################################
-# 布署成功：'B' 用于标识这是布署状态回复 #
+# 布署成功：'B+' 用于标识这是布署状态回复 #
 ##########################################
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B" >> /tmp/.____post-deploy.log 2>&1
+bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" >> /tmp/.____post-deploy.log 2>&1
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
