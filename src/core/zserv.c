@@ -750,7 +750,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
-    if ('_' != zpMetaIf->p_data[0]) {
+    if (('_' != zpMetaIf->p_data[0]) && (13 != zpMetaIf->OpsId)) {
         if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf))) { return zErrNo; }
         zRemoteHostInitTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
@@ -890,7 +890,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 更新最近一次布署的版本号到项目元信息中，复位代码库状态；若请求布署的版本号与最近一次布署的相同，则不必再重复生成缓存 */
 zMark:
-    if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig)) {
+    if ((13 != zpMetaIf->OpsId)
+            && (0 != strcmp(zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig))) {
         /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
         strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
@@ -921,11 +922,29 @@ zMark:
 
 /*
  * 外壳函数
- * 12：布署／撤销
- * 13：新加入的主机请求布署自身
+ * 13：新加入的主机请求布署自身：不拿锁、不刷系统IP列表、不刷新缓存
  */
 _i
-zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
+zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
+    char *zppCommonBuf[2];
+
+    /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
+    zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * (zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen));
+    zppCommonBuf[1] = zppCommonBuf[0] + zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+
+    zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
+    zpMetaIf->DataType = 1;
+    zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
+
+    return zdeploy(zpMetaIf, zSd, zppCommonBuf);
+}
+
+/*
+ * 外壳函数
+ * 12：布署／撤销
+ */
+_i
+zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     _i zErrNo;
     char *zppCommonBuf[2];
 
@@ -933,29 +952,18 @@ zcommon_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * (zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen));
     zppCommonBuf[1] = zppCommonBuf[0] + zSshSelfIpDeclareBufSiz + 2048 + 10 * zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
 
-    if (13 == zpMetaIf->OpsId) {
-        zpMetaIf->CacheId = zppGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-        zpMetaIf->DataType = 1;
-        zpMetaIf->CommitId = zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
-
-        /* 若为目标主机请求布署自身的请求，则实行阻塞式等待 */
-        pthread_rwlock_wrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
-        zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;  // 置为 1，通知旧的版本重试动作中止
-        pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
-    } else {
-        if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
-            if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
-                sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
-            } else {
-                sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                        (0 == zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
-            }
-            return -11;
+    if (0 != pthread_rwlock_trywrlock( &(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
+        if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+            sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
+        } else {
+            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
+                    (0 == zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
         }
-
-        zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;  // 置为 1，通知旧的版本重试动作中止
-        pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
+        return -11;
     }
+
+    zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 1;  // 置为 1，通知旧的版本重试动作中止
+    pthread_mutex_lock( &(zppGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
 
     if (0 > (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf))) {
         zppGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 0;
@@ -1280,8 +1288,8 @@ zstart_server(void *zpIf) {
     zNetServ[9] = zprint_record;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zNetServ[10] = zprint_diff_files;  // 显示差异文件路径列表
     zNetServ[11] = zprint_diff_content;  // 显示差异文件内容
-    zNetServ[12] = zcommon_deploy;  // 布署或撤销
-    zNetServ[13] = zcommon_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
+    zNetServ[12] = zbatch_deploy;  // 布署或撤销
+    zNetServ[13] = zself_deploy;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zNetServ[14] = zreq_file;  // 请求服务器传输指定的文件
     zNetServ[15] = NULL;
 
