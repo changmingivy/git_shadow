@@ -1163,7 +1163,7 @@ zreq_file(zMetaInfo *zpMetaIf, _i zSd) {
     char zSendBuf[4096];
     _i zFd, zDataLen;
 
-    zCheck_Negative_Exit(zFd = open(zpMetaIf->p_data, O_RDONLY));
+    zCheck_Negative_Return(zFd = open(zpMetaIf->p_data, O_RDONLY), -80);
     while (0 < (zDataLen = read(zFd, zSendBuf, 4096))) {
         zsendto(zSd, zSendBuf, zDataLen, 0, NULL);
     }
@@ -1283,6 +1283,8 @@ zMarkCommonAction:
  *  -70：服务器版本号列表缓存存在错误
  *  -71：服务器差异文件列表缓存存在错误
  *  -72：服务器单个文件的差异内容缓存存在错误
+ *
+ *  -80：目标机请求的文件路径不存在或无权访问
  *
  *  -101：目标机返回的版本号与正在布署的不一致
  *  -102：目标机返回的错误信息
