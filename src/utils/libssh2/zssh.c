@@ -157,8 +157,7 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
 /* 简化参数版函数 */
 _i
 zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
-    return zssh_exec(zpHostIpAddr, "22", zpCmd, "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
-    //return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
+    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
 }
 
 struct zSshCcurInfo {
