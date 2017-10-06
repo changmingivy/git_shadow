@@ -263,8 +263,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 #include "../utils/zbase_utils.c"
 #include "../utils/thread_pool/zthread_pool.c"
 #include "../utils/libssh2/zssh.c"
-#include "../utils/zserv_utils.c"
-#include "../core/zserv.c"  // 对外提供网络服务
 
 /***************************
  * +++___ main 函数 ___+++ *
