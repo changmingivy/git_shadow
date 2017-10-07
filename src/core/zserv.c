@@ -462,7 +462,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/zssh}]' >&777;"\
+            "printf '[{\"OpsId\":14,\"ProjId\":%d,\"data\":%s_SHADOW/tools/zssh}]' >&777;"\
             "mkdir -p tools;"\
             "cat <&777 >tools/zssh_%d;"\
             "chmod 0755 tools/zssh_%d;"\
