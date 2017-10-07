@@ -527,7 +527,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             "echo ${____zSelfIp} >info/zself_ip_addr.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/post-update}]' >&777;"\
+            "printf '[{\"OpsId\":14,\"ProjId\":%d,\"data\":%s_SHADOW/tools/post-update}]' >&777;"\
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
             "exec 777>&-;"\
