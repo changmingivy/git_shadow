@@ -454,7 +454,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 #define zConfig_Proxy_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
-            "kill -9 `ps ax -o pid,cmd | fgrep 'zssh_%d' | grep -oE '^ *[0-9]+'`;"\
+            "pkill -9 -u git 'zssh_%d';" /* The running pgrep or pkill process will never report itself as a match */\
             "rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
