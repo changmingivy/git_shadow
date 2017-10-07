@@ -500,7 +500,10 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 此处取读锁权限即可，因为只需要排斥布署动作，并不影响查询类操作 */
     if (0 != pthread_rwlock_tryrdlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock))) { return -11; }
-    if (0 != zssh_exec_simple(zRegResIf->p_rets[0], zCommonBuf, &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) { return -27; }
+    if (0 != zssh_exec_simple(zRegResIf->p_rets[0], zCommonBuf, &(zppGlobRepoIf[zpMetaIf->RepoId]->SshLock))) {
+        pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
+        return -27;
+    }
     strcpy(zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr, zpMetaIf->p_data);
     pthread_rwlock_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->RwLock));
 
