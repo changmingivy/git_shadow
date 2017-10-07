@@ -454,7 +454,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 #define zConfig_Proxy_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
-            "kill -9 `ps ax -o pid,cmd | fgrep 'zssh_%d' | grep -oE '[0-9]+'`;"\
+            "kill -9 `ps ax -o pid,cmd | fgrep 'zssh_%d' | grep -oE '^ *[0-9]+'`;"\
             "rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
@@ -462,7 +462,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"[{\\\"OpsId\":13,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/zssh}]\">&777;"\
+            "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/zssh}]' >&777;"\
             "cat <&777 >tools/zssh_%d;"\
             "chmod 0755 tools/zssh_%d;"\
             "exec 777>&-;"\
@@ -526,7 +526,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             "echo ${____zSelfIp} >info/zself_ip_addr.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"[{\\\"OpsId\":13,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}]\">&777;"\
+            "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/post-update}]' >&777;"\
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
             "exec 777>&-;"\
