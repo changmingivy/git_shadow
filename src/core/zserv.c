@@ -463,6 +463,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 \
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf '[{\"OpsId\":13,\"ProjId\":%d,\"data\":%s_SHADOW/tools/zssh}]' >&777;"\
+            "mkdir -p tools;"\
             "cat <&777 >tools/zssh_%d;"\
             "chmod 0755 tools/zssh_%d;"\
             "exec 777>&-;"\
