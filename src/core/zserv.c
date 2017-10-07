@@ -519,7 +519,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
     sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
             "(%s_SHADOW/tools/zssh_%d "\
             "'%s' "\
-            "'rm -f %s %s_SHADOW;"\
+            "rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
             "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
@@ -533,10 +533,10 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             "exec 777>&-;"\
             "exec 777<&-;"\
 \
-            "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"\
+            "'zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done';"\
             "exec 777>/dev/tcp/%s/%s;"\
-            "printf \"[{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":\\\"A\\\"}]\">&777;"\
-            "exec 777>&-') &",\
+            "printf '[{\"OpsId\":8,\"ProjId\":%d,\"HostId\":${zIPv4NumAddr},\"ExtraData\":\"A\"}]'>&777;"\
+            "exec 777>&-) &",\
 \
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
             zpDpHostList,\
