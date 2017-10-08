@@ -3,6 +3,7 @@
 # 预环境要求：
 #   (1) /etc/ssh/sshd_config 中的 MaxStartups 参数指定为 1024 以上
 #   (2) /etc/sysctl.conf 中的 net.core.somaxconn 参数指定为 1024 以上，之后执行 sysctl -p 使之立即生效
+#   (3) yum install openssl-devel
 
 zServAddr=$1
 zServPort=$2
