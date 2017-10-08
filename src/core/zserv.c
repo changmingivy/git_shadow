@@ -462,7 +462,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"{OpsId:14,ProjId:%d,data:%s_SHADOW/tools/zssh}\" >&777;"\
+            "printf \"{\"OpsId\":14,\"ProjId\":%d,\"data\":%s_SHADOW/tools/zssh}\" >&777;"\
             "mkdir -p tools;"\
             "cat <&777 >tools/zssh_%d;"\
             "chmod 0755 tools/zssh_%d;"\
@@ -527,7 +527,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             "echo ${____zSelfIp} >info/zself_ip_addr.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"{OpsId:14,ProjId:%d,data:%s_SHADOW/tools/post-update}\" >&777;"\
+            "printf \"{\"OpsId\":14,\"ProjId\":%d,\"data\":%s_SHADOW/tools/post-update}\" >&777;"\
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
             "exec 777>&-;"\
@@ -535,7 +535,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
 \
             "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"\
             "exec 777>/dev/tcp/%s/%s;"\
-            "printf \"{OpsId:8,ProjId:%d,HostId:${zIPv4NumAddr},ExtraData:A+}\">&777;"\
+            "printf \"{\"OpsId\":8,\"ProjId\":%d,\"HostId\":${zIPv4NumAddr},\"ExtraData\":A+}\">&777;"\
             "exec 777>&-') &",\
 \
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
