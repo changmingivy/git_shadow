@@ -520,7 +520,7 @@ zupdate_ip_db_proxy(zMetaInfo *zpMetaIf, _i zSd) {
             "(%s_SHADOW/tools/zssh_%d "\
             "'%s' "\
             "'rm -f %s %s_SHADOW;"\
-            "mkdir -p %s %s_SHADOW;"\
+            "mkdir -p %s %s_SHADOW/info;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
             "cd %s && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
             "cd %s_SHADOW && git init . && git config user.name _ && git config user.email _ && git commit --allow-empty -m _ && git branch server%d;"\
