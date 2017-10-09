@@ -2,7 +2,7 @@
 zProjId=$1
 zCommitSig=$2
 zPathOnHost=$(printf $3 | sed -n 's%/\+%/%p')  # 布署目标上的绝对路径，处理掉可能存在的多个连续的 '/'
-zHostList=$5
+zHostList=$4
 
 zServBranchName="server${zProjId}"
 zShadowPath=/home/git/zgit_shadow

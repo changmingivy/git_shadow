@@ -197,9 +197,6 @@ zclient(void) {
     // 解锁
     //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":11}";
 
-    // 更新 proxy IP 数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":11,\"data\":\"192.168.1.254\"}";
-
     // 查询版本号列表
     char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}";
 

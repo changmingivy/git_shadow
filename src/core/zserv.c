@@ -80,13 +80,12 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
             continue;
         };
 
-        sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"},",
+        sprintf(zSendBuf, "{\"OpsId\":0,\"data\":\"Id: %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"},",
                 zCnter,
                 zppGlobRepoIf[zCnter]->p_RepoPath,
                 zDpLocked == zppGlobRepoIf[zCnter]->DpLock ? "No" : "Yes",
                 '\0' == zppGlobRepoIf[zCnter]->zLastDpSig[0] ? "_" : zppGlobRepoIf[zCnter]->zLastDpSig,
                 zRepoDamaged == zppGlobRepoIf[zCnter]->RepoState ? "fail" : "success",
-                zppGlobRepoIf[zCnter]->ProxyHostStrAddr,
                 zppGlobRepoIf[zCnter]->TotalHost,
                 NULL == zppGlobRepoIf[zCnter]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zCnter]->p_HostStrAddrList
                 );
@@ -118,13 +117,12 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
         return -11;
     };
 
-    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nProxyHostIp: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+    sprintf(zSendBuf, "[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zpMetaIf->RepoId,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock ? "No" : "Yes",
             '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0] ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zRepoDamaged == zppGlobRepoIf[zpMetaIf->RepoId]->RepoState ? "fail" : "success",
-            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost,
             NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList ? "_" : zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             );
@@ -708,12 +706,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     strncpy(zpMetaIf->p_ExtraData, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
 
     /* 只取保留 stderr 输出 */
-    sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+    sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\"",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
             zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList  // 目标机的点分格式文本 IPv4 列表
             );
 
@@ -982,12 +979,11 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
             }
 
             /* 基于失败列表，重新构建布署指令 */
-            sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+            sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\"",
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
                     zpMetaIf->RepoId,
                     zpMetaIf->p_ExtraData,  // 目标版本号在 zdeploy() 中已被复制到了这个字段
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-                    zppGlobRepoIf[zpMetaIf->RepoId]->ProxyHostStrAddr,
                     zpMetaIf->p_data
                     );
 

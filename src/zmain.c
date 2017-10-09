@@ -199,7 +199,6 @@ struct zRepoInfo {
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
-    char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
     char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
     zSshCcurInfo SshCcurIf[zForecastedHostNum];
