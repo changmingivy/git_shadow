@@ -160,26 +160,6 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
     return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
 }
 
-struct zSshCcurInfo {
-    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
-    char *zpHostServPort;  // 字符串形式的端口号，如："22"
-    char *zpCmd;  // 需要执行的指令集合
-
-    _i zAuthType;
-    const char *zpUserName;
-    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
-    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
-    const char *zpPassWd;  // 登陆密码或公钥加密密码
-
-    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
-    _ui zRemoteOutPutBufSiz;
-
-    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
-    pthread_mutex_t *zpCcurLock;  // 同步锁
-    _ui *zpTaskCnt;  // SSH 任务完成计数
-};
-typedef struct zSshCcurInfo zSshCcurInfo;
-
 /*
  * 线程并发函数
  */

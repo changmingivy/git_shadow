@@ -3,21 +3,12 @@
 # 入参是本机所有Ip地址，上层调用者必须已进入对应项目的 _SHADOW 目录
 
 zProjId=`cat ./info/repo_id`
-zProxyIpAddr=$1
-zSelfIpList=$2
+zSelfIpList=$1
 zMasterIpAddr=__MASTER_ADDR
 zMasterPort=__MASTER_PORT
 
 zCurPath=`pwd`
 zProjPath=`echo ${zCurPath} | sed -n 's/_SHADOW$//p'`
-
-exec 777>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
-printf "[{\"OpsId\":4,\"ProjId\":${zProjId},\"data\":${zProxyIpAddr},\"ExtraData\":1}]">&777
-exec 777>&-
-
-exec 777>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
-printf "[{\"OpsId\":4,\"ProjId\":${zProjId},\"data\":${zProxyIpAddr},\"ExtraData\":1}]">&777
-exec 777>&-
 
 cd $zProjPath
 zLocalSig=`git log -1 --format=%H`

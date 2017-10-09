@@ -744,7 +744,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->DpRetryLock), NULL) );
 
     /* libssh2 并发锁 */
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->SshLock), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->SshSyncLock), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zppGlobRepoIf[zRepoId]->SshSyncCond), NULL) );
 
     /* 为每个代码库生成一把读写锁 */
     zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), NULL) );
@@ -783,8 +784,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->DpVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DpRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDpVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDpVecIf;
 
-    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[0] = zppGlobRepoIf[zRepoId]->HostStrAddrList[0];
-    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[1] = zppGlobRepoIf[zRepoId]->HostStrAddrList[1];
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
+
+    zppGlobRepoIf[zRepoId]->p_SshCcurIf = zppGlobRepoIf[zRepoId]->SshCcurIf;
 
     /* 生成缓存 */
     zMetaInfo zMetaIf;

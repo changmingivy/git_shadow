@@ -134,6 +134,27 @@ struct zDpResInfo {
 };
 typedef struct zDpResInfo zDpResInfo;
 
+/* SSH 连接所用 */
+struct zSshCcurInfo {
+    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *zpHostServPort;  // 字符串形式的端口号，如："22"
+    char *zpCmd;  // 需要执行的指令集合
+
+    _i zAuthType;
+    const char *zpUserName;
+    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *zpPassWd;  // 登陆密码或公钥加密密码
+
+    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui zRemoteOutPutBufSiz;
+
+    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
+    pthread_mutex_t *zpCcurLock;  // 同步锁
+    _ui *zpTaskCnt;  // SSH 任务完成计数
+};
+typedef struct zSshCcurInfo zSshCcurInfo;
+
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
@@ -167,8 +188,11 @@ struct zRepoInfo {
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
 
-    /* libssh2 并发同步锁 */
-    pthread_mutex_t SshLock;
+    /* libssh2 并发同步锁与条件变量 */
+    pthread_mutex_t SshSyncLock;
+    pthread_cond_t SshSyncCond;
+    _ui SshTotalTask;
+    _ui SshTaskFinCnt;
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _i RepoState;
@@ -176,14 +200,16 @@ struct zRepoInfo {
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
     char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
-    char HostStrAddrList[2][4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
-    char *p_HostStrAddrList[2];  // [0]：以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本；[1] 用于收集新增的IP，增量初始化远程主机
+    char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
+    char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
+    zSshCcurInfo SshCcurIf[zForecastedHostNum];
+    zSshCcurInfo *p_SshCcurIf;
     struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
-    pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+    pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVecIf[zCacheSiz];
