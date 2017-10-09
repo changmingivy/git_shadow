@@ -261,7 +261,6 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 
 #include "../utils/posix_regex/zregex.c"
 #include "../utils/zbase_utils.c"
-#include "../utils/thread_pool/zthread_pool.c"
 #include "../utils/libssh2/zssh.c"
 
 /***************************
@@ -299,7 +298,7 @@ main(_i zArgc, char **zppArgv) {
         zpSshCcurIf[zCnter].zpCcurCond = &zCcurCond;
         zpSshCcurIf[zCnter].zpTaskCnt = &zTaskCnt;
 
-        zCheck_Pthread_Func_Exit( pthread_create(&zTid, NULL, zssh_ccur_simple, &(zpSshCcurIf[zCnter])) );
+        zCheck_Pthread_Func_Exit( pthread_create(&zTid, NULL, zssh_ccur_simple, &(zpSshCcurIf[zCnter])) );  // 一次性执行，线程不必 detach
     }
 
     pthread_mutex_lock(&zCcurLock);
