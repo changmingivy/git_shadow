@@ -316,17 +316,17 @@ zsleep(_d zSecs) {
 }
 
 /*
- * 纳秒时间，用于两个时间之间精确差值
+ * 纳秒时间，用于两个时间之间精确差值[ 计数有问题，且 CentOS-6 上不可用 ]
  */
-_d
-zreal_time() {
-    struct timespec zNanoSecIf;
-    if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
-        return -1.0;
-    } else {
-        return (zNanoSecIf.tv_sec + (((_d) zNanoSecIf.tv_nsec) / 1000000000));
-    }
-}
+// _d
+// zreal_time() {
+//     struct timespec zNanoSecIf;
+//     if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
+//         return -1.0;
+//     } else {
+//         return (zNanoSecIf.tv_sec + (((_d) zNanoSecIf.tv_nsec) / 1000000000));
+//     }
+// }
 
 /*
  * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
