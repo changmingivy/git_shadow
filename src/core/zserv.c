@@ -1294,9 +1294,22 @@ zMarkCommonAction:
  *  -102：目标机返回的错误信息
  */
 
+/*
+ * 0: 测试函数
+ */
+_i
+ztest_func(zMetaInfo *zpIf, _i zSd) {
+	//zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+	struct iovec zTestVecIf = {.iov_base = "Hello", .iov_len = 6};
+	zVecWrapInfo zVecWrapIf = {.p_VecIf = &zTestVecIf, .VecSiz = 1, };
+
+	zsendmsg(zSd, &zVecWrapIf, 0, NULL);
+	return 0;
+}
+
 void
 zstart_server(void *zpIf) {
-    zNetServ[0] = NULL;
+    zNetServ[0] = ztest_func;
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zNetServ[3] = zlock_repo;  // 恢复布署／撤销功能
