@@ -162,7 +162,7 @@ zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *z
 
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
-        .msg_namelen = INET_ADDRSTRLEN,
+        .msg_namelen = (NULL == zpAddr) ? 0 : INET6_ADDRSTRLEN,
         .msg_iov = zpVecWrapIf->p_VecIf,
         .msg_iovlen = zpVecWrapIf->VecSiz,
         .msg_control = NULL,

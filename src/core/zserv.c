@@ -1299,11 +1299,6 @@ zMarkCommonAction:
  */
 _i
 ztest_func(zMetaInfo *zpIf, _i zSd) {
-	//zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
-	struct iovec zTestVecIf = {.iov_base = "Hello", .iov_len = 6};
-	zVecWrapInfo zVecWrapIf = {.p_VecIf = &zTestVecIf, .VecSiz = 1, };
-
-	zsendmsg(zSd, &zVecWrapIf, 0, NULL);
 	return 0;
 }
 
