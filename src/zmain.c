@@ -175,10 +175,6 @@ struct zRepoInfo {
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
 
-    /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
-    /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
-    _i DpLock;
-
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
     _i zWhoGetWrLock;
     /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
@@ -194,10 +190,19 @@ struct zRepoInfo {
     _ui SshTotalTask;
     _ui SshTaskFinCnt;
 
+    /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
+    /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
+    _c DpLock;
+
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
-    _i RepoState;
+    _c RepoState;
+    _c ResType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
+
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
+
+    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
@@ -215,10 +220,6 @@ struct zRepoInfo {
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
-
-    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
-    _i ResType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
-    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
     struct iovec DpVecIf[zCacheSiz];

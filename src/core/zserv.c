@@ -468,7 +468,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 \
             "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"\
             "exec 777>/dev/tcp/%s/%s;"\
-            "printf \"{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"ExtraData\\\":A+}\">&777;"\
+            "printf \"{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"data\\\":%zd,\\\"ExtraData\\\":A+}\">&777;"\
             "exec 777>&-) &",\
 \
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
@@ -482,7 +482,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,\
 \
             zNetServIf.p_IpAddr, zNetServIf.p_port,\
-            zpMetaIf->RepoId\
+            zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->CacheId\
             );\
 } while(0)
 
@@ -530,6 +530,7 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf) {
     /* 重置状态 */
     memset(zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0] = '\0';
 
@@ -701,9 +702,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         return -26;
     }
 
-    /* 正在布署的版本号，用于布署耗时分析 */
+    /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
     strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
-    /* 另复制一份供后台重试之用 */
+    /* 另复制一份供失败重试之用 */
     strncpy(zpMetaIf->p_ExtraData, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
 
     /* 只取保留 stderr 输出 */
@@ -720,6 +721,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = 0;
     }
     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1] = 0;
+    zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = 0;
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
 
@@ -812,7 +814,7 @@ zErrMark:
 
 zSuccessMark:
     /* 检查计数之中是否存在错误返回的类型 */
-    if (-1 != zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
+    if (-1 == zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
 
     /* 若先前测算的布署耗时 <= 90s ，此处向前端返回布署成功消息 */
     if (900 >= zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
@@ -1022,34 +1024,55 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
 
             char *zpLogStrId;
             /* 'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复，'C' 目标机的 keep alive 消息，'D' 错误信息 */
-            if (('A' == zpMetaIf->p_ExtraData[0]) && (0 == zpTmpIf->InitState)) {
+            if ('A' == zpMetaIf->p_ExtraData[0]) {
+                if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return -101;  // 返回负数，用于打印日志
+                }
+
+                if (0 != zpTmpIf->InitState) {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return 0;
+                }
+
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
                     zpTmpIf->InitState = 1;
-                } else {
+                } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->InitState = -1;
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
                     zppGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = -1;
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -102;  // 返回负数，用于打印日志
+                } else {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return -103;  // 未知的返回内容
                 }
 
                 zpLogStrId = "Init_Remote_Host";
-            } else if (('B' == zpMetaIf->p_ExtraData[0]) && (0 == zpTmpIf->DpState)){
+            } else if ('B' == zpMetaIf->p_ExtraData[0]) {
                 if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -101;  // 返回负数，用于打印日志
                 }
 
+                if (0 != zpTmpIf->DpState) {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return 0;
+                }
+
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
                     zpTmpIf->DpState = 1;
-                } else {
+                } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->DpState = -1;
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
                     zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = -1;
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -102;  // 返回负数，用于打印日志
+                } else {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return -103;  // 未知的返回内容
                 }
 
                 zpLogStrId = zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
@@ -1059,7 +1082,7 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                 return 0;
             } else {
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                return -2;  // 未知的返回内容
+                return -103;  // 未知的返回内容
             }
 
             /* 调试功能：布署耗时统计，必须在锁内执行 */
@@ -1227,6 +1250,7 @@ zMarkCommonAction:
  *
  *  -101：目标机返回的版本号与正在布署的不一致
  *  -102：目标机返回的错误信息
+ *  -103：目标机返回的状态信息Type无法识别
  */
 
 /*
