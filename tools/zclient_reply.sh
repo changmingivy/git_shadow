@@ -5,7 +5,7 @@ zMasterSig=$3
 zReplyType=$4  # 'B' 用于标识这是布署状态回复，'A' 用于标识远程主机初始化状态回复
 
 zProjId=`cat info/repo_id`
-zSelfIpStrAddr=`cat info/zself_ip_addr.txt`
+zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
 
 # 将点分格式的 IPv4 地址转换为数字格式
 zIPv4NumAddr=0

@@ -453,11 +453,11 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
             "(rm -f %s %s_SHADOW;"\
-            "mkdir -p %s %s_SHADOW/info;"\
+            "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
             "cd %s && git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
             "cd %s_SHADOW && git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
-            "echo ${____zSelfIp} >info/zself_ip_addr.txt;"\
+            "echo ${____zSelfIp} >/home/git/.____zself_ip_addr_%d.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"\
@@ -476,6 +476,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
+            zpMetaIf->RepoId\
 \
             zNetServIf.p_IpAddr, zNetServIf.p_port,\
             zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,\
@@ -804,6 +805,7 @@ zErrMark:
                     zppGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
                 }
             }
+            zpMetaIf->p_ExtraData = zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
             return -12;
         }
     }
