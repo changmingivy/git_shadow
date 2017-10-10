@@ -12,6 +12,10 @@ zProjId=`echo $1 | grep -o '[0-9]\+$'`
 zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
 zServBranchName=""
 
+# 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
+chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
+chmod 0444 ${zPathOnHost}/.git/hooks/post-update
+
 # 清理同一项目下可能存在的 post-update 进程
 kill -9 `cat /home/git/.${zProjId}_pid_post-update` 2>/dev/null
 echo "$$" > /home/git/.${zProjId}_pid_post-update
@@ -41,9 +45,6 @@ if [[ 0 -ne $? ]]; then
     zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
     exit 255
 fi
-
-# 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
-chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
 
 # 清除可能存在的由于 git 崩溃残留的锁文件
 rm -f ${zPathOnHost}/.git/index.lock
