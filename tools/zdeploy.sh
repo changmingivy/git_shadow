@@ -27,7 +27,7 @@ git pull --force ./.git ${zServBranchName}:master
 git reset --hard ${zCommitSig}
 
 # 用户指定的在部置之前执行的操作
-bash ____pre-deploy.sh
+bash ____pre-deploy.sh 2>/dev/null
 git add --all .
 git commit -m "____pre-deploy.sh"
 
@@ -40,7 +40,7 @@ cp -R ${zShadowPath}/tools ./
 chmod 0755 ./tools/post-update
 eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 git add --all .
-git commit --allow-empty -m "_"  # 提交一次空记录，用于保证每次推送 post-upate 都能执行
+git commit --allow-empty -m "_"  # 提交一次，允许空记录，用于保证每次推送 post-upate 都能执行
 
 # 布署到终端集群，先推项目代码，后推 <_SHADOW>
 for zHostAddr in $zHostList; do

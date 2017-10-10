@@ -98,8 +98,7 @@ git branch ____base.XXXXXXXX &&\
         \ls -a | grep -Ev '^(\.|\.\.|\.git)$' | xargs rm -rf;\
         git add --all .;\
         git commit --allow-empty -m "_";\
-        zOrigLog=`git log -1 --format="%H_%ct"`;\
-        git branch ${zOrigLog};\
-        printf "${zOrigLog}\n" > ${zDeployPath}_SHADOW/log/deploy/meta;\
+        git branch `git log -1 --format="%H"`;\
+        printf "`git log -1 --format="%H_%ct"`\n" > ${zDeployPath}_SHADOW/log/deploy/meta;\
         git checkout master\
     )
