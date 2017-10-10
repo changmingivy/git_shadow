@@ -40,15 +40,6 @@ clang -Wall -Wextra -std=c99 -O2 -lpthread -lssl -lcrypto \
     ${zShadowPath}/lib/libssh2/lib64/libssh2.a  # 必须在此之前链接 -lssl -lcrypto
 strip ${zShadowPath}/bin/git_shadow
 
-# 编译 zssh_XXXX 程序，用于中转机代替 OpenSSH 更高效并发执行 SSH 连接
-clang -Wall -Wextra -std=c99 -O2 -lpthread -lssl -lcrypto \
-    -I${zShadowPath}/inc \
-    -I${zShadowPath}/lib/libssh2/include \
-    -o ${zShadowPath}/tools/zssh \
-    ${zShadowPath}/src/extra/zssh_cli.c\
-    ${zShadowPath}/lib/libssh2/lib64/libssh2.a  # 必须在此之前链接 -lssl -lcrypto
-strip ${zShadowPath}/tools/zssh
-
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
 clang -Wall -Wextra -std=c99 -O2 \
     -I${zShadowPath}/inc \

@@ -12,8 +12,8 @@ zProjId=`cat ${zPathOnHost}_SHADOW/info/repo_id`
 zServBranchName=""
 
 # 清理同一项目下可能存在的 post-update 进程
-kill -9 `cat /home/git/.{$zProjId}_pid_post-update`
-echo "$$" > /home/git/.{$zProjId}_pid_post-update
+kill -9 `cat /home/git/.${zProjId}_pid_post-update` 2>/dev/null
+echo "$$" > /home/git/.${zProjId}_pid_post-update
 
 # 转换Ip String为数字格式，至多取本地的8个Ip地址
 zIpNumAddr0=0
