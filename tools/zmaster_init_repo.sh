@@ -23,8 +23,9 @@ fi
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
-    if [[ $zProjId -eq `cat ${zDeployPath}_SHADOW/info/repo_id` ]]; then
-        cd ${zDeployPath}
+    cd ${zDeployPath}
+	if [[ 0 -ne $? ]]; then exit 255; fi
+    if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
         cp -rf ${zShadowPath}/tools ./
@@ -86,7 +87,6 @@ fi
 # 创建必要的目录与文件
 cd ${zDeployPath}_SHADOW
 mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
-touch ${zDeployPath}_SHADOW/info/repo_id
 touch ${zDeployPath}_SHADOW/log/deploy/meta
 chmod -R 0755 ${zDeployPath}_SHADOW
 

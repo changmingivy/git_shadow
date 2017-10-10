@@ -252,7 +252,6 @@ zJsonParseFunc zJsonParseOps[128];
 /************
  * 配置文件 *
  ************/
-#define zRepoIdPath "_SHADOW/info/repo_id"
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 

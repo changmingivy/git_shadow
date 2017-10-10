@@ -594,7 +594,7 @@ zMarkSkip:
  *         -36：请求创建的项目路径已存在，且项目ID不同
  *         -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
  *         -38：拉取远程代码库失败（git clone 失败）
- *         -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
+ *         -39：项目元数据创建失败，如：无法打开或创建布署日志文件meta等原因
  */
 #define zFree_Source() do {\
     free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
@@ -613,7 +613,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     char zCommonBuf[zGlobBufSiz];
 
-    _i zRepoId, zFd, zErrNo;
+    _i zRepoId, zErrNo;
 
     /* 正则匹配项目基本信息（5个字段） */
     zreg_compile(zRegInitIf, "(\\w|[[:punct:]])+");
@@ -681,28 +681,11 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpTimeSpentLogPath);
     zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
 
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
-    zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-
-    if ((-1 == zFd)
-            || (-1 == zppGlobRepoIf[zRepoId]->DpSigLogFd)
-            || (-1 == zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd)) {
-        close(zFd);
+    if ((-1 == zppGlobRepoIf[zRepoId]->DpSigLogFd) || (-1 == zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd)) {
         close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -39;
     }
-
-    /* 在每个代码库的<_SHADOW/info/repo_id>文件中写入所属代码库的ID */
-    char zRepoIdBuf[12];  // 足以容纳整数最大值即可
-    _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
-    if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
-        close(zFd);
-        close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
-        zFree_Source();
-        return -39;
-    }
-    close(zFd);
 
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobBufSiz];
