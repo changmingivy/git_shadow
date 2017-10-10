@@ -658,21 +658,21 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     } else if (zIsDpDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zppGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
     } else {
-        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_data = "====[JSON: DataType] 字段指定的数据类型无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
         return -10;
     }
 
     /* 检查是否允许布署 */
     if (zDpLocked == zppGlobRepoIf[zpMetaIf->RepoId]->DpLock) {
-        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_data = "====代码库被锁定，不允许布署====";
         zpMetaIf->p_ExtraData[0] = '\0';
         return -6;
     }
 
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
     if (zppGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) {
-        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_data = "====已产生新的布署记录，请刷新页面====";
         zpMetaIf->p_ExtraData[0] = '\0';
         return -8;
     }
@@ -681,7 +681,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     if ((0 > zpMetaIf->CommitId)
             || ((zCacheSiz - 1) < zpMetaIf->CommitId)
             || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {
-        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_data = "====指定的版本号无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
         return -3;
     }
@@ -696,7 +696,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     if (0 == zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost
             || NULL == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             || '\0' == zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
-        zpMetaIf->p_data[0] = '\0';
+        zpMetaIf->p_data = "====指定的目标主机 IP 无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
         return -26;
     }

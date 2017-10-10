@@ -21,7 +21,7 @@ zHostId=0
 zCnter=0
 for zField in `printf ${zSelfIpStrAddr} | grep -oP '\d+'`
 do
-    eval let ${zHostId}+=$((${zField} << (8 * ${zCnter})))
+    let zHostId+=$((${zField} << (8 * ${zCnter})))
     let zCnter++
 done
 
