@@ -46,7 +46,7 @@ git commit --allow-empty -m "_"  # 提交一次，允许空记录，用于保证
 for zHostAddr in `echo $zHostList`; do
     (\
         cd /home/git/${zPathOnHost} &&\
-        git push --force git@${zHostAddr}:${zPathOnHost}/.git ${zServBranchName}:${zServBranchName};\
+        git push --force git@${zHostAddr}:${zPathOnHost}/.git master:${zServBranchName};\
         cd /home/git/${zPathOnHost}_SHADOW &&\
         git push --force git@${zHostAddr}:${zPathOnHost}_SHADOW/.git master:${zServBranchName}\
     )&
