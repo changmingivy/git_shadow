@@ -125,7 +125,7 @@ ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
 # ____pre-deploy.sh 产生的版本号，消除之，用于兼容页面检验工具
 cd ${zProjOnLinePath}
-git reset ${zMasterSig}
+git reset ${zMasterSig2}
 
 # 布署完成之后需要执行的动作：____post-deploy.sh
 (cd ${zProjOnLinePath} && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &
