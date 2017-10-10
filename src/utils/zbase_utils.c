@@ -437,7 +437,8 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
 
     for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
         if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
-            zpMetaIf->p_data = zpJsonStr;
+            strcpy(zpMetaIf->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
+            zReg_Free_Tmpsource(zRegResIf);
             return -7;
         }
         zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
