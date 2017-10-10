@@ -43,12 +43,12 @@ git add --all .
 git commit --allow-empty -m "_"  # 提交一次，允许空记录，用于保证每次推送 post-upate 都能执行
 
 # 布署到终端集群，先推项目代码，后推 <_SHADOW>
-for zHostAddr in $zHostList; do
+for zHostAddr in `echo $zHostList`; do
     (\
         cd /home/git/${zPathOnHost} &&\
         git push --force git@${zHostAddr}:${zPathOnHost}/.git ${zServBranchName}:${zServBranchName};\
         cd /home/git/${zPathOnHost}_SHADOW &&\
-        git push --force git@${zHostAddr}:${zPathOnHost}_SHADOW/.git ${zServBranchName}:${zServBranchName}\
+        git push --force git@${zHostAddr}:${zPathOnHost}_SHADOW/.git master:${zServBranchName}\
     )&
 done
 

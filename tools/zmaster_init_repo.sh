@@ -27,7 +27,6 @@ if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
         cd ${zDeployPath}
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
-        git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cp -rf ${zShadowPath}/tools ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
         exit 0
@@ -75,7 +74,6 @@ git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjId}"
 git add --all .
 git commit --allow-empty -m "__init__"
-git branch -f ${zServBranchName}  # 远程代码接收到 server${zProjId} 分支
 
 # 防止添加重复条目
 zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjId}\s*"`
