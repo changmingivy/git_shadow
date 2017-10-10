@@ -1,5 +1,4 @@
-bool push(git_repository *repository) 
- {
+bool push(git_repository *repository) {
      // get the remote.
      git_remote* remote = NULL;
      git_remote_lookup( &remote, repository, "origin" );
@@ -16,4 +15,4 @@ bool push(git_repository *repository)
      // do the push
      git_remote_upload( remote, NULL, &options );
      return true; 
- }
+}

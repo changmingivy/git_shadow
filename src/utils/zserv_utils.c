@@ -23,169 +23,6 @@
 /**************
  * NATIVE OPS *
  **************/
-/* 在任务分发之前执行：定义必要的计数器、锁、条件变量等 */
-#define zCcur_Init(zRepoId, zTotalTask, zSuffix) \
-    _i *____zpFinMark##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    _i *____zpTotalTask##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    _i *____zpTaskCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    _i *____zpThreadCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-    *____zpFinMark##zSuffix = 0;\
-    *____zpTotalTask##zSuffix = zTotalTask;\
-    *____zpTaskCnter##zSuffix = 0;\
-    *____zpThreadCnter##zSuffix = 0;\
-\
-    pthread_mutex_t *____zpMutexLock##zSuffix = zalloc_cache(zRepoId, 2 * sizeof(pthread_mutex_t));\
-    pthread_mutex_init(____zpMutexLock##zSuffix, NULL);\
-    pthread_mutex_init(____zpMutexLock##zSuffix + 1, NULL);\
-
-//#define zCcur_Init(zRepoId, zTotalTask, zSuffix) \
-//    _i *____zpFinMark##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-//    _i *____zpTotalTask##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-//    _i *____zpTaskCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-//    _i *____zpThreadCnter##zSuffix = zalloc_cache(zRepoId, sizeof(_i));\
-//    *____zpFinMark##zSuffix = 0;\
-//    *____zpTotalTask##zSuffix = zTotalTask;\
-//    *____zpTaskCnter##zSuffix = 0;\
-//    *____zpThreadCnter##zSuffix = 0;\
-//\
-//    pthread_cond_t *____zpCondVar##zSuffix = zalloc_cache(zRepoId, sizeof(pthread_cond_t));\
-//    pthread_cond_init(____zpCondVar##zSuffix, NULL);\
-//\
-//    pthread_mutex_t *____zpMutexLock##zSuffix = zalloc_cache(zRepoId, 3 * sizeof(pthread_mutex_t));\
-//    pthread_mutex_init(____zpMutexLock##zSuffix, NULL);\
-//    pthread_mutex_init(____zpMutexLock##zSuffix + 1, NULL);\
-//    pthread_mutex_init(____zpMutexLock##zSuffix + 2, NULL);\
-//\
-//    pthread_mutex_lock(____zpMutexLock##zSuffix)
-
-/* 配置将要传递给工作线程的参数(结构体) */
-#define zCcur_Sub_Config(zpSubIf, zSuffix) do {\
-    zpSubIf->p_FinMark = ____zpFinMark##zSuffix;\
-    zpSubIf->p_TotalTask = ____zpTotalTask##zSuffix;\
-    zpSubIf->p_TaskCnter = ____zpTaskCnter##zSuffix;\
-    zpSubIf->p_ThreadCnter = ____zpThreadCnter##zSuffix;\
-    zpSubIf->p_MutexLock[0] = ____zpMutexLock##zSuffix;\
-    zpSubIf->p_MutexLock[1] = ____zpMutexLock##zSuffix + 1;\
-} while (0)
-
-//#define zCcur_Sub_Config(zpSubIf, zSuffix) do {\
-//    zpSubIf->p_FinMark = ____zpFinMark##zSuffix;\
-//    zpSubIf->p_TotalTask = ____zpTotalTask##zSuffix;\
-//    zpSubIf->p_TaskCnter = ____zpTaskCnter##zSuffix;\
-//    zpSubIf->p_ThreadCnter = ____zpThreadCnter##zSuffix;\
-//    zpSubIf->p_CondVar = ____zpCondVar##zSuffix;\
-//    zpSubIf->p_MutexLock[0] = ____zpMutexLock##zSuffix;\
-//    zpSubIf->p_MutexLock[1] = ____zpMutexLock##zSuffix + 1;\
-//    zpSubIf->p_MutexLock[2] = ____zpMutexLock##zSuffix + 2;\
-//} while (0)
-
-/* 用于线程递归分发任务的场景，如处理树结构时 */
-#define zCcur_Sub_Config_Thread(zpSubIf, zpIf) do {\
-    zpSubIf->p_FinMark = zpIf->p_FinMark;\
-    zpSubIf->p_TotalTask = zpIf->p_TotalTask;\
-    zpSubIf->p_TaskCnter = zpIf->p_TaskCnter;\
-    zpSubIf->p_ThreadCnter = zpIf->p_ThreadCnter;\
-    zpSubIf->p_CondVar = zpIf->p_CondVar;\
-    zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
-    zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
-} while (0)
-
-//#define zCcur_Sub_Config_Thread(zpSubIf, zpIf) do {\
-//    zpSubIf->p_FinMark = zpIf->p_FinMark;\
-//    zpSubIf->p_TotalTask = zpIf->p_TotalTask;\
-//    zpSubIf->p_TaskCnter = zpIf->p_TaskCnter;\
-//    zpSubIf->p_ThreadCnter = zpIf->p_ThreadCnter;\
-//    zpSubIf->p_CondVar = zpIf->p_CondVar;\
-//    zpSubIf->p_MutexLock[0] = zpIf->p_MutexLock[0];\
-//    zpSubIf->p_MutexLock[1] = zpIf->p_MutexLock[1];\
-//    zpSubIf->p_MutexLock[2] = zpIf->p_MutexLock[2];\
-//} while (0)
-
-/* 放置于调用者每次分发任务之前(即调用工作线程之前)，其中zStopExpression指最后一次循环的判断条件，如：A > B && C < D */
-#define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
-        pthread_mutex_lock(____zpMutexLock##zSuffix);\
-        (*____zpTaskCnter##zSuffix)++;\
-        pthread_mutex_unlock(____zpMutexLock##zSuffix);\
-        if (zStopExpression) { *(____zpFinMark##zSuffix) = 1; }\
-    } while(0)
-
-//#define zCcur_Fin_Mark(zStopExpression, zSuffix) do {\
-//        pthread_mutex_lock(____zpMutexLock##zSuffix + 2);\
-//        (*____zpTaskCnter##zSuffix)++;\
-//        pthread_mutex_unlock(____zpMutexLock##zSuffix + 2);\
-//        if (zStopExpression) { *(____zpFinMark##zSuffix) = 1; }\
-//    } while(0)
-
-/* 用于线程递归分发任务的场景，如处理树结构时 */
-#define zCcur_Fin_Mark_Thread(zpIf) do {\
-        pthread_mutex_lock(zpIf->p_MutexLock[0]);\
-        (*(zpIf->p_TaskCnter))++;\
-        pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
-        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) { *(zpIf->p_FinMark) = 1; }\
-    } while(0)
-
-//#define zCcur_Fin_Mark_Thread(zpIf) do {\
-//        pthread_mutex_lock(zpIf->p_MutexLock[2]);\
-//        (*zpIf->p_TaskCnter)++;\
-//        pthread_mutex_unlock(zpIf->p_MutexLock[2]);\
-//        if (*(zpIf->p_TotalTask) == *(zpIf->p_TaskCnter)) { *(zpIf->p_FinMark) = 1; }\
-//    } while(0)
-
-/*
- * 用于存在条件式跳转的循环场景
- * 每次跳过时，都必须让同步计数器递减一次
- */
-#define zCcur_Cnter_Subtract(zSuffix) do {\
-        (*____zpTaskCnter##zSuffix)--;\
-} while (0)
-
-/*
- * 当调用者任务分发完成之后执行，之后释放资源占用
- */
-#define zCcur_Wait(zSuffix) do {\
-        while ((1 != *____zpFinMark##zSuffix) || (*____zpTaskCnter##zSuffix != *____zpThreadCnter##zSuffix)) {\
-            zsleep(0.001);\
-        }\
-        pthread_mutex_destroy(____zpMutexLock##zSuffix);\
-        pthread_mutex_destroy(____zpMutexLock##zSuffix + 1);\
-    } while (0)
-
-/*
- ***************************************************************************************
- * The futex facility returned an unexpected error code.!!!!!!!!!!!!!!!!!!!!!!!!!!
- ***************************************************************************************
- */
-
-//#define zCcur_Wait(zSuffix) do {\
-//        while ((1 != *____zpFinMark##zSuffix) || (*____zpTaskCnter##zSuffix != *____zpThreadCnter##zSuffix)) {\
-//            pthread_cond_wait(____zpCondVar##zSuffix, ____zpMutexLock##zSuffix);\
-//        }\
-//        pthread_mutex_unlock(____zpMutexLock##zSuffix);\
-//\
-//        pthread_cond_destroy(____zpCondVar##zSuffix);\
-//        pthread_mutex_destroy(____zpMutexLock##zSuffix);\
-//        pthread_mutex_destroy(____zpMutexLock##zSuffix + 1);\
-//        pthread_mutex_destroy(____zpMutexLock##zSuffix + 2);\
-//    } while (0)
-
-/* 放置于工作线程的回调函数末尾 */
-#define zCcur_Fin_Signal(zpIf) do {\
-        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
-        (*(zpIf->p_ThreadCnter))++;\
-        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
-    } while (0)
-
-//#define zCcur_Fin_Signal(zpIf) do {\
-//        pthread_mutex_lock(zpIf->p_MutexLock[1]);\
-//        (*(zpIf->p_ThreadCnter))++;\
-//        pthread_mutex_unlock(zpIf->p_MutexLock[1]);\
-//        if ((1 == *(zpIf->p_FinMark)) && (*(zpIf->p_TaskCnter) == *(zpIf->p_ThreadCnter))) {\
-//            pthread_mutex_lock(zpIf->p_MutexLock[0]);\
-//            pthread_mutex_unlock(zpIf->p_MutexLock[0]);\
-//            pthread_cond_signal(zpIf->p_CondVar);\
-//        }\
-//    } while (0)
-
 /* 用于提取深层对象 */
 #define zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zCommitId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf)
 #define zGet_OneFileVecWrapIf(zpTopVecWrapIf, zCommitId, zFileId) ((zpTopVecWrapIf)->p_RefDataIf[zCommitId].p_SubVecWrapIf->p_RefDataIf[zFileId].p_SubVecWrapIf)
@@ -280,8 +117,7 @@ zget_diff_content(void *zpIf) {
     zMetaInfo *____zpTmpNodeIf;\
     _i ____zOffSet;\
 \
-    zpNodeIf = (zMetaInfo *)zpIf;\
-    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpIf;\
+    zpNodeIf->pp_ResHash[zpNodeIf->LineNum] = zpNodeIf;\
     ____zOffSet = 6 * zpNodeIf->OffSet + 10;\
 \
     zpNodeIf->p_data[--____zOffSet] = ' ';\
@@ -313,43 +149,32 @@ zget_diff_content(void *zpIf) {
 \
     zpNodeIf->p_data = zpNodeIf->p_data + ____zOffSet;\
 \
-    zCcur_Fin_Mark_Thread(zpNodeIf);\
-    zCcur_Fin_Signal(zpNodeIf);\
 } while (0)
 
 void *
 zdistribute_task(void *zpIf) {
-    zMetaInfo *zpNodeIf, *zpTmpNodeIf;
-    zpNodeIf = (zMetaInfo *)zpIf;
+    zMetaInfo *zpNodeIf = (zMetaInfo *)zpIf;
+    zMetaInfo **zppKeepPtr = zpNodeIf->pp_ResHash;
 
-    /* 自身信息 */
-    zGenerate_Graph(zpNodeIf);
-
-    /* 第一个左兄弟；不能用循环，会导致重复发放 */
-    if (NULL != zpNodeIf->p_left) {
-        zpNodeIf->p_left->pp_ResHash = zpNodeIf->pp_ResHash;
-        zCcur_Sub_Config_Thread(zpNodeIf->p_left, zpNodeIf);
-        zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_left);
-    }
-
-    /* 嫡系长子直接处理；各级的左兄弟另行分发 */
-    for (zpTmpNodeIf = zpNodeIf->p_FirstChild; NULL != zpTmpNodeIf; zpTmpNodeIf = zpNodeIf->p_FirstChild) {
-        zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
-        zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-        zGenerate_Graph(zpTmpNodeIf);
-
-        if (NULL != zpTmpNodeIf->p_left) {
-            zpTmpNodeIf->pp_ResHash = zpNodeIf->pp_ResHash;
-            zCcur_Sub_Config_Thread(zpTmpNodeIf, zpNodeIf);
-            zAdd_To_Thread_Pool(zdistribute_task, zpTmpNodeIf->p_left);
+    do {
+        /* 分发直连的子节点 */
+        if (NULL != zpNodeIf->p_FirstChild) {
+            zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
+            //zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
+            zdistribute_task(zpNodeIf->p_FirstChild);  // 暂时以递归处理，线程模型会有收集不齐全部任务的问题
         }
-    }
+
+        /* 自身及所有的左兄弟 */
+        zGenerate_Graph(zpNodeIf);
+        zpNodeIf = zpNodeIf->p_left;
+    } while ((NULL != zpNodeIf) && (zpNodeIf->pp_ResHash = zppKeepPtr));
 
     return NULL;
 }
 
 #define zGenerate_Tree_Node() do {\
     zpTmpNodeIf[0] = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
+\
     zpTmpNodeIf[0]->LineNum = zLineCnter;  /* 横向偏移 */\
     zLineCnter++;  /* 每个节点会占用一行显示输出 */\
     zpTmpNodeIf[0]->OffSet = zNodeCnter;  /* 纵向偏移 */\
@@ -395,7 +220,9 @@ zdistribute_task(void *zpIf) {
     for (; zNodeCnter < zRegResIf->cnt; zNodeCnter++) {\
         zpTmpNodeIf[0]->p_FirstChild = zalloc_cache(zpMetaIf->RepoId, sizeof(zMetaInfo));\
         zpTmpNodeIf[1] = zpTmpNodeIf[0];\
+\
         zpTmpNodeIf[0] = zpTmpNodeIf[0]->p_FirstChild;\
+\
         zpTmpNodeIf[0]->p_father = zpTmpNodeIf[1];\
         zpTmpNodeIf[0]->p_FirstChild = NULL;\
         zpTmpNodeIf[0]->p_left = NULL;\
@@ -505,23 +332,23 @@ zget_file_list(void *zpIf) {
 
     zpShellRetHandler = popen(zCommonBuf, "r");
 
-    /* 差异文件数量 >128 时使用 git 原生视图 */
+    /* 差异文件数量 >24 时使用 git 原生视图，避免占用太多资源，同时避免爆栈 */
     if (NULL == zget_one_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         pclose(zpShellRetHandler);
         return (void *) -1;
     } else {
-//        if (128 < strtol(zCommonBuf, NULL, 10)) {
+        if (24 < strtol(zCommonBuf, NULL, 10)) {
             zget_file_list_large(zpMetaIf, zpTopVecWrapIf, zpShellRetHandler, zCommonBuf, zMaxBufLen);
             goto zMarkLarge;
-//        }
+        }
     }
 
-    /* 差异文件数量 <=128 生成Tree图 */
+    /* 差异文件数量 <=24 生成Tree图 */
     zMetaInfo zSubMetaIf;
-    _i zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
+    _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMetaInfo *zpRootNodeIf, *zpTmpNodeIf[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId) = zalloc_cache(zpMetaIf->RepoId, sizeof(zVecWrapInfo));
@@ -539,7 +366,6 @@ zget_file_list(void *zpIf) {
         zNodeCnter = 0;
         zpTmpNodeIf[2] = zpTmpNodeIf[1] = zpTmpNodeIf[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
-        zreg_free_tmpsource(zRegResIf);
 
         while (NULL != zget_one_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
             zBaseDataLen = strlen(zCommonBuf);
@@ -570,10 +396,9 @@ zMarkInner:;
             }
 zMarkOuter:;
             zGenerate_Tree_Node(); /* 添加树节点 */
-            zreg_free_tmpsource(zRegResIf);
         }
     }
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
     pclose(zpShellRetHandler);
 
     if (NULL == zpRootNodeIf) {
@@ -604,27 +429,24 @@ zMarkOuter:;
         /* 用于存储最终的每一行已格式化的文本 */
         zpRootNodeIf->pp_ResHash = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(zMetaInfo *));
 
-        /* Tree 图生成过程的并发控制 */
-        zCcur_Init(zpMetaIf->RepoId, zLineCnter, A);
-        zCcur_Sub_Config(zpRootNodeIf, A);
-        zAdd_To_Thread_Pool(zdistribute_task, zpRootNodeIf);
-        zCcur_Wait(A);
+        /* Tree 图 */
+        zdistribute_task(zpRootNodeIf);
 
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf 
             = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(zRefDataInfo));
         zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf 
             = zalloc_cache(zpMetaIf->RepoId, zLineCnter * sizeof(struct iovec));
 
-        for (_i i = 0; i < zLineCnter; i++) {
-            zconvert_struct_to_json_str(zCommonBuf, zpRootNodeIf->pp_ResHash[i]); /* 将 zMetaInfo 转换为 json 文本 */
+        for (_ui zCnter = 0; zCnter < zLineCnter; zCnter++) {
+            zconvert_struct_to_json_str(zCommonBuf, zpRootNodeIf->pp_ResHash[zCnter]); /* 将 zMetaInfo 转换为 json 文本 */
 
             zVecDataLen = strlen(zCommonBuf);
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_len = zVecDataLen;
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
-            memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[i].iov_base, zCommonBuf, zVecDataLen);
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[zCnter].iov_len = zVecDataLen;
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[zCnter].iov_base = zalloc_cache(zpMetaIf->RepoId, zVecDataLen);
+            memcpy(zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_VecIf[zCnter].iov_base, zCommonBuf, zVecDataLen);
 
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_data = zpRootNodeIf->pp_ResHash[i]->p_ExtraData;
-            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[i].p_SubVecWrapIf = NULL;
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[zCnter].p_data = zpRootNodeIf->pp_ResHash[zCnter]->p_ExtraData;
+            zGet_OneCommitVecWrapIf(zpTopVecWrapIf, zpMetaIf->CommitId)->p_RefDataIf[zCnter].p_SubVecWrapIf = NULL;
         }
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
@@ -772,7 +594,7 @@ zMarkSkip:
  *         -36：请求创建的项目路径已存在，且项目ID不同
  *         -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
  *         -38：拉取远程代码库失败（git clone 失败）
- *         -39：项目元数据创建失败，如：项目ID无法写入repo_id、无法打开或创建布署日志文件meta等原因
+ *         -39：项目元数据创建失败，如：无法打开或创建布署日志文件meta等原因
  */
 #define zFree_Source() do {\
     free(zppGlobRepoIf[zRepoId]->p_RepoPath);\
@@ -781,22 +603,22 @@ zMarkSkip:
     if (-1 != zGlobMaxRepoId) {\
         zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zppGlobRepoIf);\
     }\
-    zreg_free_tmpsource(zRegResIf);\
+    zReg_Free_Tmpsource(zRegResIf);\
 } while(0)
 
 _i
 zinit_one_repo_env(char *zpRepoMetaData) {
     zRegInitInfo zRegInitIf[2];
-    zRegResInfo zRegResIf[2];
+    zRegResInfo zRegResIf[2] = {{.RepoId = -1}, {.RepoId = -1}};  // 使用系统 *alloc 函数分配内存
 
     char zCommonBuf[zGlobBufSiz];
 
-    _i zRepoId, zFd, zErrNo;
+    _i zRepoId, zErrNo;
 
     /* 正则匹配项目基本信息（5个字段） */
     zreg_compile(zRegInitIf, "(\\w|[[:punct:]])+");
     zreg_match(zRegResIf, zRegInitIf, zpRepoMetaData);
-    zreg_free_metasource(zRegInitIf);
+    zReg_Free_Metasource(zRegInitIf);
     if (5 > zRegResIf->cnt) {
         zPrint_Time();
         return -34;
@@ -811,7 +633,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         }
     } else {
         if (NULL != zppGlobRepoIf[zRepoId]) {
-            zreg_free_tmpsource(zRegResIf);
+            zReg_Free_Tmpsource(zRegResIf);
             return -35;
         }
     }
@@ -824,13 +646,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zreg_compile(zRegInitIf + 1, "[^/]+[/]*$");
     zreg_match(zRegResIf + 1, zRegInitIf + 1, zRegResIf->p_rets[1]);
-    zreg_free_metasource(zRegInitIf + 1);
+    zReg_Free_Metasource(zRegInitIf + 1);
     /* 去掉 basename 部分 */
     zRegResIf->p_rets[1][zRegResIf->ResLen[1] - (zRegResIf + 1)->ResLen[0]] = '\0';
     /* 拼接结果字符串 */
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, sizeof("/home/git/.____DpSystem/") + zRegResIf->ResLen[1]);
     zppGlobRepoIf[zRepoId]->RepoPathLen = sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s%s", "/home/git/", zRegResIf->p_rets[1], ".____DpSystem/", (zRegResIf + 1)->p_rets[0]);
-    zreg_free_tmpsource(zRegResIf + 1);
+    zReg_Free_Tmpsource(zRegResIf + 1);
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zppGlobRepoIf[zRepoId]->MaxPathLen = pathconf(zppGlobRepoIf[zRepoId]->p_RepoPath, _PC_PATH_MAX);
@@ -859,33 +681,16 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zDpTimeSpentLogPath);
     zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
 
-    sprintf(zPathBuf, "%s%s", zppGlobRepoIf[zRepoId]->p_RepoPath, zRepoIdPath);
-    zFd = open(zPathBuf, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-
-    if ((-1 == zFd)
-            || (-1 == zppGlobRepoIf[zRepoId]->DpSigLogFd)
-            || (-1 == zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd)) {
-        close(zFd);
+    if ((-1 == zppGlobRepoIf[zRepoId]->DpSigLogFd) || (-1 == zppGlobRepoIf[zRepoId]->DpTimeSpentLogFd)) {
         close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -39;
     }
-
-    /* 在每个代码库的<_SHADOW/info/repo_id>文件中写入所属代码库的ID */
-    char zRepoIdBuf[12];  // 足以容纳整数最大值即可
-    _i zRepoIdStrLen = sprintf(zRepoIdBuf, "%d", zRepoId);
-    if (zRepoIdStrLen != write(zFd, zRepoIdBuf, zRepoIdStrLen)) {
-        close(zFd);
-        close(zppGlobRepoIf[zRepoId]->DpSigLogFd);
-        zFree_Source();
-        return -39;
-    }
-    close(zFd);
 
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobBufSiz];
     if (0 == strcmp("git", zRegResIf->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
+        sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zppGlobRepoIf[zRepoId]->p_RepoPath,
                 zRegResIf->p_rets[2],
                 zRegResIf->p_rets[3],
@@ -904,7 +709,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     strcpy(zppGlobRepoIf[zRepoId]->p_PullCmd, zPullCmdBuf);
 
     /* 清理资源占用 */
-    zreg_free_tmpsource(zRegResIf);
+    zReg_Free_Tmpsource(zRegResIf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -916,10 +721,17 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     void **zppPrev = zppGlobRepoIf[zRepoId]->p_MemPool;
     zppPrev[0] = NULL;
     zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);
-    zCheck_Pthread_Func_Exit(pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL));
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->MemLock), NULL) );
+
+    /* 布署重试锁 */
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->DpRetryLock), NULL) );
+
+    /* libssh2 并发锁 */
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zppGlobRepoIf[zRepoId]->SshSyncLock), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zppGlobRepoIf[zRepoId]->SshSyncCond), NULL) );
 
     /* 为每个代码库生成一把读写锁 */
-    zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), NULL));
+    zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), NULL) );
     // zCheck_Pthread_Func_Exit(pthread_rwlockattr_init(&(zppGlobRepoIf[zRepoId]->zRWLockAttr)));
     // zCheck_Pthread_Func_Exit(pthread_rwlockattr_setkind_np(&(zppGlobRepoIf[zRepoId]->zRWLockAttr), PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP));
     // zCheck_Pthread_Func_Exit(pthread_rwlock_init(&(zppGlobRepoIf[zRepoId]->RwLock), &(zppGlobRepoIf[zRepoId]->zRWLockAttr)));
@@ -955,8 +767,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->DpVecWrapIf.p_RefDataIf = zppGlobRepoIf[zRepoId]->DpRefDataIf;
     zppGlobRepoIf[zRepoId]->SortedDpVecWrapIf.p_VecIf = zppGlobRepoIf[zRepoId]->SortedDpVecIf;
 
-    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[0] = zppGlobRepoIf[zRepoId]->HostStrAddrList[0];
-    zppGlobRepoIf[zRepoId]->p_HostStrAddrList[1] = zppGlobRepoIf[zRepoId]->HostStrAddrList[1];
+    zppGlobRepoIf[zRepoId]->p_HostStrAddrList = zppGlobRepoIf[zRepoId]->HostStrAddrList;
+
+    zppGlobRepoIf[zRepoId]->p_SshCcurIf = zppGlobRepoIf[zRepoId]->SshCcurIf;
 
     /* 生成缓存 */
     zMetaInfo zMetaIf;

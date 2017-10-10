@@ -32,8 +32,6 @@
 #include <errno.h>
 #include <limits.h>
 
-#include <regex.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +52,8 @@
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 16
 
+#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
+
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
 
 #define UDP 0
@@ -72,7 +72,7 @@
  * 数据结构定义 *
  ****************/
 struct zNetServInfo {
-    char *p_host;  // 字符串形式的ipv4点分格式地式
+    char *p_IpAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
@@ -92,20 +92,13 @@ struct zMetaInfo {
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
     _ui ExtraDataLen;
 
+    /* 以下为 Tree 专属数据 */
     struct zMetaInfo *p_father;  // Tree 父节点
     struct zMetaInfo *p_left;  // Tree 左节点
     struct zMetaInfo *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
     struct zMetaInfo **pp_ResHash;  // Tree 按行号对应的散列
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
-
-    pthread_cond_t *p_CondVar;  // 条件变量
-    //_i *p_LockState;  // 1 表示同步锁已被销毁
-    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
-    _i *p_TaskCnter;  // 已分发出去的任务计数
-    _i *p_TotalTask;  // 任务总数量
-    _i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_MutexLock[3];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数
 };
 typedef struct zMetaInfo zMetaInfo;
 
@@ -141,6 +134,27 @@ struct zDpResInfo {
 };
 typedef struct zDpResInfo zDpResInfo;
 
+/* SSH 连接所用 */
+struct zSshCcurInfo {
+    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *zpHostServPort;  // 字符串形式的端口号，如："22"
+    char *zpCmd;  // 需要执行的指令集合
+
+    _i zAuthType;
+    const char *zpUserName;
+    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *zpPassWd;  // 登陆密码或公钥加密密码
+
+    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui zRemoteOutPutBufSiz;
+
+    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
+    pthread_mutex_t *zpCcurLock;  // 同步锁
+    _ui *zpTaskCnt;  // SSH 任务完成计数
+};
+typedef struct zSshCcurInfo zSshCcurInfo;
+
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
@@ -161,41 +175,51 @@ struct zRepoInfo {
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
 
-    /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
-    /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
-    _i DpLock;
-
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
     _i zWhoGetWrLock;
     /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
-    time_t DpBaseTimeStamp;
+    time_t  DpBaseTimeStamp;
     /* 布署超时上限 */
     time_t DpTimeWaitLimit;
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
 
+    /* libssh2 并发同步锁与条件变量 */
+    pthread_mutex_t SshSyncLock;
+    pthread_cond_t SshSyncCond;
+    _ui SshTotalTask;
+    _ui SshTaskFinCnt;
+
+    /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
+    /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
+    _c DpLock;
+
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
-    _i RepoState;
+    _c RepoState;
+    _c ResType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
+
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
-    char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
-    char HostStrAddrList[2][4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
-    char *p_HostStrAddrList[2];  // [0]：以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本；[1] 用于收集新增的IP，增量初始化远程主机
+    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
+
+    char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
+    char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
+    zSshCcurInfo SshCcurIf[zForecastedHostNum];
+    zSshCcurInfo *p_SshCcurIf;
     struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+    pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVecIf[zCacheSiz];
     struct zRefDataInfo CommitRefDataIf[zCacheSiz];
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
-
-    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
-    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
     struct iovec DpVecIf[zCacheSiz];
@@ -213,6 +237,8 @@ typedef struct zRepoInfo zRepoInfo;
 /************
  * 全局变量 *
  ************/
+struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
+
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
 
@@ -227,7 +253,6 @@ zJsonParseFunc zJsonParseOps[128];
 /************
  * 配置文件 *
  ************/
-#define zRepoIdPath "_SHADOW/info/repo_id"
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 
@@ -264,6 +289,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 #include "utils/zbase_utils.c"
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
+#include "utils/libssh2/zssh.c"
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 
@@ -274,13 +300,12 @@ _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
-    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
         switch (zOpt) {
             case 'h':
-                zNetServIf.p_host= optarg; break;
+                zNetServIf.p_IpAddr = optarg; break;
             case 'p':
                 zNetServIf.p_port = optarg; break;
             case 'U':
