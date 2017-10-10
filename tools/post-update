@@ -121,12 +121,10 @@ git clone $zPathOnHost/.git ${zPathOnHost}_OnLine >> /tmp/.____post-deploy.log 2
 rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
-# 若有 ____pre-deploy.sh 产生的版本号，则消除之，用于兼容页面检验工具
+# ____pre-deploy.sh 产生的版本号，消除之，用于兼容页面检验工具
 cd ${zProjOnLinePath}
-if [[ "____pre-deploy.sh" == `git log -1 --format=%s` ]]; then
-    zMasterSig=`git log -2 --format=%H | tail -1`
-    git reset ${zMasterSig}
-fi
+zMasterSig=`git log -2 --format=%H | tail -1`
+git reset ${zMasterSig}
 
 # 布署完成之后需要执行的动作：____post-deploy.sh
 (cd ${zProjOnLinePath} && bash ${zPathOnHost}_OnLine/____post-deploy.sh) &

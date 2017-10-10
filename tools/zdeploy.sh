@@ -29,7 +29,7 @@ git reset --hard ${zCommitSig}
 # 用户指定的在部置之前执行的操作
 bash ____pre-deploy.sh 2>/dev/null
 git add --all .
-git commit -m "____pre-deploy.sh"
+git commit --allow-empty -m "____pre-deploy.sh"
 
 # 暂停全量sha1sum校验
 #find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+' > /home/git/${zPathOnHost}_SHADOW/.____dp-SHA1.res
