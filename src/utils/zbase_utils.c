@@ -150,7 +150,7 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags, zpAddr, INET_ADDRSTRLEN);
     //zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
@@ -170,7 +170,7 @@ zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *z
         .msg_flags = 0
     };
 
-    return sendmsg(zSd, &zMsgIf, zFlags);
+    return sendmsg(zSd, &zMsgIf, MSG_NOSIGNAL | zFlags);
 }
 
 _i
