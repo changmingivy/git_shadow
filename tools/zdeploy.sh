@@ -45,9 +45,9 @@ git commit --allow-empty -m "_"  # 提交一次，允许空记录，用于保证
 # 布署到终端集群，先推项目代码，后推 <_SHADOW>
 for zHostAddr in $zHostList; do
     (\
-        cd ${zPathOnHost} &&\
+        cd /home/git/${zPathOnHost} &&\
         git push --force git@${zHostAddr}:${zPathOnHost}/.git ${zServBranchName}:${zServBranchName};\
-        cd ${zPathOnHost}_SHADOW &&\
+        cd /home/git/${zPathOnHost}_SHADOW &&\
         git push --force git@${zHostAddr}:${zPathOnHost}_SHADOW/.git ${zServBranchName}:${zServBranchName}\
     )&
 done
