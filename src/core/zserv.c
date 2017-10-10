@@ -476,7 +476,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
-            zpMetaIf->RepoId\
+            zpMetaIf->RepoId,\
 \
             zNetServIf.p_IpAddr, zNetServIf.p_port,\
             zpMetaIf->RepoId, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,\
