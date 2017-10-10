@@ -1,20 +1,32 @@
 #define _Z
-#define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
+//#define _Z_BSD
+
+#ifndef _Z_BSD
+    #define _XOPEN_SOURCE 700
+    #define _DEFAULT_SOURCE
+    #define _BSD_SOURCE
+#endif
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
 #include <netdb.h>
+#include <arpa/inet.h>
+
+#ifdef _Z_BSD
+    #include <netinet/in.h>
+    #include <signal.h>
+#else
+    #include <sys/signal.h>
+#endif
+
+#include <sys/mman.h>
+#include <pthread.h>
 
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <sys/signal.h>
-#include <pthread.h>
-#include <sys/mman.h>
+
 #include <pwd.h>
 #include <time.h>
 #include <errno.h>
@@ -29,34 +41,38 @@
 
 #include "../inc/zutils.h"
 
-#define zCommonBufSiz 1024
+#define zGlobBufSiz 1024
+#define zErrMsgBufSiz 256
+
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 16
+
+#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
 
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
 
 #define UDP 0
 #define TCP 1
 
-#define zDeployUnLock 0
-#define zDeployLocked 1
+#define zDpUnLock 0
+#define zDpLocked 1
 
 #define zRepoGood 0
 #define zRepoDamaged 1
 
 #define zIsCommitDataType 0
-#define zIsDeployDataType 1
+#define zIsDpDataType 1
 
 /****************
  * 数据结构定义 *
  ****************/
 struct zNetServInfo {
-    char *p_host;  // 字符串形式的ipv4点分格式地式
+    char *p_IpAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
@@ -70,23 +86,19 @@ struct zMetaInfo {
     _i FileId;  // 单个文件在差异文件列表中index
     _ui HostId;  // 32位IPv4地址转换而成的无符号整型格式
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
-    _i DataType;  // 缓存类型，zIsCommitDataType/zIsDeployDataType
+    _i DataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
+    _ui DataLen;
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
+    _ui ExtraDataLen;
 
+    /* 以下为 Tree 专属数据 */
     struct zMetaInfo *p_father;  // Tree 父节点
     struct zMetaInfo *p_left;  // Tree 左节点
     struct zMetaInfo *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
     struct zMetaInfo **pp_ResHash;  // Tree 按行号对应的散列
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
-
-    pthread_cond_t *p_CondVar;  // 条件变量
-    _i *p_FinMark;  // 值为 1 表示调用者已分发完所有的任务；值为 0 表示正在分发过程中
-    _i *p_TaskCnter;  // 已分发出去的任务计数
-    _i *p_TotalTask;  // 任务总数量
-    _i *p_ThreadCnter;  // 各线程任务完成计数
-    pthread_mutex_t *p_MutexLock[3];  // 3 个互斥锁：其中[0]锁用作与条件变量配对使用，[1]锁用作线程完成任务计数，[2]锁用作分发任务计数
 };
 typedef struct zMetaInfo zMetaInfo;
 
@@ -113,46 +125,95 @@ struct zVecWrapInfo {
 };
 typedef struct zVecWrapInfo zVecWrapInfo;
 
-struct zDeployResInfo {
+struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
-    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
-    struct zDeployResInfo *p_next;
+    _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
+    _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
+    char ErrMsg[zErrMsgBufSiz];  // 存放目标主机返回的错误信息
+    struct zDpResInfo *p_next;
 };
-typedef struct zDeployResInfo zDeployResInfo;
+typedef struct zDpResInfo zDpResInfo;
+
+/* SSH 连接所用 */
+struct zSshCcurInfo {
+    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *zpHostServPort;  // 字符串形式的端口号，如："22"
+    char *zpCmd;  // 需要执行的指令集合
+
+    _i zAuthType;
+    const char *zpUserName;
+    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *zpPassWd;  // 登陆密码或公钥加密密码
+
+    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui zRemoteOutPutBufSiz;
+
+    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
+    pthread_mutex_t *zpCcurLock;  // 同步锁
+    _ui *zpTaskCnt;  // SSH 任务完成计数
+};
+typedef struct zSshCcurInfo zSshCcurInfo;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
-    _i CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-    _i TotalHost;  // 每个项目的集群的主机数量
+    time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
+    _ui TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
+    _i RepoPathLen;  // 项目路径长度，避免后续的使用者重复计算
+    _i MaxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
 
     _i SelfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
     char *p_PullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
-    _i LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
+    time_t LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
 
-    _i LogFd;  // 每个代码库的布署日志日志文件g，用于存储 SHA1-sig+TimeStamp
+    _i DpSigLogFd;  // 每个代码库的布署日志日志文件，用于存储 SHA1-sig+TimeStamp
+    _i DpTimeSpentLogFd;  // 布署耗时日志
 
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
 
+    /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
+    _i zWhoGetWrLock;
+    /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
+    time_t  DpBaseTimeStamp;
+    /* 布署超时上限 */
+    time_t DpTimeWaitLimit;
+    /* 目标机在重要动作执行前回发的keep alive消息 */
+    time_t DpKeepAliveStamp;
+
+    /* libssh2 并发同步锁与条件变量 */
+    pthread_mutex_t SshSyncLock;
+    pthread_cond_t SshSyncCond;
+    _ui SshTotalTask;
+    _ui SshTaskFinCnt;
+
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
-    _i DpLock;
+    _c DpLock;
 
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
-    _i RepoState;
-    char zLastDeploySig[44];  // 存放最近一次布署的 40 位 SHA1 sig
+    _c RepoState;
+    _c ResType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
 
-    char ProxyHostStrAddr[16];  // 代理机 IPv4 地址，最长格式16字节，如：123.123.123.123\0
-    char HostStrAddrList[16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
+    char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
+    char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
+
+    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
+
+    char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
     char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
-    struct zDeployResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
-    struct zDeployResInfo *p_DpResHashIf[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    zSshCcurInfo SshCcurIf[zForecastedHostNum];
+    zSshCcurInfo *p_SshCcurIf;
+    struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
+    struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
-//    pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+    //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
+    pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVecIf[zCacheSiz];
@@ -160,15 +221,12 @@ struct zRepoInfo {
 
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    _i ReplyCnt[2];  // [0]: 用于收集初始化远程主机的结果；[1]: 用于动态汇总单次布署或撤销动作的统计结果
-    pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
+    struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVecIf[zCacheSiz];
+    struct zRefDataInfo DpRefDataIf[zCacheSiz];
 
-    struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DeployVecIf[zCacheSiz];
-    struct zRefDataInfo DeployRefDataIf[zCacheSiz];
-
-    struct zVecWrapInfo SortedDeployVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
-    struct iovec SortedDeployVecIf[zCacheSiz];
+    struct zVecWrapInfo SortedDpVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    struct iovec SortedDpVecIf[zCacheSiz];
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
@@ -179,6 +237,8 @@ typedef struct zRepoInfo zRepoInfo;
 /************
  * 全局变量 *
  ************/
+struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
+
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
 struct zRepoInfo **zppGlobRepoIf;
 
@@ -193,8 +253,8 @@ zJsonParseFunc zJsonParseOps[128];
 /************
  * 配置文件 *
  ************/
-#define zRepoIdPath "_SHADOW/info/repo_id"
-#define zLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
+#define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 
 /**********
  * 子模块 *
@@ -225,10 +285,11 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
     return zpX;
 }
 
-#include "utils/pcre2/zpcre.c"
+#include "utils/posix_regex/zregex.c"
 #include "utils/zbase_utils.c"
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
+#include "utils/libssh2/zssh.c"
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 
@@ -239,13 +300,12 @@ _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
     struct stat zStatIf;
-    struct zNetServInfo zNetServIf;  // 指定服务端自身的Ipv4地址与端口
     zNetServIf.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
         switch (zOpt) {
             case 'h':
-                zNetServIf.p_host= optarg; break;
+                zNetServIf.p_IpAddr = optarg; break;
             case 'p':
                 zNetServIf.p_port = optarg; break;
             case 'U':

@@ -92,7 +92,11 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     zCheck_Negative_Return(zSd, -1);
 
     _i zReuseMark = 1;
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址
+#ifdef _Z_BSD
+    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+#else
+    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+#endif
     struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
     zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
 
@@ -110,11 +114,12 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 
     _i zSd = socket(AF_INET, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
-    for (_i i = 4; i > 0; --i) {
+
+//    for (_i i = 4; i > 0; --i) {
         if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
         close(zSd);
-        sleep(i);
-    }
+//        sleep(i);
+//    }
 
     return -1;
 }
@@ -123,8 +128,8 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
 _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 // TEST: PASS
-    struct addrinfo *zpRes, *zpTmp, *zpHints;
-    _i zSockD, zErr;
+    struct addrinfo *zpRes = NULL, *zpTmp = NULL, *zpHints = NULL;
+    _i zSd, zErr;
 
     zpHints = zgenerate_hint(zFlags);
 
@@ -132,9 +137,9 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
     if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
 
     for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
-        if(0 < (zSockD  = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
+        if(0 < (zSd = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
             freeaddrinfo(zpRes);
-            return zSockD;
+            return zSd;
         }
     }
 
@@ -145,8 +150,8 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 // TEST: PASS
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, 0 | zFlags, zpAddr, INET_ADDRSTRLEN);
-    zCheck_Negative_Return(zSentSiz, -1);
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags, zpAddr, INET_ADDRSTRLEN);
+    //zCheck_Negative_Return(zSentSiz, -1);
     return zSentSiz;
 }
 
@@ -157,7 +162,7 @@ zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *z
 
     struct msghdr zMsgIf = {
         .msg_name = zpAddr,
-        .msg_namelen = INET_ADDRSTRLEN,
+        .msg_namelen = (NULL == zpAddr) ? 0 : INET6_ADDRSTRLEN,
         .msg_iov = zpVecWrapIf->p_VecIf,
         .msg_iovlen = zpVecWrapIf->VecSiz,
         .msg_control = NULL,
@@ -165,7 +170,7 @@ zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *z
         .msg_flags = 0
     };
 
-    return sendmsg(zSd, &zMsgIf, zFlags);
+    return sendmsg(zSd, &zMsgIf, MSG_NOSIGNAL | zFlags);
 }
 
 _i
@@ -311,6 +316,19 @@ zsleep(_d zSecs) {
 }
 
 /*
+ * 纳秒时间，用于两个时间之间精确差值[ 计数有问题，且 CentOS-6 上不可用 ]
+ */
+// _d
+// zreal_time() {
+//     struct timespec zNanoSecIf;
+//     if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
+//         return -1.0;
+//     } else {
+//         return (zNanoSecIf.tv_sec + (((_d) zNanoSecIf.tv_nsec) / 1000000000));
+//     }
+// }
+
+/*
  * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
  */
 void *
@@ -343,27 +361,27 @@ zthread_system(void *zpCmd) {
 // }
 
 /*
- * 将文本格式的ipv4地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
+ * 将文本格式的ip地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
  */
 _ui
-zconvert_ipv4_str_to_bin(const char *zpStrAddr) {
-    struct in_addr zIpv4Addr;
-    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpv4Addr) );
-    return zIpv4Addr.s_addr;
+zconvert_ip_str_to_bin(const char *zpStrAddr) {
+    struct in_addr zIpAddr;
+    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpAddr) );
+    return zIpAddr.s_addr;
 }
 
 void
-zconvert_ipv4_bin_to_str(_ui zIpv4BinAddr, char *zpBufOUT) {
-    struct in_addr zIpv4Addr;
-    zIpv4Addr.s_addr = zIpv4BinAddr;
-    inet_ntop(AF_INET, &zIpv4Addr, zpBufOUT, INET_ADDRSTRLEN);
+zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT) {
+    struct in_addr zIpAddr;
+    zIpAddr.s_addr = zIpBinAddr;
+    inet_ntop(AF_INET, &zIpAddr, zpBufOUT, INET_ADDRSTRLEN);
 }
 
 // /*
 //  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
 //  */
 // _ui
-// zconvert_ipv4_str_to_bin_1(char *zpStrAddr) {
+// zconvert_ip_str_to_bin_1(char *zpStrAddr) {
 //     char zBuf[INET_ADDRSTRLEN];
 //     _uc zRes[4];
 //     _i zOffSet = 0, zLen;
@@ -397,15 +415,14 @@ zparse_str(void *zpIn, void *zpOut) {
  */
 _i
 zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-// TEST:PASS
-    zPCREInitInfo *zpPcreInitIf = zpcre_init("([^\",{}\\[\\]:]|(?<!\"):)+");
-    zPCRERetInfo *zpPcreRetIf = zpcre_match(zpPcreInitIf, zpJsonStr, 1);
-    
-    if (0 != (zpPcreRetIf->cnt % 2)) {
-        zpcre_free_tmpsource(zpPcreRetIf);
-        zpcre_free_metasource(zpPcreInitIf);
-        return -7;
-    }
+    zRegInitInfo zRegInitIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = -1}};  // 此时尚没取得 zpMetaIf->RepoIf 之值，不可使用项目内存池
+
+    zreg_compile(zRegInitIf, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
+    zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
+    zReg_Free_Metasource(zRegInitIf);
+
+    zRegResIf->cnt -= zRegResIf->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
 
     void *zpBuf[128];
     zpBuf['O'] = &(zpMetaIf->OpsId);
@@ -418,18 +435,16 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
     zpBuf['d'] = zpMetaIf->p_data;
     zpBuf['E'] = zpMetaIf->p_ExtraData;
 
-    for (_i i = 0; i < zpPcreRetIf->cnt; i += 2) {
-        if (NULL == zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])]) {
-            zpcre_free_tmpsource(zpPcreRetIf);
-            zpcre_free_metasource(zpPcreInitIf);
+    for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
+        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
+            strcpy(zpMetaIf->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
+            zReg_Free_Tmpsource(zRegResIf);
             return -7;
         }
-
-        zJsonParseOps[(_i)(zpPcreRetIf->p_rets[i][0])](zpPcreRetIf->p_rets[i + 1], zpBuf[(_i)(zpPcreRetIf->p_rets[i][0])]);
+        zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
     }
 
-    zpcre_free_tmpsource(zpPcreRetIf);
-    zpcre_free_metasource(zpPcreInitIf);
+    zReg_Free_Tmpsource(zRegResIf);
     return 0;
 }
 
@@ -439,22 +454,17 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
  */
 void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
-    if (0 > zpMetaIf->OpsId) {
-        sprintf(zpJsonStrBuf, ",{\"OpsId\":%d,\"data\":\"%s\"}",
-                zpMetaIf->OpsId,
-                (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data
-                );
-    } else {
-        sprintf(
-                //zpJsonStrBuf, ",{\"OpsId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                zpJsonStrBuf, ",{\"RevId\":%d,\"FileId\":%d,\"CacheId\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                zpMetaIf->CommitId,
-                zpMetaIf->FileId,
-                zpMetaIf->CacheId,
-                (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
-                (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
-                );
-    }
+    sprintf(
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpMetaIf->OpsId,
+            zpMetaIf->CacheId,
+            zpMetaIf->RepoId,
+            zpMetaIf->CommitId,
+            zpMetaIf->FileId,
+            zpMetaIf->DataType,
+            (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
+            (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
+            );
 }
 
 // /*

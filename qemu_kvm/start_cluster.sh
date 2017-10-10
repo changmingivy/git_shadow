@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# 0、目录结构:conf、images、ISOs
-# 1、安装镜像存放于"../ISOs"路径下，命名格式：FreeBSD.iso
-# 2、配置好每个OS的基础镜像，置于"../images"路径下，命名格式:FreeBSD_base.img
+# 0、目录结构:conf、IMGs、ISOs
+# 1、安装镜像存放于"/home/fh/Qemu/ISOs"路径下，命名格式：FreeBSD.iso
+# 2、配置好每个OS的基础镜像，置于"../IMGs"路径下，命名格式:FreeBSD_base.img
 #
 
 zMaxVmNum="96"
@@ -44,7 +44,7 @@ esac
 zISO="${zOS}.iso"
 zBaseImg="${zOS}_base.img"
 zCpuNum="2"
-zMem="512M"
+zMem="256M"
 zDiskSiz="20G"
 zHostNatIf="eno1"
 zHostIP="192.168.1.254"
@@ -86,21 +86,21 @@ zops_func() {
         zMark=$zX
     fi
 
-    rm /tmp/images/CentOS_$zMark.img
+#    rm /home/fh/Qemu/IMGs/CentOS_$zMark.img
 
-    zImgPath=/tmp/images/${zOS}_${zMark}.img
+    zImgPath=/home/fh/Qemu/IMGs/${zOS}_${zMark}.img
     local zBaseImgName=${zOS}_base.img
     local zVncID=$zMark
 
-    if [[ 0 -eq $(ls /home/images | grep -c $zBaseImgName) ]];then
-        zImgPath=/home/images/$zBaseImgName
+    if [[ 0 -eq $(ls /home/fh/Qemu/IMGs | grep -c $zBaseImgName) ]];then
+        zImgPath=/home/fh/Qemu/IMGs/$zBaseImgName
         zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on $zImgPath'
     else
-        mkdir -p /tmp/images
-        zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=/home/images/$zBaseImg $zImgPath'
+        mkdir -p /home/fh/Qemu/IMGs
+        zCommand='qemu-img create -f qcow2 -o size=$zDiskSiz,nocow=on,backing_file=/home/fh/Qemu/IMGs/$zBaseImg $zImgPath'
     fi
 
-    if [[ 0 -eq $(ls /home/images | grep -c $zImgPath) ]];then
+    if [[ 0 -eq $(ls /home/fh/Qemu/IMGs | fgrep -c "${zOS}_${zMark}.img") ]];then
         eval $zCommand
         if [[ 0 -ne $? ]];then
             printf "\033[31;01mCan't create $zImgPath!!!\n\033[00m"
@@ -115,7 +115,7 @@ for ((i=0; i<$zVmNum; i++))
 do
     zops_func $i
     if [[ 7 -eq $(( i % 8)) ]]; then
-        sleep 2
+        sleep 5
     fi
 done
 

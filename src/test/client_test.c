@@ -34,7 +34,7 @@
 #include "../../inc/zutils.h"
 
 #define zWatchHashSiz 8192  // 最多可监控的路径总数
-#define zDeployHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 
 #define zCacheSiz 1009
 #define zPreLoadCacheSiz 10  // 版本批次及其下属的文件列表与内容缓存
@@ -52,11 +52,11 @@ struct zVecWrapInfo {
     struct zRefDataInfo *p_RefDataIf;
 };
 
-struct zDeployResInfo {
+struct zDpResInfo {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i RepoId;  // 所属代码库
-    _i DeployState;  // 布署状态：已返回确认信息的置为1，否则保持为0
-    struct zDeployResInfo *p_next;
+    _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为0
+    struct zDpResInfo *p_next;
 };
 
 /* 用于存放每个项目的元信息 */
@@ -84,8 +84,8 @@ struct zRepoInfo {
     _i ReplyCnt;  // 用于动态汇总单次布署或撤销动作的统计结果
     pthread_mutex_t MutexLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    struct zDeployResInfo *p_DpResList;  // 布署状态收集
-    struct zDeployResInfo *p_DpResHash[zDeployHashSiz];  // 对上一个字段每个值做的散列
+    struct zDpResInfo *p_DpResList;  // 布署状态收集
+    struct zDpResInfo *p_DpResHash[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     _i CommitCacheQueueHeadId;  // 用于标识提交记录列表的队列头索引序号（index）
     struct zVecWrapInfo CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
@@ -95,9 +95,9 @@ struct zRepoInfo {
     struct zVecWrapInfo SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息
     struct iovec SortedCommitVecIf[zCacheSiz];
 
-    struct zVecWrapInfo DeployVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DeployVecIf[zCacheSiz];
-    struct zRefDataInfo DeployRefDataIf[zCacheSiz];
+    struct zVecWrapInfo DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVecIf[zCacheSiz];
+    struct zRefDataInfo DpRefDataIf[zCacheSiz];
 };
 
 struct zRepoInfo *zpGlobRepoIf;
@@ -197,14 +197,8 @@ zclient(void) {
     // 解锁
     //char zStrBuf[] = "{\"OpsId\":3,\"ProjId\":11}";
 
-    // 重置（删除中转机与目标机上的项目文件，清空内存中的中转IP与目标IP列表）
-    //char zStrBuf[] = "{\"OpsId\":14,\"ProjId\":11,\"data\":\"_\",\"ExtraData\":0}";
-    
-    // 更新 proxy IP 数据
-    //char zStrBuf[] = "{\"OpsId\":4,\"ProjId\":11,\"data\":\"192.168.1.254\"}";
-
     // 查询版本号列表
-    //char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}";
+    char zStrBuf[] = "{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}";
 
     // 打印差异文件列表
     //char zStrBuf[] = "{\"OpsId\":10,\"ProjId\":11,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0}";
@@ -213,10 +207,9 @@ zclient(void) {
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":11,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 布署与撤销
-    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":11,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24|172.16.0.25|172.16.0.26|172.16.0.27|172.16.0.28|172.16.0.29|172.16.0.30|172.16.0.31|172.16.0.32|172.16.0.33|172.16.0.34|172.16.0.35|172.16.0.36|172.16.0.37|172.16.0.38|172.16.0.39|172.16.0.40|172.16.0.41\",\"ExtraData\":41}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":11,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"172.16.0.1|172.16.0.2|172.16.0.3|172.16.0.4|172.16.0.5|172.16.0.6|172.16.0.7|172.16.0.8|172.16.0.9|172.16.0.10|172.16.0.11|172.16.0.12|172.16.0.13|172.16.0.14|172.16.0.15|172.16.0.16|172.16.0.17|172.16.0.18|172.16.0.19|172.16.0.20|172.16.0.21|172.16.0.22|172.16.0.23|172.16.0.24|172.16.0.25|172.16.0.26|172.16.0.27|172.16.0.28|172.16.0.29|172.16.0.30|172.16.0.31|172.16.0.32|172.16.0.33|172.16.0.34|172.16.0.35|172.16.0.36|172.16.0.37|172.16.0.38|172.16.0.39|172.16.0.40|172.16.0.41|172.16.0.42|172.16.0.43|172.16.0.44|172.16.0.45|172.16.0.46|172.16.0.47|172.16.0.48|172.16.0.49|172.16.0.50|172.16.0.51|172.16.0.52|172.16.0.53|172.16.0.54|172.16.0.55|172.16.0.56|172.16.0.57|172.16.0.58|172.16.0.59|172.16.0.50|172.16.0.61|172.16.0.62|172.16.0.63|172.16.0.64|172.16.0.65|172.16.0.66|172.16.0.67|172.16.0.68|172.16.0.69|172.16.0.70|172.16.0.71|172.16.0.72|172.16.0.73|172.16.0.74|172.16.0.75|172.16.0.76|172.16.0.77|172.16.0.78|172.16.0.79|172.16.0.80\",\"ExtraData\":80}";
 
-    // 新加入的主机请求布署自身
-    //char zStrBuf[] = "{\"OpsId\":13,\"ProjId\":11,\"data\":172.16.0.1,\"ExtraData\":1}";
+    //char zStrBuf[] = "{\"OpsId\":12,\"ProjId\":11,\"RevId\":1,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"192.168.210.68|192.168.210.69|192.168.210.70|192.168.210.71|192.168.210.72|192.168.210.73|192.168.210.74|192.168.210.66|192.168.210.123|192.168.210.124\",\"ExtraData\":10}";
 
     zsendto(zSd, zStrBuf, strlen(zStrBuf), 0, NULL);
 

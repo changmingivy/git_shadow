@@ -11,7 +11,7 @@
 #define zCommonBufSiz 1024
 #endif
 
-#define zBytes(zNum) ((_i)(zNum * sizeof(char)))
+#define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
 /*
@@ -177,8 +177,7 @@ _i zSigSet[26] = {
     SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
     SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
     SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGPOLL, SIGCONT, SIGPIPE, SIGPWR,
-    SIGIOT, SIGIO
+    SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO
 };
 
 #define zIgnoreAllSignal() do {\
@@ -214,3 +213,5 @@ _i zSigSet[26] = {
     sigaction(zSigSet[24], &zSigActionIf, NULL);\
     sigaction(zSigSet[25], &zSigActionIf, NULL);\
 } while(0)
+
+#undef zCommonBufSiz

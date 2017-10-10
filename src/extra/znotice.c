@@ -1,10 +1,23 @@
 #define _Z
-#define _XOPEN_SOURCE 700
+//#define _Z_BSD
+
+#ifndef _Z_BSD
+    #define _XOPEN_SOURCE 700
+    #define _DEFAULT_SOURCE
+    #define _BSD_SOURCE
+#endif
+
+#ifdef _Z_BSD
+    #include <netinet/in.h>
+    #include <signal.h>
+#else
+    #include <sys/signal.h>
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <sys/signal.h>
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -67,10 +80,11 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
 _i
 main(_i zArgc, char **zppArgv) {
     _i zSd, zLen;
-    char zSendBuf[zCommonBufSiz];
+    char zSendBuf[4096];
 
-    if (7 != zArgc) { _exit(1); }
-    zLen = sprintf(zSendBuf, "[{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"ExtraData\":%s}]", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6]);
+    if (8 != zArgc) { _exit(1); }
+    zLen = sprintf(zSendBuf, "{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"data\":%s,\"ExtraData\":%s}", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6], zppArgv[7]);
+
     if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) {
         zsendto(zSd, zSendBuf, zLen, 0, NULL);
         close(zSd);  // 只有连接成功才需要关闭
