@@ -15,6 +15,7 @@
 #ifdef _Z_BSD
     #include <netinet/in.h>
     #include <signal.h>
+    #include <sys/select.h>
 #else
     #include <sys/signal.h>
 #endif

@@ -38,13 +38,18 @@ cmake .. -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 -DBUILD_SHARED_LIBS=O
 cmake --build . --target install
 
 # 编译主程序，静态库文件路径一定要放在源文件之后
+zLibSshPath=${zShadowPath}/lib/libssh2/lib64/libssh2.a
+zLibGitPath=${zShadowPath}/lib/libgit2/lib64/libgit2.a
+if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib/libssh2.a; fi
+if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib/libgit2.a; fi
+
 clang -Wall -Wextra -std=c99 -O2 -lpthread -lssl -lcrypto \
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/libssh2/include \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c\
-    ${zShadowPath}/lib/libssh2/lib64/libssh2.a  # 必须在此之前链接 -lssl -lcrypto
-    ${zShadowPath}/lib/libgit2/lib/libgit2.a
+    ${zLibSshPath}  # 必须在此之前链接 -lssl -lcrypto
+    ${zLibGitPath}
 strip ${zShadowPath}/bin/git_shadow
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
@@ -57,4 +62,4 @@ strip ${zShadowPath}/tools/notice
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 # 后台进入退出重启机制
-#${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &
+# ${zShadowPath}/tools/zauto_restart.sh $zServAddr $zServPort &
