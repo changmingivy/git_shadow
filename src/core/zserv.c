@@ -702,19 +702,44 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         return -26;
     }
 
+    /* 预布署动作 */
+    sprintf(zppCommonBuf[1],
+            "cd %s;"\
+            "if [[ 0 -ne $? ]]; then exit 1; fi;"\
+            "git branch -f `git log CURRENT -1 --format=%%H`;"\
+            "git branch -f CURRENT;"\
+            \
+            "git stash;"\
+            "git stash clear;"\
+            "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"\
+            "git pull --force ./.git server%d:master;"\
+            "git reset --hard %s;"\
+            \
+            "bash ____pre-deploy.sh;"\
+            "git add --all .;"\
+            "git commit --allow-empty -m '____pre-deploy.sh';"\
+            \
+            "cd %s_SHADOW;"\
+            "rm -rf ./tools;"\
+            "cp -R /home/git/zgit_shadow/tools ./;"\
+            "chmod 0755 ./tools/post-update;"\
+            "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
+            "git add --all .;"\
+            "git commit --allow-empty -m '_'",
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 中控机上的代码库路径
+            zpMetaIf->RepoId,
+            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
+            );
+
+    /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
+    if (0 != WEXITSTATUS( system(zppCommonBuf[1]) )) { return -15; }
+
     /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
     strncpy(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
     /* 另复制一份供失败重试之用 */
     strncpy(zpMetaIf->p_ExtraData, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
-
-    /* 只取保留 stderr 输出 */
-    sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\"",
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
-            zpMetaIf->RepoId,
-            zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList  // 目标机的点分格式文本 IPv4 列表
-            );
 
     /* 重置布署相关状态 */
     for (_ui zCnter = 0; zCnter < zppGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
@@ -725,8 +750,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
 
-    /* 调用 git 命令执行布署；用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    zAdd_To_Thread_Pool(zthread_system, zppCommonBuf[1]);
+    //
+    // TO DO: 基于 libgit2 实现 git push 函数，进行并发布署，以信号量控制并发峰值
+    //
 
     /* 测算超时时间 */
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
@@ -1223,9 +1249,9 @@ zMarkCommonAction:
  *  -11：正在布署／撤销过程中（请稍后重试？）
  *  -12：布署失败（超时？未全部返回成功状态）
  *  -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
- *  -14：系统测算的布署耗时超过 60 秒，通知前端不必阻塞等待，可异步于布署列表中查询布署结果
- *  -15：最近的布署记录之后，无新的提交记录
- *  -16：清理远程主机上的项目文件失败（删除项目时）
+ *  -14：系统测算的布署耗时超过 90 秒，通知前端不必阻塞等待，可异步于布署列表中查询布署结果
+ *  -15：布署前环境初始化失败（中控机）
+ *  -16：
  *
  *  -19：更新目标机IP列表时，存在重复IP
  *  -23：更新目标机IP列表时：部分或全部目标初始化失败

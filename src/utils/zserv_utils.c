@@ -650,6 +650,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 去掉 basename 部分 */
     zRegResIf->p_rets[1][zRegResIf->ResLen[1] - (zRegResIf + 1)->ResLen[0]] = '\0';
     /* 拼接结果字符串 */
+    while ('/' == zRegResIf->p_rets[1][0]) { zRegResIf->p_rets[1]++; }  // 去除多余的 '/'
     zMem_Alloc(zppGlobRepoIf[zRepoId]->p_RepoPath, char, sizeof("/home/git/.____DpSystem/") + zRegResIf->ResLen[1]);
     zppGlobRepoIf[zRepoId]->RepoPathLen = sprintf(zppGlobRepoIf[zRepoId]->p_RepoPath, "%s%s%s%s", "/home/git/", zRegResIf->p_rets[1], ".____DpSystem/", (zRegResIf + 1)->p_rets[0]);
     zReg_Free_Tmpsource(zRegResIf + 1);

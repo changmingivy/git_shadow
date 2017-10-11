@@ -1,5 +1,5 @@
 #define _Z
-#define _Z_BSD
+//#define _Z_BSD
 
 #ifndef _Z_BSD
     #define _XOPEN_SOURCE 700
