@@ -4,6 +4,7 @@ images/
 conf/
 bin/
 log/
+____build/
 
 *.gz
 *.xz

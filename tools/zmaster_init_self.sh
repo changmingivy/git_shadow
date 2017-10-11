@@ -25,10 +25,16 @@ mkdir -p ${zShadowPath}/conf
 touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
-# 编译 libssh2 静态库
+# build libssh2
 mkdir -p ${zShadowPath}/lib/libssh2_source/____build
 cd ${zShadowPath}/lib/libssh2_source/____build && rm -rf * .*
-cmake -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 -DBUILD_SHARED_LIBS=OFF ..
+cmake .. -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 -DBUILD_SHARED_LIBS=OFF
+cmake --build . --target install
+
+# build libgit2
+mkdir -p ${zShadowPath}/lib/libgit2_source/____build
+cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
+cmake .. -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 -DBUILD_SHARED_LIBS=OFF -DBUILD_CLAR=OFF
 cmake --build . --target install
 
 # 编译主程序，静态库文件路径一定要放在源文件之后
@@ -38,6 +44,7 @@ clang -Wall -Wextra -std=c99 -O2 -lpthread -lssl -lcrypto \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c\
     ${zShadowPath}/lib/libssh2/lib64/libssh2.a  # 必须在此之前链接 -lssl -lcrypto
+    ${zShadowPath}/lib/libgit2/lib/libgit2.a
 strip ${zShadowPath}/bin/git_shadow
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
