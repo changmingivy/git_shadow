@@ -43,7 +43,7 @@ zLibGitPath=${zShadowPath}/lib/libgit2/lib64/libgit2.a
 if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib/libssh2.a; fi
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib/libgit2.a; fi
 
-clang -Wall -Wextra -std=c99 -O2 -lpthread -lssl -lcrypto \
+clang -Wall -Wextra -std=c99 -O2 -lpthread -lz -lhttp_parser -lcurl -lssl -lcrypto\
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/libssh2/include \
     -o ${zShadowPath}/bin/git_shadow \
