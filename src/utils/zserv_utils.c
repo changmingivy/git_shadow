@@ -786,9 +786,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
 
     /* 全局 libgit2 Handler 初始化 */
-    sprintf(zCommonBuf, "%s_SHADOW", zppGlobRepoIf[zRepoId]->p_RepoPath);
-    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf[0] = zgit_env_init(zCommonBuf) );  // _SHADOW 库
-    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf[1] = zgit_env_init(zppGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
+    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf = zgit_env_init(zppGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
 
     /* 全局并发线程总数限制 */
     sem_init(&zGlobSemaphore, 0, zGlobThreadLimit);

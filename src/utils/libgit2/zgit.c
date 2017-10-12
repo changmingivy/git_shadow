@@ -126,12 +126,12 @@ zgit_push_ccur(void *zpIf) {
     /* push TWO branchs together */
     sprintf(zpGitRefs[0], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpGitPushIf->RepoId);
     sprintf(zpGitRefs[1], "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
-    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
         /* if directly push failed, then try push to a new remote branch: NEWserver... */
         sprintf(zpGitRefs[0], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpGitPushIf->RepoId);
         sprintf(zpGitRefs[1], "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
-        if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+        if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */
             char zCmdBuf[128 + zppGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
@@ -143,7 +143,7 @@ zgit_push_ccur(void *zpIf) {
             if (0 == zssh_exec_simple(zpGitPushIf->p_HostStrAddr, zCmdBuf, &(zppGlobRepoIf[zpGitPushIf->RepoId]->SshSyncLock))) {
 
                 /* and, try push to NEWserver once more... */
-                if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+                if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
                     zNative_Fail_Confirm();
                     return (void *) -1;
                 }

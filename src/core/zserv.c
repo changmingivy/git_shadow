@@ -720,12 +720,12 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
             "git add --all .;"\
             "git commit --allow-empty -m _;"\
-            "git push --force %s/.git master:server%d_SHADOW",
+            "git push --force %s/.git master:master_SHADOW",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 中控机上的代码库路径
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath
             );
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
