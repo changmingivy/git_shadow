@@ -93,8 +93,25 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
 
-    return 0; 
+    return 0;
 }
+
+#define zNative_Fail_Confirm() do {\
+    _ui ____zHostId = zconvert_ip_str_to_bin(zpGitPushIf->p_HostStrAddr);\
+    zDpResInfo *____zpTmpIf = zppGlobRepoIf[zpGitPushIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
+    for (; ____zpTmpIf != NULL; ____zpTmpIf = ____zpTmpIf->p_next) {\
+        if (____zHostId == ____zpTmpIf->ClientAddr) {\
+            pthread_mutex_lock(&(zppGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
+            if (0 == ____zpTmpIf->DpState) {\
+                ____zpTmpIf->DpState = -1;\
+                zppGlobRepoIf[zpGitPushIf->RepoId]->ReplyCnt[1]++;\
+                zppGlobRepoIf[zpGitPushIf->RepoId]->ResType[1] = -1;\
+            }\
+            pthread_mutex_unlock(&(zppGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
+            break;\
+        }\
+    }\
+} while(0)
 
 void *
 zgit_push_ccur(void *zpIf) {
@@ -104,12 +121,23 @@ zgit_push_ccur(void *zpIf) {
     char zGitRefsBuf[64 + 2 * sizeof("refs/heads/:")];
     char *zpGitRefs = zGitRefsBuf;
 
-    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
+    /* 推送 <_SHADOW 库>，此处不需要尝试向远程新建 NEW... 分支进行推送 */
+    sprintf(zRemoteRepoAddrBuf, "git@%s:%s_SHADOW/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
     sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
+    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs)) {
+        zNative_Fail_Confirm();
+        return (void *) -1;
+    }
 
+    /* 推送<目标代码库> */
+    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
+    //sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);  // 复用 _SHADOW 的内容即可
     if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs)) {
         sprintf(zpGitRefs, "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
-        zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs);
+        if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs)) {
+            zNative_Fail_Confirm();
+            return (void *) -1;
+        }
     }
 
     return NULL;

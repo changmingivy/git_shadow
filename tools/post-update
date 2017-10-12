@@ -38,17 +38,45 @@ zTcpReply() {
 
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
+# 进入项目代码库
+cd $zPathOnHost
+if [[ 0 -ne $? ]]; then exit 255; fi
+export GIT_DIR="${zPathOnHost}/.git"
+
+zMasterSig=`git log master -1 --format=%H`
+zServSig=`git log ${zServBranchName} -1 --format=%H`
+
 # 检测必要的路径下是存在权限异常的文件
 mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
 if [[ 0 -ne $? ]]; then
-    zTcpReply "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
+    zTcpReply "${zServSig}permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
     exit 255
 fi
 
 # 清除可能存在的由于 git 崩溃残留的锁文件
 rm -f ${zPathOnHost}/.git/index.lock
 rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+
+zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
+if [[ "NEW" == ${zExtraMark} ]]; then
+    git branch -D ${zServBranchName}
+    git branch -M "NEW${zServBranchName}" ${zServBranchName}
+fi
+
+zTcpReply "${zServSig}" "C"
+\ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
+zTcpReply "${zServSig}" "C"
+git stash
+git stash clear
+zTcpReply "${zServSig}" "C"
+git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
+zTcpReply "${zServSig}" "C"
+git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
+if [[ 0 -ne $? ]]; then
+    zTcpReply "${zServSig}git reset failed: ${zPathOnHost}" "B-"
+    exit 255
+fi
 
 # 元数据布署，代码量可控，不必 KeepAlive
 cd ${zPathOnHost}_SHADOW
@@ -59,51 +87,24 @@ git stash clear
 git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
 git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
 if [[ 0 -ne $? ]]; then
-    zTcpReply "git reset failed: ${zPathOnHost}_SHADOW" "B-"
-    exit 255
-fi
-
-# 项目数据布署
-cd $zPathOnHost
-export GIT_DIR="${zPathOnHost}/.git"
-
-zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
-if [[ "NEW" == ${zExtraMark} ]]; then
-    git branch -D ${zServBranchName}
-    git branch -M "NEW${zServBranchName}" ${zServBranchName}
-fi
-
-zTcpReply "_" "C"
-\ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
-zTcpReply "_" "C"
-git stash
-git stash clear
-zTcpReply "_" "C"
-git pull --force ./.git ${zServBranchName}:master >/dev/null 2>&1
-zTcpReply "_" "C"
-git reset -q --hard `git log -1 ${zServBranchName} --format=%H`
-if [[ 0 -ne $? ]]; then
-    zTcpReply "git reset failed: ${zPathOnHost}" "B-"
+    zTcpReply "${zServSig}git reset failed: ${zPathOnHost}_SHADOW" "B-"
     exit 255
 fi
 
 # 校验布署结果
 cd ${zPathOnHost}
 export GIT_DIR="${zPathOnHost}/.git"
-zMasterSig=`git log master -1 --format=%H`
-zMasterSig2=`git log -2 --format=%H | tail -1`
-zServerSig=`git log ${zServBranchName} -1 --format=%H`
-zTcpReply "_" "C"
-if [[ "$zMasterSig" != "$zServerSig" ]]; then
-    zTcpReply "git log inconsistent: branch ${zServBranchName} != branch master" "B-"
+zTcpReply "${zServSig}" "C"
+if [[ "$zMasterSig" != "$zServSig" ]]; then
+    zTcpReply "${zServSig}git log inconsistent: branch ${zServBranchName} != branch master" "B-"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 elif [[ '0' != "`git status --short | wc -l`" ]]; then
-    zTcpReply "work area inconsistent(git status): ${zPathOnHost}" "B-"
+    zTcpReply "${zServSig}work area inconsistent(git status): ${zPathOnHost}" "B-"
     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
     exit 255
 # elif [[ "`cat ${zPathOnHost}_SHADOW/.____dp-SHA1.res`" != "`cd ${zPathOnHost} && find . -path './.git' -prune -o -type f -print | fgrep -v ' ' | sort | xargs cat | sha1sum | grep -oP '^\S+'`" ]]; then
-#     zTcpReply "full sha1sum failed: ${zPathOnHost}" "B-"
+#     zTcpReply "${zServSig}full sha1sum failed: ${zPathOnHost}" "B-"
 #     chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update  # 退出之前还原权限
 #     exit 255
 fi
@@ -112,7 +113,7 @@ fi
 # 布署成功：'B+' 用于标识这是布署状态回复 #
 ##########################################
 cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig2}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
+bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
 
 ######################################################################
 # 采取换软链接的方式，避免推送大量代码过程中线上代码出现不一致的情况 #
@@ -134,7 +135,7 @@ ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
 # 更新 post-update
 cp -f ${zPathOnHost}_SHADOW/tools/post-update ${zPathOnHost}_SHADOW/.git/hooks/post-update
-chmod 0777 ${zPathOnHost}_SHADOW/.git/hooks/post-update
+chmod 0777 ${zPathOnHost}/.git/hooks/post-update
 
 # 更新开机请求布署自身的脚本，设置为隐藏文件
 cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh

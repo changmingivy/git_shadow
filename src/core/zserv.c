@@ -455,8 +455,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "(rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
+            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
             "cd %s && git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
-            "cd %s_SHADOW && git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
             "echo ${____zSelfIp} >/home/git/.____zself_ip_addr_%d.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
@@ -1059,20 +1059,22 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     return 0;
                 }
 
-                if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
-                    if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
-                        pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                        return -101;  // 返回负数，用于打印日志
-                    }
+                if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return -101;  // 返回负数，用于打印日志
+                }
 
+                if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                     zpTmpIf->InitState = 1;
-                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
+
+                    zpLogStrId = "Init_Remote_Host";
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
-                    zpTmpIf->InitState = -1;
                     zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
+                    zpTmpIf->InitState = -1;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = -1;
 
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
-                    zppGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = -1;
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -102;  // 返回负数，用于打印日志
                 } else {
@@ -1080,35 +1082,34 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     return -103;  // 未知的返回内容
                 }
 
-                zpLogStrId = "Init_Remote_Host";
             } else if ('B' == zpMetaIf->p_ExtraData[0]) {
                 if (0 != zpTmpIf->DpState) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return 0;
                 }
 
+                if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
+                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                    return -101;  // 返回负数，用于打印日志
+                }
+
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
-                    if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
-                        pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                        return -101;  // 返回负数，用于打印日志
-                    }
-
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
                     zpTmpIf->DpState = 1;
-                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
-                } else if ('-' == zpMetaIf->p_ExtraData[1]) {
-                    zpTmpIf->DpState = -1;
-                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
 
-                    snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
+                    zpLogStrId = zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
+                } else if ('-' == zpMetaIf->p_ExtraData[1]) {
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
+                    zpTmpIf->DpState = -1;
                     zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = -1;
+
+                    snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data + 40);  // 所有的状态回复前40个字节均是 git SHA1sig
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -102;  // 返回负数，用于打印日志
                 } else {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return -103;  // 未知的返回内容
                 }
-
-                zpLogStrId = zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
             } else if ('C' == zpMetaIf->p_ExtraData[0]) {
                 zppGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp = time(NULL);
                 pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
