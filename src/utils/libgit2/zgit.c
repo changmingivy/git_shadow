@@ -7,8 +7,7 @@
 #define zGit_Check_Err_Return(zOps) do {\
     if (0 != zOps) {\
         git_remote_free(zRemote);\
-        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }\
-        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }\
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);\
         return -1;\
     }\
 } while (0)
@@ -19,14 +18,12 @@ zgit_env_init(char *zpLocalRepoAddr) {
     git_repository *zpRepoMetaIf;
 
     if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
-        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
-        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zpRepoMetaIf = NULL;
     }
 
     if (0 != git_repository_open(&zpRepoMetaIf, zpLocalRepoAddr)) {
-        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
-        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zpRepoMetaIf = NULL;
     }
 
@@ -73,22 +70,23 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
     if (0 != git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
-        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
-        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;  //git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
     zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
 
     /* add [a] push refspec[s] */
     git_strarray zGitRefsArray;
     zGitRefsArray.strings = zppRefs;
-    zGitRefsArray.count = 1;
+    zGitRefsArray.count = 2;
 
-    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;  //git_push_init_options(&zPush_Opts, GIT_PUSH_OPTIONS_VERSION);
+    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
+    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
 
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
@@ -118,25 +116,42 @@ zgit_push_ccur(void *zpIf) {
     zGitPushInfo *zpGitPushIf = (zGitPushInfo *) zpIf;
 
     char zRemoteRepoAddrBuf[64 + zppGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
-    char zGitRefsBuf[64 + 2 * sizeof("refs/heads/:")];
-    char *zpGitRefs = zGitRefsBuf;
+    char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
+    zpGitRefs[0] = zGitRefsBuf[0];
+    zpGitRefs[1] = zGitRefsBuf[1];
 
-    /* 推送 <_SHADOW 库>，此处不需要尝试向远程新建 NEW... 分支进行推送 */
-    sprintf(zRemoteRepoAddrBuf, "git@%s:%s_SHADOW/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
-    sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
-    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[0], zRemoteRepoAddrBuf, &zpGitRefs)) {
-        zNative_Fail_Confirm();
-        return (void *) -1;
-    }
-
-    /* 推送<目标代码库> */
+    /* generate remote URL */
     sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
-    //sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);  // 复用 _SHADOW 的内容即可
-    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, &zpGitRefs)) {
-        sprintf(zpGitRefs, "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
-        if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, &zpGitRefs)) {
-            zNative_Fail_Confirm();
-            return (void *) -1;
+
+    /* push TWO branchs together */
+    sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
+    sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpGitPushIf->RepoId);
+    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+
+        /* if directly push failed, then try push to a new remote branch: NEWserver... */
+        sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
+        sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpGitPushIf->RepoId);
+        if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+
+            /* if failed again, then try delete the remote branch: NEWserver... */
+            char zCmdBuf[128 + zppGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
+            sprintf(zCmdBuf, "cd %s; git branch -D NEWserver%d; git branch -D NEWserver%d_SHADOW",
+                    zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9,
+                    zpGitPushIf->RepoId,
+                    zpGitPushIf->RepoId
+                    );
+            if (0 == zssh_exec_simple(zpGitPushIf->p_HostStrAddr, zCmdBuf, &(zppGlobRepoIf[zpGitPushIf->RepoId]->SshSyncLock))) {
+
+                /* and, try push to NEWserver once more... */
+                if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
+                    zNative_Fail_Confirm();
+                    return (void *) -1;
+                }
+            } else {
+                /* if ssh exec failed, just deal with error */
+                zNative_Fail_Confirm();
+                return (void *) -1;
+            }
         }
     }
 

@@ -709,8 +709,6 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     sprintf(zppCommonBuf[1],
             "cd %s;"\
             "if [[ 0 -ne $? ]]; then exit 1; fi;"\
-/*            "git branch -f `git log CURRENT -1 --format=%%H`;"\ 放在布署成功之后单独执行 */
-/*            "git branch -f CURRENT;"\ */
             \
             "git stash;"\
             "git stash clear;"\
@@ -863,6 +861,12 @@ zSuccessMark:
         if (zLogStrLen != write(zppGlobRepoIf[zpMetaIf->RepoId]->DpSigLogFd, zppCommonBuf[0], zLogStrLen)) {
             zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
             exit(1);
+        }
+
+        /* deploy success, create a new "CURRENT" branch */
+        sprintf(zppCommonBuf[0], "cd %s; git branch -f `git log CURRENT -1 --format=%%H`; git branch -f CURRENT", zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath);
+        if (0 != WEXITSTATUS( system(zppCommonBuf[0])) ) {
+            zPrint_Err(0, NULL, "\"CURRENT\" branch refresh failed");
         }
 
         /* 重置内存池状态 */
