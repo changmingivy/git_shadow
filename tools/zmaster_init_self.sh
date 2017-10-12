@@ -41,7 +41,7 @@ cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
 cmake .. \
     -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 \
     -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
-    -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}`
+    -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
     -DBUILD_SHARED_LIBS=OFF \
     -DBUILD_CLAR=OFF
 cmake --build . --target install
