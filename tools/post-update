@@ -53,13 +53,6 @@ rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 # 元数据布署，代码量可控，不必 KeepAlive
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-
-zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
-if [[ "NEW" == ${zExtraMark} ]]; then
-    git branch -D ${zServBranchName}
-    git branch -M "NEW${zServBranchName}" ${zServBranchName}
-fi
-
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
@@ -73,6 +66,13 @@ fi
 # 项目数据布署
 cd $zPathOnHost
 export GIT_DIR="${zPathOnHost}/.git"
+
+zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
+if [[ "NEW" == ${zExtraMark} ]]; then
+    git branch -D ${zServBranchName}
+    git branch -M "NEW${zServBranchName}" ${zServBranchName}
+fi
+
 zTcpReply "_" "C"
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 zTcpReply "_" "C"

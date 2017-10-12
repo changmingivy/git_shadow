@@ -1059,7 +1059,6 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     return 0;
                 }
 
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
                     if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
                         pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
@@ -1067,8 +1066,11 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     }
 
                     zpTmpIf->InitState = 1;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->InitState = -1;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
+
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
                     zppGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = -1;
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
@@ -1085,7 +1087,6 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     return 0;
                 }
 
-                zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
                     if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
                         pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
@@ -1093,8 +1094,11 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                     }
 
                     zpTmpIf->DpState = 1;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->DpState = -1;
+                    zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
+
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data);
                     zppGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = -1;
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
