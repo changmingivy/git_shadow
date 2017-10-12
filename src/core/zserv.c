@@ -487,15 +487,17 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 } while(0)
 
 _i
-zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf) {
+zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegResIfOut) {
     zDpResInfo *zpOldDpResListIf, *zpTmpDpResIf, *zpOldDpResHashIf[zDpHashSiz];
 
     zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
+    zRegResInfo *zpRegResIf, zRegResIf[1] = {{.RepoId = zpMetaIf->RepoId}};  // 使用项目内存池
+    zpRegResIf = zRegResIf;
 
     zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
     zReg_Free_Metasource(zRegInitIf);
+    zppRegResIfOut = &zpRegResIf;
 
     if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zRegResIf->cnt) { return -28; }
 
@@ -653,6 +655,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     zVecWrapInfo *zpTopVecWrapIf;
     _i zErrNo, zDiffBytes;
     time_t zRemoteHostInitTimeSpent;
+    zRegResInfo *zpHostStrAddrRegResIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zppGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -689,7 +692,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if (('_' != zpMetaIf->p_data[0]) && (13 != zpMetaIf->OpsId)) {
-        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0]))) { return zErrNo; }
+        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0], &zpHostStrAddrRegResIf))) { return zErrNo; }
         zRemoteHostInitTimeSpent = time(NULL) - zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
 
@@ -746,9 +749,13 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
 
-    //
-    // TO DO: 基于 libgit2 实现 git push 函数，进行并发布署，以信号量控制并发峰值
-    //
+    /* 基于 libgit2 实现 zgit_push(...) 函数，并发布署，以全局信号量控制并发线程数量 */
+    zGitPushInfo **zppGitPushIf = zalloc_cache(zpMetaIf->RepoId, zpHostStrAddrRegResIf->cnt * sizeof(zGitPushInfo *));
+    for (_ui zCnter = 0; zCnter < zpHostStrAddrRegResIf->cnt; zCnter++) {
+        zppGitPushIf[zCnter]->RepoId = zppGlobRepoIf[zpMetaIf->RepoId]->RepoId;
+        zppGitPushIf[zCnter]->p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
+        zAdd_To_Thread_Pool(zgit_push_ccur, zppGitPushIf[zCnter]);
+    }
 
     /* 测算超时时间 */
     if (('\0' == zppGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])

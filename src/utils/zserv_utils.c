@@ -782,9 +782,15 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zMetaIf.DataType = zIsDpDataType;
     zgenerate_cache(&zMetaIf);
 
-    /**/
+    /* RepoId 最大值 */
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
+
+    /* 全局 libgit2 Handler 初始化 */
+    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf = zgit_env_init(zppGlobRepoIf[zRepoId]->p_RepoPath) );
+
+    /* 全局并发线程总数限制 */
+    sem_init(&zGlobSemaphore, 0, zGlobThreadLimit);
 
     /* 放锁 */
     pthread_rwlock_unlock(&(zppGlobRepoIf[zRepoId]->RwLock));

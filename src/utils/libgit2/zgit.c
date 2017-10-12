@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
 
-#include "git2.h"
+//#include "git2.h"
 
 #define zGit_Check_Err_Return(zOps) do {\
     if (0 != zOps) {\
@@ -71,7 +71,7 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char 
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
-zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char *zpLocalBranchName, char *zpRemoteBranchName) {
+zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
@@ -87,19 +87,35 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char *zpLocalBranchName
     zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
 
     /* add [a] push refspec[s] */
-    char zRefsBuf[2 * sizeof("refs/heads/:") + strlen(zpLocalBranchName) + strlen(zpRemoteBranchName)], *zpRefs;
-    zpRefs = zRefsBuf;
-    sprintf(zRefsBuf, "refs/heads/%s:refs/heads/%s", zpLocalBranchName, zpRemoteBranchName);
     git_strarray zGitRefsArray;
-    zGitRefsArray.strings = &zpRefs;
+    zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = 1;
 
     git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;  //git_push_init_options(&zPush_Opts, GIT_PUSH_OPTIONS_VERSION);
 
     /* do the push */
-    zGit_Check_Err_Return(git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts));
+    zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
 
     return 0; 
+}
+
+void *
+zgit_push_ccur(void *zpIf) {
+    zGitPushInfo *zpGitPushIf = (zGitPushInfo *) zpIf;
+
+    char zRemoteRepoAddrBuf[64 + zppGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
+    char zGitRefsBuf[64 + 2 * sizeof("refs/heads/:")];
+    char *zpGitRefs = zGitRefsBuf;
+
+    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
+    sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
+
+    if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs)) {
+        sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%dN", zpGitPushIf->RepoId);
+        zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs);
+    }
+
+    return NULL;
 }
 
 #undef zGit_Check_Err_Return

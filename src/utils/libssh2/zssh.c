@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
 
-#include "libssh2.h"
+//#include "libssh2.h"
 
 /* select events dirven */
 _i

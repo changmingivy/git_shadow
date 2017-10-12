@@ -37,10 +37,13 @@ zMark:
     }
     pthread_mutex_unlock(&zStackHeaderLock);
 
+    sem_wait(&zGlobSemaphore);  // 防止操作系统负载过高
     zpSelfTask->func(zpSelfTask->p_param);
-    zpSelfTask->func = NULL;
+    sem_post(&zGlobSemaphore);
 
+    zpSelfTask->func = NULL;
     goto zMark;
+
     return (void *) -1;
 }
 
@@ -51,7 +54,9 @@ ztmp_thread_func(void *zpIf) {
 
     zThreadPoolInfo *zpTaskIf = (zThreadPoolInfo *) zpIf;
 
+    sem_wait(&zGlobSemaphore);  // 防止操作系统负载过高
     zpTaskIf->func(zpTaskIf->p_param);  // 执行任务
+    sem_post(&zGlobSemaphore);
 
     free(zpTaskIf);
     return NULL;

@@ -20,8 +20,9 @@
     #include <sys/signal.h>
 #endif
 
-#include <sys/mman.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <semaphore.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -40,7 +41,12 @@
 #include <libgen.h>
 #include <ctype.h>
 
+#include "libssh2.h"
+#include "git2.h"
+
 #include "../inc/zutils.h"
+
+#define zGlobThreadLimit 256
 
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
@@ -156,6 +162,15 @@ struct zSshCcurInfo {
 };
 typedef struct zSshCcurInfo zSshCcurInfo;
 
+/* libgit2: zgit_push(...) */
+struct zGitPushInfo {
+    _i RepoId;
+    char *p_HostStrAddr;
+//    char *p_LocalBranchName;
+//    char *p_RemoteBranchName;
+};
+typedef struct zGitPushInfo zGitPushInfo;
+
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
     _i RepoId;  // 项目代号
@@ -184,6 +199,9 @@ struct zRepoInfo {
     time_t DpTimeWaitLimit;
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
+
+    /* 本项目 git 库全局 Handler */
+    git_repository *p_GitRepoMetaIf;
 
     /* libssh2 并发同步锁与条件变量 */
     pthread_mutex_t SshSyncLock;
@@ -251,6 +269,9 @@ zNetOpsFunc zNetServ[zServHashSiz];
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
 
+/* 全局并发线程总数限制 */
+sem_t zGlobSemaphore;
+
 /************
  * 配置文件 *
  ************/
@@ -291,6 +312,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "utils/libssh2/zssh.c"
+#include "utils/libgit2/zgit.c"
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 
