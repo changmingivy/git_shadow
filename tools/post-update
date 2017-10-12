@@ -56,8 +56,8 @@ fi
 rm -f ${zPathOnHost}/.git/index.lock
 rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
-zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
-if [[ "NEW" == ${zExtraMark} ]]; then
+zExtraMark=`echo $1 | fgrep -o "NEW${zServBranchName}"`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
+if [[ "NEW${zServBranchName}" == ${zExtraMark} ]]; then
     git branch -D ${zServBranchName}
     git branch -M "NEW${zServBranchName}" ${zServBranchName}
 fi
