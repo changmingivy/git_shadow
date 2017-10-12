@@ -54,10 +54,10 @@ rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
 
-zExtraMark=`echo $1 | grep -o 'N$'`  # 若接收到推送内容的是 server${No}N 格式的分支，则表明是回滚操作
-if [[ 'N' == ${zExtraMark} ]]; then
+zExtraMark=`echo $1 | grep -o '^NEW'`  # 若接收到推送内容的是 Nserver${No} 格式的分支，则表明是回滚操作
+if [[ "NEW" == ${zExtraMark} ]]; then
     git branch -D ${zServBranchName}
-    git branch -M "${zServBranchName}N" ${zServBranchName}
+    git branch -M "NEW${zServBranchName}" ${zServBranchName}
 fi
 
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf

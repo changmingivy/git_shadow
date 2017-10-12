@@ -1054,11 +1054,6 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
             char *zpLogStrId;
             /* 'A' 标识初始化远程主机的结果回复，'B' 标识布署状态回复，'C' 目标机的 keep alive 消息，'D' 错误信息 */
             if ('A' == zpMetaIf->p_ExtraData[0]) {
-                if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
-                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                    return -101;  // 返回负数，用于打印日志
-                }
-
                 if (0 != zpTmpIf->InitState) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return 0;
@@ -1066,6 +1061,11 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
 
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
+                    if (strtol(zpMetaIf->p_data, NULL, 10) != zppGlobRepoIf[zpMetaIf->RepoId]->CacheId) {
+                        pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                        return -101;  // 返回负数，用于打印日志
+                    }
+
                     zpTmpIf->InitState = 1;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->InitState = -1;
@@ -1080,11 +1080,6 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
 
                 zpLogStrId = "Init_Remote_Host";
             } else if ('B' == zpMetaIf->p_ExtraData[0]) {
-                if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
-                    pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
-                    return -101;  // 返回负数，用于打印日志
-                }
-
                 if (0 != zpTmpIf->DpState) {
                     pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
                     return 0;
@@ -1092,6 +1087,11 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
 
                 zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
+                    if (0 != strncmp(zppGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_data, zBytes(40))) {
+                        pthread_mutex_unlock(&(zppGlobRepoIf[zpMetaIf->RepoId]->ReplyCntLock));
+                        return -101;  // 返回负数，用于打印日志
+                    }
+
                     zpTmpIf->DpState = 1;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
                     zpTmpIf->DpState = -1;

@@ -108,7 +108,7 @@ zgit_push_ccur(void *zpIf) {
     sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
 
     if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs)) {
-        sprintf(zpGitRefs, "refs/heads/master:refs/heads/server%dN", zpGitPushIf->RepoId);
+        sprintf(zpGitRefs, "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
         zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, &zpGitRefs);
     }
 
