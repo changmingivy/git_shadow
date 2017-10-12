@@ -611,8 +611,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zRegInitInfo zRegInitIf[2];
     zRegResInfo zRegResIf[2] = {{.RepoId = -1}, {.RepoId = -1}};  // 使用系统 *alloc 函数分配内存
 
-    char zCommonBuf[zGlobBufSiz];
-
     _i zRepoId, zErrNo;
 
     /* 正则匹配项目基本信息（5个字段） */
@@ -659,6 +657,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->MaxPathLen = pathconf(zppGlobRepoIf[zRepoId]->p_RepoPath, _PC_PATH_MAX);
 
     /* 调用SHELL执行检查和创建 */
+    char zCommonBuf[zGlobBufSiz + zppGlobRepoIf[zRepoId]->RepoPathLen];
     sprintf(zCommonBuf, "sh /home/git/zgit_shadow/tools/zmaster_init_repo.sh \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"", zRegResIf->p_rets[0], zppGlobRepoIf[zRepoId]->p_RepoPath + 9, zRegResIf->p_rets[2], zRegResIf->p_rets[3], zRegResIf->p_rets[4]);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
@@ -787,7 +786,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
 
     /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf = zgit_env_init(zppGlobRepoIf[zRepoId]->p_RepoPath) );
+    sprintf(zCommonBuf, "%s_SHADOW", zppGlobRepoIf[zRepoId]->p_RepoPath);
+    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf[0] = zgit_env_init(zCommonBuf) );  // _SHADOW 库
+    zCheck_Null_Exit( zppGlobRepoIf[zRepoId]->p_GitRepoMetaIf[1] = zgit_env_init(zppGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
 
     /* 全局并发线程总数限制 */
     sem_init(&zGlobSemaphore, 0, zGlobThreadLimit);

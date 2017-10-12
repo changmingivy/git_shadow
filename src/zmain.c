@@ -200,8 +200,8 @@ struct zRepoInfo {
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
 
-    /* 本项目 git 库全局 Handler */
-    git_repository *p_GitRepoMetaIf;
+    /* 本项目 git 库全局 Handler：[0]: _SHADOW 库，[1]: 目标库 */
+    git_repository *p_GitRepoMetaIf[2];
 
     /* libssh2 并发同步锁与条件变量 */
     pthread_mutex_t SshSyncLock;
