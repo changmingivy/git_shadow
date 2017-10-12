@@ -497,7 +497,7 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
     zreg_compile(zRegInitIf , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zreg_match(zRegResIf, zRegInitIf, zpMetaIf->p_data);
     zReg_Free_Metasource(zRegInitIf);
-    zppRegResIfOut = &zpRegResIf;
+    *zppRegResIfOut = zpRegResIf;
 
     if (strtol(zpMetaIf->p_ExtraData, NULL, 10) != zRegResIf->cnt) { return -28; }
 
@@ -750,11 +750,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，并发布署，以全局信号量控制并发线程数量 */
-    zGitPushInfo **zppGitPushIf = zalloc_cache(zpMetaIf->RepoId, zpHostStrAddrRegResIf->cnt * sizeof(zGitPushInfo *));
+    zGitPushInfo *zpGitPushIf = zalloc_cache(zpMetaIf->RepoId, zpHostStrAddrRegResIf->cnt * sizeof(zGitPushInfo));
     for (_ui zCnter = 0; zCnter < zpHostStrAddrRegResIf->cnt; zCnter++) {
-        zppGitPushIf[zCnter]->RepoId = zppGlobRepoIf[zpMetaIf->RepoId]->RepoId;
-        zppGitPushIf[zCnter]->p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
-        zAdd_To_Thread_Pool(zgit_push_ccur, zppGitPushIf[zCnter]);
+        zpGitPushIf[zCnter].RepoId = zppGlobRepoIf[zpMetaIf->RepoId]->RepoId;
+        zpGitPushIf[zCnter].p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
+        zAdd_To_Thread_Pool(zgit_push_ccur, &zpGitPushIf[zCnter]);
     }
 
     /* 测算超时时间 */
