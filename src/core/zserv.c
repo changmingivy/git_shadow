@@ -455,8 +455,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "(rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
-            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
-            "cd %s && git init . ; git config user.name _ ; git config user.email _ ; git commit --allow-empty -m _ ; git branch server%d;"\
+            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . ; git config user.name _ ; git config user.email _;"\
+            "cd %s && git init . ; git config user.name _ ; git config user.email _;"\
             "echo ${____zSelfIp} >/home/git/.____zself_ip_addr_%d.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
@@ -474,8 +474,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpMetaIf->RepoId,\
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zpMetaIf->RepoId,\
 \
             zNetServIf.p_IpAddr, zNetServIf.p_port,\

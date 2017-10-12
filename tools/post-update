@@ -42,8 +42,6 @@ printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 cd $zPathOnHost
 if [[ 0 -ne $? ]]; then exit 255; fi
 export GIT_DIR="${zPathOnHost}/.git"
-
-zMasterSig=`git log master -1 --format=%H`
 zServSig=`git log ${zServBranchName} -1 --format=%H`
 
 # 检测必要的路径下是存在权限异常的文件
@@ -94,6 +92,7 @@ fi
 # 校验布署结果
 cd ${zPathOnHost}
 export GIT_DIR="${zPathOnHost}/.git"
+zMasterSig=`git log master -1 --format=%H`
 zTcpReply "${zServSig}" "C"
 if [[ "$zMasterSig" != "$zServSig" ]]; then
     zTcpReply "${zServSig}git log inconsistent: branch ${zServBranchName} != branch master" "B-"
