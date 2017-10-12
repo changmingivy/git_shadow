@@ -28,27 +28,34 @@ rm -rf ${zShadowPath}/bin/*
 # build libssh2
 mkdir -p ${zShadowPath}/lib/libssh2_source/____build
 cd ${zShadowPath}/lib/libssh2_source/____build && rm -rf * .*
-cmake .. -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 -DBUILD_SHARED_LIBS=OFF
+cmake .. \
+    -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 \
+    -DBUILD_SHARED_LIBS=OFF
 cmake --build . --target install
+zLibSshPath=${zShadowPath}/lib/libssh2/lib64/libssh2.a
+if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib/libssh2.a; fi
 
 # build libgit2
 mkdir -p ${zShadowPath}/lib/libgit2_source/____build
 cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
-cmake .. -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 -DBUILD_SHARED_LIBS=OFF -DBUILD_CLAR=OFF
+cmake .. \
+    -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 \
+    -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
+    -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}`
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_CLAR=OFF
 cmake --build . --target install
-
-# 编译主程序，静态库文件路径一定要放在源文件之后
-zLibSshPath=${zShadowPath}/lib/libssh2/lib64/libssh2.a
 zLibGitPath=${zShadowPath}/lib/libgit2/lib64/libgit2.a
-if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib/libssh2.a; fi
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib/libgit2.a; fi
 
-clang -Wall -Wextra -std=c99 -O2 -lpthread -lz -lhttp_parser -lcurl -lssl -lcrypto\
+# 编译主程序，静态库文件路径一定要放在源文件之后，必须在此之前链接 zlib curl openssl crypto
+clang -Wall -Wextra -std=c99 -O2 -lpthread -lz -lcurl -lssl -lcrypto\
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/libssh2/include \
+    -I${zShadowPath}/lib/libgit2/include \
     -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/src/zmain.c\
-    ${zLibSshPath}  # 必须在此之前链接 -lssl -lcrypto
+    ${zShadowPath}/src/zmain.c \
+    ${zLibSshPath} \
     ${zLibGitPath}
 strip ${zShadowPath}/bin/git_shadow
 
