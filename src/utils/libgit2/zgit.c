@@ -124,13 +124,13 @@ zgit_push_ccur(void *zpIf) {
     sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zppGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
-    sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpGitPushIf->RepoId);
+    sprintf(zpGitRefs[0], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpGitPushIf->RepoId);
+    sprintf(zpGitRefs[1], "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
     if (0 != zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
 
         /* if directly push failed, then try push to a new remote branch: NEWserver... */
-        sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
-        sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpGitPushIf->RepoId);
+        sprintf(zpGitRefs[0], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpGitPushIf->RepoId);
+        sprintf(zpGitRefs[1], "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
         if (0 !=zgit_push(zppGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf[1], zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */

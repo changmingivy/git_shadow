@@ -455,7 +455,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "(rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
-            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . ; git config user.name _ ; git config user.email _;"\
+            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init .; git config user.name _; git config user.email _;"\
             "cd %s && git init . ; git config user.name _ ; git config user.email _;"\
             "echo ${____zSelfIp} >/home/git/.____zself_ip_addr_%d.txt;"\
 \
@@ -707,27 +707,25 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 预布署动作 */
     sprintf(zppCommonBuf[1],
-            "cd %s;"\
-            "if [[ 0 -ne $? ]]; then exit 1; fi;"\
-            \
+            "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"\
             "git stash;"\
             "git stash clear;"\
             "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"\
-            "git pull --force ./.git server%d:master;"\
-            "git reset %s;"\
+            "git reset %s; if [[ 0 -ne $? ]]; then exit 1; fi;"\
             \
-            "cd %s_SHADOW;"\
+            "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"\
             "rm -rf ./tools;"\
             "cp -R /home/git/zgit_shadow/tools ./;"\
             "chmod 0755 ./tools/post-update;"\
             "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
             "git add --all .;"\
-            "git commit --allow-empty -m '_'",
+            "git commit --allow-empty -m _;"\
+            "git push --force %s/.git master:server%d_SHADOW",
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 中控机上的代码库路径
-            zpMetaIf->RepoId,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),  // SHA1 commit sig
             zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
+            zppGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId
             );
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
@@ -793,7 +791,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 耗时预测超过 90 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
     if (900 < zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
-        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 2 * %zd 秒，请稍后查看布署结果\"}]", zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 %zd 秒，请稍后查看布署结果\"}]", 2 * zppGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
         zsendto(zSd, zppCommonBuf[0], zSendLen, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
