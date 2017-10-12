@@ -709,8 +709,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     sprintf(zppCommonBuf[1],
             "cd %s;"\
             "if [[ 0 -ne $? ]]; then exit 1; fi;"\
-            "git branch -f `git log CURRENT -1 --format=%%H`;"\
-            "git branch -f CURRENT;"\
+/*            "git branch -f `git log CURRENT -1 --format=%%H`;"\ 放在布署成功之后单独执行 */
+/*            "git branch -f CURRENT;"\ */
             \
             "git stash;"\
             "git stash clear;"\
