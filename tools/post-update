@@ -10,7 +10,7 @@ zMasterPort="__MASTER_PORT"
 zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
 zProjId=`echo $1 | grep -o '[0-9]\+$'`
 zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
-zServBranchName=""
+zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
 # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
 chmod 0444 ${zPathOnHost}_SHADOW/.git/hooks/post-update
@@ -53,7 +53,13 @@ rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 # 元数据布署，代码量可控，不必 KeepAlive
 cd ${zPathOnHost}_SHADOW
 export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-zServBranchName="`git branch | grep -oP 'server\d+'`"  # 取 server${zProjId} 分支名称
+
+zExtraMark=`echo $1 | grep -o 'N$'`  # 若接收到推送内容的是 server${No}N 格式的分支，则表明是回滚操作
+if [[ 'N' == ${zExtraMark} ]]; then
+    git branch -D ${zServBranchName}
+    git branch -M "${zServBranchName}N" ${zServBranchName}
+fi
+
 \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
 git stash
 git stash clear
@@ -122,11 +128,6 @@ git clone $zPathOnHost/.git ${zPathOnHost}_OnLine >> /tmp/.____post-deploy.log 2
 # 切换回线上仓库工作区
 rm -rf ${zProjOnLinePath}
 ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
-
-# ____pre-deploy.sh 产生的版本号，消除之，用于兼容页面检验工具
-cd ${zProjOnLinePath}
-export GIT_DIR="${zProjOnLinePath}/.git"
-git reset ${zMasterSig2}
 
 # 布署完成之后需要执行的动作：____post-deploy.sh
 (cd ${zProjOnLinePath} && bash ./____post-deploy.sh) &

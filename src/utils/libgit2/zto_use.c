@@ -5,24 +5,30 @@
 #include "git2.h"
 
 #define zGit_Check_Err_Return(zOps) do {\
-    if (0 != (zErrNo = zOps)) {\
+    if (0 != zOps) {\
         git_remote_free(zRemote);\
-        if (NULL == giterr_last()) { fprintf(stderr, "====Error message====\nError without message.\n"); }\
-        else { fprintf(stderr, "====Error message====\n%s\n", giterr_last()->message); }\
-        return zErrNo;\
+        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }\
+        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }\
+        return -1;\
     }\
 } while (0)
 
-/* 代码库初始化时调用一次即可；zpRepoPath 参数不包含 .git */
+/* 代码库新建或载入时调用一次即可；zpLocallRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 git_repository *
-zgit_env_init(char *zpRepoPath) {
-    git_libgit2_init();
-
-    char zGitPathBuf[strlen(zpRepoPath) + sizeof("/.git")];
-    sprintf(zGitPathBuf, "%s/.git", zpRepoPath);
-
+zgit_env_init(char *zpLocalRepoAddr) {
     git_repository *zpRepoMetaIf;
-    if (0 != git_repository_open(&zpRepoMetaIf, zGitPathBuf)) { zpRepoMetaIf = NULL; }
+
+    if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
+        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
+        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        zpRepoMetaIf = NULL;
+    }
+
+    if (0 != git_repository_open(&zpRepoMetaIf, zpLocalRepoAddr)) {
+        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
+        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        zpRepoMetaIf = NULL;
+    }
 
     return zpRepoMetaIf;
 }
@@ -34,52 +40,77 @@ zgit_env_clean(git_repository *zpRepoIf) {
     git_libgit2_shutdown();
 }
 
+/* SSH 身份认证 */
+_i
+zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char * zpUsernameFromUrl_Unused, unsigned int zpAllowedTypes_Unused, void * zPayload_Unusued) {
+    /* 仅用作消除编译时的警告信息 */
+    zpUrl_Unused = NULL;
+    zpUsernameFromUrl_Unused = NULL;
+    zpAllowedTypes_Unused = 0;
+    zPayload_Unusued = NULL;
+
+    /* 固定为 git 用户权限 */
+#ifdef _Z_BSD
+    if (0 != git_cred_ssh_key_memory_new(zppResOut, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
+        if (0 != git_cred_ssh_key_new(zppResOut, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
+#else
+    if (0 != git_cred_ssh_key_memory_new(zppResOut, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
+        if (0 != git_cred_ssh_key_new(zppResOut, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
+#endif
+            if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
+            else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 /*
  * [ git push ]
- * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 的格式
+ * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
 zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char *zpLocalBranchName, char *zpRemoteBranchName) {
     /* get the remote */
-    _i zErrNo = 0;
     git_remote* zRemote = NULL;
-    //git_remote_lookup( &remote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
-    if (0 != (zErrNo = git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr))) { return zErrNo; };  // 直接使用 URL 时调用此函数
+    //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
+    if (0 != git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
+        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
+        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        return -1;
+    };
 
     /* connect to remote */
-	git_remote_callbacks zCallBackOpts;
-	git_remote_init_callbacks(&zCallBackOpts, GIT_REMOTE_CALLBACKS_VERSION);
-    zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zCallBackOpts, NULL, NULL) );
+    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;  //git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
+    zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
 
     /* add [a] push refspec[s] */
     char zRefsBuf[2 * sizeof("refs/heads/:") + strlen(zpLocalBranchName) + strlen(zpRemoteBranchName)], *zpRefs;
-	zpRefs = zRefsBuf;
+    zpRefs = zRefsBuf;
     sprintf(zRefsBuf, "refs/heads/%s:refs/heads/%s", zpLocalBranchName, zpRemoteBranchName);
     git_strarray zGitRefsArray;
     zGitRefsArray.strings = &zpRefs;
     zGitRefsArray.count = 1;
 
-    /* configure options */
-    git_push_options options;
-    zGit_Check_Err_Return(git_push_init_options(&options, GIT_PUSH_OPTIONS_VERSION));
+    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;  //git_push_init_options(&zPush_Opts, GIT_PUSH_OPTIONS_VERSION);
 
     /* do the push */
-    zGit_Check_Err_Return(git_remote_push(zRemote, &zGitRefsArray, &options));
+    zGit_Check_Err_Return(git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts));
 
     return 0; 
 }
 
 #undef zGit_Check_Err_Return
 
-/*
- * Just for test.
- */
-_i
-main(void) {
-    git_repository *zpRepoMetaIf = zgit_env_init("/tmp/test_repo");
-
-    zgit_push(zpRepoMetaIf, "git@127.0.0.1:/tmp/test_repo/.git", "master", "server");
-
-    zgit_env_clean(zpRepoMetaIf);
-    return 0;
-}
+// /* Just for test. */
+// _i
+// main(void) {
+//     git_repository *zpRepoMetaIf = zgit_env_init("/tmp/test_repo/.git");
+//
+//     zgit_push(zpRepoMetaIf, "fh@127.0.0.1:/tmp/test_repo/.git", "master", "server_test");
+//
+//     zgit_env_clean(zpRepoMetaIf);
+//     return 0;
+// }

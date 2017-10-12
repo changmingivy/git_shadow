@@ -713,11 +713,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             "git stash clear;"\
             "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"\
             "git pull --force ./.git server%d:master;"\
-            "git reset --hard %s;"\
-            \
-            "bash ____pre-deploy.sh;"\
-            "git add --all .;"\
-            "git commit --allow-empty -m '____pre-deploy.sh';"\
+            "git reset %s;"\
             \
             "cd %s_SHADOW;"\
             "rm -rf ./tools;"\
