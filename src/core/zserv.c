@@ -691,22 +691,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         return -3;
     }
 
-    /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
-    if (('_' != zpMetaIf->p_data[0]) && (13 != zpMetaIf->OpsId)) {
-        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0], &zpHostStrAddrRegResIf))) { return zErrNo; }
-        zRemoteHostInitTimeSpent = time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
-    }
-
-    /* 检查部署目标主机集合是否存在 */
-    if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost
-            || NULL == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
-            || '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
-        zpMetaIf->p_data = "====指定的目标主机 IP 无效====";
-        zpMetaIf->p_ExtraData[0] = '\0';
-        return -26;
-    }
-
-    /* 预布署动作 */
+    /* 预布署动作：须置于 zupdate_ip_db_all(...) 函数之前，因 post-update 会在初始化远程主机时被首先传输 */
     sprintf(zppCommonBuf[1],
             "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"\
             "git stash;"\
@@ -731,6 +716,21 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
     if (0 != WEXITSTATUS( system(zppCommonBuf[1]) )) { return -15; }
+
+    /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
+    if (('_' != zpMetaIf->p_data[0]) && (13 != zpMetaIf->OpsId)) {
+        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0], &zpHostStrAddrRegResIf))) { return zErrNo; }
+        zRemoteHostInitTimeSpent = time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
+    }
+
+    /* 检查部署目标主机集合是否存在 */
+    if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost
+            || NULL == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
+            || '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
+        zpMetaIf->p_data = "====指定的目标主机 IP 无效====";
+        zpMetaIf->p_ExtraData[0] = '\0';
+        return -26;
+    }
 
     /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
     strncpy(zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
