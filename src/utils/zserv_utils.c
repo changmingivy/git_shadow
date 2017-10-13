@@ -600,9 +600,6 @@ zMarkSkip:
     free(zpGlobRepoIf[zRepoId]->p_RepoPath);\
     free(zpGlobRepoIf[zRepoId]);\
     zpGlobRepoIf[zRepoId] = NULL;\
-    if (-1 != zGlobMaxRepoId) {\
-        zMem_Re_Alloc(zpGlobRepoIf, zRepoInfo *, zGlobMaxRepoId + 1, zpGlobRepoIf);\
-    }\
     zReg_Free_Tmpsource(zRegResIf);\
     zPrint_Time();\
 } while(0)
@@ -625,7 +622,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     }
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
-    zRepoId = strtol(zRegResIf->p_rets[0], NULL, 10)
+    zRepoId = strtol(zRegResIf->p_rets[0], NULL, 10);
     if ((zGlobRepoIdLimit > zRepoId) && (0 < zRepoId)) {} else {
         zReg_Free_Tmpsource(zRegResIf);
         zPrint_Time();
