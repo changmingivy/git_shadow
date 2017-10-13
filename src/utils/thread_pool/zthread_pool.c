@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
  
-#define zThreadPollSiz 64
+#define zThreadPollSiz 128
 
 typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
 
@@ -37,9 +37,8 @@ zMark:
     }
     pthread_mutex_unlock(&zStackHeaderLock);
 
-    sem_wait(&zGlobSemaphore);  // 防止操作系统负载过高
     zpSelfTask->func(zpSelfTask->p_param);
-    sem_post(&zGlobSemaphore);
+    sem_post(&zGlobSemaphore);  // 任务完成，释放信号量
 
     zpSelfTask->func = NULL;
     goto zMark;
@@ -54,9 +53,8 @@ ztmp_thread_func(void *zpIf) {
 
     zThreadPoolInfo *zpTaskIf = (zThreadPoolInfo *) zpIf;
 
-    sem_wait(&zGlobSemaphore);  // 防止操作系统负载过高
     zpTaskIf->func(zpTaskIf->p_param);  // 执行任务
-    sem_post(&zGlobSemaphore);
+    sem_post(&zGlobSemaphore);  // 任务完成，释放信号量
 
     free(zpTaskIf);
     return NULL;
@@ -76,6 +74,7 @@ zthread_poll_init(void) {
  * 优先使用线程池，若线程池满，则新建临时线程执行任务
  */
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
+    sem_wait(&zGlobSemaphore);  /* 防止操作系统负载过高 */\
     pthread_mutex_lock(&zStackHeaderLock);\
     if (0 > ____zStackHeader) {\
         pthread_mutex_unlock(&zStackHeaderLock);\
