@@ -792,7 +792,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     /* 耗时预测超过 90 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
     if (900 < zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
-        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 %zd 秒，请稍后查看布署结果\"}]", 2 * zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 %zd 秒，请稍后查看布署结果\"}]", zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
         zsendto(zSd, zppCommonBuf[0], zSendLen, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
@@ -920,8 +920,8 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 秒后查看布署列表中最新一条记录",
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10.0);
         }
         return -11;
     }
