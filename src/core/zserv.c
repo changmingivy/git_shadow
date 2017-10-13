@@ -283,6 +283,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
 
     /* 若上一次布署是部分失败的，返回 -13 错误 */
     if (zRepoDamaged == zpGlobRepoIf[zpMetaIf->RepoId]->RepoState) {
+        zpMetaIf->p_data = "====上一次布署失败，请重试布署====";
         return -13;
     }
 
