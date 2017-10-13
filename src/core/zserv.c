@@ -652,10 +652,8 @@ zErrMark:;
  */
 _i
 zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
-    FILE *zpShellRetHandler;
-
     zVecWrapInfo *zpTopVecWrapIf;
-    _i zErrNo, zDiffBytes;
+    _i zErrNo = 0;
     time_t zRemoteHostInitTimeSpent;
     zRegResInfo *zpHostStrAddrRegResIf;
 
@@ -761,27 +759,15 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
         zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 600 + 10 * (zRemoteHostInitTimeSpent + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp));
     } else {
-        sprintf(zppCommonBuf[0], "cd %s && git diff --binary \"%s\" \"%s\" | wc -c",
-                zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
-                zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig
-                );
-
-        zpShellRetHandler = popen(zppCommonBuf[0], "r");
-        zget_one_line(zppCommonBuf[0], 128, zpShellRetHandler);
-        pclose(zpShellRetHandler);
-
-        zDiffBytes = strtol(zppCommonBuf[0], NULL, 10);
-
         /*
-         * [基数 = 30s + 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 4M，超时上限递增 1 秒]
+         * [基数 = 30s + 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 ?M，超时上限递增 1 秒]
          * [网络数据总量 == 主机数 X 每台的数据量]
          * [单位：0.1 秒]
          */
         zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 300 + 10 * (
                 zRemoteHostInitTimeSpent
-                + time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  // 本地动作耗时，包括统计时间本身
-                + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost * zDiffBytes / 4096000
+                + time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  /* 本地动作耗时 */
+                + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / 10  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
                 );
 
         /* 最长 10 分钟 */
