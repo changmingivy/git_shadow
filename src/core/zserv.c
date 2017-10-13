@@ -709,7 +709,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     for (_ui zCnter = 0; zCnter < zpHostStrAddrRegResIf->cnt; zCnter++) {
         zpGitPushIf[zCnter].RepoId = zpGlobRepoIf[zpMetaIf->RepoId]->RepoId;
         zpGitPushIf[zCnter].p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
-        zAdd_To_Thread_Pool(zgit_push_ccur, &zpGitPushIf[zCnter]);
+        zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGitPushIf[zCnter]));
     }
 
     /* 测算超时时间 */
@@ -815,7 +815,7 @@ zSuccessMark:
         }
 
         /* 重置内存池状态 */
-        zReset_Mem_Pool_State(zpMetaIf->RepoId);
+        //zReset_Mem_Pool_State(zpMetaIf->RepoId);  // 当前布署成功判定条件，不能重置，待解决
 
         /* 如下部分：更新全局缓存 */
         zpGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
