@@ -4,138 +4,141 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
-# _SHADOW 分支每次都会更新，以此触发 post-update
-if [[ "_SHADOW" != `echo $1 | grep -o '_SHADOW$'` ]]; then exit 0; fi
+# 由于git push会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
+(
+    # _SHADOW 分支每次都会更新，以此触发 post-update
+    if [[ "_SHADOW" != `echo $1 | grep -o '_SHADOW$'` ]]; then exit 0; fi
 
-zPathOnHost="__PROJ_PATH"
-zMasterAddr="__MASTER_ADDR"
-zMasterPort="__MASTER_PORT"
-zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
-zProjId=`echo $1 | grep -o 'server[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`; if [[ "" == ${zProjId} ]]; then exit 255; fi
-zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
-zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
+    zPathOnHost="__PROJ_PATH"
+    zMasterAddr="__MASTER_ADDR"
+    zMasterPort="__MASTER_PORT"
+    zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
+    zProjId=`echo $1 | grep -o 'server[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`; if [[ "" == ${zProjId} ]]; then exit 255; fi
+    zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
+    zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
-# 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
-chmod 0444 ${zPathOnHost}/.git/hooks/post-update
+    # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
+    chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
-# 清理同一项目下可能存在的 post-update 进程
-kill -9 `cat /home/git/.${zProjId}_pid_post-update`
-echo "$$" > /home/git/.${zProjId}_pid_post-update
+    # 清理同一项目下可能存在的 post-update 进程
+    kill -9 `cat /home/git/.${zProjId}_pid_post-update`
+    echo "$$" > /home/git/.${zProjId}_pid_post-update
 
-# 转换Ip String为数字格式：$HostId
-zHostId=0
-zCnter=0
-for zField in `printf ${zSelfIpStrAddr} | grep -oP '\d+'`
-do
-    let zHostId+=$((${zField} << (8 * ${zCnter})))
-    let zCnter++
-done
+    # 转换Ip String为数字格式：$HostId
+    zHostId=0
+    zCnter=0
+    for zField in `printf ${zSelfIpStrAddr} | grep -oP '\d+'`
+    do
+        let zHostId+=$((${zField} << (8 * ${zCnter})))
+        let zCnter++
+    done
 
-# 'A'目标机初始伦；'B'布署结果返回；'C'KeepAlive
-zTcpReply() {
-    exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
-    printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${1},\"ExtraData\":${2}}]">&777
-    exec 777>&-
-}
+    # 'A'目标机初始伦；'B'布署结果返回；'C'KeepAlive
+    zTcpReply() {
+        exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
+        printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${1},\"ExtraData\":${2}}]">&777
+        exec 777>&-
+    }
 
-printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+    printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
-# 进入项目代码库
-cd $zPathOnHost
-if [[ 0 -ne $? ]]; then exit 255; fi
-export GIT_DIR="${zPathOnHost}/.git"
+    # 进入项目代码库
+    cd $zPathOnHost
+    if [[ 0 -ne $? ]]; then exit 255; fi
+    export GIT_DIR="${zPathOnHost}/.git"
 
-# 分支更名
-git branch -M "NEW${zServBranchName}" "${zServBranchName}"
-git branch -M "NEW${zServBranchName}_SHADOW" "${zServBranchName}_SHADOW"
+    # 分支更名
+    git branch -M "NEW${zServBranchName}" "${zServBranchName}"
+    git branch -M "NEW${zServBranchName}_SHADOW" "${zServBranchName}_SHADOW"
 
-zServSig=`git log ${zServBranchName} -1 --format=%H`
+    zServSig=`git log ${zServBranchName} -1 --format=%H`
 
-# 检测必要的路径下是存在权限异常的文件
-mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
-chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
-if [[ 0 -ne $? ]]; then
-    zTcpReply "${zServSig}>permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
-    exit 255
-fi
+    # 检测必要的路径下是存在权限异常的文件
+    mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
+    chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
+    if [[ 0 -ne $? ]]; then
+        zTcpReply "${zServSig}>permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
+        exit 255
+    fi
 
-# 清除可能存在的由于 git 崩溃残留的锁文件
-rm -f ${zPathOnHost}/.git/index.lock
-rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+    # 清除可能存在的由于 git 崩溃残留的锁文件
+    rm -f ${zPathOnHost}/.git/index.lock
+    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
-zTcpReply "${zServSig}" "C" &
-git reset -q --hard ${zServBranchName}
-if [[ 0 -ne $? ]]; then
-    \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
-    git stash
-    git stash clear
+    zTcpReply "${zServSig}" "C" &
     git reset -q --hard ${zServBranchName}
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}>git reset failed: ${zPathOnHost}" "B-"
-        exit 255
+        \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
+        git stash
+        git stash clear
+        git reset -q --hard ${zServBranchName}
+        if [[ 0 -ne $? ]]; then
+            zTcpReply "${zServSig}>git reset failed: ${zPathOnHost}" "B-"
+            exit 255
+        fi
     fi
-fi
 
-# 元数据布署，代码量可控，不必 KeepAlive
-cd ${zPathOnHost}_SHADOW
-export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-git pull ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
-if [[ 0 -ne $? ]]; then
-    \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
-    git stash
-    git stash clear
-    git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
+    # 元数据布署，代码量可控，不必 KeepAlive
+    cd ${zPathOnHost}_SHADOW
+    export GIT_DIR="${zPathOnHost}_SHADOW/.git"
+    git pull ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}>git pull failed: ${zPathOnHost}_SHADOW" "B-"
+        \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
+        git stash
+        git stash clear
+        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
+        if [[ 0 -ne $? ]]; then
+            zTcpReply "${zServSig}>git pull failed: ${zPathOnHost}_SHADOW" "B-"
+            exit 255
+        fi
+    fi
+
+    # 校验布署结果
+    cd ${zPathOnHost}
+    export GIT_DIR="${zPathOnHost}/.git"
+    zMasterSig=`git log master -1 --format=%H`
+    if [[ "$zMasterSig" != "$zServSig" ]]; then
+        zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
+        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+    elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
+        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
+        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
-fi
 
-# 校验布署结果
-cd ${zPathOnHost}
-export GIT_DIR="${zPathOnHost}/.git"
-zMasterSig=`git log master -1 --format=%H`
-if [[ "$zMasterSig" != "$zServSig" ]]; then
-    zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
-    chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-    exit 255
-elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
-    zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
-    chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-    exit 255
-fi
+    ##########################################
+    # 布署成功：'B+' 用于标识这是布署状态回复 #
+    ##########################################
+    cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
+    bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh \
+        "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
 
-##########################################
-# 布署成功：'B+' 用于标识这是布署状态回复 #
-##########################################
-cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh \
-	"${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
+    ######################################################################
+    # 采取换软链接的方式，避免推送大量代码过程中线上代码出现不一致的情况 #
+    ######################################################################
+    rm -rf ${zProjOnLinePath}
+    rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文件
+    ln -s ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
+    ln -s ${zPathOnHost} ${zProjOnLinePath}  # 临时切换至布署仓库工作区
 
-######################################################################
-# 采取换软链接的方式，避免推送大量代码过程中线上代码出现不一致的情况 #
-######################################################################
-rm -rf ${zProjOnLinePath}
-rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文件
-ln -s ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
-ln -s ${zPathOnHost} ${zProjOnLinePath}  # 临时切换至布署仓库工作区
+    cd ${zPathOnHost}_OnLine
+    git pull ${zPathOnHost}/.git master:master
+    if [[ 0 != $? ]]; then
+        rm -rf ${zPathOnHost}_OnLine
+        git clone $zPathOnHost/.git ${zPathOnHost}_OnLine
+    fi
 
-cd ${zPathOnHost}_OnLine
-git pull ${zPathOnHost}/.git master:master
-if [[ 0 != $? ]]; then
-    rm -rf ${zPathOnHost}_OnLine
-    git clone $zPathOnHost/.git ${zPathOnHost}_OnLine
-fi
+    # 切换回线上仓库工作区
+    rm -rf ${zProjOnLinePath}
+    ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
 
-# 切换回线上仓库工作区
-rm -rf ${zProjOnLinePath}
-ln -s ${zPathOnHost}_OnLine ${zProjOnLinePath}
+    # 布署完成之后需要执行的动作：____post-deploy.sh
+    cd ${zProjOnLinePath} && bash ./____post-deploy.sh
 
-# 布署完成之后需要执行的动作：____post-deploy.sh
-cd ${zProjOnLinePath} && bash ./____post-deploy.sh
+    # 更新开机请求布署自身的脚本，设置为隐藏文件
+    cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
 
-# 更新开机请求布署自身的脚本，设置为隐藏文件
-cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
-
-# 能够正常终止的，最后删除pid文件
-rm /home/git/.${zProjId}_pid_post-update
+    # 能够正常终止的，最后删除pid文件
+    rm /home/git/.${zProjId}_pid_post-update
+) &
