@@ -5,9 +5,12 @@
 #   (2) /etc/sysctl.conf 中的 net.core.somaxconn 参数指定为 1024 以上，之后执行 sysctl -p 使之立即生效
 #   (3) yum install openssl-devel
 
+# 布署系统全局共用变量
+export zGitShadowPath=/home/git/zgit_shadow
+
 zServAddr=$1
 zServPort=$2
-zShadowPath="${HOME}/zgit_shadow"
+zShadowPath=$zGitShadowPath  # 系统全局变量 $zGitShadowPath
 
 cd $zShadowPath
 #git stash
@@ -72,7 +75,7 @@ clang -Wall -Wextra -std=c99 -O2 \
     ${zShadowPath}/src/extra/znotice.c
 strip ${zShadowPath}/tools/notice
 
-export LD_LIBRARY_PATH=/home/git/zgit_shadow/lib/libssh2/lib64:/home/git/zgit_shadow/lib/libgit2/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${zShadowPath}/lib/libssh2/lib64:${zShadowPath}/lib/libgit2/lib:$LD_LIBRARY_PATH
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 # 后台进入退出重启机制

@@ -8,7 +8,7 @@ zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的�
 zRemoteVcsType=$5  # svn 或 git
 ###################
 
-zShadowPath=/home/git/zgit_shadow
+zShadowPath=${zGitShadowPath}
 zDeployPath=/home/git/${zPathOnHost}
 zServBranchName="server${zProjId}"
 
@@ -80,7 +80,7 @@ git add --all .
 git commit --allow-empty -m "____Dp_System_Init____"
 
 # 防止添加重复条目
-zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
+zExistMark=`cat ${zShadowPath}/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
 if [[ 0 -eq $zExistMark ]];then
     zDirName=`dirname \`dirname ${zPathOnHost}\``
     zBaseName=`basename ${zPathOnHost}`

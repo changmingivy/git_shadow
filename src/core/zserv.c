@@ -700,7 +700,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             \
             "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"\
             "rm -rf ./tools;"\
-            "cp -R /home/git/zgit_shadow/tools ./;"\
+            "cp -R ${zGitShadowPath}/tools ./;"\
             "chmod 0755 ./tools/post-update;"\
             "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
             "git add --all .;"\
