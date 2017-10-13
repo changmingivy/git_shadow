@@ -5,15 +5,15 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
 # 由于git push会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
+# git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
+#     参数格式类似：refs/heads/server1 refs/heads/server1_SHADOW 的形式，
+#     分支的先后顺序与推送方的指令顺序一致，分别对应 $1 $2 ...
 (
-    # _SHADOW 分支每次都会更新，以此触发 post-update
-    if [[ "_SHADOW" != `echo $1 | grep -o '_SHADOW$'` ]]; then exit 0; fi
-
     zPathOnHost="__PROJ_PATH"
     zMasterAddr="__MASTER_ADDR"
     zMasterPort="__MASTER_PORT"
     zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
-    zProjId=`echo $1 | grep -o 'server[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`; if [[ "" == ${zProjId} ]]; then exit 255; fi
+    zProjId=`echo $1 | grep -o '[0-9]\+$'`; if [[ "" == ${zProjId} ]]; then exit 255; fi
     zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
     zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
