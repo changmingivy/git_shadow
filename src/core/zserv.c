@@ -773,7 +773,7 @@ zErrMark:
                     zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
                     zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
                             zIpStrAddrBuf,
-                            '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
+                            '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "" : zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
                             );
 
                     /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
