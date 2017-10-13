@@ -6,7 +6,7 @@
 #   (3) yum install openssl-devel
 
 # 布署系统全局共用变量
-export zGitShadowPath=/home/git/zgit_shadow
+export zGitShadowPath=/home/git/zgit_shadow2
 
 zServAddr=$1
 zServPort=$2
