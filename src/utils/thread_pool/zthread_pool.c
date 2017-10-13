@@ -64,6 +64,9 @@ ztmp_thread_func(void *zpIf) {
 
 void
 zthread_poll_init(void) {
+    /* 全局并发线程总数限制 */
+    sem_init(&zGlobSemaphore, 0, zGlobThreadLimit);
+
     for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
         zCheck_Pthread_Func_Exit( pthread_create(&____zThreadPoolTidTrash, NULL, zthread_func, NULL) );
     }
