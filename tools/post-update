@@ -44,7 +44,10 @@ export HOME="/home/git"
 
     # 进入项目代码库
     cd $zPathOnHost
-    if [[ 0 -ne $? ]]; then exit 255; fi
+    if [[ 0 -ne $? ]]; then
+        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+    fi
     export GIT_DIR="${zPathOnHost}/.git"
 
     # 分支更名
@@ -58,6 +61,7 @@ export HOME="/home/git"
     chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
     if [[ 0 -ne $? ]]; then
         zTcpReply "${zServSig}>permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
+        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
 
@@ -74,6 +78,7 @@ export HOME="/home/git"
         git reset -q --hard ${zServBranchName}
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}>git reset failed: ${zPathOnHost}" "B-"
+            chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
@@ -89,6 +94,7 @@ export HOME="/home/git"
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}>git pull failed: ${zPathOnHost}_SHADOW" "B-"
+            chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
