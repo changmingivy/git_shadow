@@ -11,7 +11,7 @@ zPathOnHost="__PROJ_PATH"
 zMasterAddr="__MASTER_ADDR"
 zMasterPort="__MASTER_PORT"
 zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
-zProjId=`echo $1 | grep -o '[0-9]\+$'`
+zProjId=`echo $1 | grep -o 'server[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`; if [[ "" == ${zProjId} ]]; then exit 255; fi
 zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
 zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
