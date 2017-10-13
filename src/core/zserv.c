@@ -35,6 +35,7 @@
         pthread_rwlock_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId]->RwLock));\
         zpMetaIf->p_data[0] = '\0';\
         zpMetaIf->p_ExtraData[0] = '\0';\
+        zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId]->CacheId;\
         return -8;\
     }\
 } while(0)
