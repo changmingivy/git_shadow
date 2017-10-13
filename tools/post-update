@@ -129,6 +129,7 @@ export HOME="/home/git"
     ln -s ${zPathOnHost} ${zProjOnLinePath}  # 临时切换至布署仓库工作区
 
     cd ${zPathOnHost}_OnLine
+    export GIT_DIR="${zPathOnHost}_OnLine/.git"
     git pull ${zPathOnHost}/.git master:master
     if [[ 0 != $? ]]; then
         rm -rf ${zPathOnHost}_OnLine
