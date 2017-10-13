@@ -679,6 +679,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     if (zpGlobRepoIf[zpMetaIf->RepoId]->CacheId != zpMetaIf->CacheId) {
         zpMetaIf->p_data = "====已产生新的布署记录，请刷新页面====";
         zpMetaIf->p_ExtraData[0] = '\0';
+        zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         return -8;
     }
 
