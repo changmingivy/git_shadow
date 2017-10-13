@@ -453,7 +453,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
-            "(rm -f %s %s_SHADOW;"\
+            "rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
             "cd %s_SHADOW && rm -f .git/hooks/post-update; git init .; git config user.name _; git config user.email _;"\
@@ -466,13 +466,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
             "exec 777>&-;"\
-            "exec 777<&-;"\
-\
-            "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"\
-            "exec 777>/dev/tcp/%s/%s;"\
-            "if [[ 0 -eq `head -1 .git/hooks/post-update | grep -c '\"OpsId\":\\-80'` ]]; then zMark='+'; else zMark='-'; fi;"\
-            "printf \"{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"data\\\":%zd,\\\"ExtraData\\\":A${zMark}}\">&777;"\
-            "exec 777>&-) &",\
+            "exec 777<&-;",\
 \
             zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
             zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
@@ -482,10 +476,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             zpMetaIf->RepoId,\
 \
             zNetServIf.p_IpAddr, zNetServIf.p_port,\
-            zpMetaIf->RepoId, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,\
-\
-            zNetServIf.p_IpAddr, zNetServIf.p_port,\
-            zpMetaIf->RepoId, zpGlobRepoIf[zpMetaIf->RepoId]->CacheId\
+            zpMetaIf->RepoId, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath\
             );\
 } while(0)
 
@@ -609,40 +600,6 @@ zExistMark:
     /* 释放资源 */
     if (NULL != zpOldDpResListIf) { free(zpOldDpResListIf); }
 
-    /*
-     * 等待所有主机的状态都得到确认，120+ 秒超时
-     * 每台目标机额外递增 0.5 秒
-     * 由于初始化远程主机动作的工作量是固定的，可按目标主机数量运态调整超时时间
-     * 注意！布署时受推送代码量等诸多其它因素的影响，不能使用此种简单算法
-     */
-    _ui zWaitTimeLimit = 10 * (120 + 0.5 * zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost);
-    _ui zWaitCntLimit = (10 <= zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost) ? (zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost * 9 / 10) : zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
-    for (_ui zTimeCnter = 0; zWaitCntLimit > zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0]; zTimeCnter++) {
-        zsleep(0.1);
-        if (zWaitTimeLimit < zTimeCnter) {
-            /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-zErrMark:;
-            char zIpStrAddrBuf[INET_ADDRSTRLEN];
-            for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zRegResIf->cnt); zCnter++) {
-                /* 初始化远程主机的成功返回码是 1，出错返回 -1，初始码为 0 */
-                if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
-                    zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
-                    zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s] %s)",
-                            zIpStrAddrBuf,
-                            '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg[0] ? "time out" : zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ErrMsg
-                            );
-
-                    /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = 0;
-                }
-            }
-
-            if ('\0' == zpMetaIf->p_data[0]) { return 0; }  // 用于防止遍历过程中状态得到确认
-            else { return -23; }
-        }
-    }
-
-    if ( -1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0]) { goto zErrMark; }
     return 0;
 }
 
