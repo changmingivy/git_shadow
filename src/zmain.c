@@ -22,7 +22,6 @@
 
 #include <pthread.h>
 #include <sys/mman.h>
-#include <semaphore.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -46,7 +45,9 @@
 
 #include "../inc/zutils.h"
 
-#define zGlobThreadLimit 256
+//#include <semaphore.h>
+//#define zGlobThreadLimit 256  // 临时线程上限
+
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
 #define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 
@@ -272,9 +273,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /* 以 ANSI 字符集中的前 128 位成员作为索引 */
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
-
-/* 全局并发线程总数限制 */
-sem_t zGlobSemaphore;
 
 /************
  * 配置文件 *
