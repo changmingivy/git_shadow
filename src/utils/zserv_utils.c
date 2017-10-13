@@ -34,8 +34,8 @@
  * 功能：生成单个文件的差异内容缓存
  */
 void *
-zget_diff_content(void *zpIf) {
-    zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
+zget_diff_content(void *zpParam) {
+    zMetaInfo *zpMetaIf = (zMetaInfo *)zpParam;
     zVecWrapInfo *zpTopVecWrapIf;
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zBaseDataLen, zCnter;
@@ -152,8 +152,8 @@ zget_diff_content(void *zpIf) {
 } while (0)
 
 void *
-zdistribute_task(void *zpIf) {
-    zMetaInfo *zpNodeIf = (zMetaInfo *)zpIf;
+zdistribute_task(void *zpParam) {
+    zMetaInfo *zpNodeIf = (zMetaInfo *)zpParam;
     zMetaInfo **zppKeepPtr = zpNodeIf->pp_ResHash;
 
     do {
@@ -303,8 +303,8 @@ zget_file_list_large(zMetaInfo *zpMetaIf, zVecWrapInfo *zpTopVecWrapIf, FILE *zp
 }
 
 void *
-zget_file_list(void *zpIf) {
-    zMetaInfo *zpMetaIf = (zMetaInfo *)zpIf;
+zget_file_list(void *zpParam) {
+    zMetaInfo *zpMetaIf = (zMetaInfo *)zpParam;
     zVecWrapInfo *zpTopVecWrapIf;
     FILE *zpShellRetHandler;
 
@@ -465,13 +465,13 @@ zMarkLarge:
  * 当有新的布署或撤销动作完成时，所有的缓存都会失效，因此每次都需要重新执行此函数以刷新预载缓存
  */
 void *
-zgenerate_cache(void *zpIf) {
+zgenerate_cache(void *zpParam) {
     zMetaInfo *zpMetaIf, zSubMetaIf;
     zVecWrapInfo *zpTopVecWrapIf, *zpSortedTopVecWrapIf;
     zBaseDataInfo *zpTmpBaseDataIf[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
 
-    zpMetaIf = (zMetaInfo *)zpIf;
+    zpMetaIf = (zMetaInfo *)zpParam;
 
     /* 计算本函数需要用到的最大 BufSiz */
     _i zMaxBufLen = 256 + zppGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + 12;
@@ -794,12 +794,27 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 }
 #undef zFree_Source
 
+
+/* 用于线程并发执行的外壳函数 */
+void *
+zinit_one_repo_env_thread_wraper(void *zpParam) {
+    char *zpOrigStr = (char *) zpParam;
+    _i zErrNo;
+    if (0 > (zErrNo = zinit_one_repo_env(zpOrigStr))) {
+        fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
+    }
+
+    return NULL;
+}
+
+
 /* 读取项目信息，初始化配套环境 */
 void *
 zinit_env(const char *zpConfPath) {
     FILE *zpFile;
-    char zRes[zGlobBufSiz];
-    _i zErrNo;
+    static char zConfBuf[128][zGlobBufSiz];  // 预置 128 个静态缓存区
+    char *zpConfBuf;
+    _i zErrNo = 0, zCnter = 0;
 
     /* json 解析时的回调函数索引 */
     zJsonParseOps['O']  // OpsId
@@ -815,12 +830,20 @@ zinit_env(const char *zpConfPath) {
         = zparse_str;
 
     zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
-    while (NULL != zget_one_line(zRes, zGlobBufSiz, zpFile)) {
-        if (0 > (zErrNo = zinit_one_repo_env(zRes))) {
-            fprintf(stderr, "ERROR[zinit_one_repo_env]: %d\n", zErrNo);
+    while (128 > zCnter) {
+        if (NULL == zget_one_line(zConfBuf[zCnter], zGlobBufSiz, zpFile)) {
+            goto zMarkFin;
+        } else {
+            zAdd_To_Thread_Pool(zinit_one_repo_env_thread_wraper, zConfBuf[zCnter++]);
         }
     }
 
+    zMem_Alloc(zpConfBuf, char, zGlobBufSiz);
+    while (NULL != zget_one_line(zpConfBuf, zGlobBufSiz, zpFile)) {
+        zAdd_To_Thread_Pool(zinit_one_repo_env_thread_wraper, zpConfBuf);
+    }
+
+zMarkFin:
     if (0 > zGlobMaxRepoId) { zPrint_Err(0, NULL, "未读取到有效代码库信息!"); }
 
     fclose(zpFile);
