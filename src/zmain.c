@@ -47,6 +47,8 @@
 #include "../inc/zutils.h"
 
 #define zGlobThreadLimit 256
+#define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
+#define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
@@ -259,7 +261,9 @@ typedef struct zRepoInfo zRepoInfo;
 struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
 
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
-struct zRepoInfo **zppGlobRepoIf;
+pthread_mutex_t zGlobMaxRepoIdLock = PTHREAD_MUTEX_INITIALIZER;
+
+struct zRepoInfo *zpGlobRepoIf[zGlobRepoIdLimit];
 
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
@@ -271,9 +275,6 @@ zJsonParseFunc zJsonParseOps[128];
 
 /* 全局并发线程总数限制 */
 sem_t zGlobSemaphore;
-
-/* 系统启动时所用的同步锁 */
-pthread_mutex_t zSystemInitLock = PTHREAD_MUTEX_INITIALIZER;
 
 /************
  * 配置文件 *
@@ -287,9 +288,9 @@ pthread_mutex_t zSystemInitLock = PTHREAD_MUTEX_INITIALIZER;
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
-    pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_lock(&(zpGlobRepoIf[zRepoId]->MemLock));
 
-    if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
+    if ((zSiz + zpGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
         void **zppPrev, *zpCur;
         /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
         if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
@@ -298,15 +299,15 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
             exit(1);
         }
         zppPrev = zpCur;
-        zppPrev[0] = zppGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
-        zppGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
-        zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
+        zppPrev[0] = zpGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
+        zpGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
+        zpGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
     }
 
-    void *zpX = zppGlobRepoIf[zRepoId]->p_MemPool + zppGlobRepoIf[zRepoId]->MemPoolOffSet;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
+    void *zpX = zpGlobRepoIf[zRepoId]->p_MemPool + zpGlobRepoIf[zRepoId]->MemPoolOffSet;
+    zpGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
 
-    pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId]->MemLock));
     return zpX;
 }
 
