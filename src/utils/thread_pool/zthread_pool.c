@@ -38,7 +38,6 @@ zMark:
     pthread_mutex_unlock(&zStackHeaderLock);
 
     zpSelfTask->func(zpSelfTask->p_param);
-    sem_post(&zGlobSemaphore);  // 任务完成，释放信号量
 
     zpSelfTask->func = NULL;
     goto zMark;
@@ -54,9 +53,9 @@ ztmp_thread_func(void *zpIf) {
     zThreadPoolInfo *zpTaskIf = (zThreadPoolInfo *) zpIf;
 
     zpTaskIf->func(zpTaskIf->p_param);  // 执行任务
-    sem_post(&zGlobSemaphore);  // 任务完成，释放信号量
 
     free(zpTaskIf);
+    sem_post(&zGlobSemaphore);  // 任务完成，释放信号量：线程池内的线程不需要此步！！！
     return NULL;
 }
 
@@ -74,7 +73,6 @@ zthread_poll_init(void) {
  * 优先使用线程池，若线程池满，则新建临时线程执行任务
  */
 #define zAdd_To_Thread_Pool(zFunc, zParam) do {\
-    sem_wait(&zGlobSemaphore);  /* 防止操作系统负载过高 */\
     pthread_mutex_lock(&zStackHeaderLock);\
     if (0 > ____zStackHeader) {\
         pthread_mutex_unlock(&zStackHeaderLock);\
@@ -82,6 +80,7 @@ zthread_poll_init(void) {
         zMem_Alloc(____zpTmpJobIf, zThreadPoolInfo, 1);\
         ____zpTmpJobIf->func = zFunc;\
         ____zpTmpJobIf->p_param = zParam;\
+        sem_wait(&zGlobSemaphore);  /* 防止创建过多的线程 */\
         pthread_create(&____zThreadPoolTidTrash, NULL, ztmp_thread_func, ____zpTmpJobIf);\
     } else {\
         _i ____zKeepStackHeader= ____zStackHeader;\
