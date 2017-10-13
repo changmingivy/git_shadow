@@ -26,25 +26,29 @@ touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
 # build libssh2
-mkdir -p ${zShadowPath}/lib/libssh2_source/____build
-cd ${zShadowPath}/lib/libssh2_source/____build && rm -rf * .*
-cmake .. \
-    -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 \
-    -DBUILD_SHARED_LIBS=ON
-cmake --build . --target install
+mkdir ${zShadowPath}/lib/libssh2_source/____build
+if [[ 0 -eq $? ]]; then
+    cd ${zShadowPath}/lib/libssh2_source/____build && rm -rf * .*
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libssh2 \
+        -DBUILD_SHARED_LIBS=ON
+    cmake --build . --target install
+fi
 zLibSshPath=${zShadowPath}/lib/libssh2/lib64
 if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib; fi
 
 # build libgit2
-mkdir -p ${zShadowPath}/lib/libgit2_source/____build
-cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
-cmake .. \
-    -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 \
-    -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
-    -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
-    -DBUILD_SHARED_LIBS=ON \
-    -DBUILD_CLAR=OFF
-cmake --build . --target install
+mkdir ${zShadowPath}/lib/libgit2_source/____build
+if [[ 0 -eq $? ]]; then
+    cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libgit2 \
+        -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
+        -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
+        -DBUILD_SHARED_LIBS=ON \
+        -DBUILD_CLAR=OFF
+    cmake --build . --target install
+fi
 zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
