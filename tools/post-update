@@ -4,7 +4,7 @@
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
-if [[ "_SHADOW" == `echo $1 | grep -o '_SHADOW$'`]]; then exit 0; fi
+if [[ "_SHADOW" == `echo $1 | grep -o '_SHADOW$'` ]]; then exit 0; fi
 
 zPathOnHost="__PROJ_PATH"
 zMasterAddr="__MASTER_ADDR"
