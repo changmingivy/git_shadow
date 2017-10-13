@@ -107,10 +107,10 @@ export HOME="/home/git"
         zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
-    elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
-        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        exit 255
+#    elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
+#        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
+#        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+#        exit 255
     fi
 
     ##########################################
