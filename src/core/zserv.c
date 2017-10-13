@@ -468,7 +468,8 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 \
             "zIPv4NumAddr=0; zCnter=0; for zField in `echo ${____zSelfIp} | grep -oE '[0-9]+'`; do let zIPv4NumAddr+=$[${zField} << (8 * ${zCnter})]; let zCnter++; done;"\
             "exec 777>/dev/tcp/%s/%s;"\
-            "printf \"{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"data\\\":%zd,\\\"ExtraData\\\":A+}\">&777;"\
+            "if [[ 0 -eq `head -1 .git/hooks/post-update | grep -c '\"OpsId\":\\-80'` ]]; then zMark='+'; else zMark='-'; fi;"\
+            "printf \"{\\\"OpsId\\\":8,\\\"ProjId\\\":%d,\\\"HostId\\\":${zIPv4NumAddr},\\\"data\\\":%zd,\\\"ExtraData\\\":A${zMark}}\">&777;"\
             "exec 777>&-) &",\
 \
             zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,\
