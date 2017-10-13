@@ -817,8 +817,7 @@ void *
 zinit_env(const char *zpConfPath) {
     FILE *zpFile;
     static char zConfBuf[zGlobRepoNumLimit][zGlobBufSiz];  // 预置 128 个静态缓存区
-    char *zpConfBuf;
-    _i zErrNo = 0, zCnter = 0;
+    _i zCnter = 0;
 
     /* json 解析时的回调函数索引 */
     zJsonParseOps['O']  // OpsId
