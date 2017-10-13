@@ -272,6 +272,9 @@ zJsonParseFunc zJsonParseOps[128];
 /* 全局并发线程总数限制 */
 sem_t zGlobSemaphore;
 
+/* 系统启动时所用的同步锁 */
+pthread_mutex_t zSystemInitLock = PTHREAD_MUTEX_INITIALIZER;
+
 /************
  * 配置文件 *
  ************/

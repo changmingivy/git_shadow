@@ -622,8 +622,13 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         return -34;
     }
 
-    /* 提取项目ID */
+    /* 提取项目ID，调整 zGlobMaxRepoId */
     zRepoId = strtol(zRegResIf->p_rets[0], NULL, 10);
+
+    pthread_mutex_lock(&zSystemInitLock);  // 需要加锁
+    zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
+    pthread_mutex_unlock(&zSystemInitLock);
+
     if (zRepoId > zGlobMaxRepoId) {
         zMem_Re_Alloc(zppGlobRepoIf, zRepoInfo *, zRepoId + 1, zppGlobRepoIf);
         for (_i i = zGlobMaxRepoId + 1; i < zRepoId; i++) {
@@ -781,8 +786,6 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zMetaIf.DataType = zIsDpDataType;
     zgenerate_cache(&zMetaIf);
 
-    /* RepoId 最大值 */
-    zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
     zppGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
 
     /* 全局 libgit2 Handler 初始化 */
