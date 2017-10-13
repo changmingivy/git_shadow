@@ -777,7 +777,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     }
 
     /* DEBUG */
-    fprintf(stderr, "\n\033[31;01m[ DEBUG ] 布署时间测算结果：%zd 秒\033[00m", zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
+    fprintf(stderr, "\n\033[31;01m[ DEBUG ] 布署时间测算结果：%zd 秒\033[00m\n\n", zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
 
     /* 耗时预测超过 90 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
     if (900 < zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
