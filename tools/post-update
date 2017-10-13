@@ -45,7 +45,7 @@ export HOME="/home/git"
     # 进入项目代码库
     cd $zPathOnHost
     if [[ 0 -ne $? ]]; then
-        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
     export GIT_DIR="${zPathOnHost}/.git"
@@ -61,7 +61,7 @@ export HOME="/home/git"
     chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW ${zPathOnHost}_OnLine
     if [[ 0 -ne $? ]]; then
         zTcpReply "${zServSig}>permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
-        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
 
@@ -78,7 +78,7 @@ export HOME="/home/git"
         git reset -q --hard ${zServBranchName}
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}>git reset failed: ${zPathOnHost}" "B-"
-            chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
@@ -94,7 +94,7 @@ export HOME="/home/git"
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}>git pull failed: ${zPathOnHost}_SHADOW" "B-"
-            chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
@@ -105,11 +105,11 @@ export HOME="/home/git"
     zMasterSig=`git log master -1 --format=%H`
     if [[ "$zMasterSig" != "$zServSig" ]]; then
         zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
-        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
         zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
-        chmod 0777 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
 
@@ -147,4 +147,7 @@ export HOME="/home/git"
 
     # 能够正常终止的，最后删除pid文件
     rm /home/git/.${zProjId}_pid_post-update
+
+    # 退出之前还原权限
+    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
 ) &

@@ -461,6 +461,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
 \
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"\
+            "rm -f .git/hooks/post-update;"\
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
             "exec 777>&-;"\
