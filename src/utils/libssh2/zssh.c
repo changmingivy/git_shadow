@@ -211,7 +211,6 @@ zssh_ccur_simple_init_host(void  *zpIf) {
             }
 
             pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
-            zpGlobRepoIf[zpSshCcurIf->RepoId]->ReplyCnt[0]++;
             (* (zpSshCcurIf->p_TaskCnt))++;
             pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
             pthread_cond_signal(zpSshCcurIf->p_CcurCond);
