@@ -88,6 +88,9 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
     git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
 
+    /* when memory load > 80%，waiting ... */
+    while (80 < zGlobMemLoad) { zsleep(0.2); }
+
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
 
@@ -97,7 +100,7 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
 #define zNative_Fail_Confirm() do {\
     _ui ____zHostId = zconvert_ip_str_to_bin(zpGitPushIf->p_HostStrAddr);\
     zDpResInfo *____zpTmpIf = zpGlobRepoIf[zpGitPushIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
-    for (; ____zpTmpIf != NULL; ____zpTmpIf = ____zpTmpIf->p_next) {\
+    for (; NULL != ____zpTmpIf; ____zpTmpIf = ____zpTmpIf->p_next) {\
         if (____zHostId == ____zpTmpIf->ClientAddr) {\
             pthread_mutex_lock(&(zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
             if (0 == ____zpTmpIf->DpState) {\

@@ -12,12 +12,13 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#ifdef _Z_BSD
+#ifndef _Z_BSD
+    #include <sys/signal.h>
+    #include <sys/sysinfo.h>
+#else
     #include <netinet/in.h>
     #include <signal.h>
     #include <sys/select.h>
-#else
-    #include <sys/signal.h>
 #endif
 
 #include <pthread.h>
@@ -146,22 +147,23 @@ typedef struct zDpResInfo zDpResInfo;
 
 /* SSH 连接所用 */
 struct zSshCcurInfo {
-    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
-    char *zpHostServPort;  // 字符串形式的端口号，如："22"
-    char *zpCmd;  // 需要执行的指令集合
+    _i RepoId;
+    char *p_HostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *p_HostServPort;  // 字符串形式的端口号，如："22"
+    char *p_Cmd;  // 需要执行的指令集合
 
     _i zAuthType;
-    const char *zpUserName;
-    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
-    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
-    const char *zpPassWd;  // 登陆密码或公钥加密密码
+    const char *p_UserName;
+    const char *p_PubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *p_PrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *p_PassWd;  // 登陆密码或公钥加密密码
 
-    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
-    _ui zRemoteOutPutBufSiz;
+    char *p_RemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui RemoteOutPutBufSiz;
 
-    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
-    pthread_mutex_t *zpCcurLock;  // 同步锁
-    _ui *zpTaskCnt;  // SSH 任务完成计数
+    pthread_cond_t *p_CcurCond;  // 线程同步条件变量
+    pthread_mutex_t *p_CcurLock;  // 同步锁
+    _ui *p_TaskCnt;  // SSH 任务完成计数
 };
 typedef struct zSshCcurInfo zSshCcurInfo;
 
@@ -223,7 +225,7 @@ struct zRepoInfo {
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
-    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    _ui ReplyCnt;  // 布署成功计数
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
@@ -273,6 +275,15 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /* 以 ANSI 字符集中的前 128 位成员作为索引 */
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
+
+/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
+_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
+_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
+_c zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 90 则剩余任阻塞等待
+#ifndef _Z_BSD
+struct sysinfo zGlobSysLoadIf;
+#endif
+
 
 /************
  * 配置文件 *

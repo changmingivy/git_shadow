@@ -812,11 +812,28 @@ zinit_one_repo_env_thread_wraper(void *zpParam) {
 }
 
 
+#ifndef _Z_BSD
+/* 定时获取系统全局负载信息 */
+void *
+zsys_load_monitor(void *zpParam) {
+    while(1) {
+        if (0 == sysinfo(&zGlobSysLoadIf)) {
+            zGlobCpuLoad = 100.0 * zGlobSysLoadIf.loads[0] / zSysCpuNum;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
+            zGlobMemLoad = 100.0 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
+        }
+        zsleep(0.1);
+    }
+    return zpParam;  // 消除编译警告信息
+}
+#endif
+
+
 /* 读取项目信息，初始化配套环境 */
 void *
 zinit_env(const char *zpConfPath) {
-    FILE *zpFile;
+    FILE *zpFile = NULL;
     static char zConfBuf[zGlobRepoNumLimit][zGlobBufSiz];  // 预置 128 个静态缓存区
+    char zCpuNumBuf[8];
     _i zCnter = 0;
 
     /* json 解析时的回调函数索引 */
@@ -832,7 +849,7 @@ zinit_env(const char *zpConfPath) {
         = zJsonParseOps['E']  // ExtraData
         = zparse_str;
 
-    zCheck_Null_Exit(zpFile = fopen(zpConfPath, "r"));
+    zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (zGlobRepoNumLimit > zCnter) {
         if (NULL == zget_one_line(zConfBuf[zCnter], zGlobBufSiz, zpFile)) {
             goto zMarkFin;
@@ -847,6 +864,17 @@ zinit_env(const char *zpConfPath) {
 
 zMarkFin:
     fclose(zpFile);
+
+#ifndef _Z_BSD
+    zpFile = NULL;
+    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
+    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );
+    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
+    fclose(zpFile);
+
+    zAdd_To_Thread_Pool(zsys_load_monitor, NULL);
+#endif
+    
     return NULL;
 }
 

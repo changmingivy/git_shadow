@@ -167,14 +167,14 @@ void *
 zssh_ccur(void  *zpIf) {
     zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
 
-    zssh_exec(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpHostServPort, zpSshCcurIf->zpCmd,
-            zpSshCcurIf->zpUserName, zpSshCcurIf->zpPubKeyPath, zpSshCcurIf->zpPrivateKeyPath, zpSshCcurIf->zpPassWd, zpSshCcurIf->zAuthType,
-            zpSshCcurIf->zpRemoteOutPutBuf, zpSshCcurIf->zRemoteOutPutBufSiz, zpSshCcurIf->zpCcurLock);
+    zssh_exec(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_HostServPort, zpSshCcurIf->p_Cmd,
+            zpSshCcurIf->p_UserName, zpSshCcurIf->p_PubKeyPath, zpSshCcurIf->p_PrivateKeyPath, zpSshCcurIf->p_PassWd, zpSshCcurIf->zAuthType,
+            zpSshCcurIf->p_RemoteOutPutBuf, zpSshCcurIf->RemoteOutPutBufSiz, zpSshCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
-    (* (zpSshCcurIf->zpTaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
-    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
+    pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
+    (* (zpSshCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
+    pthread_cond_signal(zpSshCcurIf->p_CcurCond);
 
     return NULL;
 };
@@ -184,42 +184,41 @@ void *
 zssh_ccur_simple(void  *zpIf) {
     zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
 
-    zssh_exec_simple(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpCmd, zpSshCcurIf->zpCcurLock);
+    zssh_exec_simple(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_Cmd, zpSshCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
-    (* (zpSshCcurIf->zpTaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
-    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
+    pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
+    (* (zpSshCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
+    pthread_cond_signal(zpSshCcurIf->p_CcurCond);
 
     return NULL;
 };
 
+/* 远程主机初始化专用 */
+void *
+zssh_ccur_simple_init_host(void  *zpIf) {
+    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
 
+    _ui zHostId = zconvert_ip_str_to_bin(zpSshCcurIf->p_HostIpStrAddr);
+    zDpResInfo *zpTmpIf = zpGlobRepoIf[zpSshCcurIf->RepoId]->p_DpResHashIf[zHostId % zDpHashSiz];
+    for (; NULL != zpTmpIf; zpTmpIf = zpTmpIf->p_next) {
+        if (zHostId == zpTmpIf->ClientAddr) {
+            if (0 == zssh_exec_simple(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_Cmd, zpSshCcurIf->p_CcurLock)) {
+                zpTmpIf->InitState = 1;
+            } else {
+                zpTmpIf->InitState = -1;
+                zpGlobRepoIf[zpSshCcurIf->RepoId]->ResType[0] = -1;
+            }
 
-// // !!! TEST !!!
-// pthread_mutex_t zTestLock = PTHREAD_MUTEX_INITIALIZER;
-// _i
-// main(void) {
-//     static char zBuf[4096];
-//     static zSshCcurInfo zSshCcurIf;
-//
-//     zSshCcurIf.zpHostIpAddr = "127.0.0.1";
-//     zSshCcurIf.zpHostServPort = "22";
-//     zSshCcurIf.zpCmd = "echo \"libssh2 test [`date`]\" >> /tmp/testfile";
-//     zSshCcurIf.zAuthType = 1;
-//     zSshCcurIf.zpUserName = "fh";
-//     zSshCcurIf.zpPubKeyPath = "/home/fh/.ssh/id_rsa.pub";
-//     zSshCcurIf.zpPrivateKeyPath = "/home/fh/.ssh/id_rsa";
-//     zSshCcurIf.zpPassWd = NULL;
-//     zSshCcurIf.zpRemoteOutPutBuf = zBuf;
-//     zSshCcurIf.zRemoteOutPutBufSiz = 4096;
-//     zSshCcurIf.zpCcurLock = &zTestLock;
-//
-//     for (_i zCnter = 0; zCnter < 200; zCnter++) {
-//     //    fprintf(stderr, "%d\n", zCnter);
-//         zAdd_To_Thread_Pool(zssh_ccur, &zSshCcurIf);
-//     }
-//
-//     //zssh_exec("127.0.0.1", "22", "printf 'Hello!\n'; echo \"libssh2 test [`date`]\" >> /tmp/testfile", "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", "", 1, zBuf, 4096, NULL);
-//     return 0;
-// }
+            pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
+            zpGlobRepoIf[zpSshCcurIf->RepoId]->ReplyCnt[0]++;
+            (* (zpSshCcurIf->p_TaskCnt))++;
+            pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
+            pthread_cond_signal(zpSshCcurIf->p_CcurCond);
+
+            break;
+        }
+    }
+
+    return NULL;
+};
