@@ -627,11 +627,10 @@ zExistMark:
  * 13：新加入的主机请求布署自身
  */
 _i
-zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
+zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zGitPushInfo **zppGitPushIfOUT, zRegResInfo **zppHostStrAddrRegResIfOUT) {
     zVecWrapInfo *zpTopVecWrapIf;
     _i zErrNo = 0;
     time_t zRemoteHostInitTimeSpent;
-    zRegResInfo *zpHostStrAddrRegResIf;
 
     if (zIsCommitDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf= &(zpGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
@@ -640,14 +639,16 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     } else {
         zpMetaIf->p_data = "====[JSON: DataType] 字段指定的数据类型无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
-        return -10;
+        zErrNo = -10;
+        goto zEndMark;
     }
 
     /* 检查是否允许布署 */
     if (zDpLocked == zpGlobRepoIf[zpMetaIf->RepoId]->DpLock) {
         zpMetaIf->p_data = "====代码库被锁定，不允许布署====";
         zpMetaIf->p_ExtraData[0] = '\0';
-        return -6;
+        zErrNo = -6;
+        goto zEndMark;
     }
 
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
@@ -655,7 +656,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
         zpMetaIf->p_data = "====已产生新的布署记录，请刷新页面====";
         zpMetaIf->p_ExtraData[0] = '\0';
         zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId]->CacheId;
-        return -8;
+        zErrNo = -8;
+        goto zEndMark;
     }
 
     /* 检查指定的版本号是否有效 */
@@ -664,7 +666,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             || (NULL == zpTopVecWrapIf->p_RefDataIf[zpMetaIf->CommitId].p_data)) {
         zpMetaIf->p_data = "====指定的版本号无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
-        return -3;
+        zErrNo = -3;
+        goto zEndMark;
     }
 
     /* 预布署动作：须置于 zupdate_ip_db_all(...) 函数之前，因 post-update 会在初始化远程主机时被首先传输 */
@@ -691,11 +694,16 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             );
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    if (0 != WEXITSTATUS( system(zppCommonBuf[1]) )) { return -15; }
+    if (0 != WEXITSTATUS( system(zppCommonBuf[1]) )) {
+        zErrNo = -15;
+        goto zEndMark;
+    }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if (('_' != zpMetaIf->p_data[0]) && (13 != zpMetaIf->OpsId)) {
-        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0], &zpHostStrAddrRegResIf))) { return zErrNo; }
+        if (0 > (zErrNo = zupdate_ip_db_all(zpMetaIf, zppCommonBuf[0], zppHostStrAddrRegResIfOUT))) {
+            goto zEndMark;
+        }
         zRemoteHostInitTimeSpent = time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp;
     }
 
@@ -703,14 +711,14 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost
             || NULL == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList
             || '\0' == zpGlobRepoIf[zpMetaIf->RepoId]->p_HostStrAddrList[0]) {
-        zpMetaIf->p_data = "====指定的目标主机 IP 无效====";
+        zpMetaIf->p_data = "====指定的目标主机 IP 列表无效====";
         zpMetaIf->p_ExtraData[0] = '\0';
-        return -26;
+        zErrNo = -26;
+        goto zEndMark;
     }
 
-    /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
+    /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数；另复制一份供失败重试之用 */
     strncpy(zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
-    /* 另复制一份供失败重试之用 */
     strncpy(zpMetaIf->p_ExtraData, zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId), zBytes(40));
 
     /* 重置布署相关状态 */
@@ -723,11 +731,15 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署 */
-    zGitPushInfo *zpGitPushIf = zalloc_cache(zpMetaIf->RepoId, zpHostStrAddrRegResIf->cnt * sizeof(zGitPushInfo));
-    for (_ui zCnter = 0; zCnter < zpHostStrAddrRegResIf->cnt; zCnter++) {
-        zpGitPushIf[zCnter].RepoId = zpGlobRepoIf[zpMetaIf->RepoId]->RepoId;
-        zpGitPushIf[zCnter].p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
-        zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGitPushIf[zCnter]));
+    *zppGitPushIfOUT = zalloc_cache(zpMetaIf->RepoId, (*zppHostStrAddrRegResIfOUT)->cnt * sizeof(zGitPushInfo));
+    for (_ui zCnter = 0; zCnter < (*zppHostStrAddrRegResIfOUT)->cnt; zCnter++) {
+        (*zppGitPushIfOUT)[zCnter].RepoId = zpGlobRepoIf[zpMetaIf->RepoId]->RepoId;
+        (*zppGitPushIfOUT)[zCnter].p_HostStrAddr = (*zppHostStrAddrRegResIfOUT)->p_rets[zCnter];
+
+        /* when memory load > 80%，waiting ... */
+        while (80 < zGlobMemLoad) { zsleep(0.2); }
+
+        zAdd_To_Thread_Pool(zgit_push_ccur, &((*zppGitPushIfOUT)[zCnter]));
     }
 
     /* 测算超时时间 */
@@ -763,6 +775,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
 
     for (_l zTimeCnter = 0; zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt; zTimeCnter++) {
         zsleep(0.1);
+
+        /* 若收到错误，则可确认此次布署一定会失败，立刻返回 */
+        if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
+
         if (zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
             /* 若 10 秒内收到过keepalive消息，则延长超时时间20 秒*/
             if (10 > (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp)) {
@@ -773,7 +789,8 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf) {
             /* 对于10 台及以上的目标机集群，达到 90％ 的主机状态得到确认即返回成功，未成功的部分，在下次新的版本布署之前，持续重试布署；10 台以下，则须全部确认 */
             if ((10 <= zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost)
                     && ((zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost * 9 / 10) <= zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt)) {
-                goto zSuccessMark;
+                zErrNo = -10000;
+                goto zFakeSuccessMark;
             }
 
 zErrMark:
@@ -798,14 +815,15 @@ zErrMark:
                 }
             }
             zpMetaIf->p_ExtraData = zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
-            return -12;
+            zErrNo = -12;
+            goto zEndMark;
         }
     }
 
-zSuccessMark:
-    /* 检查计数之中是否存在错误返回的类型 */
-    if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
+    /* 若能运行至此，则可确认全部布署成功 */
+    zErrNo = 0;
 
+zFakeSuccessMark:
     /* 若先前测算的布署耗时 <= 90s ，此处向前端返回布署成功消息 */
     if (900 >= zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) {
         zsendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
@@ -823,7 +841,7 @@ zSuccessMark:
         _i zLogStrLen = sprintf(zppCommonBuf[0], "%s_%zd\n", zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, time(NULL));
         if (zLogStrLen != write(zpGlobRepoIf[zpMetaIf->RepoId]->DpSigLogFd, zppCommonBuf[0], zLogStrLen)) {
             zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
-            exit(1);
+            //exit(1);
         }
 
         /* deploy success, create a new "CURRENT" branch */
@@ -832,8 +850,8 @@ zSuccessMark:
             zPrint_Err(0, NULL, "\"CURRENT\" branch refresh failed");
         }
 
-        /* 重置内存池状态 */
-        //zReset_Mem_Pool_State(zpMetaIf->RepoId);  // 当前布署成功判定条件，不能重置，待解决
+        /* 若已确认全部成功，重置内存池状态 */
+        if (0 == zErrNo) { zReset_Mem_Pool_State(zpMetaIf->RepoId); }
 
         /* 如下部分：更新全局缓存 */
         zpGlobRepoIf[zpMetaIf->RepoId]->CacheId = time(NULL);
@@ -847,7 +865,8 @@ zSuccessMark:
         zgenerate_cache(&zSubMetaIf);
     }
 
-    return 0;
+zEndMark:
+    return zErrNo;
 }
 
 /*
@@ -861,16 +880,20 @@ zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         return 0;
     } else {
         char *zppCommonBuf[2];
-
+        zGitPushInfo *zpPushIf;
+        zRegResInfo *zpRegIf;
+        _i zCommonBufLen;
+    
         /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
-        zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * (zSshSelfIpDeclareBufSiz + 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen));
-        zppCommonBuf[1] = zppCommonBuf[0] + zSshSelfIpDeclareBufSiz + 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+        zCommonBufLen = zSshSelfIpDeclareBufSiz + 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+        zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * zCommonBufLen);
+        zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 
         zpMetaIf->CacheId = zpGlobRepoIf[zpMetaIf->RepoId]->CacheId;
         zpMetaIf->DataType = 1;
         zpMetaIf->CommitId = zpGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf.VecSiz - 1;
 
-        return zdeploy(zpMetaIf, zSd, zppCommonBuf);
+        return zdeploy(zpMetaIf, zSd, zppCommonBuf, &zpPushIf, &zpRegIf);
     }
 }
 
@@ -891,7 +914,9 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     }
 
     _i zErrNo, zCommonBufLen;
-    char *zppCommonBuf[2], *zpTmpStrPtr;
+    char *zppCommonBuf[2];
+    zGitPushInfo *zpGitPushIf;
+    zRegResInfo *zpHostStrAddrRegResIf;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = zSshSelfIpDeclareBufSiz + 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
@@ -905,7 +930,8 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 
     pthread_mutex_lock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
 
-    if (0 > (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf))) {
+    /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
+    if ((0 == zErrNo) || (-12 == (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf, &zpGitPushIf, &zpHostStrAddrRegResIf)))) {
         zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 0;
         pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
@@ -919,72 +945,87 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         while(1) {
             /* 等待剩余的所有主机状态都得到确认，不必在锁内执行 */
             for (_l zTimeCnter = 0; zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
-                zsleep(0.1);
-                if ((zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost == zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1])
-                        && (-1 != zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1])) {
+                if ((0 != zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock)  /* 检测是否有新的布署请求 */
+                        || ((zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost == zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) && (-1 != zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]))) {
                     return 0;
                 }
+                zsleep(0.1);
             }
 
             pthread_mutex_lock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
-            if (0 !=  strncmp(zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
-                pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
-                return 0;
-            }
+//            if (0 !=  strncmp(zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig, zpMetaIf->p_ExtraData, 40)) {
+//                pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
+//                return 0;
+//            }
 
             /* 重置时间戳，并生成 SSH 指令 */
             zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
             zConfig_Dp_Host_Ssh_Cmd(zppCommonBuf[0]);
 
             /* 预置值，对失败的目标机重新初始化 */
-            zpTmpStrPtr = zppCommonBuf[1];
             zpGlobRepoIf[zpMetaIf->RepoId]->SshTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
             zpGlobRepoIf[zpMetaIf->RepoId]->SshTaskFinCnt = 0;
-            zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
 
             for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
+                /* 检测是否有新的布署请求 */
+                if (0 != zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                    pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
+                    return 0;
+                }
+
                 if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
-                    zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zpTmpStrPtr);
-
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].zpHostIpAddr = zpTmpStrPtr;
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].zpCmd = zppCommonBuf[0];
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].zpCcurLock = &zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncLock;
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].zpCcurCond = &zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncCond;
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].zpTaskCnt = &zpGlobRepoIf[zpMetaIf->RepoId]->SshTaskFinCnt;
-                    zAdd_To_Thread_Pool(zssh_ccur_simple, &(zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter]));
-
-                    zpTmpStrPtr += 1 + strlen(zpTmpStrPtr);
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].RepoId = zpMetaIf->RepoId;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].p_HostIpStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].p_Cmd = zppCommonBuf[0];
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].p_CcurLock = &zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncLock;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].p_CcurCond = &zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncCond;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter].p_TaskCnt = &zpGlobRepoIf[zpMetaIf->RepoId]->SshTaskFinCnt;
+                    zAdd_To_Thread_Pool(zssh_ccur_simple_init_host, &(zpGlobRepoIf[zpMetaIf->RepoId]->p_SshCcurIf[zCnter]));
 
                     /* 调整目标机初始化状态数据（布署状态数据不调整！）*/
                     zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = 0;
-                    zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[0] -= 1;
                 } else {
                     zpGlobRepoIf[zpMetaIf->RepoId]->SshTotalTask -= 1;
+                    zpHostStrAddrRegResIf->p_rets[zCnter] = NULL;  // 去掉已成功的 IP 地址，只保留失败的部分
                 }
             }
 
-            /* 等待所有 SSH 任务完成 */
+            /* 等待所有 SSH 任务完成，此处不再检查执行结果 */
             pthread_mutex_lock(&zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncLock);
             while ((0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) && (zpGlobRepoIf[zpMetaIf->RepoId]->SshTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->SshTotalTask)) {
                 pthread_cond_wait(&zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncCond, &zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncLock);
             }
             pthread_mutex_unlock(&zpGlobRepoIf[zpMetaIf->RepoId]->SshSyncLock);
 
-            /* 基于失败列表，重新构建布署指令 */
-            sprintf(zppCommonBuf[1], "sh %s_SHADOW/tools/zdeploy.sh \"%d\" \"%s\" \"%s\" \"%s\"",
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,  // 代码库的绝对路径
-                    zpMetaIf->RepoId,
-                    zpMetaIf->p_ExtraData,  // 目标版本号在 zdeploy() 中已被复制到了这个字段
-                    zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath + 9,  // 指定代码库在布署目标机上的绝对路径，即：去掉最前面的 "/home/git" 合计 9 个字符
-                    zpMetaIf->p_data
-                    );
+            /* 检测是否有新的布署请求 */
+            if (0 != zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
+                return 0;
+            }
 
             /* 重置时间戳，其它相关状态无须重置 */
             zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
 
             /* 在执行动作之前再检查一次布署结果，防止重新初始化的时间里已全部返回成功状态，从而造成无用的布署重试 */
-            if (zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]) {
-                zAdd_To_Thread_Pool(zthread_system, zppCommonBuf[1]);  // 此处便用线程，防止长时间堵住新的布署任务
+            if (zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost > zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt) {
+                /* 对失败的目标主机重试布署 */
+                for (_ui zCnter = 0; zCnter < zpHostStrAddrRegResIf->cnt; zCnter++) {
+                    /* 检测是否有新的布署请求 */
+                    if (0 != zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
+                        pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
+                        return 0;
+                    }
+
+                    if (NULL != zpHostStrAddrRegResIf->p_rets[zCnter]) {
+                        zpGitPushIf[zCnter].RepoId = zpGlobRepoIf[zpMetaIf->RepoId]->RepoId;
+                        zpGitPushIf[zCnter].p_HostStrAddr = zpHostStrAddrRegResIf->p_rets[zCnter];
+        
+                        /* when memory load > 80%，waiting ... */
+                        while (80 < zGlobMemLoad) { zsleep(0.2); }
+        
+                        zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGitPushIf[zCnter]));
+                    }
+                }
             } else {
                 pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
                 return 0;
@@ -1024,12 +1065,12 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
                 }
 
                 if ('+' == zpMetaIf->p_ExtraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
-                    zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
                     zpTmpIf->DpState = 1;
 
                     zpLogStrId = zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
-                    zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt[1]++;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->ReplyCnt++;
                     zpTmpIf->DpState = -1;
                     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = -1;
 

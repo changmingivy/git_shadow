@@ -88,9 +88,6 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
     git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
 
-    /* when memory load > 80%，waiting ... */
-    while (80 < zGlobMemLoad) { zsleep(0.2); }
-
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
 
@@ -105,7 +102,7 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
             pthread_mutex_lock(&(zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
             if (0 == ____zpTmpIf->DpState) {\
                 ____zpTmpIf->DpState = -1;\
-                zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCnt[1]++;\
+                zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCnt++;\
                 zpGlobRepoIf[zpGitPushIf->RepoId]->ResType[1] = -1;\
             }\
             pthread_mutex_unlock(&(zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
