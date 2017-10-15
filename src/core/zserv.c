@@ -533,6 +533,15 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
             return -19;
         }
 
+        /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].zpThreadSourceIf = NULL;
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].RepoId = zpMetaIf->RepoId;
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_HostIpStrAddr = zRegResIf->p_rets[zCnter];
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_Cmd = zpCommonBuf;
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_CcurLock = &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock;
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_CcurCond = &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncCond;
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_TaskCnt = &zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt;
+
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
         zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr = zconvert_ip_str_to_bin(zRegResIf->p_rets[zCnter]);
         zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = 0;
@@ -562,13 +571,6 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
         }
 
         /* 对新加入的目标机执行初始化动作 */
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].zpThreadSourceIf = NULL;
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].RepoId = zpMetaIf->RepoId;
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_HostIpStrAddr = zRegResIf->p_rets[zCnter];
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_Cmd = zpCommonBuf;
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_CcurLock = &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock;
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_CcurCond = &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncCond;
-        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter].p_TaskCnt = &zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt;
         zAdd_To_Thread_Pool(zssh_ccur_simple_init_host, &(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter]));
 zExistMark:;
     }
