@@ -815,8 +815,8 @@ void *
 zsys_load_monitor(void *zpParam) {
     while(1) {
         if (0 == sysinfo(&zGlobSysLoadIf)) {
-            zGlobCpuLoad = 100.0 * zGlobSysLoadIf.loads[0] / zSysCpuNum;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
-            zGlobMemLoad = 100.0 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
+            //zGlobCpuLoad = 100 * zGlobSysLoadIf.loads[0] / 65536 / zSysCpuNum / 3;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
+            zGlobMemLoad = (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
         }
 
         /*
@@ -870,11 +870,11 @@ zMarkFin:
     fclose(zpFile);
 
 #ifndef _Z_BSD
-    zpFile = NULL;
-    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
-    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );
-    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
-    fclose(zpFile);
+//    zpFile = NULL;
+//    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
+//    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );
+//    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
+//    fclose(zpFile);
 
     zAdd_To_Thread_Pool(zsys_load_monitor, NULL);
 #endif

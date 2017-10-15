@@ -883,7 +883,10 @@ zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
 _i
 zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     /* 系统高负载时，不接受布署请求，保留 20% 的性能提供查询等’读‘操作 */
-    if (80 < zGlobCpuLoad || 80 < zGlobMemLoad) { return -16; }
+    if (80 < zGlobMemLoad) {
+        zpMetaIf->p_data = "====当前系统负载超过 80%，请稍后重试====";
+        return -16;
+    }
 
     if (0 != pthread_rwlock_trywrlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->RwLock) )) {
         if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {

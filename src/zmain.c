@@ -271,9 +271,9 @@ pthread_mutex_t zGlobCommonLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
 pthread_cond_t zSysLoadCond = PTHREAD_COND_INITIALIZER;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
-_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
-_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
-_c zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 90 则剩余任阻塞等待
+//_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
+//_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
+_ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 90 则剩余任阻塞等待
 #ifndef _Z_BSD
 struct sysinfo zGlobSysLoadIf;
 #endif
