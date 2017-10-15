@@ -46,12 +46,13 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
         pthread_mutex_unlock(zpCcurLock);
         return -1;
     }
-    pthread_mutex_unlock(zpCcurLock);
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
+        pthread_mutex_unlock(zpCcurLock);
         libssh2_exit();
         return -1;
     }
+    pthread_mutex_unlock(zpCcurLock);
 
     if (0 > (zSd = ztcp_connect(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
