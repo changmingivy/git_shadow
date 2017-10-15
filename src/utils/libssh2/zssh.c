@@ -37,6 +37,7 @@ _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
 
     _i zSd, zRet, zErrNo;
+    time_t zBaseTimeStamp;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
@@ -63,31 +64,43 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     /* tell libssh2 we want it all done non-blocking */
     libssh2_session_set_blocking(zSession, 0);
 
-    while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd)));
+    zBaseTimeStamp = time(NULL);
+    while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd))) {
+        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z0; }
+    }
+
     if (0 != zRet) {
-        libssh2_session_free(zSession);
+z0: libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
     }
 
+    zBaseTimeStamp = time(NULL);
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
-        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd)));
+        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd))) {
+            if (10 < (time(NULL) - zBaseTimeStamp)) { goto z1; }
+        }
     } else {  /* public key */
-        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd)));
+        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd))) {
+            if (10 < (time(NULL) - zBaseTimeStamp)) { goto z1; }
+        }
     }
+
     if (0 != zRet) {
-        libssh2_session_free(zSession);
+z1: libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
     }
 
     /* Exec non-blocking on the remove host */
-    while((NULL ==  (zChannel= libssh2_channel_open_session(zSession)))
-            && (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))) {
+    zBaseTimeStamp = time(NULL);
+    while((NULL ==  (zChannel= libssh2_channel_open_session(zSession))) && (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))) {
+        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z2; }
         zwait_socket(zSd, zSession);
     }
+
     if(NULL == zChannel) {
-        libssh2_session_disconnect(zSession, "");
+z2: libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
@@ -97,11 +110,16 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     char zpSelfUnionCmd[zSshSelfIpDeclareBufSiz + strlen(zpCmd)];
     sprintf(zpSelfUnionCmd, "export ____zSelfIp='%s';%s", zpHostIpAddr, zpCmd);
 
-    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) { zwait_socket(zSd, zSession); }
+    zBaseTimeStamp = time(NULL);
+    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
+        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z3; }
+        zwait_socket(zSd, zSession);
+    }
+
     if( 0 != zRet) {
-        libssh2_channel_free(zChannel);
-        libssh2_session_disconnect(zSession, "");
+z3: libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
+        libssh2_channel_free(zChannel);
         libssh2_exit();
         return -1;
     }

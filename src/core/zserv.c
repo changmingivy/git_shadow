@@ -586,7 +586,8 @@ zExistMark:;
     pthread_mutex_unlock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
 
     /* 检测执行结果，并返回失败列表 */
-    if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0]) {
+    if ((-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0])
+            || (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
         _ui zFailHostCnt = 0;
         for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
