@@ -590,11 +590,11 @@ zExistMark:;
             || (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
         _ui zFailHostCnt = 0, zOffSet = 0;
-        zOffSet += sprintf(zpMetaIf->p_data, "无法连接的主机：");
+        zOffSet += sprintf(zpMetaIf->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
                 zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
-                zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "(%s)", zIpStrAddrBuf);
+                zOffSet += sprintf(zpMetaIf->p_data + zOffSet, " %s", zIpStrAddrBuf);
                 zFailHostCnt++;
 
                 /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
