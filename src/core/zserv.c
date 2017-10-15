@@ -741,11 +741,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
          * [网络数据总量 == 主机数 X 每台的数据量]
          * [单位：0.1 秒]
          */
-        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 300 + 10 * (
-                zRemoteHostInitTimeSpent
-                + time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp  /* 本地动作耗时 */
-                + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / 10  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
-                );
+        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 300
+            + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
+            + 10 * zRemoteHostInitTimeSpent
+            + 10 * (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);  /* 本地动作耗时 */
 
         /* 最长 10 分钟 */
         if (6000 < zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
@@ -768,9 +767,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
         if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
 
         if (zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit < zTimeCnter) {
-            /* 若 10 秒内收到过keepalive消息，则延长超时时间20 秒*/
-            if (10 > (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp)) {
-                zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit += 20;
+            /* 若 5 秒内收到过keepalive消息，则延长超时时间 10 秒*/
+            if (5 > (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpKeepAliveStamp)) {
+                zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit += 10;
                 continue;
             }
 
