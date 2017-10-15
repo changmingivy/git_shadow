@@ -12,15 +12,18 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#ifdef _Z_BSD
+#ifndef _Z_BSD
+    #include <sys/signal.h>
+    #include <sys/sysinfo.h>
+#else
     #include <netinet/in.h>
     #include <signal.h>
-#else
-    #include <sys/signal.h>
+    #include <sys/select.h>
 #endif
 
-#include <sys/mman.h>
 #include <pthread.h>
+#include <sys/mman.h>
+//#include <semaphore.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -39,7 +42,13 @@
 #include <libgen.h>
 #include <ctype.h>
 
+#include "libssh2.h"
+#include "git2.h"
+
 #include "../inc/zutils.h"
+
+#define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
+#define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
@@ -71,12 +80,30 @@
 /****************
  * 数据结构定义 *
  ****************/
+typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
+
+struct zThreadPoolInfo {
+    pthread_t SelfTid;
+    pthread_cond_t CondVar;
+
+    zThreadPoolOps func;
+    void *p_param;
+};
+typedef struct zThreadPoolInfo zThreadPoolInfo;
+
 struct zNetServInfo {
     char *p_IpAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 };
 typedef struct zNetServInfo zNetServInfo;
+
+struct zSocketAcceptParamInfo {
+    void *p_ThreadPoolMetaIf;  // 未使用，仅占位
+    _i ConnSd;
+    pthread_mutex_t lock;
+};
+typedef struct zSocketAcceptParamInfo zSocketAcceptParamInfo;
 
 /* 数据交互格式 */
 struct zMetaInfo {
@@ -134,26 +161,28 @@ struct zDpResInfo {
 };
 typedef struct zDpResInfo zDpResInfo;
 
-/* SSH 连接所用 */
-struct zSshCcurInfo {
-    char *zpHostIpAddr;  // 单个目标机 Ip，如："10.0.0.1"
-    char *zpHostServPort;  // 字符串形式的端口号，如："22"
-    char *zpCmd;  // 需要执行的指令集合
+/* SSH 及 git 连接所用 */
+struct zDpCcurInfo {
+    zThreadPoolInfo *zpThreadSourceIf;  // 必须放置在首位
+    _i RepoId;
+    char *p_HostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *p_HostServPort;  // 字符串形式的端口号，如："22"
+    char *p_Cmd;  // 需要执行的指令集合
 
     _i zAuthType;
-    const char *zpUserName;
-    const char *zpPubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
-    const char *zpPrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
-    const char *zpPassWd;  // 登陆密码或公钥加密密码
+    const char *p_UserName;
+    const char *p_PubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *p_PrivateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *p_PassWd;  // 登陆密码或公钥加密密码
 
-    char *zpRemoteOutPutBuf;  // 获取远程返回信息的缓冲区
-    _ui zRemoteOutPutBufSiz;
+    char *p_RemoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui RemoteOutPutBufSiz;
 
-    pthread_cond_t *zpCcurCond;  // 线程同步条件变量
-    pthread_mutex_t *zpCcurLock;  // 同步锁
-    _ui *zpTaskCnt;  // SSH 任务完成计数
+    pthread_cond_t *p_CcurCond;  // 线程同步条件变量
+    pthread_mutex_t *p_CcurLock;  // 同步锁
+    _ui *p_TaskCnt;  // SSH 任务完成计数
 };
-typedef struct zSshCcurInfo zSshCcurInfo;
+typedef struct zDpCcurInfo zDpCcurInfo;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 struct zRepoInfo {
@@ -184,11 +213,14 @@ struct zRepoInfo {
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
 
-    /* libssh2 并发同步锁与条件变量 */
-    pthread_mutex_t SshSyncLock;
-    pthread_cond_t SshSyncCond;
-    _ui SshTotalTask;
-    _ui SshTaskFinCnt;
+    /* 本项目 git 库全局 Handler */
+    git_repository *p_GitRepoMetaIf;
+
+    /* libssh2 与 libgit2 共用的并发同步锁与条件变量 */
+    pthread_mutex_t DpSyncLock;
+    pthread_cond_t DpSyncCond;
+    _ui DpTotalTask;
+    _ui DpTaskFinCnt;
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -201,13 +233,11 @@ struct zRepoInfo {
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
-    _ui ReplyCnt[2];  // [0] 远程主机初始化成功计数；[1] 布署成功计数
+    _ui ReplyCnt;  // 布署成功计数
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    char HostStrAddrList[4 + 16 * zForecastedHostNum];  // 若 IPv4 地址数量不超过 zForecastedHostNum 个，则使用该内存，若超过，则另行静态分配
-    char *p_HostStrAddrList;  // 以文本格式存储的 IPv4 地址列表，作为参数传给 zdeploy.sh 脚本
-    zSshCcurInfo SshCcurIf[zForecastedHostNum];
-    zSshCcurInfo *p_SshCcurIf;
+    zDpCcurInfo DpCcurIf[zForecastedHostNum];
+    zDpCcurInfo *p_DpCcurIf;
     struct zDpResInfo *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
     struct zDpResInfo *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
 
@@ -237,10 +267,21 @@ typedef struct zRepoInfo zRepoInfo;
 /************
  * 全局变量 *
  ************/
+pthread_mutex_t zGlobCommonLock = PTHREAD_MUTEX_INITIALIZER;
+
+/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
+pthread_cond_t zSysLoadCond = PTHREAD_COND_INITIALIZER;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
+_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
+_c zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 90 则剩余任阻塞等待
+#ifndef _Z_BSD
+struct sysinfo zGlobSysLoadIf;
+#endif
+
 struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
 
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
-struct zRepoInfo **zppGlobRepoIf;
+struct zRepoInfo *zpGlobRepoIf[zGlobRepoIdLimit];
 
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMetaInfo *, _i);  // 网络服务回调函数
@@ -249,6 +290,7 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /* 以 ANSI 字符集中的前 128 位成员作为索引 */
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
+
 
 /************
  * 配置文件 *
@@ -262,9 +304,9 @@ zJsonParseFunc zJsonParseOps[128];
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
-    pthread_mutex_lock(&(zppGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_lock(&(zpGlobRepoIf[zRepoId]->MemLock));
 
-    if ((zSiz + zppGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
+    if ((zSiz + zpGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
         void **zppPrev, *zpCur;
         /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
         if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
@@ -273,15 +315,15 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
             exit(1);
         }
         zppPrev = zpCur;
-        zppPrev[0] = zppGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
-        zppGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
-        zppGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
+        zppPrev[0] = zpGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
+        zpGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
+        zpGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
     }
 
-    void *zpX = zppGlobRepoIf[zRepoId]->p_MemPool + zppGlobRepoIf[zRepoId]->MemPoolOffSet;
-    zppGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
+    void *zpX = zpGlobRepoIf[zRepoId]->p_MemPool + zpGlobRepoIf[zRepoId]->MemPoolOffSet;
+    zpGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
 
-    pthread_mutex_unlock(&(zppGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId]->MemLock));
     return zpX;
 }
 
@@ -290,6 +332,7 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 //#include "utils/md5_sig/zgenerate_sig_md5.c"  // 生成MD5 checksum检验和
 #include "utils/thread_pool/zthread_pool.c"
 #include "utils/libssh2/zssh.c"
+#include "utils/libgit2/zgit.c"
 #include "utils/zserv_utils.c"
 #include "core/zserv.c"  // 对外提供网络服务
 

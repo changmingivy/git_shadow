@@ -4,7 +4,9 @@ images/
 conf/
 bin/
 log/
-lib/
+lib/libssh2/
+lib/libgit2/
+____build/
 
 *.gz
 *.xz

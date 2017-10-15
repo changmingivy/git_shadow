@@ -2,7 +2,7 @@
     #include "../../zmain.c"
 #endif
 
-#include "libssh2.h"
+//#include "libssh2.h"
 
 /* select events dirven */
 _i
@@ -165,16 +165,16 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
  */
 void *
 zssh_ccur(void  *zpIf) {
-    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    zssh_exec(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpHostServPort, zpSshCcurIf->zpCmd,
-            zpSshCcurIf->zpUserName, zpSshCcurIf->zpPubKeyPath, zpSshCcurIf->zpPrivateKeyPath, zpSshCcurIf->zpPassWd, zpSshCcurIf->zAuthType,
-            zpSshCcurIf->zpRemoteOutPutBuf, zpSshCcurIf->zRemoteOutPutBufSiz, zpSshCcurIf->zpCcurLock);
+    zssh_exec(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_HostServPort, zpDpCcurIf->p_Cmd,
+            zpDpCcurIf->p_UserName, zpDpCcurIf->p_PubKeyPath, zpDpCcurIf->p_PrivateKeyPath, zpDpCcurIf->p_PassWd, zpDpCcurIf->zAuthType,
+            zpDpCcurIf->p_RemoteOutPutBuf, zpDpCcurIf->RemoteOutPutBufSiz, zpDpCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
-    (* (zpSshCcurIf->zpTaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
-    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
+    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+    (* (zpDpCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
     return NULL;
 };
@@ -182,44 +182,42 @@ zssh_ccur(void  *zpIf) {
 /* 简化参数版函数 */
 void *
 zssh_ccur_simple(void  *zpIf) {
-    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    zssh_exec_simple(zpSshCcurIf->zpHostIpAddr, zpSshCcurIf->zpCmd, zpSshCcurIf->zpCcurLock);
+    zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->zpCcurLock);
-    (* (zpSshCcurIf->zpTaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->zpCcurLock);
-    pthread_cond_signal(zpSshCcurIf->zpCcurCond);
+    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+    (* (zpDpCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
     return NULL;
 };
 
+/* 远程主机初始化专用 */
+void *
+zssh_ccur_simple_init_host(void  *zpIf) {
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
+    _ui zHostId = zconvert_ip_str_to_bin(zpDpCcurIf->p_HostIpStrAddr);
+    zDpResInfo *zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[zHostId % zDpHashSiz];
+    for (; NULL != zpTmpIf; zpTmpIf = zpTmpIf->p_next) {
+        if (zHostId == zpTmpIf->ClientAddr) {
+            if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock)) {
+                zpTmpIf->InitState = 1;
+            } else {
+                zpTmpIf->InitState = -1;
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[0] = -1;
+            }
 
-// // !!! TEST !!!
-// pthread_mutex_t zTestLock = PTHREAD_MUTEX_INITIALIZER;
-// _i
-// main(void) {
-//     static char zBuf[4096];
-//     static zSshCcurInfo zSshCcurIf;
-//
-//     zSshCcurIf.zpHostIpAddr = "127.0.0.1";
-//     zSshCcurIf.zpHostServPort = "22";
-//     zSshCcurIf.zpCmd = "echo \"libssh2 test [`date`]\" >> /tmp/testfile";
-//     zSshCcurIf.zAuthType = 1;
-//     zSshCcurIf.zpUserName = "fh";
-//     zSshCcurIf.zpPubKeyPath = "/home/fh/.ssh/id_rsa.pub";
-//     zSshCcurIf.zpPrivateKeyPath = "/home/fh/.ssh/id_rsa";
-//     zSshCcurIf.zpPassWd = NULL;
-//     zSshCcurIf.zpRemoteOutPutBuf = zBuf;
-//     zSshCcurIf.zRemoteOutPutBufSiz = 4096;
-//     zSshCcurIf.zpCcurLock = &zTestLock;
-//
-//     for (_i zCnter = 0; zCnter < 200; zCnter++) {
-//     //    fprintf(stderr, "%d\n", zCnter);
-//         zAdd_To_Thread_Pool(zssh_ccur, &zSshCcurIf);
-//     }
-//
-//     //zssh_exec("127.0.0.1", "22", "printf 'Hello!\n'; echo \"libssh2 test [`date`]\" >> /tmp/testfile", "fh", "/home/fh/.ssh/id_rsa.pub", "/home/fh/.ssh/id_rsa", "", 1, zBuf, 4096, NULL);
-//     return 0;
-// }
+            pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+            (* (zpDpCcurIf->p_TaskCnt))++;
+            pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+            pthread_cond_signal(zpDpCcurIf->p_CcurCond);
+
+            break;
+        }
+    }
+
+    return NULL;
+};

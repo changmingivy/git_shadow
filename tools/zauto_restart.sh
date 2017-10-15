@@ -8,7 +8,7 @@ zServPort=$2
 while :
 do
     if [[ 1 -gt `pgrep -x -u git -U git "^git_shadow$" | wc -l` ]]; then
-        /home/git/zgit_shadow/bin/git_shadow -f /home/git/zgit_shadow/conf/master.conf -h $zServAddr -p $zServPort
+        ${zGitShadowPath}/bin/git_shadow -f ${zGitShadowPath}/conf/master.conf -h $zServAddr -p $zServPort
         printf "`date`\n" >> /tmp/zgit_shadow_restart_cnt
     fi
 

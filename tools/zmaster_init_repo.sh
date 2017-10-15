@@ -8,7 +8,7 @@ zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的�
 zRemoteVcsType=$5  # svn 或 git
 ###################
 
-zShadowPath=/home/git/zgit_shadow
+zShadowPath=${zGitShadowPath}
 zDeployPath=/home/git/${zPathOnHost}
 zServBranchName="server${zProjId}"
 
@@ -28,7 +28,8 @@ if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
-        cp -rf ${zShadowPath}/tools ./
+        rm -rf ./tools
+        cp -r ${zShadowPath}/tools ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
         exit 0
     else
@@ -59,25 +60,27 @@ git config user.name "$zProjId"
 git config user.email "${zProjId}@${zPathOnHost}"
 printf ".svn/\n" > .gitignore  # 忽略<.svn>目录
 git add --all .
-git commit -m "__init__"
+git commit -m "____Dp_System_Init____"
 git branch -f CURRENT
 git branch -f ${zServBranchName}  # 远程代码接收到 server${zProjId} 分支
 
 # 元数据：创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
-mkdir -p ${zDeployPath}_SHADOW/tools
-rm -rf ${zDeployPath}_SHADOW/tools/*
-cp -r ${zShadowPath}/tools/* ${zDeployPath}_SHADOW/tools/
+mkdir -p ${zDeployPath}_SHADOW
 cd ${zDeployPath}_SHADOW
-eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
+
+######## will do those OPSs below before per Dp... ########
+# rm -rf ./tools
+# cp -R ${zShadowPath}/tools ./
+# eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
 
 git init .
 git config user.name "git_shadow"
 git config user.email "git_shadow@${zProjId}"
 git add --all .
-git commit --allow-empty -m "__init__"
+git commit --allow-empty -m "____Dp_System_Init____"
 
 # 防止添加重复条目
-zExistMark=`cat /home/git/zgit_shadow/conf/master.conf | grep -Pc "^\s*${zProjId}\s*"`
+zExistMark=`cat ${zShadowPath}/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
 if [[ 0 -eq $zExistMark ]];then
     zDirName=`dirname \`dirname ${zPathOnHost}\``
     zBaseName=`basename ${zPathOnHost}`
