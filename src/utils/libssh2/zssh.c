@@ -94,7 +94,7 @@ z1: libssh2_session_free(zSession);
 
     /* Exec non-blocking on the remove host */
     zBaseTimeStamp = time(NULL);
-    while(NULL == (zChannel= libssh2_channel_open_session(zSession))) {  // && (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))
+    while(NULL == (zChannel= libssh2_channel_open_session(zSession))) {  // 会带来段错误：&& (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))
         if (10 < (time(NULL) - zBaseTimeStamp)) { goto z2; }
         zwait_socket(zSd, zSession);
     }
