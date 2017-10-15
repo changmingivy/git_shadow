@@ -714,19 +714,12 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
     for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
-        /* when memory load >= 80%，waiting ... */
-        pthread_mutex_lock(&zGlobCommonLock);
-        while (80 <= zGlobMemLoad) {
-            pthread_cond_wait(&zSysLoadCond, &zGlobCommonLock);
-        }
-        pthread_mutex_unlock(&zGlobCommonLock);
-
         zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf[zCnter]));
     }
 
     /* 等待所有 git push 任务完成 */
     pthread_mutex_lock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
-    while ((0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) && (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
+    while (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask) {
         pthread_cond_wait(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncCond, &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
     }
     pthread_mutex_unlock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
