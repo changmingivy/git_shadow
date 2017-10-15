@@ -451,7 +451,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
  * 注：完全内嵌于 zdeploy() 中，不再需要读写锁
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
-    sprintf(zpCmdBuf + zSshSelfIpDeclareBufSiz,\
+    sprintf(zpCmdBuf,\
             "rm -f %s %s_SHADOW;"\
             "mkdir -p %s %s_SHADOW;"\
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
@@ -897,7 +897,7 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     zRegResInfo *zpHostStrAddrRegResIf;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
-    zCommonBufLen = zSshSelfIpDeclareBufSiz + 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
+    zCommonBufLen = 2048 + 10 * zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen + zpMetaIf->DataLen;
     zppCommonBuf[0] = zalloc_cache(zpMetaIf->RepoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 

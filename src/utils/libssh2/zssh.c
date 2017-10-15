@@ -36,7 +36,7 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
 _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
 
-    _i zSd, zRet, zErrNo, zSelfIpDeclareLen;
+    _i zSd, zRet, zErrNo;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
@@ -92,13 +92,11 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
         return -1;
     }
 
-    /* 在命令的最前端追加用于告知自身IP的Shell变量声明 */
-    zSelfIpDeclareLen = sprintf(zpCmd, "export ____zSelfIp='%s';", zpHostIpAddr);
-    for (_i zCnter = zSelfIpDeclareLen; zCnter < zSshSelfIpDeclareBufSiz; zCnter++) {
-        zpCmd[zCnter] = ' ';
-    }
+    /* 多线程环境，必须复制到自身的栈中进行处理 */
+    char zpSelfUnionCmd[zSshSelfIpDeclareBufSiz + strlen(zpCmd)];
+    sprintf(zpSelfUnionCmd, "export ____zSelfIp='%s';%s", zpHostIpAddr, zpCmd);
 
-    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpCmd))) { zwait_socket(zSd, zSession); }
+    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) { zwait_socket(zSd, zSession); }
     if( 0 != zRet) {
         libssh2_channel_free(zChannel);
         libssh2_session_disconnect(zSession, "");
