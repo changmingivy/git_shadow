@@ -121,7 +121,7 @@ zgit_push_ccur(void *zpIf) {
     zpGitRefs[1] = zGitRefsBuf[1];
 
     /* git push 流量控制 */
-    sem_wait(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl));
+    zCheck_Negative_Exit( sem_wait(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl)) );
 
     /* when memory load > 80%，waiting ... */
     pthread_mutex_lock(&zGlobCommonLock);
@@ -164,7 +164,7 @@ zgit_push_ccur(void *zpIf) {
     }
 
     /* git push 流量控制 */
-    sem_post(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl));
+    zCheck_Negative_Exit( sem_post(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl)) );
 
     /* 目标机请求布署自身会将锁置为 NULL */
     if (NULL != zpDpCcurIf->p_CcurLock) {
