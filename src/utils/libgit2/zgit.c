@@ -153,10 +153,13 @@ zgit_push_ccur(void *zpIf) {
         }
     }
 
-    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-    (* (zpDpCcurIf->p_TaskCnt))++;
-    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
+    /* 目标机请求布署自身会将锁置为 NULL */
+    if (NULL != zpDpCcurIf->p_CcurLock) {
+        pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+        (* (zpDpCcurIf->p_TaskCnt))++;
+        pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+        pthread_cond_signal(zpDpCcurIf->p_CcurCond);
+    }
 
     return NULL;
 }
