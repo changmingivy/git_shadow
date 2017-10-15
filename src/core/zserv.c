@@ -589,8 +589,9 @@ zExistMark:;
     if ((-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0])
             || (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
-        _ui zFailHostCnt = 0;
-        for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
+        _ui zFailHostCnt = 0, zOffSet = 0;
+        zOffSet += sprintf(zpMetaIf->p_data, "无法连接的主机：");
+        for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
                 zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "(%s)", zIpStrAddrBuf);
