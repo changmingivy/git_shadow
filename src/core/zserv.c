@@ -710,6 +710,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
     for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
