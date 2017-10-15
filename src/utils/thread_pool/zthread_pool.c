@@ -93,5 +93,4 @@ zthread_poll_init(void) {
     ____zStackHeader--;\
     pthread_mutex_unlock(&____zStackHeaderLock);\
     pthread_cond_signal(&(zpPoolStackIf[____zKeepStackHeader]->CondVar));\
-    }\
 } while(0)
