@@ -819,14 +819,15 @@ zsys_load_monitor(void *zpParam) {
     while(1) {
         if (0 == sysinfo(&zGlobSysLoadIf)) {
             //zGlobCpuLoad = 100 * zGlobSysLoadIf.loads[0] / 65536 / zSysCpuNum / 3;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
-            zGlobMemLoad = (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
+            zGlobMemLoad = 100 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
         }
 
         /*
          * 此处不拿锁，直接通知，否则锁竞争太甚
          * 由于是无限循环监控任务，允许存在无效的通知
+         * 工作线程等待在 80% 的水平线上，此处降到 70% 才通知
          */
-        if (80 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
+        if (70 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
 
         zsleep(0.1);
     }

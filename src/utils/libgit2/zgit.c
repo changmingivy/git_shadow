@@ -123,9 +123,9 @@ zgit_push_ccur(void *zpIf) {
     /* git push 流量控制 */
     sem_wait(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl));
 
-    /* when memory load >= 80%，waiting ... */
+    /* when memory load > 80%，waiting ... */
     pthread_mutex_lock(&zGlobCommonLock);
-    while (80 <= zGlobMemLoad) {
+    while (80 < zGlobMemLoad) {
         pthread_cond_wait(&zSysLoadCond, &zGlobCommonLock);
     }
     pthread_mutex_unlock(&zGlobCommonLock);
