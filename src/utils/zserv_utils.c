@@ -160,7 +160,6 @@ zdistribute_task(void *zpParam) {
         /* 分发直连的子节点 */
         if (NULL != zpNodeIf->p_FirstChild) {
             zpNodeIf->p_FirstChild->pp_ResHash = zppKeepPtr;
-            //zAdd_To_Thread_Pool(zdistribute_task, zpNodeIf->p_FirstChild);
             zdistribute_task(zpNodeIf->p_FirstChild);  // 暂时以递归处理，线程模型会有收集不齐全部任务的问题
         }
 
@@ -802,7 +801,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 /* 用于线程并发执行的外壳函数 */
 void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
-    char *zpOrigStr = (char *) zpParam;
+    char *zpOrigStr = ((char *) zpParam) + sizeof(void *);
     _i zErrNo;
     if (0 > (zErrNo = zinit_one_repo_env(zpOrigStr))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
@@ -851,7 +850,7 @@ zinit_env(const char *zpConfPath) {
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (zGlobRepoNumLimit > zCnter) {
-        if (NULL == zget_one_line(zConfBuf[zCnter], zGlobBufSiz, zpFile)) {
+        if (NULL == zget_one_line(zConfBuf[zCnter] + sizeof(void *), zGlobBufSiz, zpFile)) {
             goto zMarkFin;
         } else {
             zAdd_To_Thread_Pool(zinit_one_repo_env_thread_wraper, zConfBuf[zCnter++]);

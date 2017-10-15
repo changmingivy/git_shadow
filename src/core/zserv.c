@@ -1147,8 +1147,10 @@ zreq_file(zMetaInfo *zpMetaIf, _i zSd) {
  * 网络服务路由函数
  */
 void *
-zops_route(void *zpSd) {
-    _i zSd = *((_i *)zpSd);
+zops_route(void *zpIf) {
+    _i zSd = ((zSocketAcceptParamInfo *) zpIf)->ConnSd;
+    pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpIf)->lock ) );
+
     _i zErrNo;
     zMetaInfo zMetaIf;
     char zJsonBuf[zGlobBufSiz] = {'\0'};
@@ -1265,6 +1267,7 @@ zMarkCommonAction:
 // _i
 // ztest_func(zMetaInfo *zpIf, _i zSd) { return 0; }
 
+
 void
 zstart_server(void *zpIf) {
     zNetServ[0] = NULL;  // ztest_func;  // 留作功能测试接口
@@ -1289,11 +1292,15 @@ zstart_server(void *zpIf) {
     _i zMajorSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_IpAddr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
-    /* 会传向新线程，使用静态变量；使用数组防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况(此法不够严谨，权宜之计) */
-    static _i zConnSd[64];
-    for (_ui zIndex = 0;;zIndex++) {  // 务必使用无符号整型，防止溢出错乱
-        if (-1 != (zConnSd[zIndex % 64] = accept(zMajorSd, NULL, 0))) {
-            zAdd_To_Thread_Pool(zops_route, zConnSd + (zIndex % 64));
+    /* 会传向新线程，使用静态变量；加锁防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况 */
+    static zSocketAcceptParamInfo zSocketAcceptParamIf = {NULL, 0, PTHREAD_MUTEX_INITIALIZER};
+    while(1) {
+        pthread_mutex_lock(&zSocketAcceptParamIf.lock);
+        if (-1 == (zSocketAcceptParamIf.ConnSd = accept(zMajorSd, NULL, 0))) {
+            zPrint_Err(0, NULL, "socket accept err");
+            pthread_mutex_unlock(&zSocketAcceptParamIf.lock);
+        } else {
+            zAdd_To_Thread_Pool(zops_route, &zSocketAcceptParamIf);
         }
     }
 }

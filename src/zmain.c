@@ -89,6 +89,13 @@ struct zNetServInfo {
 };
 typedef struct zNetServInfo zNetServInfo;
 
+struct zSocketAcceptParamInfo {
+	void *p_ThreadPoolMetaIf;  // 未使用，仅占位
+	_i ConnSd;
+	pthread_mutex_t lock;
+};
+typedef struct zSocketAcceptParamInfo zSocketAcceptParamInfo;
+
 /* 数据交互格式 */
 struct zMetaInfo {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
