@@ -111,7 +111,7 @@ zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
         }
 
         return -11;
@@ -180,7 +180,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
         }
 
         return -11;
@@ -226,7 +226,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
                             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
                         }
 
                         return -11;
@@ -240,7 +240,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
                         } else {
                             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
                         }
 
                         return -11;
@@ -301,7 +301,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
         }
 
         return -11;
@@ -325,7 +325,7 @@ zprint_diff_files(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
             }
 
             return -11;
@@ -374,7 +374,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
             sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
         }
 
         return -11;
@@ -398,7 +398,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
             }
 
             return -11;
@@ -420,7 +420,7 @@ zprint_diff_content(zMetaInfo *zpMetaIf, _i zSd) {
                 sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
             } else {
                 sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 30.0);
+                        (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
             }
 
             return -11;
@@ -739,10 +739,10 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
             + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
             + 10 * zRemoteHostInitTimeSpent
             + 10 * (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);  /* 本地动作耗时 */
-
-        /* 最长 10 分钟 */
-        if (6000 < zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
     }
+
+    /* 最长 10 分钟 */
+    if (6000 < zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) { zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 6000; }
 
     /* DEBUG */
     fprintf(stderr, "\n\033[31;01m[ DEBUG ] 布署时间测算结果：%zd 秒\033[00m\n\n", zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10);
@@ -886,8 +886,8 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         if (0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) {
             sprintf(zpMetaIf->p_data, "系统正在刷新缓存，请 2 秒后重试");
         } else {
-            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 秒后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 10.0);
+            sprintf(zpMetaIf->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
+                    (0 == zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit) ? 5.0 : zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit / 600.0);
         }
         return -11;
     }
