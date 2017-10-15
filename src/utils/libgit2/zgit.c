@@ -95,17 +95,17 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
 }
 
 #define zNative_Fail_Confirm() do {\
-    _ui ____zHostId = zconvert_ip_str_to_bin(zpGitPushIf->p_HostStrAddr);\
-    zDpResInfo *____zpTmpIf = zpGlobRepoIf[zpGitPushIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
+    _ui ____zHostId = zconvert_ip_str_to_bin(zpDpCcurIf->p_HostIpStrAddr);\
+    zDpResInfo *____zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
     for (; NULL != ____zpTmpIf; ____zpTmpIf = ____zpTmpIf->p_next) {\
         if (____zHostId == ____zpTmpIf->ClientAddr) {\
-            pthread_mutex_lock(&(zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
             if (0 == ____zpTmpIf->DpState) {\
                 ____zpTmpIf->DpState = -1;\
-                zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCnt++;\
-                zpGlobRepoIf[zpGitPushIf->RepoId]->ResType[1] = -1;\
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCnt++;\
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[1] = -1;\
             }\
-            pthread_mutex_unlock(&(zpGlobRepoIf[zpGitPushIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
             break;\
         }\
     }\
@@ -113,60 +113,52 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
 
 void *
 zgit_push_ccur(void *zpIf) {
-    zGitPushInfo *zpGitPushIf = (zGitPushInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    char zRemoteRepoAddrBuf[64 + zpGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
+    char zRemoteRepoAddrBuf[64 + zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
     char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
     zpGitRefs[0] = zGitRefsBuf[0];
     zpGitRefs[1] = zGitRefsBuf[1];
 
     /* generate remote URL */
-    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpGitPushIf->p_HostStrAddr, zpGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9);
+    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpDpCcurIf->p_HostIpStrAddr, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9);
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/server%d", zpGitPushIf->RepoId);
-    sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpGitPushIf->RepoId);
-    if (0 != zgit_push(zpGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+    sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/server%d", zpDpCcurIf->RepoId);
+    sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcurIf->RepoId);
+    if (0 != zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
         /* if directly push failed, then try push to a new remote branch: NEWserver... */
-        sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/NEWserver%d", zpGitPushIf->RepoId);
-        sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpGitPushIf->RepoId);
-        if (0 !=zgit_push(zpGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+        sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/NEWserver%d", zpDpCcurIf->RepoId);
+        sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpDpCcurIf->RepoId);
+        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */
-            char zCmdBuf[128 + zpGlobRepoIf[zpGitPushIf->RepoId]->RepoPathLen];
+            char zCmdBuf[128 + zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
             sprintf(zCmdBuf, "cd %s; git branch -D NEWserver%d; git branch -D NEWserver%d_SHADOW",
-                    zpGlobRepoIf[zpGitPushIf->RepoId]->p_RepoPath + 9,
-                    zpGitPushIf->RepoId,
-                    zpGitPushIf->RepoId
+                    zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                    zpDpCcurIf->RepoId,
+                    zpDpCcurIf->RepoId
                     );
-            if (0 == zssh_exec_simple(zpGitPushIf->p_HostStrAddr, zCmdBuf, &(zpGlobRepoIf[zpGitPushIf->RepoId]->SshSyncLock))) {
+            if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
 
                 /* and, try push to NEWserver once more... */
-                if (0 !=zgit_push(zpGlobRepoIf[zpGitPushIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+                if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
                     zNative_Fail_Confirm();
-                    return (void *) -1;
                 }
             } else {
                 /* if ssh exec failed, just deal with error */
                 zNative_Fail_Confirm();
-                return (void *) -1;
             }
         }
     }
+
+    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+    (* (zpDpCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
     return NULL;
 }
 
 #undef zGit_Check_Err_Return
-
-// /* Just for test. */
-// _i
-// main(void) {
-//     git_repository *zpRepoMetaIf = zgit_env_init("/tmp/test_repo/.git");
-//
-//     zgit_push(zpRepoMetaIf, "fh@127.0.0.1:/tmp/test_repo/.git", "master", "server_test");
-//
-//     zgit_env_clean(zpRepoMetaIf);
-//     return 0;
-// }

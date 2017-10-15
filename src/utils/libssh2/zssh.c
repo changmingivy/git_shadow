@@ -165,16 +165,16 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
  */
 void *
 zssh_ccur(void  *zpIf) {
-    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    zssh_exec(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_HostServPort, zpSshCcurIf->p_Cmd,
-            zpSshCcurIf->p_UserName, zpSshCcurIf->p_PubKeyPath, zpSshCcurIf->p_PrivateKeyPath, zpSshCcurIf->p_PassWd, zpSshCcurIf->zAuthType,
-            zpSshCcurIf->p_RemoteOutPutBuf, zpSshCcurIf->RemoteOutPutBufSiz, zpSshCcurIf->p_CcurLock);
+    zssh_exec(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_HostServPort, zpDpCcurIf->p_Cmd,
+            zpDpCcurIf->p_UserName, zpDpCcurIf->p_PubKeyPath, zpDpCcurIf->p_PrivateKeyPath, zpDpCcurIf->p_PassWd, zpDpCcurIf->zAuthType,
+            zpDpCcurIf->p_RemoteOutPutBuf, zpDpCcurIf->RemoteOutPutBufSiz, zpDpCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
-    (* (zpSshCcurIf->p_TaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
-    pthread_cond_signal(zpSshCcurIf->p_CcurCond);
+    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+    (* (zpDpCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
     return NULL;
 };
@@ -182,14 +182,14 @@ zssh_ccur(void  *zpIf) {
 /* 简化参数版函数 */
 void *
 zssh_ccur_simple(void  *zpIf) {
-    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    zssh_exec_simple(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_Cmd, zpSshCcurIf->p_CcurLock);
+    zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock);
 
-    pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
-    (* (zpSshCcurIf->p_TaskCnt))++;
-    pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
-    pthread_cond_signal(zpSshCcurIf->p_CcurCond);
+    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+    (* (zpDpCcurIf->p_TaskCnt))++;
+    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
     return NULL;
 };
@@ -197,23 +197,23 @@ zssh_ccur_simple(void  *zpIf) {
 /* 远程主机初始化专用 */
 void *
 zssh_ccur_simple_init_host(void  *zpIf) {
-    zSshCcurInfo *zpSshCcurIf = (zSshCcurInfo *) zpIf;
+    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
 
-    _ui zHostId = zconvert_ip_str_to_bin(zpSshCcurIf->p_HostIpStrAddr);
-    zDpResInfo *zpTmpIf = zpGlobRepoIf[zpSshCcurIf->RepoId]->p_DpResHashIf[zHostId % zDpHashSiz];
+    _ui zHostId = zconvert_ip_str_to_bin(zpDpCcurIf->p_HostIpStrAddr);
+    zDpResInfo *zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[zHostId % zDpHashSiz];
     for (; NULL != zpTmpIf; zpTmpIf = zpTmpIf->p_next) {
         if (zHostId == zpTmpIf->ClientAddr) {
-            if (0 == zssh_exec_simple(zpSshCcurIf->p_HostIpStrAddr, zpSshCcurIf->p_Cmd, zpSshCcurIf->p_CcurLock)) {
+            if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock)) {
                 zpTmpIf->InitState = 1;
             } else {
                 zpTmpIf->InitState = -1;
-                zpGlobRepoIf[zpSshCcurIf->RepoId]->ResType[0] = -1;
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[0] = -1;
             }
 
-            pthread_mutex_lock(zpSshCcurIf->p_CcurLock);
-            (* (zpSshCcurIf->p_TaskCnt))++;
-            pthread_mutex_unlock(zpSshCcurIf->p_CcurLock);
-            pthread_cond_signal(zpSshCcurIf->p_CcurCond);
+            pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
+            (* (zpDpCcurIf->p_TaskCnt))++;
+            pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
+            pthread_cond_signal(zpDpCcurIf->p_CcurCond);
 
             break;
         }

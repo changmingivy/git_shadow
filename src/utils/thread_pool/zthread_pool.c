@@ -5,23 +5,19 @@
 #define zThreadPollSiz 129  // 允许同时处于空闲状态的线程数量，即常备线程数量
 #define zThreadPollSizMark (zThreadPollSiz - 1)
 
-typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
-
-struct zThreadPoolInfo {
-    pthread_t SelfTid;
-    pthread_cond_t CondVar;
-
-    zThreadPoolOps func;
-    void *p_param;
-};
-typedef struct zThreadPoolInfo zThreadPoolInfo;
-
 /* 线程池栈结构 */
 zThreadPoolInfo *zpPoolStackIf[zThreadPollSiz];
 
 _i ____zStackHeader = -1;
 pthread_mutex_t ____zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_t ____zThreadPoolTidTrash;
+
+void
+zthread_canceled_cleanup(void *zpIf) {
+    zThreadPoolInfo *zpSelfTask = (zThreadPoolInfo *) zpIf;
+    pthread_cond_destroy(&(zpSelfTask->CondVar));
+    free(zpSelfTask);
+}
 
 void *
 zthread_pool_meta_func(void *zpIf) {
@@ -52,9 +48,13 @@ zMark:
             zpSelfTask->func(zpSelfTask->p_param);
         } else {
             zppMetaIf = zpSelfTask->p_param;
-            zppMetaIf[0] = zpSelfTask;  // 用于为 pthread_kill 及回收资源动作提供参数
+            pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
+
+            zppMetaIf[0] = zpSelfTask;  // 用于为 pthread_cancel 提供参数
             zpSelfTask->func(zpSelfTask->p_param);
             zppMetaIf[0] = NULL;
+
+            pthread_cleanup_pop(0);
         }
     
         zpSelfTask->func = NULL;

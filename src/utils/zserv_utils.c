@@ -765,9 +765,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zpGlobRepoIf[zRepoId]->DpVecWrapIf.p_RefDataIf = zpGlobRepoIf[zRepoId]->DpRefDataIf;
     zpGlobRepoIf[zRepoId]->SortedDpVecWrapIf.p_VecIf = zpGlobRepoIf[zRepoId]->SortedDpVecIf;
 
-    zpGlobRepoIf[zRepoId]->p_HostStrAddrList = zpGlobRepoIf[zRepoId]->HostStrAddrList;
-
-    zpGlobRepoIf[zRepoId]->p_SshCcurIf = zpGlobRepoIf[zRepoId]->SshCcurIf;
+    zpGlobRepoIf[zRepoId]->p_DpCcurIf = zpGlobRepoIf[zRepoId]->DpCcurIf;
 
     /* 生成缓存 */
     zMetaInfo zMetaIf;
@@ -789,9 +787,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zpGlobRepoIf[zRepoId]->zInitRepoFinMark = 1;
 
     /* 全局实际项目 ID 最大值调整 */
-    pthread_mutex_lock(&zGlobMaxRepoIdLock);
+    pthread_mutex_lock(&zGlobCommonLock);
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
-    pthread_mutex_unlock(&zGlobMaxRepoIdLock);
+    pthread_mutex_unlock(&zGlobCommonLock);
 
     return 0;
 }
@@ -820,6 +818,13 @@ zsys_load_monitor(void *zpParam) {
             zGlobCpuLoad = 100.0 * zGlobSysLoadIf.loads[0] / zSysCpuNum;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
             zGlobMemLoad = 100.0 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
         }
+
+        /*
+         * 此处不拿锁，直接通知，否则锁竞争太甚
+         * 由于是无限循环监控任务，允许存在无效的通知
+         */
+        if (80 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
+
         zsleep(0.1);
     }
     return zpParam;  // 消除编译警告信息
