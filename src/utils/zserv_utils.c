@@ -725,8 +725,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[zRepoId]->DpRetryLock), NULL) );
 
     /* libssh2 并发锁 */
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[zRepoId]->SshSyncLock), NULL) );
-    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpGlobRepoIf[zRepoId]->SshSyncCond), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepoIf[zRepoId]->DpSyncLock), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpGlobRepoIf[zRepoId]->DpSyncCond), NULL) );
 
     /* 为每个代码库生成一把读写锁 */
     zCheck_Pthread_Func_Exit( pthread_rwlock_init(&(zpGlobRepoIf[zRepoId]->RwLock), NULL) );
