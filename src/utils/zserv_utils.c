@@ -743,6 +743,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 用于保证 "git pull" 原子性拉取的互斥锁 */
     zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepoIf[zRepoId]->PullLock, NULL));
 
+    /* 布署并发流量控制 */
+    zCheck_Negative_Exit( sem_init(&(zpGlobRepoIf[zRepoId]->DpTraficControl), 0, zDpTraficLimit) );
+
     /* 缓存版本初始化 */
     zpGlobRepoIf[zRepoId]->CacheId = 1000000000;
     /* 上一次布署结果状态初始化 */

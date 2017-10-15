@@ -23,7 +23,7 @@
 
 #include <pthread.h>
 #include <sys/mman.h>
-//#include <semaphore.h>
+#include <semaphore.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -53,6 +53,7 @@
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
 
+#define zDpTraficLimit 20  // 同一项目可同时发出的 git push 上限
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
@@ -212,6 +213,9 @@ struct zRepoInfo {
     time_t DpTimeWaitLimit;
     /* 目标机在重要动作执行前回发的keep alive消息 */
     time_t DpKeepAliveStamp;
+
+    /* 用于控制并发流量的信号量 */
+    sem_t DpTraficControl;
 
     /* 本项目 git 库全局 Handler */
     git_repository *p_GitRepoMetaIf;
