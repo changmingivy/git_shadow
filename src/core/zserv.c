@@ -912,7 +912,7 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
     pthread_mutex_lock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
 
     /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
-    if ((0 == (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf, &zpHostStrAddrRegResIf))) || (-12 == zErrNo)) {
+    if ((0 == (zErrNo = zdeploy(zpMetaIf, zSd, zppCommonBuf, &zpHostStrAddrRegResIf))) || (-12 == zErrNo) || (-23 == zErrNo)) {
         zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock = 0;
         pthread_rwlock_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->RwLock) );
         pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->DpRetryLock) );
