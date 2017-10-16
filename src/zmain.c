@@ -53,7 +53,7 @@
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
 
-#define zDpTraficLimit 16  // 同一项目可同时发出的 git push 上限
+#define zDpTraficLimit 64  // 同一项目可同时发出的 push 连接数量上限
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
