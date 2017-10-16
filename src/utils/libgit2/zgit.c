@@ -144,7 +144,7 @@ zgit_push_ccur(void *zpIf) {
         if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */
-            char zCmdBuf[128 + zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
+            char zCmdBuf[1024 + 7 * zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
             sprintf(zCmdBuf, "cd %s; git branch -D NEWserver%d; git branch -D NEWserver%d_SHADOW",
                     zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
                     zpDpCcurIf->RepoId,
@@ -154,7 +154,36 @@ zgit_push_ccur(void *zpIf) {
 
                 /* and, try push to NEWserver once more... */
                 if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
-                    zNative_Fail_Confirm();
+
+                    /* if failed again, to do last retry, delete '.git', reinit the host */
+                    sprintf(zCmdBuf,
+                            "rm -f %s %s_SHADOW;"  // 若为软链则清除，是目录则保留
+                            "mkdir -p %s %s_SHADOW;"
+                            "cd %s_SHADOW && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
+                            "cd %s && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
+                            "echo '%s' >/home/git/.____zself_ip_addr_%d.txt;"
+
+                            "exec 777<>/dev/tcp/%s/%s;"
+                            "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"
+                            "cat <&777 >.git/hooks/post-update;"
+                            "chmod 0755 .git/hooks/post-update;"
+                            "exec 777>&-;"
+                            "exec 777<&-;",
+
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->RepoId,
+
+                            zNetServIf.p_IpAddr, zNetServIf.p_port,
+                            zpDpCcurIf->RepoId, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath
+                            );
+                    if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
+                        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) { zNative_Fail_Confirm(); }
+                    } else {
+                        zNative_Fail_Confirm();
+                    }
                 }
             } else {
                 /* if ssh exec failed, just deal with error */
