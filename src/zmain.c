@@ -14,7 +14,7 @@
 
 #ifndef _Z_BSD
     #include <sys/signal.h>
-    #include <sys/sysinfo.h>
+//    #include <sys/sysinfo.h>  //  无法取得 cached 内存占用
 #else
     #include <netinet/in.h>
     #include <signal.h>

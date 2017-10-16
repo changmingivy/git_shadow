@@ -816,11 +816,15 @@ zinit_one_repo_env_thread_wraper(void *zpParam) {
 /* 定时获取系统全局负载信息 */
 void *
 zsys_load_monitor(void *zpParam) {
+    _ul zTotalMem, zAvalMem;
+    FILE *zpHandler;
+
+    zCheck_Null_Exit( zpHandler = fopen("/proc/meminfo", "r") );
+
     while(1) {
-        if (0 == sysinfo(&zGlobSysLoadIf)) {
-            //zGlobCpuLoad = 100 * zGlobSysLoadIf.loads[0] / 65536 / zSysCpuNum / 3;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
-            zGlobMemLoad = 100 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
-        }
+        fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
+        zGlobMemLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
+        fseek(zpHandler, 0, SEEK_SET);
 
         /*
          * 此处不拿锁，直接通知，否则锁竞争太甚
