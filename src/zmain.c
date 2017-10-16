@@ -7,6 +7,8 @@
     #define _BSD_SOURCE
 #endif
 
+#define OPENSSL_THREAD_DEFINES
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
