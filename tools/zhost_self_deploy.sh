@@ -14,16 +14,15 @@ cd $zProjPath
 zLocalSig=`git log -1 --format=%H`
 cd $zCurPath
 
-for zIpStrAddr in `echo ${zSelfIpList}`
+(
+while :
 do
-    exec 777>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
-    printf "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpStrAddr},\"ExtraData\":${zLocalSig}}]">&777
-    exec 777>&-
+    for zIpStrAddr in `echo ${zSelfIpList}`
+    do
+        exec 777>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
+        printf "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpStrAddr},\"ExtraData\":${zLocalSig}}]">&777
+        exec 777>&-
+    done
+    sleep 60
 done
-
-for zIpStrAddr in `echo ${zSelfIpList}`
-do
-    exec 777>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
-    printf "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpStrAddr},\"ExtraData\":${zLocalSig}}]">&777
-    exec 777>&-
-done
+) &
