@@ -743,6 +743,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 用于保证 "git pull" 原子性拉取的互斥锁 */
     zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepoIf[zRepoId]->PullLock, NULL));
 
+    /* 布署并发流量控制 */
+    zCheck_Negative_Exit( sem_init(&(zpGlobRepoIf[zRepoId]->DpTraficControl), 0, zDpTraficLimit) );
+
     /* 缓存版本初始化 */
     zpGlobRepoIf[zRepoId]->CacheId = 1000000000;
     /* 上一次布署结果状态初始化 */
@@ -813,17 +816,22 @@ zinit_one_repo_env_thread_wraper(void *zpParam) {
 /* 定时获取系统全局负载信息 */
 void *
 zsys_load_monitor(void *zpParam) {
+    _ul zTotalMem, zAvalMem;
+    FILE *zpHandler;
+
+    zCheck_Null_Exit( zpHandler = fopen("/proc/meminfo", "r") );
+
     while(1) {
-        if (0 == sysinfo(&zGlobSysLoadIf)) {
-            zGlobCpuLoad = 100.0 * zGlobSysLoadIf.loads[0] / zSysCpuNum;  // 只取 [0] 值，代表最近 1 分钟内的系统全局负载
-            zGlobMemLoad = 100.0 * (zGlobSysLoadIf.totalram - zGlobSysLoadIf.freeram - zGlobSysLoadIf.bufferram) / zGlobSysLoadIf.totalram;
-        }
+        fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
+        zGlobMemLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
+        fseek(zpHandler, 0, SEEK_SET);
 
         /*
          * 此处不拿锁，直接通知，否则锁竞争太甚
          * 由于是无限循环监控任务，允许存在无效的通知
+         * 工作线程等待在 80% 的水平线上，此处降到 70% 才通知
          */
-        if (80 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
+        if (70 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
 
         zsleep(0.1);
     }
@@ -870,11 +878,11 @@ zMarkFin:
     fclose(zpFile);
 
 #ifndef _Z_BSD
-    zpFile = NULL;
-    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
-    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );
-    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
-    fclose(zpFile);
+//    zpFile = NULL;
+//    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
+//    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );
+//    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
+//    fclose(zpFile);
 
     zAdd_To_Thread_Pool(zsys_load_monitor, NULL);
 #endif

@@ -75,8 +75,7 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
-    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
     zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
 
@@ -85,8 +84,8 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = 2;
 
-    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
-    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
+    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;
+    zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
@@ -99,13 +98,13 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zDpResInfo *____zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
     for (; NULL != ____zpTmpIf; ____zpTmpIf = ____zpTmpIf->p_next) {\
         if (____zHostId == ____zpTmpIf->ClientAddr) {\
-            pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
             if (0 == ____zpTmpIf->DpState) {\
                 ____zpTmpIf->DpState = -1;\
-                zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCnt++;\
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->DpReplyCnt++;\
                 zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[1] = -1;\
             }\
-            pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
             break;\
         }\
     }\
@@ -119,6 +118,16 @@ zgit_push_ccur(void *zpIf) {
     char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
     zpGitRefs[0] = zGitRefsBuf[0];
     zpGitRefs[1] = zGitRefsBuf[1];
+
+    /* git push 流量控制 */
+    zCheck_Negative_Exit( sem_wait(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl)) );
+
+    /* when memory load > 80%，waiting ... */
+    pthread_mutex_lock(&zGlobCommonLock);
+    while (80 < zGlobMemLoad) {
+        pthread_cond_wait(&zSysLoadCond, &zGlobCommonLock);
+    }
+    pthread_mutex_unlock(&zGlobCommonLock);
 
     /* generate remote URL */
     sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git", zpDpCcurIf->p_HostIpStrAddr, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9);
@@ -134,7 +143,7 @@ zgit_push_ccur(void *zpIf) {
         if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */
-            char zCmdBuf[128 + zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
+            char zCmdBuf[1024 + 7 * zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
             sprintf(zCmdBuf, "cd %s; git branch -D NEWserver%d; git branch -D NEWserver%d_SHADOW",
                     zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
                     zpDpCcurIf->RepoId,
@@ -144,7 +153,36 @@ zgit_push_ccur(void *zpIf) {
 
                 /* and, try push to NEWserver once more... */
                 if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
-                    zNative_Fail_Confirm();
+
+                    /* if failed again, to do last retry, delete '.git', reinit the host */
+                    sprintf(zCmdBuf,
+                            "rm -f %s %s_SHADOW;"  // 若为软链则清除，是目录则保留
+                            "mkdir -p %s %s_SHADOW;"
+                            "cd %s_SHADOW && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
+                            "cd %s && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
+                            "echo '%s' >/home/git/.____zself_ip_addr_%d.txt;"
+
+                            "exec 777<>/dev/tcp/%s/%s;"
+                            "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"
+                            "cat <&777 >.git/hooks/post-update;"
+                            "chmod 0755 .git/hooks/post-update;"
+                            "exec 777>&-;"
+                            "exec 777<&-;",
+
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath + 9,
+                            zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->RepoId,
+
+                            zNetServIf.p_IpAddr, zNetServIf.p_port,
+                            zpDpCcurIf->RepoId, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath
+                            );
+                    if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
+                        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) { zNative_Fail_Confirm(); }
+                    } else {
+                        zNative_Fail_Confirm();
+                    }
                 }
             } else {
                 /* if ssh exec failed, just deal with error */
@@ -153,13 +191,8 @@ zgit_push_ccur(void *zpIf) {
         }
     }
 
-    /* 目标机请求布署自身会将锁置为 NULL */
-    if (NULL != zpDpCcurIf->p_CcurLock) {
-        pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-        (* (zpDpCcurIf->p_TaskCnt))++;
-        pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-        pthread_cond_signal(zpDpCcurIf->p_CcurCond);
-    }
+    /* git push 流量控制 */
+    zCheck_Negative_Exit( sem_post(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl)) );
 
     return NULL;
 }

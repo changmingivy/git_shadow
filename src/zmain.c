@@ -7,6 +7,8 @@
     #define _BSD_SOURCE
 #endif
 
+#define OPENSSL_THREAD_DEFINES
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -14,7 +16,8 @@
 
 #ifndef _Z_BSD
     #include <sys/signal.h>
-    #include <sys/sysinfo.h>
+//    #include <sys/time.h>
+//    #include <sys/sysinfo.h>  //  无法取得 cached 内存占用
 #else
     #include <netinet/in.h>
     #include <signal.h>
@@ -23,7 +26,7 @@
 
 #include <pthread.h>
 #include <sys/mman.h>
-//#include <semaphore.h>
+#include <semaphore.h>
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -53,6 +56,7 @@
 #define zGlobBufSiz 1024
 #define zErrMsgBufSiz 256
 
+#define zDpTraficLimit 128  // 同一项目可同时发出的 push 连接数量上限
 #define zCacheSiz IOV_MAX  // 顶层缓存单元数量取 IOV_MAX
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
@@ -188,7 +192,6 @@ typedef struct zDpCcurInfo zDpCcurInfo;
 struct zRepoInfo {
     _i RepoId;  // 项目代号
     time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
-    _ui TotalHost;  // 每个项目的集群的主机数量
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i RepoPathLen;  // 项目路径长度，避免后续的使用者重复计算
     _i MaxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
@@ -216,16 +219,20 @@ struct zRepoInfo {
     /* 本项目 git 库全局 Handler */
     git_repository *p_GitRepoMetaIf;
 
+    /* 用于控制并发流量的信号量 */
+    sem_t DpTraficControl;
+
     /* libssh2 与 libgit2 共用的并发同步锁与条件变量 */
     pthread_mutex_t DpSyncLock;
     pthread_cond_t DpSyncCond;
-    _ui DpTotalTask;
-    _ui DpTaskFinCnt;
+    _ui TotalHost;  // 每个项目的目标主机总数量，此值不能修改
+    _ui DpTotalTask;  // 用于统计总任务数，可动态修改
+    _ui DpTaskFinCnt;  // 用于统计任务完成数，仅代表执行函数返回
+    _ui DpReplyCnt;  // 用于统计最终状态返回
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
     _c DpLock;
-
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _c RepoState;
     _c ResType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
@@ -233,7 +240,6 @@ struct zRepoInfo {
     char zLastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char zDpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
 
-    _ui ReplyCnt;  // 布署成功计数
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     zDpCcurInfo DpCcurIf[zForecastedHostNum];
@@ -271,12 +277,9 @@ pthread_mutex_t zGlobCommonLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
 pthread_cond_t zSysLoadCond = PTHREAD_COND_INITIALIZER;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
-_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
-_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
-_c zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 90 则剩余任阻塞等待
-#ifndef _Z_BSD
-struct sysinfo zGlobSysLoadIf;
-#endif
+//_s zSysCpuNum;  // 所在主机的 CPU 核心数量，upload[3] 与此值相除的结果即系统 CPU 负载
+//_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
+_ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
 struct zNetServInfo zNetServIf;  // 指定服务端自身的Ip地址与端口
 
