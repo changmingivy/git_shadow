@@ -504,7 +504,7 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
 
     /* 更新项目目标主机总数及等务计数 */
     zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zRegResIf->cnt;
-    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zRegResIf->cnt;
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
 
     /* 暂留旧数据 */
@@ -714,6 +714,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
@@ -1026,7 +1027,7 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
                     }
                 }
 
-                /* 等待所有 git push 任务完成 */
+                /* 等待所有 git push 任务完成；重试时不必设置超时 */
                 pthread_mutex_lock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
                 while ((0 == zpGlobRepoIf[zpMetaIf->RepoId]->zWhoGetWrLock) && (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
                     pthread_cond_wait(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncCond, &zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
