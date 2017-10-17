@@ -10,7 +10,7 @@ zCurPath=`pwd`
 zProjPath=`echo ${zCurPath} | sed -n 's/_SHADOW$//p'`
 
 cd $zProjPath
-zProjId=`git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'`
+zProjId=`git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$' | head -1`
 zLocalSig=`git log -1 --format=%H`
 cd $zCurPath
 
