@@ -728,7 +728,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     if (('\0' == zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
             || (0 == strcmp(zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
         /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 60 + zRemoteHostInitTimeSpent + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 60
+            + ((5 > zRemoteHostInitTimeSpent) ? (5 * (1 + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / zDpTraficLimit)) : zRemoteHostInitTimeSpent)
+            + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
     } else {
         /*
          * [基数 = 30s + 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 ?M，超时上限递增 1 秒]
@@ -737,7 +739,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
          */
         zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 30
             + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / 10  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
-            + (5 > zRemoteHostInitTimeSpent ? 5 : zRemoteHostInitTimeSpent)
+            + ((5 > zRemoteHostInitTimeSpent) ? (5 * (1 + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / zDpTraficLimit)) : zRemoteHostInitTimeSpent)
             + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);  /* 本地动作耗时 */
     }
 
