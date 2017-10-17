@@ -879,7 +879,7 @@ zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         zpDpSelfIf->p_HostIpStrAddr = zpMetaIf->p_data;
         zpDpSelfIf->p_CcurLock = NULL;  // 标记无需发送通知给调用者的条件变量
     
-        zAdd_To_Thread_Pool(zgit_push_ccur, zpDpSelfIf);
+        zgit_push_ccur(zpDpSelfIf);
 
         return zSd;  // 去除编译警告
     }
