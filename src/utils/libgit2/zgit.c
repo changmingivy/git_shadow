@@ -98,13 +98,13 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zDpResInfo *____zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[____zHostId % zDpHashSiz];\
     for (; NULL != ____zpTmpIf; ____zpTmpIf = ____zpTmpIf->p_next) {\
         if (____zHostId == ____zpTmpIf->ClientAddr) {\
-            pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
             if (0 == ____zpTmpIf->DpState) {\
                 ____zpTmpIf->DpState = -1;\
-                zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCnt++;\
+                zpGlobRepoIf[zpDpCcurIf->RepoId]->DpReplyCnt++;\
                 zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[1] = -1;\
             }\
-            pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->ReplyCntLock));\
+            pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
             break;\
         }\
     }\
@@ -193,14 +193,6 @@ zgit_push_ccur(void *zpIf) {
 
     /* git push 流量控制 */
     zCheck_Negative_Exit( sem_post(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTraficControl)) );
-
-    /* 目标机请求布署自身会将锁置为 NULL */
-    if (NULL != zpDpCcurIf->p_CcurLock) {
-        pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-        (* (zpDpCcurIf->p_TaskCnt))++;
-        pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-        pthread_cond_signal(zpDpCcurIf->p_CcurCond);
-    }
 
     return NULL;
 }
