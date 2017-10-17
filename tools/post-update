@@ -111,10 +111,10 @@ export HOME="/home/git"
         zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
-#    elif [[ 0 -ne "`git status --short | wc -l`" ]]; then
-#        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
-#        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-#        exit 255
+    elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then  # 检查是否存在文件不一致现象(忽略未被 git 管理的新文件，如：log 等)
+        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
     fi
 
     ##########################################
