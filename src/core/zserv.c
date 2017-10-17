@@ -502,11 +502,6 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
         zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf = zpGlobRepoIf[zpMetaIf->RepoId]->DpCcurIf;
     }
 
-    /* 更新项目目标主机总数及等务计数 */
-    zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zRegResIf->cnt;
-    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
-    zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
-
     /* 暂留旧数据 */
     zpOldDpResListIf = zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf;
     memcpy(zpOldDpResHashIf, zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, zDpHashSiz * sizeof(zDpResInfo *));
@@ -517,10 +512,17 @@ zupdate_ip_db_all(zMetaInfo *zpMetaIf, char *zpCommonBuf, zRegResInfo **zppRegRe
      */
     zMem_C_Alloc(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf, zDpResInfo, zRegResIf->cnt);
 
-    /* 重置状态 */
-    memset(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
+    /* 重置各项状态 */
+    zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost = zRegResIf->cnt;
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
+    //zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt = 0;
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0] = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp = time(NULL);
+    memset(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf, 0, zDpHashSiz * sizeof(zDpResInfo *));  /* Clear hash buf before reuse it!!! */
+    for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
+        zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState = 0;
+    }
 
     /* 生成 SSH 动作内容，缓存区使用上层调用者传入的静态内存区 */
     zConfig_Dp_Host_Ssh_Cmd(zpCommonBuf);
@@ -711,11 +713,11 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
         zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState = 0;
     }
+    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = 0;
+    //zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
     zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 0;
-    zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask = zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost;
-    zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt = 0;
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
     for (_ui zCnter = 0; zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost; zCnter++) {
