@@ -125,9 +125,9 @@ export HOME="/home/git"
         "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
 
     if [[ 'l' != `ls -l ${zProjOnLinePath} | grep -o '^l'` ]]; then rm -rf ${zProjOnLinePath}; fi
-    ln -s ${zPathOnHost} ${zProjOnLinePath}  # 不存在就做软链，存在就什么都不做
+    ln -sT ${zPathOnHost} ${zProjOnLinePath}  # 不存在就做软链，存在就什么都不做
     rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文件
-#    ln -s ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
+#    ln -sT ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
 
     # 更新开机请求布署自身的脚本，设置为隐藏文件
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
