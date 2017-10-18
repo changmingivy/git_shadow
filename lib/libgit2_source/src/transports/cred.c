@@ -111,33 +111,35 @@ int git_cred_userpass_plaintext_new(
 
 static void ssh_key_free(struct git_cred *cred)
 {
-	git_cred_ssh_key *c =
-		(git_cred_ssh_key *)cred;
+	return;  // 使用全局共享的证书，不能释放！！！
 
-	git__free(c->username);
-
-	if (c->privatekey) {
-		/* Zero the memory which previously held the private key */
-		size_t key_len = strlen(c->privatekey);
-		git__memzero(c->privatekey, key_len);
-		git__free(c->privatekey);
-	}
-
-	if (c->passphrase) {
-		/* Zero the memory which previously held the passphrase */
-		size_t pass_len = strlen(c->passphrase);
-		git__memzero(c->passphrase, pass_len);
-		git__free(c->passphrase);
-	}
-
-	if (c->publickey) {
-		/* Zero the memory which previously held the public key */
-		size_t key_len = strlen(c->publickey);
-		git__memzero(c->publickey, key_len);
-		git__free(c->publickey);
-	}
-
-	git__free(c);
+//	git_cred_ssh_key *c =
+//		(git_cred_ssh_key *)cred;
+//
+//	git__free(c->username);
+//
+//	if (c->privatekey) {
+//		/* Zero the memory which previously held the private key */
+//		size_t key_len = strlen(c->privatekey);
+//		git__memzero(c->privatekey, key_len);
+//		git__free(c->privatekey);
+//	}
+//
+//	if (c->passphrase) {
+//		/* Zero the memory which previously held the passphrase */
+//		size_t pass_len = strlen(c->passphrase);
+//		git__memzero(c->passphrase, pass_len);
+//		git__free(c->passphrase);
+//	}
+//
+//	if (c->publickey) {
+//		/* Zero the memory which previously held the public key */
+//		size_t key_len = strlen(c->publickey);
+//		git__memzero(c->publickey, key_len);
+//		git__free(c->publickey);
+//	}
+//
+//	git__free(c);
 }
 
 static void ssh_interactive_free(struct git_cred *cred)

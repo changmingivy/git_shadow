@@ -63,7 +63,7 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
-        git_remote_free(zRemote);
+        git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
@@ -78,14 +78,12 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
 
     /* do the push */
     if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
-        git_remote_disconnect(zRemote);
-        git_remote_free(zRemote);
+        git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
-    git_remote_disconnect(zRemote);
-    git_remote_free(zRemote);
+    git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
     return 0;
 }
 
