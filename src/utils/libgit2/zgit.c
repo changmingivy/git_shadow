@@ -39,7 +39,7 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char 
     zpAllowedTypes_Unused = 0;
     zPayload_Unusued = NULL;
 
-    zppResOut = &(zpGlobCred);
+    *zppResOut = zpGlobCred;
 
     return 0;
 }

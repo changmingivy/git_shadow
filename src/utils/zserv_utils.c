@@ -850,9 +850,9 @@ zinit_env(const char *zpConfPath) {
     _i zCnter = 0;
 
 #ifdef _Z_BSD
-    if (0 != git_cred_ssh_key_new(&(zpGlobCred), "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
+    if (0 != git_cred_ssh_key_new(&zpGlobCred, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
 #else
-    if (0 != git_cred_ssh_key_new(&(zpGlobCred), "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
+    if (0 != git_cred_ssh_key_new(&zpGlobCred, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
 #endif
         if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
         else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
