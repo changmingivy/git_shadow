@@ -211,7 +211,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId);
 
-                zpShellRetHandler = popen(zCommonBuf, "r");
+                zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
                 zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
 
