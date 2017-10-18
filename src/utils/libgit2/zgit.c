@@ -59,11 +59,12 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
-        git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
+        git_remote_free(zRemote);
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
@@ -73,17 +74,28 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = 2;
 
-    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;
+    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
+    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
     if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
-        git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
+        git_remote_disconnect(zRemote);
+        git_remote_free(zRemote);
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
-    git_remote_free(zRemote);  // 此函数内部会调用 git_remote_disconnect(...)
+    /* 同步 TAGS 之类的信息 */
+    // if (0 != git_remote_update_tips(zRemote, &zConnOpts, 0, 0, NULL)) {
+    //     git_remote_disconnect(zRemote);
+    //     git_remote_free(zRemote);
+    //     zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+    //     return -1;
+    // }
+
+    git_remote_disconnect(zRemote);
+    git_remote_free(zRemote);
     return 0;
 }
 
