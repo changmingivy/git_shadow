@@ -1327,7 +1327,7 @@ zstart_server(void *zpIf) {
     while(1) {
         pthread_mutex_lock(&zSocketAcceptParamIf.lock);
         if (-1 == (zSocketAcceptParamIf.ConnSd = accept(zMajorSd, NULL, 0))) {
-            zPrint_Err(0, NULL, "socket accept err");
+            zPrint_Err(errno, "-1 == accept(...)", NULL);
             pthread_mutex_unlock(&zSocketAcceptParamIf.lock);
         } else {
             zAdd_To_Thread_Pool(zops_route, &zSocketAcceptParamIf);
