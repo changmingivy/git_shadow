@@ -10,14 +10,14 @@ zHostId=$6
 ./tools/notice "$zMasterAddr" "$zMasterPort" "8" "${zProjId}" "${zHostId}" "${zMasterSig}" "${zReplyType}"
 
 # 关闭套接字读写端，防止先前已打开相同描述符
-exec 777>&-
-exec 777<&-
+exec 776>&-
+exec 776<&-
 # 建立 TCP 连接
-exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
+exec 776>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
-printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${zMasterSig},\"ExtraData\":${zReplyType}}">&777
+printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${zMasterSig},\"ExtraData\":${zReplyType}}">&776
 
 # 关闭读写端
-#exec 777<&-
-exec 777>&-
+#exec 776<&-
+exec 776>&-
