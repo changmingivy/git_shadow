@@ -1182,11 +1182,11 @@ zops_route(void *zpIf) {
     pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpIf)->lock ) );
 
     _i zErrNo;
-    zMetaInfo zMetaIf;
     char zJsonBuf[zGlobBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
 
     /* 必须清零，以防脏栈数据导致问题 */
+    zMetaInfo zMetaIf;
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
@@ -1197,6 +1197,7 @@ zops_route(void *zpIf) {
     }
 
     if (zBytes(6) > zMetaIf.DataLen) {
+        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         shutdown(zSd, SHUT_RDWR);
         return NULL;
     }
