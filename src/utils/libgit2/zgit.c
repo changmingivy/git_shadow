@@ -4,14 +4,6 @@
 
 //#include "git2.h"
 
-#define zGit_Check_Err_Return(zOps) do {\
-    if (0 != zOps) {\
-        git_remote_free(zRemote);\
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);\
-        return -1;\
-    }\
-} while (0)
-
 /* 代码库新建或载入时调用一次即可；zpLocallRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 git_repository *
 zgit_env_init(char *zpLocalRepoAddr) {
@@ -77,7 +69,12 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     /* connect to remote */
     git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
-    zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
+
+    if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
 
     /* add [a] push refspec[s] */
     git_strarray zGitRefsArray;
@@ -88,7 +85,12 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
-    zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
+    if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
+        git_remote_disconnect(zRemote);
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
 
     git_remote_disconnect(zRemote);
     git_remote_free(zRemote);
@@ -198,5 +200,3 @@ zgit_push_ccur(void *zpIf) {
 
     return NULL;
 }
-
-#undef zGit_Check_Err_Return
