@@ -782,7 +782,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zgenerate_cache(&zMetaIf);
 
     /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zpGlobRepoIf[zRepoId]->p_GitRepoMetaIf = zgit_env_init(zpGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
+    zCheck_Null_Exit( zpGlobRepoIf[zRepoId]->p_GitRepoHandler = zgit_env_init(zpGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
 
     /* 放锁 */
     pthread_rwlock_unlock(&(zpGlobRepoIf[zRepoId]->RwLock));
@@ -849,6 +849,16 @@ zinit_env(const char *zpConfPath) {
     char zCpuNumBuf[8];
     _i zCnter = 0;
 
+#ifdef _Z_BSD
+    if (0 != git_cred_ssh_key_new(&(zpGlobCred), "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
+#else
+    if (0 != git_cred_ssh_key_new(&(zpGlobCred), "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
+#endif
+        if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
+        else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
+        exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序
+    }
+
     /* json 解析时的回调函数索引 */
     zJsonParseOps['O']  // OpsId
         = zJsonParseOps['P']  // ProjId
@@ -887,7 +897,7 @@ zMarkFin:
 
     zAdd_To_Thread_Pool(zsys_load_monitor, NULL);
 #endif
-    
+
     return NULL;
 }
 

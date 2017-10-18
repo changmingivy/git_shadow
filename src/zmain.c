@@ -217,7 +217,7 @@ struct zRepoInfo {
     time_t DpKeepAliveStamp;
 
     /* 本项目 git 库全局 Handler */
-    git_repository *p_GitRepoMetaIf;
+    git_repository *p_GitRepoHandler;
 
     /* 用于控制并发流量的信号量 */
     sem_t DpTraficControl;
@@ -294,6 +294,8 @@ zNetOpsFunc zNetServ[zServHashSiz];
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
 
+/* 布署系统全局 SSH 认证证书 */
+git_cred *zpGlobCred;  // ssh 连接的凭证：内含公、私钥信息
 
 /************
  * 配置文件 *
