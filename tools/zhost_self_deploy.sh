@@ -11,12 +11,12 @@ zProjPath=`echo ${zCurPath} | sed -n 's/_SHADOW$//p'`
 
 cd $zProjPath
 zProjId=`git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$' | head -1`
-zLocalSig=`git log -1 --format=%H`
-cd $zCurPath
 
 (
 while :
 do
+    zLocalSig=`git log -1 --format=%H`  # 必须放在循环中，取实时的最新版本号发送给布署系统
+
     for zIpStrAddr in `echo ${zSelfIpList}`
     do
         exec 775>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
