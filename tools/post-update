@@ -103,6 +103,13 @@ export HOME="/home/git"
         fi
     fi
 
+    git reset -q --hard
+    if [[ 0 -ne $? ]]; then
+        zTcpReply "${zServSig}>git reset failed: ${zPathOnHost}_SHADOW" "B-"
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+    fi
+
     # 校验布署结果
     cd ${zPathOnHost}
     export GIT_DIR="${zPathOnHost}/.git"
