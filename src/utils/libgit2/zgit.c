@@ -90,6 +90,8 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     /* do the push */
     zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
 
+    git_remote_disconnect(zRemote);
+    git_remote_free(zRemote);
     return 0;
 }
 
