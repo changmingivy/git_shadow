@@ -1198,8 +1198,8 @@ zops_route(void *zpIf) {
     }
 
     if (zBytes(6) > zMetaIf.DataLen) {
-        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         shutdown(zSd, SHUT_RDWR);
+        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         return NULL;
     }
 
@@ -1241,7 +1241,6 @@ zMarkCommonAction:
 
     shutdown(zSd, SHUT_RDWR);
     if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
-
     return NULL;
 }
 
