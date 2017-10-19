@@ -87,7 +87,7 @@ main(_i zArgc, char **zppArgv) {
 
     if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) {
         zsendto(zSd, zSendBuf, zLen, 0, NULL);
-        shutdown(zSd, SHUT_RDWR);  // 只有连接成功才需要关闭
+        close(zSd);  // 只有连接成功才需要关闭
     }
 
     return 0;

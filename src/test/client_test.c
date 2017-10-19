@@ -122,7 +122,7 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
     zCheck_Negative_Return(zSd, -1);
     for (_i i = 4; i > 0; --i) {
         if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         sleep(i);
     }
 
@@ -223,7 +223,7 @@ zclient(void) {
     }
 
 
-    shutdown(zSd, SHUT_RDWR);
+    close(zSd);
 }
 
 _i
