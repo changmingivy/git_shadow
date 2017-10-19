@@ -1,131 +1,94 @@
 #ifndef _Z
     #include "../../../inc/zutils.h"
+    #include "../../zmain.c"
 #endif
 
 #define PCRE2_STATIC
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
 #include "pcre2.h"  //compile with '-lpcre2-8'
 
-#define zMatchLimit 64
-#define zErrBufLen 256
-
-struct zPCRERetInfo{
+struct zPcreResInfo{
     char *p_rets[zMatchLimit];  //matched results
-    _i cnt;         //total num of matched substrings
-//  char *p_NewSubject;      //store the new subject after substitution
+    _ui ResLen[zMatchLimit];  // results' strlen
+    _ui cnt;         //total num of matched substrings
+    _i RepoId;  // 负值表示使用系统alloc函数分配内存；非负值表示使用自定的 zalloc_cache() 函数分配内存，从而不需释放内存
 };
-typedef struct zPCRERetInfo zPCRERetInfo;
+typedef struct zPcreResInfo zPcreResInfo;
 
-struct zPCREInitInfo {
+struct zPcreInitInfo {
     pcre2_code *p_pd;
     pcre2_match_data *p_MatchData;
 };
-typedef struct zPCREInitInfo zPCREInitInfo;
+typedef struct zPcreInitInfo zPcreInitInfo;
 
 void
 zpcre_get_err(const _i zErrNo) {
-// TEST: PASS
-    PCRE2_UCHAR zBuffer[zErrBufLen];
-    pcre2_get_error_message(zErrNo, zBuffer, zSizeOf(zBuffer));
+    PCRE2_UCHAR zErrBuf[256];
+    pcre2_get_error_message(zErrNo, zErrBuf, zSizeOf(zErrBuf));
     zPrint_Err(errno, NULL, (char *)zBuffer);
-    exit(1);
 }
 
-zPCREInitInfo *
-zpcre_init(const char *zpPCREPattern) {
-// TEST: PASS
-    zPCREInitInfo *zpPCREInitIf;
-    zMem_Alloc(zpPCREInitIf, zPCREInitInfo, 1);
-
-    PCRE2_SPTR zPattern = (PCRE2_SPTR)zpPCREPattern;
-
+void
+zpcre_init(zPcreInitInfo *zpPcreInitIfOut, const char *zpPcrePattern) {
     _i zErrNo;
     PCRE2_SIZE zErrOffset;
 
-    zpPCREInitIf->p_pd = pcre2_compile(zPattern, PCRE2_ZERO_TERMINATED, 0, &zErrNo, &zErrOffset, NULL);
-    if (NULL == zpPCREInitIf->p_pd) {
-        zpcre_get_err(zErrNo);
-    }
+    zpPcreInitIfOut->p_pd = pcre2_compile((Pcre2_SPTR)zpPcrePattern, Pcre2_ZERO_TERMINATED, 0, &zErrNo, &zErrOffset, NULL);
+    if (NULL == zpPcreInitIfOut->p_pd) { zpcre_get_err(zErrNo); }
 
-    zpPCREInitIf->p_MatchData = pcre2_match_data_create_from_pattern(zpPCREInitIf->p_pd, NULL);
-    return zpPCREInitIf;
+    zpPcreInitIfOut->p_MatchData = pcre2_match_data_create_from_pattern(zpPcreInitIfOut->p_pd, NULL);
 }
 
-zPCRERetInfo *
-zpcre_match(const zPCREInitInfo *zpPCREInitIf, const char *zpPCRESubject, const _i zMatchAllMark) {
-// TEST: PASS
-    _i zRetCnt, zMatchMax;
-    zPCRERetInfo *zpRetIf;
+void
+zpcre_match(zPcreResInfo *zpPcreResIfOut, const zPcreInitInfo *zpPcreInitIf, const char *zpPcreSubject, const _i zMatchLimit) {
+    PCRE2_SPTR zpSubject = (Pcre2_SPTR)zpPcreSubject;
+    size_t zDynSubjectLen = strlen(zpPcreSubject);
 
-    size_t zSubjectLen, zSubStringLen;
-    PCRE2_SPTR zSubject, zSubStringStart, zpEndPtr;
+    /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
+    if (0 > zpPcreResIfOut->RepoId) {
+        zMem_Alloc(zpPcreResIfOut->p_rets[0], char, 2 * zDynSubjectLen);
+    } else {
+        zpPcreResIfOut->p_rets[0] = zalloc_cache(zpPcreResIfOut->RepoId, zBytes(2 * zDynSubjectLen));
+    }
 
-    PCRE2_SIZE *zpRetVector;
-
-    zMem_C_Alloc(zpRetIf, zPCRERetInfo, 1);
-
-    zSubjectLen = strlen(zpPCRESubject);
-    zSubject = (PCRE2_SPTR)zpPCRESubject;
-
-    zpEndPtr = zSubject + zSubjectLen;
-
-    zpRetIf->cnt = 0;
-
-    zMatchMax = (zMatchAllMark == 1) ? zMatchLimit : 1;  //zMatchAllMark == 1 means that it will act like 'm//g' in perl
-
-    for (_i i = 0; i < zMatchMax; i++) {
-        zRetCnt = pcre2_match(zpPCREInitIf->p_pd, zSubject, zSubjectLen, 0, 0, zpPCREInitIf->p_MatchData, NULL);
-        if (zRetCnt < 0) {
-        //zRetCnt == 0 means space is not enough, you need check it
+    PCRE2_SIZE *zpResVector = NULL;
+    _i zErrNo = 0;
+    size_t zOffSet = 0;
+    zpPcreResIfOut->cnt = 0;
+    while (zpPcreResIfOut->cnt < zMatchLimit) {
+        //zErrNo == 0 means space is not enough, you need check it
         //when use pcre2_match_data_create instead of the one whih suffix '_pattern'
-            if (zRetCnt == PCRE2_ERROR_NOMATCH) {
-                break;
-            } else {
-                zpcre_get_err(zRetCnt);
-            }
+        if (0 > (zErrNo = pcre2_match(zpPcreInitIf->p_pd, zpSubject, zDynSubjectLen, 0, 0, zpPcreInitIf->p_MatchData, NULL))) {
+            if (zErrNo == Pcre2_ERROR_NOMATCH) { break; }
+            else { zpcre_get_err(zErrNo); exit(1); }
         }
 
-        zpRetVector = pcre2_get_ovector_pointer(zpPCREInitIf->p_MatchData);
-        if (zpRetVector[0] >= zpRetVector[1] || ((zSubject + zpRetVector[1]) >= zpEndPtr)) { break; }
+        zpResVector = pcre2_get_ovector_pointer(zpPcreInitIf->p_MatchData);
+        //if (zpResVector[0] >= zpResVector[1]) { break; }
 
-        zSubStringStart = zSubject + zpRetVector[0];
-        zSubStringLen = zpRetVector[1] - zpRetVector[0];
+        zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt] = zpResVector[1] - zpResVector[0];
 
-        zMem_Alloc(zpRetIf->p_rets[i], char, zSubStringLen + 1);
-        strncpy(zpRetIf->p_rets[i], (char *)zSubStringStart, zSubStringLen);
-        zpRetIf->p_rets[i][zSubStringLen] = '\0';  // 需要手动加一个 '\0'
-        zpRetIf->cnt += 1;
-        zSubject += zpRetVector[1];
+        zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt] = zpPcreResIfOut->p_rets[0] + zOffSet;
+        strncpy(zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt], zpSubject + zpResVector[0], zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt]);
+        zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt][zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt]] = '\0';  // 最终结果以字符串类型返回
+
+        zOffSet += zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt] + 1;
+        zpSubject += zpResVector[1] + 1;
+        zDynSubjectLen -= zpResVector[1] + 1;
+        zpPcreResIfOut->cnt++;
     }
 
-//  zRetIf->p_NewSubject = NULL;
-    return zpRetIf;
+    zpPcreResIfOut->cnt--;  // 结果一定是多加了一次的，要减掉
 }
 
-// zPCRERetInfo *
-// zpcre_substitude(PCRE2_SPTR zPattern, PCRE2_SPTR zSubject, _i zMatchAllMark) {
-//     ;  //TO DO
-// }
+#define zPcre_Free_Metasource(zpRegInitIf) do {\
+    pcre2_match_data_free(zpInitIf->p_MatchData);\
+    pcre2_code_free(zpInitIf->p_pd);\
+} while(0)
 
-void
-zpcre_free_tmpsource(zPCRERetInfo *zpRet) {
-// TEST: PASS
-    if (NULL == zpRet) { return; }
-    for (_i i = 0; i < zpRet->cnt; i++) {
-        if (NULL == zpRet->p_rets[i]) { continue; }
-        free(zpRet->p_rets[i]);
-        zpRet->p_rets[i] = NULL;
-    }
-    free(zpRet);
-}
+/* 内存是全量分配给成员 [0] 的，只需释放一次 */
+#define zPcre_Free_Tmpsource(zpRes) do {\
+    free((zpRes)->p_rets[0]);\
+} while(0)
 
-void
-zpcre_free_metasource(zPCREInitInfo *zpInitIf) {
-// TEST: PASS
-    pcre2_match_data_free(zpInitIf->p_MatchData);
-    pcre2_code_free(zpInitIf->p_pd);
-    free(zpInitIf);
-}
-
-#undef zErrBufLen
-#undef zMatchLimit
+// zPcreResInfo * zpcre_substitude(...) { /* TO DO */ }

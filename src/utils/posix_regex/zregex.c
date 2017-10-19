@@ -1,5 +1,6 @@
 #ifndef _Z
     #include "../../../inc/zutils.h"
+    #include "../../zmain.c"
 #endif
 
 #include <regex.h>
@@ -18,33 +19,33 @@ typedef regex_t zRegInitInfo;
 
 /* 使用 posix 扩展正则 */
 void
-zreg_compile(zRegInitInfo *zpRegInitIf, const char *zpRegPattern) {
+zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
-    if (0 != (zErrNo = regcomp(zpRegInitIf, zpRegPattern, REG_EXTENDED))) {
+    if (0 != (zErrNo = regcomp(zpRegInitIfOut, zpRegPattern, REG_EXTENDED))) {
         zPrint_Time();
-        regerror(zErrNo, zpRegInitIf, zErrBuf, zBytes(256));
+        regerror(zErrNo, zpRegInitIfOut, zErrBuf, zBytes(256));
         zPrint_Err(0, NULL, zErrBuf);
-        regfree(zpRegInitIf);
+        regfree(zpRegInitIfOut);
         exit(1);
     }
 }
 
 void
-zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubject) {
+zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSubject) {
     _i zErrNo, zDynSubjectlen, zResStrLen;
     _ui zOffSet = 0;
     char zErrBuf[256];
     regmatch_t zMatchResIf;
 
-    zpRegResIf->cnt = 0;
+    zpRegResIfOut->cnt = 0;
     zDynSubjectlen = strlen(zpRegSubject);
 
     /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
-    if (0 > zpRegResIf->RepoId) {
-        zMem_Alloc(zpRegResIf->p_rets[0], char, 2 * zDynSubjectlen);
+    if (0 > zpRegResIfOut->RepoId) {
+        zMem_Alloc(zpRegResIfOut->p_rets[0], char, 2 * zDynSubjectlen);
     } else {
-        zpRegResIf->p_rets[0] = zalloc_cache(zpRegResIf->RepoId, zBytes(2 * zDynSubjectlen));
+        zpRegResIfOut->p_rets[0] = zalloc_cache(zpRegResIfOut->RepoId, zBytes(2 * zDynSubjectlen));
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
@@ -62,12 +63,12 @@ zreg_match(zRegResInfo *zpRegResIf, regex_t *zpRegInitIf, const char *zpRegSubje
         zResStrLen = zMatchResIf.rm_eo - zMatchResIf.rm_so;
         if (0 == zResStrLen) { break; }
 
-        zpRegResIf->ResLen[zpRegResIf->cnt] = zResStrLen;
-        zpRegResIf->cnt++;
+        zpRegResIfOut->ResLen[zpRegResIfOut->cnt] = zResStrLen;
+        zpRegResIfOut->cnt++;
 
-        zpRegResIf->p_rets[zCnter] = zpRegResIf->p_rets[0] + zOffSet;
-        strncpy(zpRegResIf->p_rets[zCnter], zpRegSubject + zMatchResIf.rm_so, zResStrLen);
-        zpRegResIf->p_rets[zCnter][zResStrLen] = '\0';
+        zpRegResIfOut->p_rets[zCnter] = zpRegResIfOut->p_rets[0] + zOffSet;
+        strncpy(zpRegResIfOut->p_rets[zCnter], zpRegSubject + zMatchResIf.rm_so, zResStrLen);
+        zpRegResIfOut->p_rets[zCnter][zResStrLen] = '\0';
 
         zOffSet += zMatchResIf.rm_eo + 1;  // '+ 1' for '\0'
         zpRegSubject += zMatchResIf.rm_eo + 1;

@@ -102,8 +102,8 @@ zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
  * 6：显示单个项目及其元信息
  */
 _i
-zshow_one_repo_meta(zMetaInfo *zpIf, _i zSd) {
-    zMetaInfo *zpMetaIf = (zMetaInfo *) zpIf;
+zshow_one_repo_meta(zMetaInfo *zpParam, _i zSd) {
+    zMetaInfo *zpMetaIf = (zMetaInfo *) zpParam;
     char zSendBuf[zGlobBufSiz];
 
     if (0 != pthread_rwlock_tryrdlock(&(zpGlobRepoIf[zpMetaIf->RepoId]->RwLock))) {
@@ -1178,9 +1178,9 @@ zreq_file(zMetaInfo *zpMetaIf, _i zSd) {
  * 网络服务路由函数
  */
 void *
-zops_route(void *zpIf) {
-    _i zSd = ((zSocketAcceptParamInfo *) zpIf)->ConnSd;
-    pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpIf)->lock ) );
+zops_route(void *zpParam) {
+    _i zSd = ((zSocketAcceptParamInfo *) zpParam)->ConnSd;
+    pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpParam)->lock ) );
 
     _i zErrNo;
     char zJsonBuf[zGlobBufSiz] = {'\0'};
@@ -1296,11 +1296,11 @@ zMarkCommonAction:
  * 0: 测试函数
  */
 // _i
-// ztest_func(zMetaInfo *zpIf, _i zSd) { return 0; }
+// ztest_func(zMetaInfo *zpParam, _i zSd) { return 0; }
 
 
 void
-zstart_server(void *zpIf) {
+zstart_server(void *zpParam) {
     zNetServ[0] = NULL;  // ztest_func;  // 留作功能测试接口
     zNetServ[1] = zadd_repo;  // 添加新代码库
     zNetServ[2] = zlock_repo;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
@@ -1319,7 +1319,7 @@ zstart_server(void *zpIf) {
     zNetServ[15] = NULL;
 
     /* 如下部分配置网络服务 */
-    zNetServInfo *zpNetServIf = (zNetServInfo *)zpIf;
+    zNetServInfo *zpNetServIf = (zNetServInfo *)zpParam;
     _i zMajorSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_IpAddr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
