@@ -294,9 +294,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
 
-/* 布署系统全局 SSH 认证证书 */
-git_cred *zpGlobCred;  // ssh 连接的凭证：内含公、私钥信息
-
 /************
  * 配置文件 *
  ************/
