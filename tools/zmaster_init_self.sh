@@ -30,6 +30,21 @@ mkdir -p ${zShadowPath}/conf
 touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
+# build libpcre2
+# wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
+mkdir ${zShadowPath}/lib/libpcre2_source/____build
+if [[ 0 -eq $? ]]; then
+    cd ${zShadowPath}/lib/libpcre2_source/____build && rm -rf * .*
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libpcre2 \
+        -DBUILD_SHARED_LIBS=ON \
+        -DPCRE2_BUILD_PCRE2GREP=OFF \
+        -DPCRE2_BUILD_TESTS=OFF
+    cmake --build . --target install
+fi
+zLibPcrePath=${zShadowPath}/lib/libpcre2/lib64
+if [[ 0 -eq  `ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
+
 # build libssh2
 mkdir ${zShadowPath}/lib/libssh2_source/____build
 if [[ 0 -eq $? ]]; then
@@ -60,11 +75,14 @@ if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib
 # 编译主程序，静态库文件路径一定要放在源文件之后，如查使用静态库，则必须在此之前链接 zlib curl openssl crypto (-lz -lcurl -lssl -lcrypto)
 clang -Wall -Wextra -std=c99 -O2 -lpthread \
     -I${zShadowPath}/inc \
+    -I${zShadowPath}/lib/libpcre2/include \
+    -L${zLibPcrePath} \
+    -lpcre2-8 \
     -I${zShadowPath}/lib/libssh2/include \
-    -I${zShadowPath}/lib/libgit2/include \
     -L${zLibSshPath} \
-    -L${zLibGitPath} \
     -lssh2 \
+    -I${zShadowPath}/lib/libgit2/include \
+    -L${zLibGitPath} \
     -lgit2 \
     -o ${zShadowPath}/bin/git_shadow \
     ${zShadowPath}/src/zmain.c
