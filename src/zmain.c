@@ -119,7 +119,7 @@ struct zMetaInfo {
     _i CacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i DataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefDataInfo的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
-    _ui DataLen;
+    _i DataLen;  // 不能使和 _ui 类型，recv 返回 -1 时将会导致错误
     char *p_ExtraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
     _ui ExtraDataLen;
 
@@ -217,7 +217,7 @@ struct zRepoInfo {
     time_t DpKeepAliveStamp;
 
     /* 本项目 git 库全局 Handler */
-    git_repository *p_GitRepoMetaIf;
+    git_repository *p_GitRepoHandler;
 
     /* 用于控制并发流量的信号量 */
     sem_t DpTraficControl;
@@ -293,7 +293,6 @@ zNetOpsFunc zNetServ[zServHashSiz];
 /* 以 ANSI 字符集中的前 128 位成员作为索引 */
 typedef void (* zJsonParseFunc) (void *, void *);
 zJsonParseFunc zJsonParseOps[128];
-
 
 /************
  * 配置文件 *

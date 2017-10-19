@@ -211,7 +211,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
                         zpMetaIf->RepoId);
 
-                zpShellRetHandler = popen(zCommonBuf, "r");
+                zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
                 zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
 
@@ -591,8 +591,8 @@ zExistMark:;
     if ((-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[0])
             || (zpGlobRepoIf[zpMetaIf->RepoId]->DpTaskFinCnt < zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask)) {
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
-        _ui zFailHostCnt = 0, zOffSet = 0;
-        zOffSet += sprintf(zpMetaIf->p_data, "无法连接的主机:");
+        _ui zFailHostCnt = 0;
+        _i zOffSet = sprintf(zpMetaIf->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].InitState) {
                 zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
@@ -728,7 +728,9 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     if (('\0' == zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig[0])
             || (0 == strcmp(zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig))) {
         /* 无法测算时: 默认超时时间 ==  60s + 中控机本地所有动作耗时 */
-        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 60 + zRemoteHostInitTimeSpent + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
+        zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 60
+            + ((5 > zRemoteHostInitTimeSpent) ? (5 * (1 + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / zDpTraficLimit)) : zRemoteHostInitTimeSpent)
+            + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);
     } else {
         /*
          * [基数 = 30s + 中控机本地所有动作耗时之和] + [远程主机初始化时间 + 中控机与目标机上计算SHA1 checksum 的时间] + [网络数据总量每增加 ?M，超时上限递增 1 秒]
@@ -737,7 +739,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
          */
         zpGlobRepoIf[zpMetaIf->RepoId]->DpTimeWaitLimit = 30
             + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / 10  /* 临时算式：每增加一台目标机，递增 0.1 秒 */
-            + (5 > zRemoteHostInitTimeSpent ? 5 : zRemoteHostInitTimeSpent)
+            + ((5 > zRemoteHostInitTimeSpent) ? (5 * (1 + zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost / zDpTraficLimit)) : zRemoteHostInitTimeSpent)
             + (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->DpBaseTimeStamp);  /* 本地动作耗时 */
     }
 
@@ -801,7 +803,8 @@ zErrMark:
 
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
-        for (_ui zCnter = 0, zOffSet = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
+        _i zOffSet = 0;
+        for (_ui zCnter = 0; (zOffSet < zpMetaIf->DataLen) && (zCnter < zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].DpState) {
                 zconvert_ip_bin_to_str(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResListIf[zCnter].ClientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMetaIf->p_data + zOffSet, "([%s]%s)",
@@ -877,7 +880,7 @@ zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
         zpDpSelfIf->p_HostIpStrAddr = zpMetaIf->p_data;
         zpDpSelfIf->p_CcurLock = NULL;  // 标记无需发送通知给调用者的条件变量
     
-        zAdd_To_Thread_Pool(zgit_push_ccur, zpDpSelfIf);
+        zgit_push_ccur(zpDpSelfIf);
 
         return zSd;  // 去除编译警告
     }
@@ -1180,11 +1183,11 @@ zops_route(void *zpIf) {
     pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpIf)->lock ) );
 
     _i zErrNo;
-    zMetaInfo zMetaIf;
     char zJsonBuf[zGlobBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
 
     /* 必须清零，以防脏栈数据导致问题 */
+    zMetaInfo zMetaIf;
     memset(&zMetaIf, 0, sizeof(zMetaInfo));
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
@@ -1196,6 +1199,7 @@ zops_route(void *zpIf) {
 
     if (zBytes(6) > zMetaIf.DataLen) {
         shutdown(zSd, SHUT_RDWR);
+        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         return NULL;
     }
 
@@ -1237,7 +1241,6 @@ zMarkCommonAction:
 
     shutdown(zSd, SHUT_RDWR);
     if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
-
     return NULL;
 }
 
@@ -1325,7 +1328,7 @@ zstart_server(void *zpIf) {
     while(1) {
         pthread_mutex_lock(&zSocketAcceptParamIf.lock);
         if (-1 == (zSocketAcceptParamIf.ConnSd = accept(zMajorSd, NULL, 0))) {
-            zPrint_Err(0, NULL, "socket accept err");
+            zPrint_Err(errno, "-1 == accept(...)", NULL);
             pthread_mutex_unlock(&zSocketAcceptParamIf.lock);
         } else {
             zAdd_To_Thread_Pool(zops_route, &zSocketAcceptParamIf);
