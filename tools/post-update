@@ -39,9 +39,10 @@ export HOME="/home/git"
 
     # 'A'目标机初始伦；'B'布署结果返回；'C'KeepAlive
     zTcpReply() {
-        exec 777>/dev/tcp/${zMasterAddr}/${zMasterPort}
+        exec 777<>/dev/tcp/${zMasterAddr}/${zMasterPort}
         printf "[{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${1},\"ExtraData\":${2}}]">&777
         exec 777>&-
+        exec 777<&-
     }
 
     printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1

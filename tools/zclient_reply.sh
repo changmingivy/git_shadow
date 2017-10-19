@@ -13,11 +13,11 @@ zHostId=$6
 exec 776>&-
 exec 776<&-
 # 建立 TCP 连接
-exec 776>/dev/tcp/${zMasterAddr}/${zMasterPort}
+exec 776<>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
 printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${zMasterSig},\"ExtraData\":${zReplyType}}">&776
 
 # 关闭读写端
-#exec 776<&-
+exec 776<&-
 exec 776>&-
