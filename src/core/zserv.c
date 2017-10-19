@@ -1198,7 +1198,7 @@ zops_route(void *zpIf) {
     }
 
     if (zBytes(6) > zMetaIf.DataLen) {
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         return NULL;
     }
@@ -1239,7 +1239,7 @@ zMarkCommonAction:
         fprintf(stderr, "\n\033[31;01m[ DEBUG ] \033[00m%s", zpJsonBuf);  // 错误信息，打印出一份，防止客户端socket已关闭时，信息丢失
     }
 
-    shutdown(zSd, SHUT_RDWR);
+    close(zSd);
     if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
     return NULL;
 }

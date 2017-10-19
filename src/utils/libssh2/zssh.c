@@ -72,7 +72,7 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     if (0 != zRet) {
 z0: libssh2_session_free(zSession);
         libssh2_exit();
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         return -1;
     }
 
@@ -90,7 +90,7 @@ z0: libssh2_session_free(zSession);
     if (0 != zRet) {
 z1: libssh2_session_free(zSession);
         libssh2_exit();
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         return -1;
     }
 
@@ -105,7 +105,7 @@ z1: libssh2_session_free(zSession);
 z2: libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_exit();
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         return -1;
     }
 
@@ -124,7 +124,7 @@ z3: libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_channel_free(zChannel);
         libssh2_exit();
-        shutdown(zSd, SHUT_RDWR);
+        close(zSd);
         return -1;
     }
 
@@ -141,7 +141,7 @@ z3: libssh2_session_disconnect(zSession, "");
                         libssh2_session_disconnect(zSession, "");
                         libssh2_session_free(zSession);
                         libssh2_exit();
-                        shutdown(zSd, SHUT_RDWR);
+                        close(zSd);
                         return -1;
                     }
                 }
@@ -171,7 +171,7 @@ z3: libssh2_session_disconnect(zSession, "");
     libssh2_session_free(zSession);
     libssh2_exit();
 
-    shutdown(zSd, SHUT_RDWR);
+    close(zSd);
     return zErrNo;
 }
 
