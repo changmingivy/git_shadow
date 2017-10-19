@@ -4,36 +4,28 @@
 
 //#include "git2.h"
 
-#define zGit_Check_Err_Return(zOps) do {\
-    if (0 != zOps) {\
-        git_remote_free(zRemote);\
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);\
-        return -1;\
-    }\
-} while (0)
-
 /* 代码库新建或载入时调用一次即可；zpLocallRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 git_repository *
 zgit_env_init(char *zpLocalRepoAddr) {
-    git_repository *zpRepoMetaIf;
+    git_repository *zpRepoHandler;
 
     if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        zpRepoMetaIf = NULL;
+        zpRepoHandler = NULL;
     }
 
-    if (0 != git_repository_open(&zpRepoMetaIf, zpLocalRepoAddr)) {
+    if (0 != git_repository_open(&zpRepoHandler, zpLocalRepoAddr)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        zpRepoMetaIf = NULL;
+        zpRepoHandler = NULL;
     }
 
-    return zpRepoMetaIf;
+    return zpRepoHandler;
 }
 
 /* 通常无须调用，随布署系统运行一直处于使用状态 */
 void
-zgit_env_clean(git_repository *zpRepoIf) {
-    git_repository_free(zpRepoIf);
+zgit_env_clean(git_repository *zpRepoCredHandler) {
+    git_repository_free(zpRepoCredHandler);
     git_libgit2_shutdown();
 }
 
@@ -46,7 +38,6 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char 
     zpAllowedTypes_Unused = 0;
     zPayload_Unusued = NULL;
 
-    /* 固定为 git 用户权限 */
 #ifdef _Z_BSD
     if (0 != git_cred_ssh_key_new(zppResOut, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
 #else
@@ -54,7 +45,7 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char 
 #endif
         if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
         else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
-        return -1;
+        exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序
     }
 
     return 0;
@@ -75,21 +66,43 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
-    zGit_Check_Err_Return( git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL) );
+
+    if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
 
     /* add [a] push refspec[s] */
     git_strarray zGitRefsArray;
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = 2;
 
-    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;
+    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
+    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
-    zGit_Check_Err_Return( git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts) );
+    if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
+        git_remote_disconnect(zRemote);
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
 
+    /* 同步 TAGS 之类的信息 */
+    // if (0 != git_remote_update_tips(zRemote, &zConnOpts, 0, 0, NULL)) {
+    //     git_remote_disconnect(zRemote);
+    //     git_remote_free(zRemote);
+    //     zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+    //     return -1;
+    // }
+
+    git_remote_disconnect(zRemote);
+    git_remote_free(zRemote);
     return 0;
 }
 
@@ -135,12 +148,12 @@ zgit_push_ccur(void *zpIf) {
     /* push TWO branchs together */
     sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/server%d", zpDpCcurIf->RepoId);
     sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcurIf->RepoId);
-    if (0 != zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+    if (0 != zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) {
 
         /* if directly push failed, then try push to a new remote branch: NEWserver... */
         sprintf(zpGitRefs[0], "refs/heads/master:refs/heads/NEWserver%d", zpDpCcurIf->RepoId);
         sprintf(zpGitRefs[1], "refs/heads/master_SHADOW:refs/heads/NEWserver%d_SHADOW", zpDpCcurIf->RepoId);
-        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) {
 
             /* if failed again, then try delete the remote branch: NEWserver... */
             char zCmdBuf[1024 + 7 * zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
@@ -152,7 +165,7 @@ zgit_push_ccur(void *zpIf) {
             if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
 
                 /* and, try push to NEWserver once more... */
-                if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) {
+                if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) {
 
                     /* if failed again, to do last retry, delete '.git', reinit the host */
                     sprintf(zCmdBuf,
@@ -179,7 +192,7 @@ zgit_push_ccur(void *zpIf) {
                             zpDpCcurIf->RepoId, zpGlobRepoIf[zpDpCcurIf->RepoId]->p_RepoPath
                             );
                     if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
-                        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoMetaIf, zRemoteRepoAddrBuf, zpGitRefs)) { zNative_Fail_Confirm(); }
+                        if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) { zNative_Fail_Confirm(); }
                     } else {
                         zNative_Fail_Confirm();
                     }
@@ -196,5 +209,3 @@ zgit_push_ccur(void *zpIf) {
 
     return NULL;
 }
-
-#undef zGit_Check_Err_Return

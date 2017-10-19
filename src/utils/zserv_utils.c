@@ -63,7 +63,7 @@ zget_diff_content(void *zpParam) {
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId),
             zGet_OneFilePath(zpTopVecWrapIf, zpMetaIf->CommitId, zpMetaIf->FileId));
 
-    zpShellRetHandler = popen(zCommonBuf, "r");
+    zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     zCnter = 0;
@@ -329,7 +329,7 @@ zget_file_list(void *zpParam) {
             zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig,
             zGet_OneCommitSig(zpTopVecWrapIf, zpMetaIf->CommitId));
 
-    zpShellRetHandler = popen(zCommonBuf, "r");
+    zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
 
     /* 差异文件数量 >24 时使用 git 原生视图，避免占用太多资源，同时避免爆栈 */
     if (NULL == zget_one_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
@@ -481,13 +481,13 @@ zgenerate_cache(void *zpParam) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->CommitVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->SortedCommitVecWrapIf);
         sprintf(zCommonBuf, "cd \"%s\" && git log server%d --format=\"%%H_%%ct\"", zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zpMetaIf->RepoId); // 取 server 分支的提交记录
-        zpShellRetHandler = popen(zCommonBuf, "r");
+        zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
     } else if (zIsDpDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
         // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
         sprintf(zCommonBuf, "cat \"%s\"\"%s\"", zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
-        zpShellRetHandler = popen(zCommonBuf, "r");
+        zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
@@ -753,7 +753,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
     sprintf(zCommonBuf, "cat %s%s | tail -1", zpGlobRepoIf[zRepoId]->p_RepoPath, zDpSigLogPath);
-    FILE *zpShellRetHandler = popen(zCommonBuf, "r");
+    FILE *zpShellRetHandler;
+    zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
     if (zBytes(40) != zget_str_content(zpGlobRepoIf[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
         zpGlobRepoIf[zRepoId]->zLastDpSig[40] = '\0';
     }
@@ -781,7 +782,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zgenerate_cache(&zMetaIf);
 
     /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zpGlobRepoIf[zRepoId]->p_GitRepoMetaIf = zgit_env_init(zpGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
+    zCheck_Null_Exit( zpGlobRepoIf[zRepoId]->p_GitRepoHandler = zgit_env_init(zpGlobRepoIf[zRepoId]->p_RepoPath) );  // 目标库
 
     /* 放锁 */
     pthread_rwlock_unlock(&(zpGlobRepoIf[zRepoId]->RwLock));
@@ -886,7 +887,7 @@ zMarkFin:
 
     zAdd_To_Thread_Pool(zsys_load_monitor, NULL);
 #endif
-    
+
     return NULL;
 }
 
