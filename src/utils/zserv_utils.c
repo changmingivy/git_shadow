@@ -486,7 +486,7 @@ zgenerate_cache(void *zpParam) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
         // 调用外部命令 tail，而不是用 fopen 打开，如此可用统一的 pclose 关闭
-        sprintf(zCommonBuf, "tail -%d \"%s%s\" | sort -nr -t'_' -k2", zCacheSiz, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
+        sprintf(zCommonBuf, "tail -%d \"%s%s\"", zCacheSiz, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
@@ -556,7 +556,7 @@ zMarkSkip:
         }
 
         if (zIsDpDataType == zpMetaIf->DataType) {
-            // 存储最近一次布署的 SHA1 sig，执行布署是首先对比布署目标与最近一次布署，若相同，则直接返回成功
+            /* 存储最近一次布署的 SHA1 sig，执行布署时首先对比布署目标与最近一次布署，若相同，则直接返回成功 */
             strcpy(zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, zpTopVecWrapIf->p_RefDataIf[zCnter - 1].p_data);
             /* 将布署记录按逆向时间排序（新记录显示在前面） */
             for (_i i = 0; i < zpTopVecWrapIf->VecSiz; i++) {
