@@ -24,7 +24,7 @@ typedef struct zPcreInitInfo zPcreInitInfo;
 void
 zpcre_get_err(const _i zErrNo) {
     PCRE2_UCHAR zErrBuf[256];
-    pcre2_get_error_message(zErrNo, zErrBuf, zSizeOf(zErrBuf));
+    pcre2_get_error_message(zErrNo, zErrBuf, sizeof(zErrBuf));
     zPrint_Err(errno, NULL, (char *)zBuffer);
 }
 

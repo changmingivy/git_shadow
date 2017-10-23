@@ -197,7 +197,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
          */
         if (10 < (time(NULL) - zpGlobRepoIf[zpMetaIf->RepoId]->LastPullTime)) {
             if ((0 == zpGlobRepoIf[zpMetaIf->RepoId]->SelfPushMark)
-                    && (0 == pthread_mutex_trylock( &(zpGlobRepoIf[zpMetaIf->RepoId]->PullLock))) ) {
+                    && (0 == pthread_mutex_trylock( &(zpGlobRepoIf[zpMetaIf->RepoId]->PullLock) ))) {
 
                 system(zpGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);  /* 不能多线程，因为多个 git pull 会产生文件锁竞争 */
                 zpGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
@@ -214,6 +214,7 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
                 zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
                 pclose(zpShellRetHandler);
+                pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->PullLock) );
 
                 if ((NULL == zpGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data)
                         || (0 != strncmp(zCommonBuf, zpGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data, 40))) {
@@ -246,8 +247,6 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                         return -11;
                     };
                 }
-
-                pthread_mutex_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId]->PullLock));
             }
         }
     } else if (zIsDpDataType == zpMetaIf->DataType) {
