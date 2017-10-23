@@ -779,10 +779,7 @@ zdeploy(zMetaInfo *zpMetaIf, _i zSd, char **zppCommonBuf, zRegResInfo **zppHostS
     pthread_mutex_unlock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
 
     /* 若收到错误，则可确认此次布署一定会失败，进入错误处理环节 */
-    if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) {
-        pthread_mutex_unlock(&zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock);
-        goto zErrMark;
-    }
+    if (-1 == zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1]) { goto zErrMark; }
 
     if (zpGlobRepoIf[zpMetaIf->RepoId]->TotalHost == zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt) {
         zErrNo = 0;
