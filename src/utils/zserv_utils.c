@@ -485,8 +485,8 @@ zgenerate_cache(void *zpParam) {
     } else if (zIsDpDataType == zpMetaIf->DataType) {
         zpTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->DpVecWrapIf);
         zpSortedTopVecWrapIf = &(zpGlobRepoIf[zpMetaIf->RepoId]->SortedDpVecWrapIf);
-        // 调用外部命令 cat，而不是用 fopen 打开，如此可用统一的 pclose 关闭
-        sprintf(zCommonBuf, "cat \"%s\"\"%s\"", zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
+        // 调用外部命令 tail，而不是用 fopen 打开，如此可用统一的 pclose 关闭
+        sprintf(zCommonBuf, "tail -%d \"%s%s\" | sort -nr -t'_' -k2", zCacheSiz, zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath, zDpSigLogPath);
         zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
