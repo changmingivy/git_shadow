@@ -133,7 +133,10 @@ export HOME="/home/git"
         "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
 
     if [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) || (${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) ]]; then
-        rm -rf ${zProjOnLinePath}
+        zTcpReply "${zServSig}>既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}" "B-"
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+        # rm -rf ${zProjOnLinePath}
     fi
 
     ln -sT ${zPathOnHost} ${zProjOnLinePath}  # 不存在就做软链，存在就什么都不做
