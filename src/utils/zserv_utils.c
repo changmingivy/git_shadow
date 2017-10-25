@@ -846,7 +846,6 @@ void *
 zinit_env(const char *zpConfPath) {
     FILE *zpFile = NULL;
     static char zConfBuf[zGlobRepoNumLimit][zGlobBufSiz];  // 预置 128 个静态缓存区
-    char zCpuNumBuf[8];
     _i zCnter = 0;
 
     /* json 解析时的回调函数索引 */
@@ -879,6 +878,7 @@ zMarkFin:
     fclose(zpFile);
 
 #ifndef _Z_BSD
+//    char zCpuNumBuf[8];
 //    zpFile = NULL;
 //    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
 //    zCheck_Null_Exit( zget_one_line(zCpuNumBuf, 8, zpFile) );

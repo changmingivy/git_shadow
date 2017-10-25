@@ -68,7 +68,7 @@ zadd_repo(zMetaInfo *zpMetaIf, _i zSd) {
  * 6：显示单个项目及其元信息
  */
 _i
-zshow_all_repo_meta(zMetaInfo *zpMetaIf, _i zSd) {
+zshow_all_repo_meta(zMetaInfo *zpMetaIf __attribute__ ((__unused__)), _i zSd) {
     char zSendBuf[zGlobBufSiz];
 
     zsendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
