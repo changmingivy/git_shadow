@@ -866,20 +866,18 @@ zEndMark:
  * 13：新加入的主机请求布署自身：不拿锁、不刷系统IP列表、不刷新缓存
  */
 _i
-zself_deploy(zMetaInfo *zpMetaIf, _i zSd) {
+zself_deploy(zMetaInfo *zpMetaIf, _i zSd __attribute__ ((__unused__))) {
     /* 若目标机上已是最新代码，则无需布署 */
-    if (0 == strncmp(zpMetaIf->p_ExtraData, zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, 40)) {
-        return 0;
-    } else {
+    if (0 != strncmp(zpMetaIf->p_ExtraData, zpGlobRepoIf[zpMetaIf->RepoId]->zLastDpSig, 40)) {
         zDpCcurInfo *zpDpSelfIf = zalloc_cache(zpMetaIf->RepoId, sizeof(zDpCcurInfo));
         zpDpSelfIf->RepoId = zpMetaIf->RepoId;
         zpDpSelfIf->p_HostIpStrAddr = zpMetaIf->p_data;
         zpDpSelfIf->p_CcurLock = NULL;  // 标记无需发送通知给调用者的条件变量
     
         zgit_push_ccur(zpDpSelfIf);
-
-        return zSd;  // 去除编译警告
     }
+
+    return 0;
 }
 
 /*
@@ -1065,7 +1063,7 @@ zbatch_deploy(zMetaInfo *zpMetaIf, _i zSd) {
  * 9：布署成功主机自动确认
  */
 _i
-zstate_confirm(zMetaInfo *zpMetaIf, _i zSd) {
+zstate_confirm(zMetaInfo *zpMetaIf, _i zSd __attribute__ ((__unused__))) {
     zDpResInfo *zpTmpIf = zpGlobRepoIf[zpMetaIf->RepoId]->p_DpResHashIf[zpMetaIf->HostId % zDpHashSiz];
 
     for (; zpTmpIf != NULL; zpTmpIf = zpTmpIf->p_next) {  // 遍历
@@ -1286,13 +1284,15 @@ zMarkCommonAction:
  *  -101：目标机返回的版本号与正在布署的不一致
  *  -102：目标机返回的错误信息
  *  -103：目标机返回的状态信息Type无法识别
+ *
+ *  -10000: fake success
  */
 
 /*
  * 0: 测试函数
  */
 // _i
-// ztest_func(zMetaInfo *zpParam, _i zSd) { return 0; }
+// ztest_func(zMetaInfo *zpParam, _i zSd __attribute__ ((__unused__))) { return 0; }
 
 
 void

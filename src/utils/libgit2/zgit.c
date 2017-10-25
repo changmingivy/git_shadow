@@ -31,13 +31,10 @@ zgit_env_clean(git_repository *zpRepoCredHandler) {
 
 /* SSH 身份认证 */
 _i
-zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl_Unused, const char * zpUsernameFromUrl_Unused, unsigned int zpAllowedTypes_Unused, void * zPayload_Unusued) {
-    /* 仅用作消除编译时的警告信息 */
-    zpUrl_Unused = NULL;
-    zpUsernameFromUrl_Unused = NULL;
-    zpAllowedTypes_Unused = 0;
-    zPayload_Unusued = NULL;
-
+zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl __attribute__ ((__unused__)),
+		const char * zpUsernameFromUrl __attribute__ ((__unused__)),
+		unsigned int zpAllowedTypes __attribute__ ((__unused__)),
+		void * zPayload __attribute__ ((__unused__))) {
 #ifdef _Z_BSD
     if (0 != git_cred_ssh_key_new(zppResOut, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
 #else
