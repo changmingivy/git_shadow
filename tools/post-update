@@ -125,13 +125,7 @@ export HOME="/home/git"
         exit 255
     fi
 
-    ##########################################
-    # 布署成功：'B+' 用于标识这是布署状态回复 #
-    ##########################################
-    cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
-    bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh \
-        "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
-
+    # 检测是否有废弃的残留文件，若存在，则抛出错误
     if [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) || (${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) ]]; then
         zTcpReply "${zServSig}>既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
@@ -140,8 +134,22 @@ export HOME="/home/git"
     fi
 
     ln -sT ${zPathOnHost} ${zProjOnLinePath}  # 不存在就做软链，存在就什么都不做
+    if [[ 0 -ne $? ]]; then
+        zTcpReply "${zServSig}>既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}" "B-"
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+        # rm -rf ${zProjOnLinePath}
+    fi
+
     rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧项目的遗留文件
 #    ln -sT ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
+
+    ##########################################
+    # 布署成功：'B+' 用于标识这是布署状态回复 #
+    ##########################################
+    cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
+    bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh \
+        "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" >> /tmp/.____post-deploy.log 2>&1
 
     # 更新开机请求布署自身的脚本，设置为隐藏文件
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
