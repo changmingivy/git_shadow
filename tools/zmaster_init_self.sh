@@ -21,8 +21,8 @@ eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/post-update
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/zhost_self_deploy.sh
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/zhost_self_deploy.sh
 
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP '\d+(?=.*zauto_restart.sh)'`
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP '\d+(?=.*git_shadow)'`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/tools/zauto_restart.sh)"`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/bin/git_shadow)"`
 
 mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
