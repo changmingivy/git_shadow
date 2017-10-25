@@ -127,8 +127,7 @@ export HOME="/home/git"
 
     # 检测是否有废弃的残留文件，若存在，则抛出错误
     if [[ (0 -ne `ls -d ${zProjOnLinePath} | wc -l`)
-        || ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`)
-        || (${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) ]]; then
+		&& (('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) || (${zPathOnHost} != `readlink -q ${zProjOnLinePath}`)) ]]; then
         zTcpReply "${zServSig}>既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
