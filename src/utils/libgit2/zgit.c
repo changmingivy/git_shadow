@@ -49,7 +49,8 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl __attribute__ ((__u
 }
 
 /*
- * [ git fetch ]
+ * TO DO...
+ * [ git fetch && git merge refs/remotes/origin/master ]
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
@@ -232,20 +233,57 @@ zgit_push_ccur(void *zpIf) {
     return NULL;
 }
 
+
 /*
+ * TO DO...
  * [ git log --format=%H ]
  * return SHA1-sig cnt
  */
 _i
-zgit_log_sig_list(void) {
+zgit_log_sig_list(git_repository *zpRepo, char *zpRef, _i zSortType, _i zSigCntLimit) {
     // git_diff_options diffopts = GIT_DIFF_OPTIONS_INIT;
     // 参见 log.c diff.c 实现 git log --format=%H、git diff --name-only、git diff -- filepath_0 filepath_N
     // 可以反向显示提交记录
     // 优化生成缓存的相关的函数实现
+
+    /* 显示順序：[0]順序、[1]逆序 */
+    if (0 == zSortType) { zSortType = GIT_SORT_TIME; }
+    else { zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE; }
+
+
+    git_oid zOid;
+    git_commit *zpCommit = NULL;
+    git_revwalk *zpWalker = NULL;
+
+    char zSigBuf[44];
+    for (;0 != git_revwalk_next(&zOid, zpWalker); git_commit_free(zpCommit)) {
+        git_commit_lookup(&zpCommit, zpRepo, &zOid);
+        git_oid_tostr(zSigBuf, sizeof(git_oid), &zOid);
+        printf("%s\n", zSigBuf);
+    }
+
+    git_revwalk_free(zpWalker);
 }
 
-void
-zgit_diff_path_list(void) {}
 
+/*
+ * TO DO...
+ */
 void
-zgit_diff_file_content(void) {}
+zgit_diff_path_list(void) {
+
+}
+
+
+/*
+ * TO DO...
+ */
+void
+zgit_diff_onefile(char *zpFilePath) {
+    git_diff_options zDiffOpts;
+    git_diff_init_options(&zDiffOpts, GIT_DIFF_OPTIONS_VERSION);
+    zDiffOpts.pathspec.strings = &zpFilePath;
+    zDiffOpts.pathspec.count = 1;
+
+    //git_pathspec_new(NULL, NULL);
+}
