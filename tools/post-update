@@ -62,13 +62,14 @@ export HOME="/home/git"
     zServSig=`git log ${zServBranchName} -1 --format=%H`
 
     # 检测必要的路径下是存在权限异常的文件
-    mkdir -p ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW
+    mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
     chown git:git ${zProjOnLinePath} `dirname ${zPathOnHost}` ${zPathOnHost} ${zPathOnHost}_SHADOW
     if [[ 0 -ne $? ]]; then
         zTcpReply "${zServSig}>permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
+    rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，要清除创建的空目录
 
     # 清除可能存在的由于 git 崩溃残留的锁文件
     rm -f ${zPathOnHost}/.git/index.lock
