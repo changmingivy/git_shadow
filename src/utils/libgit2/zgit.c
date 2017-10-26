@@ -49,11 +49,58 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl __attribute__ ((__u
 }
 
 /*
+ * [ git fetch ]
+ * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
+ */
+_i
+zgit_fetch(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
+    /* get the remote */
+    git_remote* zRemote = NULL;
+    //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
+    if (0 != git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    };
+
+    /* connect to remote */
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
+
+    if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    /* add [a] fetch refspec[s] */
+    git_strarray zGitRefsArray;
+    zGitRefsArray.strings = zppRefs;
+    zGitRefsArray.count = zRefsCnt;
+
+	git_fetch_options zFetchOpts;
+	git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
+
+    /* do the fetch */
+    //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
+    if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
+        git_remote_disconnect(zRemote);
+        git_remote_free(zRemote);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    git_remote_disconnect(zRemote);
+    git_remote_free(zRemote);
+    return 0;
+}
+
+/*
  * [ git push ]
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
-zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
+zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
@@ -76,7 +123,7 @@ zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs) {
     /* add [a] push refspec[s] */
     git_strarray zGitRefsArray;
     zGitRefsArray.strings = zppRefs;
-    zGitRefsArray.count = 2;
+    zGitRefsArray.count = zRefsCnt;
 
     git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
     git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
@@ -145,7 +192,7 @@ zgit_push_ccur(void *zpIf) {
     /* {'+' == git push --force} push TWO branchs together */
     sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcurIf->RepoId);
     sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcurIf->RepoId);
-    if (0 != zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) {
+    if (0 != zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepoIf[zpDpCcurIf->RepoId]->RepoPathLen];
         sprintf(zCmdBuf,
@@ -173,7 +220,7 @@ zgit_push_ccur(void *zpIf) {
                 );
         if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zCmdBuf, &(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock))) {
             /* if init-ops success, then try deploy once more... */
-            if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs)) { zNative_Fail_Confirm(); }
+            if (0 !=zgit_push(zpGlobRepoIf[zpDpCcurIf->RepoId]->p_GitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2)) { zNative_Fail_Confirm(); }
         } else {
             zNative_Fail_Confirm();
         }
