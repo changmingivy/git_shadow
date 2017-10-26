@@ -55,10 +55,6 @@ export HOME="/home/git"
     fi
     export GIT_DIR="${zPathOnHost}/.git"
 
-    # 分支更名
-    git branch -M "NEW${zServBranchName}" "${zServBranchName}"
-    git branch -M "NEW${zServBranchName}_SHADOW" "${zServBranchName}_SHADOW"
-
     zServSig=`git log ${zServBranchName} -1 --format=%H`
 
     # 检测必要的路径下是存在权限异常的文件
