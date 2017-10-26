@@ -78,8 +78,8 @@ zgit_fetch(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRe
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = zRefsCnt;
 
-	git_fetch_options zFetchOpts;
-	git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
+    git_fetch_options zFetchOpts;
+    git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
 
     /* do the fetch */
     //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
@@ -231,3 +231,21 @@ zgit_push_ccur(void *zpIf) {
 
     return NULL;
 }
+
+/*
+ * [ git log --format=%H ]
+ * return SHA1-sig cnt
+ */
+_i
+zgit_log_sig_list(void) {
+    // git_diff_options diffopts = GIT_DIFF_OPTIONS_INIT;
+    // 参见 log.c diff.c 实现 git log --format=%H、git diff --name-only、git diff -- filepath_0 filepath_N
+    // 可以反向显示提交记录
+    // 优化生成缓存的相关的函数实现
+}
+
+void
+zgit_diff_path_list(void) {}
+
+void
+zgit_diff_file_content(void) {}
