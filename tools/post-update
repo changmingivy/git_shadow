@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
+#
 # 拉取 server${ProjId} 分支分代码到 master 分支
 # 通知中控机已收到代码
+#
+
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
@@ -21,7 +24,7 @@ export HOME="/home/git"
     zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
     zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
-    # 当前hook执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
+    # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
     # 清理同一项目下可能存在的 post-update 进程
@@ -30,7 +33,7 @@ export HOME="/home/git"
     # 运行期间将自身 Pid 存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
     echo "$$" > /home/git/.${zProjId}_pid_post-update
 
-    # 转换Ip String为数字格式：$HostId
+    # 转换点分格格的 IP 为数字格式：$HostId
     zHostId=0
     zCnter=0
     for zField in `printf ${zSelfIpStrAddr} | grep -oP '\d+'`
