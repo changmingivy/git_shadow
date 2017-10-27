@@ -2,7 +2,26 @@
     #include "../../zmain.c"
 #endif
 
-//#include "git2.h"
+// typedef void * (* zalloc_cb) (void *, void *);
+//
+// typedef struct {
+//     void *p_meta;
+//     size_t siz;
+// } zAllocParamInfo;
+//
+// void *
+// zsystem_alloc_wrap(void *zpParam) {
+//     void *zpRes = NULL;
+//     zMem_Alloc(zpRes, char, ((zAllocParamInfo *) zpParam)->siz);
+//     return zpRes;
+// }
+//
+// void *
+// zrepo_alloc_wrap(void *zpParam) {
+//     return zalloc_cache(* ((_i *) ((zAllocParamInfo *) zpParam)->p_meta), ((zAllocParamInfo *) zpParam)->siz);
+// }
+
+typedef struct git_revwalk zGitRevWalkInfo;
 
 /* 代码库新建或载入时调用一次即可；zpLocallRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 git_repository *
@@ -48,64 +67,64 @@ zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl __attribute__ ((__u
     return 0;
 }
 
-/*
- * TO DO...
- * [ git fetch && git merge refs/remotes/origin/master ]
- * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
- */
-_i
-zgit_fetch(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
-    /* get the remote */
-    git_remote* zRemote = NULL;
-    //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
-    if (0 != git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return -1;
-    };
-
-    /* connect to remote */
-    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
-    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
-    zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
-
-    if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
-        git_remote_free(zRemote);
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return -1;
-    }
-
-    /* add [a] fetch refspec[s] */
-    git_strarray zGitRefsArray;
-    zGitRefsArray.strings = zppRefs;
-    zGitRefsArray.count = zRefsCnt;
-
-    git_fetch_options zFetchOpts;
-    git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
-
-    /* do the fetch */
-    //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
-    if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
-        git_remote_disconnect(zRemote);
-        git_remote_free(zRemote);
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return -1;
-    }
-
-    git_remote_disconnect(zRemote);
-    git_remote_free(zRemote);
-    return 0;
-}
+// /*
+//  * TO DO...
+//  * [ git fetch && git merge refs/remotes/origin/master ]
+//  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
+//  */
+// _i
+// zgit_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
+//     /* get the remote */
+//     git_remote* zRemote = NULL;
+//     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
+//     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
+//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+//         return -1;
+//     };
+//
+//     /* connect to remote */
+//     git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+//     git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+//     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
+//
+//     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
+//         git_remote_free(zRemote);
+//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+//         return -1;
+//     }
+//
+//     /* add [a] fetch refspec[s] */
+//     git_strarray zGitRefsArray;
+//     zGitRefsArray.strings = zppRefs;
+//     zGitRefsArray.count = zRefsCnt;
+//
+//     git_fetch_options zFetchOpts;
+//     git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
+//
+//     /* do the fetch */
+//     //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
+//     if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
+//         git_remote_disconnect(zRemote);
+//         git_remote_free(zRemote);
+//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+//         return -1;
+//     }
+//
+//     git_remote_disconnect(zRemote);
+//     git_remote_free(zRemote);
+//     return 0;
+// }
 
 /*
  * [ git push ]
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
-zgit_push(git_repository *zRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
+zgit_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
-    if (0 != git_remote_create_anonymous(&zRemote, zRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
+    if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     };
@@ -233,57 +252,124 @@ zgit_push_ccur(void *zpIf) {
     return NULL;
 }
 
-
 /*
- * TO DO...
- * [ git log --format=%H ]
- * return SHA1-sig cnt
+ * [ git log --format=%H ] + [ git log --format=%ct ]
+ * success return zpRevWalker, fail return NULL
  */
-_i
-zgit_log_sig_list(git_repository *zpRepo, char *zpRef, _i zSortType, _i zSigCntLimit) {
-    // git_diff_options diffopts = GIT_DIFF_OPTIONS_INIT;
-    // 参见 log.c diff.c 实现 git log --format=%H、git diff --name-only、git diff -- filepath_0 filepath_N
-    // 可以反向显示提交记录
-    // 优化生成缓存的相关的函数实现
+inline void
+zgit_destroy_revwalker(git_revwalk *zpRevWalker) {
+    git_revwalk_free(zpRevWalker);
+}
 
-    /* 显示順序：[0]順序、[1]逆序 */
+zGitRevWalkInfo *
+zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
+    git_object *zpObj;
+    git_revwalk *zpRevWalker = NULL;
+
+    if (0 != git_revwalk_new(&zpRevWalker, zpRepo)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return NULL;
+    }
+
+    /* zSortType 显示順序：[0]順序、[1]逆序 */
     if (0 == zSortType) { zSortType = GIT_SORT_TIME; }
     else { zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE; }
 
+    git_revwalk_sorting(zpRevWalker, zSortType);
 
-    git_oid zOid;
-    git_commit *zpCommit = NULL;
-    git_revwalk *zpWalker = NULL;
-
-    char zSigBuf[44];
-    for (;0 != git_revwalk_next(&zOid, zpWalker); git_commit_free(zpCommit)) {
-        git_commit_lookup(&zpCommit, zpRepo, &zOid);
-        git_oid_tostr(zSigBuf, sizeof(git_oid), &zOid);
-        printf("%s\n", zSigBuf);
+    if ((0 != git_revparse_single(&zpObj, zpRepo, zpRef))
+            || (0 != git_revwalk_push(zpRevWalker, git_object_id(zpObj)))) {
+        zgit_destroy_revwalker(zpRevWalker);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return NULL;
     }
 
-    git_revwalk_free(zpWalker);
+    return zpRevWalker;
 }
-
 
 /*
- * TO DO...
+ * 结果返回：正常返回取到的数据总长度，0 表示已取完所有记录，-1 表示出错
+ * 参数返回：git log --format="%H\0%ct\0" 格式的单条数据
+ * 用途：每调用一次取出一条数据
  */
-void
-zgit_diff_path_list(void) {
+_i
+zgit_get_one_commitsig_and_timestamp(char *(zpResOut[64]), git_repository *zpRepo, git_revwalk *zpRevWalker) {
+    git_oid zOid;
+    git_commit *zpCommit = NULL;
+    _i zErrNo = 0, zResLen = 0;
 
+    zErrNo = git_revwalk_next(&zOid, zpRevWalker);
+
+    if (0 == zErrNo) {
+        if (0 != git_commit_lookup(&zpCommit, zpRepo, &zOid)) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            return -1;
+        }
+
+        if ('\0' == git_oid_tostr(*zpResOut, sizeof(git_oid), &zOid)[0]) {
+            git_commit_free(zpCommit);
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            return -1;
+        }
+
+        zResLen += 42 + snprintf(*zpResOut + 41, 64 - 41, "%ld", git_commit_time(zpCommit));
+        git_commit_free(zpCommit);
+        return zResLen;
+    } else if (GIT_ITEROVER == zErrNo) {
+        return 0;
+    } else {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
 }
 
-
-/*
- * TO DO...
- */
-void
-zgit_diff_onefile(char *zpFilePath) {
-    git_diff_options zDiffOpts;
-    git_diff_init_options(&zDiffOpts, GIT_DIFF_OPTIONS_VERSION);
-    zDiffOpts.pathspec.strings = &zpFilePath;
-    zDiffOpts.pathspec.count = 1;
-
-    //git_pathspec_new(NULL, NULL);
-}
+// /*
+//  * TO DO...
+//  */
+// void
+// zgit_diff_path_list(git_repository *zpRepo, char *zpRef0, char *zpRef1) {
+//     git_object *zpObj;
+//     git_tree *zpTree[2];
+//     git_diff *zpDiff;
+//     git_diff_options zDiffOpts;
+//     git_diff_find_options zDiffFindOpts;
+//     git_diff_format_t zDiffFormat = GIT_DIFF_FORMAT_NAME_ONLY;
+//
+//     git_diff_init_options(&zDiffOpts, GIT_DIFF_OPTIONS_VERSION);
+//     git_diff_find_init_options(&zDiffFindOpts, GIT_DIFF_FIND_OPTIONS_VERSION);
+//     zDiffFindOpts.flags |= GIT_DIFF_FIND_ALL;
+//
+//     git_revparse_single(&zpObj, zpRepo, zpRef0);
+//     git_object_peel((git_object **) zpTree, zpObj, GIT_OBJ_TREE);
+//     git_object_free(zpObj);
+//
+//     git_revparse_single(&zpObj, zpRepo, zpRef1);
+//     git_object_peel((git_object **) zpTree, zpObj, GIT_OBJ_TREE);
+//     git_object_free(zpObj);
+//
+//     git_diff_tree_to_tree(&zpDiff, zpRepo, zpTree[0], zpTree[1], &zDiffOpts);
+//     git_diff_find_similar(zpDiff, &zDiffFindOpts);
+//
+//     git_diff_print(zpDiff, zDiffFormat, NULL, NULL);  // the last two NULL param：diff res ops and it's inner param ptr
+//
+//     git_diff_free(zpDiff);
+//     git_tree_free(zpTree[0]);
+//     git_tree_free(zpTree[1]);
+//
+//     // 参见 log.c diff.c 实现 git log --format=%H、git diff --name-only、git diff -- filepath_0 filepath_N
+//     // 可以反向显示提交记录
+//     // 优化生成缓存的相关的函数实现
+// }
+//
+// /*
+//  * TO DO...
+//  */
+// void
+// zgit_diff_onefile(char *zpFilePath) {
+//     git_diff_options zDiffOpts;
+//     git_diff_init_options(&zDiffOpts, GIT_DIFF_OPTIONS_VERSION);
+//     zDiffOpts.pathspec.strings = &zpFilePath;
+//     zDiffOpts.pathspec.count = 1;
+//
+//     //git_pathspec_new(NULL, NULL);
+// }
