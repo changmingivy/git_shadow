@@ -256,7 +256,7 @@ zgit_push_ccur(void *zpIf) {
  * [ git log --format=%H ] + [ git log --format=%ct ]
  * success return zpRevWalker, fail return NULL
  */
-inline void
+void
 zgit_destroy_revwalker(git_revwalk *zpRevWalker) {
     git_revwalk_free(zpRevWalker);
 }
