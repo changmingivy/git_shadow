@@ -202,18 +202,25 @@ zprint_record(zMetaInfo *zpMetaIf, _i zSd) {
                 system(zpGlobRepoIf[zpMetaIf->RepoId]->p_PullCmd);  /* 不能多线程，因为多个 git pull 会产生文件锁竞争 */
                 zpGlobRepoIf[zpMetaIf->RepoId]->LastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
 
-                FILE *zpShellRetHandler;
-                char zCommonBuf[128
-                    + zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
-                    + 12];
+                zGitRevWalkInfo *zpRevWalker;
+                char zCommonBuf[64] = {'\0'};
+                sprintf(zCommonBuf, "refs/heads/server%d", zpMetaIf->RepoId);
+                if (NULL != (zpRevWalker = zgit_generate_revwalker(zpGlobRepoIf[zpMetaIf->RepoId]->p_GitRepoHandler, NULL, 0))) {
+                    zgit_get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepoIf[zpMetaIf->RepoId]->p_GitRepoHandler, zpRevWalker);
+                    zgit_destroy_revwalker(zpRevWalker);
+                }
+                // FILE *zpShellRetHandler;
+                // char zCommonBuf[128
+                //     + zpGlobRepoIf[zpMetaIf->RepoId]->RepoPathLen
+                //     + 12];
 
-                sprintf(zCommonBuf, "cd %s && git log server%d -1 --format=%%H",
-                        zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
-                        zpMetaIf->RepoId);
+                // sprintf(zCommonBuf, "cd %s && git log server%d -1 --format=%%H",
+                //         zpGlobRepoIf[zpMetaIf->RepoId]->p_RepoPath,
+                //         zpMetaIf->RepoId);
 
-                zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
-                zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
-                pclose(zpShellRetHandler);
+                // zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
+                // zget_str_content(zCommonBuf, zBytes(40), zpShellRetHandler);
+                // pclose(zpShellRetHandler);
                 pthread_mutex_unlock( &(zpGlobRepoIf[zpMetaIf->RepoId]->PullLock) );
 
                 if ((NULL == zpGlobRepoIf[zpMetaIf->RepoId]->CommitRefDataIf[0].p_data)

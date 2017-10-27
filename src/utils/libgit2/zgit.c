@@ -293,7 +293,7 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
  * 用途：每调用一次取出一条数据
  */
 _i
-zgit_get_one_commitsig_and_timestamp(char *(zpResOut[64]), git_repository *zpRepo, git_revwalk *zpRevWalker) {
+zgit_get_one_commitsig_and_timestamp(char *zpResOut, git_repository *zpRepo, git_revwalk *zpRevWalker) {
     git_oid zOid;
     git_commit *zpCommit = NULL;
     _i zErrNo = 0, zResLen = 0;
@@ -306,13 +306,13 @@ zgit_get_one_commitsig_and_timestamp(char *(zpResOut[64]), git_repository *zpRep
             return -1;
         }
 
-        if ('\0' == git_oid_tostr(*zpResOut, sizeof(git_oid), &zOid)[0]) {
+        if ('\0' == git_oid_tostr(zpResOut, sizeof(git_oid), &zOid)[0]) {
             git_commit_free(zpCommit);
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
 
-        zResLen += 42 + snprintf(*zpResOut + 41, 64 - 41, "%ld", git_commit_time(zpCommit));
+        zResLen += 42 + snprintf(zpResOut + 41, 64 - 41, "%ld", git_commit_time(zpCommit));
         git_commit_free(zpCommit);
         return zResLen;
     } else if (GIT_ITEROVER == zErrNo) {
