@@ -1318,7 +1318,7 @@ zstart_server(void *zpParam) {
         if (-1 == (zSocketAcceptParamIf[zCnter % 64].ConnSd = accept(zMajorSd, NULL, 0))) {
             zPrint_Err(errno, "-1 == accept(...)", NULL);
         } else {
-            zAdd_To_Thread_Pool(zops_route, &zSocketAcceptParamIf);
+            zAdd_To_Thread_Pool(zops_route, &(zSocketAcceptParamIf[zCnter % 64]));
         }
     }
 }

@@ -105,7 +105,6 @@ typedef struct zNetServInfo zNetServInfo;
 struct zSocketAcceptParamInfo {
     void *p_ThreadPoolMetaIf;  // 未使用，仅占位
     _i ConnSd;
-    pthread_mutex_t lock;
 };
 typedef struct zSocketAcceptParamInfo zSocketAcceptParamInfo;
 
