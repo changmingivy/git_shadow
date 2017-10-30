@@ -1169,8 +1169,6 @@ zreq_file(zMetaInfo *zpMetaIf, _i zSd) {
 void *
 zops_route(void *zpParam) {
     _i zSd = ((zSocketAcceptParamInfo *) zpParam)->ConnSd;
-    pthread_mutex_unlock( &( ((zSocketAcceptParamInfo *) zpParam)->lock ) );
-
     _i zErrNo;
     char zJsonBuf[zGlobBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
@@ -1314,13 +1312,11 @@ zstart_server(void *zpParam) {
     _i zMajorSd;
     zMajorSd = zgenerate_serv_SD(zpNetServIf->p_IpAddr, zpNetServIf->p_port, zpNetServIf->zServType);  // 返回的 socket 已经做完 bind 和 listen
 
-    /* 会传向新线程，使用静态变量；加锁防止密集型网络防问导致在新线程取到套接字之前，其值已变化的情况 */
-    static zSocketAcceptParamInfo zSocketAcceptParamIf = {NULL, 0, PTHREAD_MUTEX_INITIALIZER};
-    while(1) {
-        pthread_mutex_lock(&zSocketAcceptParamIf.lock);
-        if (-1 == (zSocketAcceptParamIf.ConnSd = accept(zMajorSd, NULL, 0))) {
+    /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
+    static zSocketAcceptParamInfo zSocketAcceptParamIf[64] = {{NULL, 0}};
+    for (_ui zCnter = 0;; zCnter++) {
+        if (-1 == (zSocketAcceptParamIf[zCnter % 64].ConnSd = accept(zMajorSd, NULL, 0))) {
             zPrint_Err(errno, "-1 == accept(...)", NULL);
-            pthread_mutex_unlock(&zSocketAcceptParamIf.lock);
         } else {
             zAdd_To_Thread_Pool(zops_route, &zSocketAcceptParamIf);
         }
