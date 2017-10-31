@@ -1084,15 +1084,13 @@ zstate_confirm(zMetaInfo *zpMetaIf, _i zSd __attribute__ ((__unused__))) {
 
                     zpLogStrId = zpGlobRepoIf[zpMetaIf->RepoId]->zDpingSig;
                 } else if ('-' == zpMetaIf->p_ExtraData[1]) {
-                    zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt++;
+                    zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt = zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask;  // 发生错误，计数打满，用于通知结束布署等待状态
                     zpTmpIf->DpState = -1;
                     zpGlobRepoIf[zpMetaIf->RepoId]->ResType[1] = -1;
 
                     snprintf(zpTmpIf->ErrMsg, zErrMsgBufSiz, "%s", zpMetaIf->p_data + 40);  // 所有的状态回复前40个字节均是 git SHA1sig
                     pthread_mutex_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock));
-                    if (zpGlobRepoIf[zpMetaIf->RepoId]->DpReplyCnt == zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask) {
-                        pthread_cond_signal(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf->p_CcurCond);
-                    }
+                    pthread_cond_signal(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf->p_CcurCond);
                     return -102;  // 返回负数，用于打印日志
                 } else {
                     pthread_mutex_unlock(&(zpGlobRepoIf[zpMetaIf->RepoId]->DpSyncLock));
