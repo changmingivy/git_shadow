@@ -177,7 +177,7 @@ zgit_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRe
         if (____zHostId == ____zpTmpIf->ClientAddr) {\
             pthread_mutex_lock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
             ____zpTmpIf->DpState = -1;\
-            zpGlobRepoIf[zpDpCcurIf->RepoId]->DpReplyCnt = zpGlobRepoIf[zpMetaIf->RepoId]->DpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
+            zpGlobRepoIf[zpDpCcurIf->RepoId]->DpReplyCnt = zpGlobRepoIf[zpDpCcurIf->RepoId]->DpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
             zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[1] = -1;\
             pthread_cond_signal(zpGlobRepoIf[zpMetaIf->RepoId]->p_DpCcurIf->p_CcurCond);\
             pthread_mutex_unlock(&(zpGlobRepoIf[zpDpCcurIf->RepoId]->DpSyncLock));\
