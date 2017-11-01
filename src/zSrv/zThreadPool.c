@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #include "zCommon.h"
+#include "zThreadPool.h"
 
 #define zThreadPollSiz 129  // 允许同时处于空闲状态的线程数量，即常备线程数量
 #define zThreadPollSizMark (zThreadPollSiz - 1)
@@ -14,11 +15,6 @@ zthread_poll_init(void);
 
 static void
 zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
-
-struct zThreadPool__ {
-    void (* init) (void);
-    void (* add) (void * (*) (void *), void *);
-};
 
 /******************************
  * ====  对外公开的接口  ==== *

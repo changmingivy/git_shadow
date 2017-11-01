@@ -1,4 +1,45 @@
+#define _XOPEN_SOURCE 700
+
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <signal.h>
+#include <time.h>
+#include <errno.h>
+
 #include "zNativeUtils.h"
+
+static void
+zdaemonize(const char *zpWorkDir);
+
+static void *
+zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
+
+static _i
+zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
+
+static void
+zsleep(_d zSecs);
+
+static void *
+zthread_system(void *zpCmd);
+
+static _i
+zdel_linebreak(char *zpStr);
+
+struct zNativeUtils__ zNativeUtils_ = {
+    .daemonize = zdaemonize,
+    .sleep = zsleep,
+    .system = zthread_system,
+    .read_line = zget_one_line,
+    .read_hunk = zget_str_content,
+    .del_lb = zdel_linebreak
+};
 
 // /*
 //  * Functions for base64 coding [and decoding(TO DO)]
@@ -43,7 +84,7 @@
 /*
  * Daemonize a linux process to daemon.
  */
-void
+static void
 zclose_fds(pid_t zPid) {
     struct dirent *zpDirIf;
     char zStrPid[8], zPath[64];
@@ -64,7 +105,7 @@ zclose_fds(pid_t zPid) {
 }
 
 // 这个版本的daemonize会保持标准错误输出描述符处于打开状态
-void
+static void
 zdaemonize(const char *zpWorkDir) {
     zIgnoreAllSignal();
 
@@ -101,7 +142,7 @@ zdaemonize(const char *zpWorkDir) {
 // zfork_do_exec(const char *zpCommand, char **zppArgv) {
 //     pid_t zPid = fork();
 //     zCheck_Negative_Exit(zPid);
-// 
+//
 //     if (0 == zPid) {
 //         execve(zpCommand, zppArgv, NULL);
 //     } else {
@@ -114,7 +155,7 @@ zdaemonize(const char *zpWorkDir) {
  * 可重入，可用于线程
  * 适合按行读取分别处理的场景
  */
-void *
+static void *
 zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
     char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
     if (NULL == zpRes && (0 == feof(zpFile))) {
@@ -129,7 +170,7 @@ zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
  * 可重入，可用于线程
  * 适合一次性大量读取所有文本内容的场景
  */
-_i
+static _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt;
     zCheck_Negative_Exit( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
@@ -150,7 +191,7 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
 /*
  * 纳秒级sleep，小数点形式赋值
  */
-void
+static void
 zsleep(_d zSecs) {
     struct timespec zNanoSecIf;
     zNanoSecIf.tv_sec = (_i) zSecs;
@@ -174,7 +215,7 @@ zsleep(_d zSecs) {
 /*
  * 用于在单独线程中执行外部命令，如：定时拉取远程代码时，可以避免一个拉取动作卡住，导致后续的所有拉取都被阻塞
  */
-void *
+static void *
 zthread_system(void *zpCmd) {
     if (NULL != zpCmd) { system((char *) zpCmd); }
     return NULL;
@@ -221,12 +262,12 @@ zthread_system(void *zpCmd) {
 //     return 0;
 // }
 
-/* 
+/*
  * 去除用字符串末尾的一个或多个换行符LB (Line Break)
  * 返回新的字符串长度，不含最后的 '\0'
  */
-_i
-zdel_LB(char *zpStr) {
+static _i
+zdel_linebreak(char *zpStr) {
     char *zpStrPtr = zpStr;
     _ui zStrLen = strlen(zpStr);
 

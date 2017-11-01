@@ -1,8 +1,8 @@
-#ifndef zCommon_H
-    #include "zCommon.h"
-#define zCommon_H
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "zCommon.h"
 #include "git2.h"
 
 typedef struct git_revwalk zGitRevWalk__;

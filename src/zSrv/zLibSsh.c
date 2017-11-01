@@ -1,5 +1,7 @@
 #include "zLibSsh.h"
 
+#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
+
 static _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock);
 
@@ -56,7 +58,7 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     }
     pthread_mutex_unlock(zpCcurLock);
 
-    if (0 > (zSd = ztcp_connect(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+    if (0 > (zSd = zNetUtils_.tcp_conn(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
         return -1;
