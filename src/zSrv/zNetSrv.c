@@ -1471,3 +1471,81 @@ zssh_ccur_simple_init_host(void  *zpIf) {
 
     return NULL;
 };
+
+
+
+/*
+ *  接收数据时使用
+ *  将json文本转换为zMetaInfo结构体
+ *  返回：出错返回-1，正常返回0
+ */
+_i
+zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
+    zRegInitInfo zRegInitIf[1];
+    zRegResInfo zRegResIf[1] = {{.RepoId = -1}};  // 此时尚没取得 zpMetaIf->RepoIf 之值，不可使用项目内存池
+
+    zreg_compile(zRegInitIf, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
+    zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
+    zReg_Free_Metasource(zRegInitIf);
+
+    zRegResIf->cnt -= zRegResIf->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
+
+    void *zpBuf[128];
+    zpBuf['O'] = &(zpMetaIf->OpsId);
+    zpBuf['P'] = &(zpMetaIf->RepoId);
+    zpBuf['R'] = &(zpMetaIf->CommitId);
+    zpBuf['F'] = &(zpMetaIf->FileId);
+    zpBuf['H'] = &(zpMetaIf->HostId);
+    zpBuf['C'] = &(zpMetaIf->CacheId);
+    zpBuf['D'] = &(zpMetaIf->DataType);
+    zpBuf['d'] = zpMetaIf->p_data;
+    zpBuf['E'] = zpMetaIf->p_ExtraData;
+
+    for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
+        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
+            strcpy(zpMetaIf->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
+            zReg_Free_Tmpsource(zRegResIf);
+            return -7;
+        }
+        zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
+    }
+
+    zReg_Free_Tmpsource(zRegResIf);
+    return 0;
+}
+
+/*
+ * 生成缓存时使用
+ * 将结构体数据转换成生成json文本
+ */
+void
+zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
+    sprintf(
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpMetaIf->OpsId,
+            zpMetaIf->CacheId,
+            zpMetaIf->RepoId,
+            zpMetaIf->CommitId,
+            zpMetaIf->FileId,
+            zpMetaIf->DataType,
+            (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
+            (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
+            );
+}
+
+
+
+
+
+/*
+ * json 解析回调：数字与字符串
+ */
+void
+zparse_digit(void *zpIn, void *zpOut) {
+    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
+}
+
+void
+zparse_str(void *zpIn, void *zpOut) {
+    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
+}

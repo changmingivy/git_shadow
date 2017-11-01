@@ -1,15 +1,3 @@
-#ifndef _Z
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <string.h>
-    #include <errno.h>
-    #include <pthread.h>
-    #include <sys/signal.h>
-#endif
-
-#ifndef zCommonBufSiz
-#define zCommonBufSiz 1024
-#endif
 
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
@@ -55,12 +43,17 @@
 /*
  * =>>> Print Current Time <<<=
  */
-struct tm *zpCurrentTimeIf;  // Mark the time when this process start.
-time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 #define zPrint_Time() do {\
-    zMarkNow = time(NULL);\
-    zpCurrentTimeIf = localtime(&zMarkNow);\
-    fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m", zpCurrentTimeIf->tm_year + 1900, zpCurrentTimeIf->tm_mon, zpCurrentTimeIf->tm_mday, zpCurrentTimeIf->tm_hour, zpCurrentTimeIf->tm_min, zpCurrentTimeIf->tm_sec); \
+    time_t ____zMarkNow = time(NULL);  /* Mark the time when this process start */\
+    struct tm *____zpCurrentTimeIf = localtime(&____zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
+    fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m",\
+			____zpCurrentTimeIf->tm_year + 1900,\
+			____zpCurrentTimeIf->tm_mon,\
+			____zpCurrentTimeIf->tm_mday,\
+			____zpCurrentTimeIf->tm_hour,\
+			____zpCurrentTimeIf->tm_min,\
+			____zpCurrentTimeIf->tm_sec\
+			);\
 } while(0)
 
 /*
@@ -173,45 +166,43 @@ time_t zMarkNow;  //Current time(total secends from 1900-01-01 00:00:00)
 /*
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
  */
-_i zSigSet[26] = {
-    SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,
-    SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,
-    SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,
-    SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO
-};
-
 #define zIgnoreAllSignal() do {\
+    _i ____zSigSet[26] = {\
+        SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
+        SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,\
+        SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,\
+        SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO\
+    };\
+\
     struct sigaction zSigActionIf;\
     zSigActionIf.sa_handler = SIG_IGN;\
     sigfillset(&zSigActionIf.sa_mask);\
     zSigActionIf.sa_flags = 0;\
 \
-    sigaction(zSigSet[0], &zSigActionIf, NULL);\
-    sigaction(zSigSet[1], &zSigActionIf, NULL);\
-    sigaction(zSigSet[2], &zSigActionIf, NULL);\
-    sigaction(zSigSet[3], &zSigActionIf, NULL);\
-    sigaction(zSigSet[4], &zSigActionIf, NULL);\
-    sigaction(zSigSet[5], &zSigActionIf, NULL);\
-    sigaction(zSigSet[6], &zSigActionIf, NULL);\
-    sigaction(zSigSet[7], &zSigActionIf, NULL);\
-    sigaction(zSigSet[8], &zSigActionIf, NULL);\
-    sigaction(zSigSet[9], &zSigActionIf, NULL);\
-    sigaction(zSigSet[10], &zSigActionIf, NULL);\
-    sigaction(zSigSet[11], &zSigActionIf, NULL);\
-    sigaction(zSigSet[12], &zSigActionIf, NULL);\
-    sigaction(zSigSet[13], &zSigActionIf, NULL);\
-    sigaction(zSigSet[14], &zSigActionIf, NULL);\
-    sigaction(zSigSet[15], &zSigActionIf, NULL);\
-    sigaction(zSigSet[16], &zSigActionIf, NULL);\
-    sigaction(zSigSet[17], &zSigActionIf, NULL);\
-    sigaction(zSigSet[18], &zSigActionIf, NULL);\
-    sigaction(zSigSet[19], &zSigActionIf, NULL);\
-    sigaction(zSigSet[20], &zSigActionIf, NULL);\
-    sigaction(zSigSet[21], &zSigActionIf, NULL);\
-    sigaction(zSigSet[22], &zSigActionIf, NULL);\
-    sigaction(zSigSet[23], &zSigActionIf, NULL);\
-    sigaction(zSigSet[24], &zSigActionIf, NULL);\
-    sigaction(zSigSet[25], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[0], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[1], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[2], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[3], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[4], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[5], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[6], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[7], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[8], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[9], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[10], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[11], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[12], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[13], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[14], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[15], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[16], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[17], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[18], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[19], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[20], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[21], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[22], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[23], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[24], &zSigActionIf, NULL);\
+    sigaction(____zSigSet[25], &zSigActionIf, NULL);\
 } while(0)
-
-#undef zCommonBufSiz

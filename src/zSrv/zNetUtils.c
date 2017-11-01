@@ -191,3 +191,21 @@ zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT) {
     zIpAddr.s_addr = zIpBinAddr;
     inet_ntop(AF_INET, &zIpAddr, zpBufOUT, INET_ADDRSTRLEN);
 }
+
+// /*
+//  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
+//  */
+// static _ui
+// zconvert_ip_str_to_bin_1(char *zpStrAddr) {
+//     char zBuf[INET_ADDRSTRLEN];
+//     _uc zRes[4];
+//     _i zOffSet = 0, zLen;
+//
+//     if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
+//
+//     for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
+//         zRes[i] = (char)strtol(zBuf, NULL, 10);
+//     }
+//
+//     return *((_ui *)zRes);
+// }

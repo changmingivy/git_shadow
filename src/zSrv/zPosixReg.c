@@ -1,24 +1,55 @@
-#ifndef _Z
-    #include "../../../inc/zutils.h"
-    #include "../../zmain.c"
-#endif
-
 #include <regex.h>
+#include <time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include "zCommon.h"
 
 #define zMatchLimit 1024
-
 struct zRegResInfo {
     char *p_rets[zMatchLimit];  //matched results
     _ui ResLen[zMatchLimit];  // results' strlen
     _ui cnt;         //total num of matched substrings
-    _i RepoId;  // 负值表示使用系统alloc函数分配内存；非负值表示使用自定的 zalloc_cache() 函数分配内存，从而不需释放内存
+
+    void * (* alloc_fn) (_i, size_t);
+    _i RepoId;
 };
 typedef struct zRegResInfo zRegResInfo;
 
 typedef regex_t zRegInitInfo;
 
+static void
+zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern);
+
+static void
+zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSubject);
+
+static void
+zreg_free_res(zRegResInfo *zpResIf);
+
+static void
+zreg_free_meta(zRegInitInfo *zpInitIf);
+
+struct zPosixReg__ {
+    void (* compile) (zRegInitInfo *, const char *);
+    void (* match) (zRegResInfo *, regex_t *, const char *);
+
+    void (* free_meta) (zRegInitInfo *);
+    void (* free_res) (zRegResInfo *);
+};
+
+/* 对外公开的接口 */
+struct zPosixReg__ zPosixReg_ = {
+    .compile = zreg_compile,
+    .match = zreg_match,
+    .free_meta = zreg_free_meta,
+    .free_res = zreg_free_res
+};
+
 /* 使用 posix 扩展正则 */
-void
+static void
 zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
@@ -31,7 +62,7 @@ zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern) {
     }
 }
 
-void
+static void
 zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSubject) {
     _i zErrNo, zDynSubjectlen, zResStrLen;
     _ui zOffSet = 0;
@@ -42,10 +73,10 @@ zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSu
     zDynSubjectlen = strlen(zpRegSubject);
 
     /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
-    if (0 > zpRegResIfOut->RepoId) {
+    if (NULL == zpRegResIfOut->alloc_fn) {
         zMem_Alloc(zpRegResIfOut->p_rets[0], char, 2 * zDynSubjectlen);
     } else {
-        zpRegResIfOut->p_rets[0] = zalloc_cache(zpRegResIfOut->RepoId, zBytes(2 * zDynSubjectlen));
+        zpRegResIfOut->p_rets[0] = zpRegResIfOut->alloc_fn(zpRegResIfOut->RepoId, zBytes(2 * zDynSubjectlen));
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
@@ -77,12 +108,14 @@ zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSu
 }
 
 /* 内存是全量分配给成员 [0] 的，只需释放一次 */
-#define zReg_Free_Tmpsource(zpRes) do {\
-    free((zpRes)->p_rets[0]);\
-} while(0)
+static void
+zreg_free_res(zRegResInfo *zpResIf) {
+    free((zpResIf)->p_rets[0]);
+}
 
-#define zReg_Free_Metasource(zpRegInitIf) do {\
-    regfree((zpRegInitIf));\
-} while(0)
+static void
+zreg_free_meta(zRegInitInfo *zpInitIf) {
+    regfree((zpInitIf));
+}
 
 #undef zMatchLimit

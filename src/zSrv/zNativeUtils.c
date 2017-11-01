@@ -1,6 +1,4 @@
-#ifndef _Z
-    #include "../zmain.c"
-#endif
+#include "zNativeUtils.h"
 
 // /*
 //  * Functions for base64 coding [and decoding(TO DO)]
@@ -8,7 +6,6 @@
 // char zBase64Dict[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 // char *
 // zstr_to_base64(const char *zpOrig) {
-// // TEST: PASS
 //     _i zOrigLen = strlen(zpOrig);
 //     _i zMax = (0 == zOrigLen % 3) ? (zOrigLen / 3 * 4) : (1 + zOrigLen / 3 * 4);
 //     _i zResLen = zMax + (4- (zMax % 4));
@@ -43,163 +40,11 @@
 //     return zRes;
 // }
 
-// /*
-//  *  将指定的套接字属性设置为非阻塞
-//  */
-// void
-// zset_nonblocking(_i zSd) {
-//     _i zOpts;
-//     zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
-//     zOpts |= O_NONBLOCK;
-//     zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
-// }
-
-/*
- * Functions for socket connection.
- */
-struct addrinfo *
-zgenerate_hint(_i zFlags) {
-// TEST: PASS
-    static struct addrinfo zHints;
-    zHints.ai_flags = zFlags;
-    zHints.ai_family = AF_INET;
-    return &zHints;
-}
-
-// Generate a socket fd used by server to do 'accept'.
-struct sockaddr *
-zgenerate_serv_addr(char *zpHost, char *zpPort) {
-// TEST: PASS
-    struct addrinfo *zpRes, *zpHint;
-    zpHint = zgenerate_hint(AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV);
-
-    _i zErr = getaddrinfo(zpHost, zpPort, zpHint, &zpRes);
-    if (-1 == zErr){
-        zPrint_Err(errno, NULL, gai_strerror(zErr));
-        exit(1);
-    }
-
-    return zpRes->ai_addr;
-}
-
-// Start server: TCP or UDP,
-// Option zServType: 1 for TCP, 0 for UDP.
-_i
-zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
-// TEST: PASS
-    _i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
-    _i zSd = socket(AF_INET, zSockType, 0);
-    zCheck_Negative_Return(zSd, -1);
-
-    _i zReuseMark = 1;
-#ifdef _Z_BSD
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
-#else
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
-#endif
-    struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
-    zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
-
-    zCheck_Negative_Return(listen(zSd, 5), -1);
-
-    return zSd;
-}
-
-// Used by client.
-_i
-ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
-// TEST: PASS
-    if (zSockType == 0) { zSockType = SOCK_STREAM; }
-    if (zProto == 0) { zProto = IPPROTO_TCP; }
-
-    _i zSd = socket(AF_INET, zSockType, zProto);
-    zCheck_Negative_Return(zSd, -1);
-
-//    for (_i i = 4; i > 0; --i) {
-        if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
-        close(zSd);
-//        sleep(i);
-//    }
-
-    return -1;
-}
-
-// Used by client.
-_i
-ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
-// TEST: PASS
-    struct addrinfo *zpRes = NULL, *zpTmp = NULL, *zpHints = NULL;
-    _i zSd, zErr;
-
-    zpHints = zgenerate_hint(zFlags);
-
-    zErr = getaddrinfo(zpHost, zpPort, zpHints, &zpRes);
-    if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
-
-    for (zpTmp = zpRes; NULL != zpTmp; zpTmp = zpTmp->ai_next) {
-        if(0 < (zSd = ztry_connect(zpTmp->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
-            freeaddrinfo(zpRes);
-            return zSd;
-        }
-    }
-
-    freeaddrinfo(zpRes);
-    return -1;
-}
-
-_i
-zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags, zpAddr, INET_ADDRSTRLEN);
-    //zCheck_Negative_Return(zSentSiz, -1);
-    return zSentSiz;
-}
-
-_i
-zsendmsg(_i zSd, struct zVecWrapInfo *zpVecWrapIf, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
-    if (NULL == zpVecWrapIf) { return -1; }
-
-    struct msghdr zMsgIf = {
-        .msg_name = zpAddr,
-        .msg_namelen = (NULL == zpAddr) ? 0 : INET6_ADDRSTRLEN,
-        .msg_iov = zpVecWrapIf->p_VecIf,
-        .msg_iovlen = zpVecWrapIf->VecSiz,
-        .msg_control = NULL,
-        .msg_controllen = 0,
-        .msg_flags = 0
-    };
-
-    return sendmsg(zSd, &zMsgIf, MSG_NOSIGNAL | zFlags);
-}
-
-_i
-zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-// TEST: PASS
-    socklen_t zAddrLen;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr, &zAddrLen);
-    zCheck_Negative_Return(zRecvSiz, -1);
-    return zRecvSiz;
-}
-
-//_i
-//zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) {
-//// TEST: PASS
-//    socklen_t zAddrLen;
-//    _i zRecvSiz;
-//    if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen)))
-//            && (EAGAIN == errno)) {
-//        zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
-//    }
-//    return zRecvSiz;
-//}
-
 /*
  * Daemonize a linux process to daemon.
  */
 void
 zclose_fds(pid_t zPid) {
-// TEST: PASS
     struct dirent *zpDirIf;
     char zStrPid[8], zPath[64];
 
@@ -221,7 +66,6 @@ zclose_fds(pid_t zPid) {
 // 这个版本的daemonize会保持标准错误输出描述符处于打开状态
 void
 zdaemonize(const char *zpWorkDir) {
-// TEST: PASS
     zIgnoreAllSignal();
 
 //  sigset_t zSigToBlock;
@@ -253,18 +97,17 @@ zdaemonize(const char *zpWorkDir) {
  * Fork a child process to exec an outer command.
  * The "zppArgv" must end with a "NULL"
  */
-void
-zfork_do_exec(const char *zpCommand, char **zppArgv) {
-// TEST: PASS
-    pid_t zPid = fork();
-    zCheck_Negative_Exit(zPid);
-
-    if (0 == zPid) {
-        execve(zpCommand, zppArgv, NULL);
-    } else {
-        waitpid(zPid, NULL, 0);
-    }
-}
+// void
+// zfork_do_exec(const char *zpCommand, char **zppArgv) {
+//     pid_t zPid = fork();
+//     zCheck_Negative_Exit(zPid);
+// 
+//     if (0 == zPid) {
+//         execve(zpCommand, zppArgv, NULL);
+//     } else {
+//         waitpid(zPid, NULL, 0);
+//     }
+// }
 
 /*
  * 以返回是否是 NULL 为条件判断是否已读完所有数据
@@ -360,113 +203,6 @@ zthread_system(void *zpCmd) {
 //     return *zpOffSet;
 // }
 
-/*
- * 将文本格式的ip地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
- */
-_ui
-zconvert_ip_str_to_bin(const char *zpStrAddr) {
-    struct in_addr zIpAddr;
-    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpAddr) );
-    return zIpAddr.s_addr;
-}
-
-void
-zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT) {
-    struct in_addr zIpAddr;
-    zIpAddr.s_addr = zIpBinAddr;
-    inet_ntop(AF_INET, &zIpAddr, zpBufOUT, INET_ADDRSTRLEN);
-}
-
-// /*
-//  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
-//  */
-// _ui
-// zconvert_ip_str_to_bin_1(char *zpStrAddr) {
-//     char zBuf[INET_ADDRSTRLEN];
-//     _uc zRes[4];
-//     _i zOffSet = 0, zLen;
-// 
-//     if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
-// 
-//     for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
-//         zRes[i] = (char)strtol(zBuf, NULL, 10);
-//     }
-// 
-//     return *((_ui *)zRes);
-// }
-
-/*
- * json 解析回调：数字与字符串
- */
-void
-zparse_digit(void *zpIn, void *zpOut) {
-    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
-}
-
-void
-zparse_str(void *zpIn, void *zpOut) {
-    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
-}
-
-/*
- *  接收数据时使用
- *  将json文本转换为zMetaInfo结构体
- *  返回：出错返回-1，正常返回0
- */
-_i
-zconvert_json_str_to_struct(char *zpJsonStr, struct zMetaInfo *zpMetaIf) {
-    zRegInitInfo zRegInitIf[1];
-    zRegResInfo zRegResIf[1] = {{.RepoId = -1}};  // 此时尚没取得 zpMetaIf->RepoIf 之值，不可使用项目内存池
-
-    zreg_compile(zRegInitIf, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
-    zreg_match(zRegResIf, zRegInitIf, zpJsonStr);
-    zReg_Free_Metasource(zRegInitIf);
-
-    zRegResIf->cnt -= zRegResIf->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
-
-    void *zpBuf[128];
-    zpBuf['O'] = &(zpMetaIf->OpsId);
-    zpBuf['P'] = &(zpMetaIf->RepoId);
-    zpBuf['R'] = &(zpMetaIf->CommitId);
-    zpBuf['F'] = &(zpMetaIf->FileId);
-    zpBuf['H'] = &(zpMetaIf->HostId);
-    zpBuf['C'] = &(zpMetaIf->CacheId);
-    zpBuf['D'] = &(zpMetaIf->DataType);
-    zpBuf['d'] = zpMetaIf->p_data;
-    zpBuf['E'] = zpMetaIf->p_ExtraData;
-
-    for (_ui zCnter = 0; zCnter < zRegResIf->cnt; zCnter += 2) {
-        if (NULL == zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])]) {
-            strcpy(zpMetaIf->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
-            zReg_Free_Tmpsource(zRegResIf);
-            return -7;
-        }
-        zJsonParseOps[(_i)(zRegResIf->p_rets[zCnter][0])](zRegResIf->p_rets[zCnter + 1], zpBuf[(_i)(zRegResIf->p_rets[zCnter][0])]);
-    }
-
-    zReg_Free_Tmpsource(zRegResIf);
-    return 0;
-}
-
-/*
- * 生成缓存时使用
- * 将结构体数据转换成生成json文本
- */
-void
-zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMetaInfo *zpMetaIf) {
-    sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-            zpMetaIf->OpsId,
-            zpMetaIf->CacheId,
-            zpMetaIf->RepoId,
-            zpMetaIf->CommitId,
-            zpMetaIf->FileId,
-            zpMetaIf->DataType,
-            (NULL == zpMetaIf->p_data) ? "_" : zpMetaIf->p_data,
-            (NULL == zpMetaIf->p_ExtraData) ? "_" : zpMetaIf->p_ExtraData
-            );
-}
-
 // /*
 //  *  检查一个目录是否已存在
 //  *  返回：1表示已存在，0表示不存在，-1表示出错
@@ -499,4 +235,3 @@ zdel_LB(char *zpStr) {
 
     return zStrLen;
 }
-
