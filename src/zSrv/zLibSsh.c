@@ -1,11 +1,12 @@
-#ifndef _Z
-    #include "../../zmain.c"
-#endif
+#include "zLibSsh.h"
 
-//#include "libssh2.h"
+static _i
+zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock);
+
+struct zLibSsh__ zLibSsh_ = { .exec = zssh_exec };
 
 /* select events dirven */
-_i
+static _i
 zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
     struct timeval zTimeOut;
     fd_set zFd;
@@ -33,7 +34,7 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
  * zAuthType 置为 0 表示密码认证，置为 1 则表示 rsa 公钥认证
  * 若不需要远程执行结果返回，zpRemoteOutPutBuf 置为 NULL
  */
-_i
+static _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
 
     _i zSd, zRet, zErrNo;
@@ -174,71 +175,3 @@ z3: libssh2_session_disconnect(zSession, "");
     close(zSd);
     return zErrNo;
 }
-
-/* 简化参数版函数 */
-_i
-zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
-    return zssh_exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
-}
-
-/*
- * 线程并发函数
- */
-void *
-zssh_ccur(void  *zpIf) {
-    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
-
-    zssh_exec(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_HostServPort, zpDpCcurIf->p_Cmd,
-            zpDpCcurIf->p_UserName, zpDpCcurIf->p_PubKeyPath, zpDpCcurIf->p_PrivateKeyPath, zpDpCcurIf->p_PassWd, zpDpCcurIf->zAuthType,
-            zpDpCcurIf->p_RemoteOutPutBuf, zpDpCcurIf->RemoteOutPutBufSiz, zpDpCcurIf->p_CcurLock);
-
-    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-    (* (zpDpCcurIf->p_TaskCnt))++;
-    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
-
-    return NULL;
-};
-
-/* 简化参数版函数 */
-void *
-zssh_ccur_simple(void  *zpIf) {
-    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
-
-    zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock);
-
-    pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-    (* (zpDpCcurIf->p_TaskCnt))++;
-    pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-    pthread_cond_signal(zpDpCcurIf->p_CcurCond);
-
-    return NULL;
-};
-
-/* 远程主机初始化专用 */
-void *
-zssh_ccur_simple_init_host(void  *zpIf) {
-    zDpCcurInfo *zpDpCcurIf = (zDpCcurInfo *) zpIf;
-
-    _ui zHostId = zconvert_ip_str_to_bin(zpDpCcurIf->p_HostIpStrAddr);
-    zDpResInfo *zpTmpIf = zpGlobRepoIf[zpDpCcurIf->RepoId]->p_DpResHashIf[zHostId % zDpHashSiz];
-    for (; NULL != zpTmpIf; zpTmpIf = zpTmpIf->p_next) {
-        if (zHostId == zpTmpIf->ClientAddr) {
-            if (0 == zssh_exec_simple(zpDpCcurIf->p_HostIpStrAddr, zpDpCcurIf->p_Cmd, zpDpCcurIf->p_CcurLock)) {
-                zpTmpIf->InitState = 1;
-            } else {
-                zpTmpIf->InitState = -1;
-                zpGlobRepoIf[zpDpCcurIf->RepoId]->ResType[0] = -1;
-            }
-
-            pthread_mutex_lock(zpDpCcurIf->p_CcurLock);
-            (* (zpDpCcurIf->p_TaskCnt))++;
-            pthread_mutex_unlock(zpDpCcurIf->p_CcurLock);
-            pthread_cond_signal(zpDpCcurIf->p_CcurCond);
-
-            break;
-        }
-    }
-
-    return NULL;
-};

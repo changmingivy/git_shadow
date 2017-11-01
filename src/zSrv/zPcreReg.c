@@ -1,15 +1,14 @@
-#ifndef _Z
-    #include "../../../inc/zutils.h"
-    #include "../../zmain.c"
-#endif
+#include "zCommon.h"
 
 #define PCRE2_STATIC
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
 #include "pcre2.h"  //compile with '-lpcre2-8'
 
+#define zMatchMax 1024
+
 struct zPcreResInfo{
-    char *p_rets[zMatchLimit];  //matched results
-    _ui ResLen[zMatchLimit];  // results' strlen
+    char *p_rets[zMatchMax];  //matched results
+    _ui ResLen[zMatchMax];  // results' strlen
     _ui cnt;         //total num of matched substrings
     _i RepoId;  // 负值表示使用系统alloc函数分配内存；非负值表示使用自定的 zalloc_cache() 函数分配内存，从而不需释放内存
 };
@@ -25,7 +24,7 @@ void
 zpcre_get_err(const _i zErrNo) {
     PCRE2_UCHAR zErrBuf[256];
     pcre2_get_error_message(zErrNo, zErrBuf, sizeof(zErrBuf));
-    zPrint_Err(errno, NULL, (char *)zBuffer);
+    zPrint_Err(errno, NULL, (char *)zErrBuf);
 }
 
 void
@@ -33,15 +32,15 @@ zpcre_init(zPcreInitInfo *zpPcreInitIfOut, const char *zpPcrePattern) {
     _i zErrNo;
     PCRE2_SIZE zErrOffset;
 
-    zpPcreInitIfOut->p_pd = pcre2_compile((Pcre2_SPTR)zpPcrePattern, Pcre2_ZERO_TERMINATED, 0, &zErrNo, &zErrOffset, NULL);
+    zpPcreInitIfOut->p_pd = pcre2_compile((PCRE2_SPTR)zpPcrePattern, PCRE2_ZERO_TERMINATED, 0, &zErrNo, &zErrOffset, NULL);
     if (NULL == zpPcreInitIfOut->p_pd) { zpcre_get_err(zErrNo); }
 
     zpPcreInitIfOut->p_MatchData = pcre2_match_data_create_from_pattern(zpPcreInitIfOut->p_pd, NULL);
 }
 
 void
-zpcre_match(zPcreResInfo *zpPcreResIfOut, const zPcreInitInfo *zpPcreInitIf, const char *zpPcreSubject, const _i zMatchLimit) {
-    PCRE2_SPTR zpSubject = (Pcre2_SPTR)zpPcreSubject;
+zpcre_match(zPcreResInfo *zpPcreResIfOut, const zPcreInitInfo *zpPcreInitIf, const char *zpPcreSubject, _ui zMatchLimit) {
+    PCRE2_SPTR zpSubject = (PCRE2_SPTR)zpPcreSubject;
     size_t zDynSubjectLen = strlen(zpPcreSubject);
 
     /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
@@ -55,11 +54,12 @@ zpcre_match(zPcreResInfo *zpPcreResIfOut, const zPcreInitInfo *zpPcreInitIf, con
     _i zErrNo = 0;
     size_t zOffSet = 0;
     zpPcreResIfOut->cnt = 0;
+    if (zMatchMax < zMatchLimit) { zMatchLimit = zMatchMax; }
     while (zpPcreResIfOut->cnt < zMatchLimit) {
         //zErrNo == 0 means space is not enough, you need check it
         //when use pcre2_match_data_create instead of the one whih suffix '_pattern'
         if (0 > (zErrNo = pcre2_match(zpPcreInitIf->p_pd, zpSubject, zDynSubjectLen, 0, 0, zpPcreInitIf->p_MatchData, NULL))) {
-            if (zErrNo == Pcre2_ERROR_NOMATCH) { break; }
+            if (zErrNo == PCRE2_ERROR_NOMATCH) { break; }
             else { zpcre_get_err(zErrNo); exit(1); }
         }
 
@@ -69,7 +69,7 @@ zpcre_match(zPcreResInfo *zpPcreResIfOut, const zPcreInitInfo *zpPcreInitIf, con
         zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt] = zpResVector[1] - zpResVector[0];
 
         zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt] = zpPcreResIfOut->p_rets[0] + zOffSet;
-        strncpy(zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt], zpSubject + zpResVector[0], zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt]);
+        strncpy(zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt], (char *) zpSubject + zpResVector[0], zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt]);
         zpPcreResIfOut->p_rets[zpPcreResIfOut->cnt][zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt]] = '\0';  // 最终结果以字符串类型返回
 
         zOffSet += zpPcreResIfOut->ResLen[zpPcreResIfOut->cnt] + 1;
