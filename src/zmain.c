@@ -104,7 +104,7 @@ struct zNetServ__ {
 typedef struct zNetServ__ zNetServ__;
 
 struct zSocketAcceptParam__ {
-    void *p_ThreadPoolMetaIf;  // 未使用，仅占位
+    void *p_ThreadPoolMeta_;  // 未使用，仅占位
     _i ConnSd;
 };
 typedef struct zSocketAcceptParam__ zSocketAcceptParam__;
@@ -143,7 +143,7 @@ typedef struct zBaseData__ zBaseData__;
 
 /* 在zSend__之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 struct zRefData__ {
-    struct zVecWrap__ *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
+    struct zVecWrap__ *p_SubVecWrap_;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
 };
 typedef struct zRefData__ zRefData__;
@@ -151,8 +151,8 @@ typedef struct zRefData__ zRefData__;
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
 struct zVecWrap__ {
     _i VecSiz;
-    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
-    struct zRefData__ *p_RefDataIf;
+    struct iovec *p_Vec_;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefData_ 中对应的 p_data 字段
+    struct zRefData__ *p_RefData_;
 };
 typedef struct zVecWrap__ zVecWrap__;
 
@@ -167,7 +167,7 @@ typedef struct zVecWrap__ zVecWrap__;
 
 /* SSH 及 git 连接所用 */
 struct zDpCcur__ {
-    zThreadPool__ *zpThreadSourceIf;  // 必须放置在首位
+    zThreadPool__ *zpThreadSource_;  // 必须放置在首位
     _i RepoId;
     char *p_HostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
     char *p_HostServPort;  // 字符串形式的端口号，如："22"
@@ -242,27 +242,27 @@ struct zRepo__ {
 
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    zDpCcur__ DpCcurIf[zForecastedHostNum];
-    zDpCcur__ *p_DpCcurIf;
-    struct zDpRes__ *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
-    struct zDpRes__ *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
+    zDpCcur__ DpCcur_[zForecastedHostNum];
+    zDpCcur__ *p_DpCcur_;
+    struct zDpRes__ *p_DpResList_;  // 1、更新 IP 时对比差异；2、收集布署状态
+    struct zDpRes__ *p_DpResHash_[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
     pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
-    struct zVecWrap__ CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
-    struct iovec CommitVecIf[zCacheSiz];
-    struct zRefData__ CommitRefDataIf[zCacheSiz];
+    struct zVecWrap__ CommitVecWrap_;  // 存放 commit 记录的原始队列信息
+    struct iovec CommitVec_[zCacheSiz];
+    struct zRefData__ CommitRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
+    struct zVecWrap__ SortedCommitVecWrap_;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    struct zVecWrap__ DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DpVecIf[zCacheSiz];
-    struct zRefData__ DpRefDataIf[zCacheSiz];
+    struct zVecWrap__ DpVecWrap_;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVec_[zCacheSiz];
+    struct zRefData__ DpRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedDpVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
-    struct iovec SortedDpVecIf[zCacheSiz];
+    struct zVecWrap__ SortedDpVecWrap_;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    struct iovec SortedDpVec_[zCacheSiz];
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
@@ -281,10 +281,10 @@ pthread_cond_t zSysLoadCond = PTHREAD_COND_INITIALIZER;  // 系统由高负载�
 //_c zGlobCpuLoad;  // 用于决定是否只取最近 1 分钟的 CPU 负载，若高于 80，则拒绝布署服务
 _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
-struct zNetServ__ zNetServIf;  // 指定服务端自身的Ip地址与端口
+struct zNetServ__ zNetServ_;  // 指定服务端自身的Ip地址与端口
 
 _i zGlobMaxRepoId = -1;  // 所有项目ID中的最大值
-struct zRepo__ *zpGlobRepoIf[zGlobRepoIdLimit];
+struct zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
 /* 服务接口 */
 typedef _i (* zNetOpsFunc) (struct zMeta__ *, _i);  // 网络服务回调函数
@@ -306,9 +306,9 @@ zJsonParseFunc zJsonParseOps[128];
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 void *
 zalloc_cache(_i zRepoId, size_t zSiz) {
-    pthread_mutex_lock(&(zpGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->MemLock));
 
-    if ((zSiz + zpGlobRepoIf[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
+    if ((zSiz + zpGlobRepo_[zRepoId]->MemPoolOffSet) > zMemPoolSiz) {
         void **zppPrev, *zpCur;
         /* 新增一块内存区域加入内存池，以上一块内存的头部预留指针位存储新内存的地址 */
         if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
@@ -317,15 +317,15 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
             exit(1);
         }
         zppPrev = zpCur;
-        zppPrev[0] = zpGlobRepoIf[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
-        zpGlobRepoIf[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
-        zpGlobRepoIf[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
+        zppPrev[0] = zpGlobRepo_[zRepoId]->p_MemPool;  // 首部指针位指向上一块内存池map区
+        zpGlobRepo_[zRepoId]->p_MemPool = zpCur;  // 更新当前内存池指针
+        zpGlobRepo_[zRepoId]->MemPoolOffSet = sizeof(void *);  // 初始化新内存池区域的 offset
     }
 
-    void *zpX = zpGlobRepoIf[zRepoId]->p_MemPool + zpGlobRepoIf[zRepoId]->MemPoolOffSet;
-    zpGlobRepoIf[zRepoId]->MemPoolOffSet += zSiz;
+    void *zpX = zpGlobRepo_[zRepoId]->p_MemPool + zpGlobRepo_[zRepoId]->MemPoolOffSet;
+    zpGlobRepo_[zRepoId]->MemPoolOffSet += zSiz;
 
-    pthread_mutex_unlock(&(zpGlobRepoIf[zRepoId]->MemLock));
+    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->MemLock));
     return zpX;
 }
 
@@ -344,19 +344,19 @@ zalloc_cache(_i zRepoId, size_t zSiz) {
 _i
 main(_i zArgc, char **zppArgv) {
     char *zpConfFilePath = NULL;
-    struct stat zStatIf;
-    zNetServIf.zServType = TCP;
+    struct stat zStat_;
+    zNetServ_.zServType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
         switch (zOpt) {
             case 'h':
-                zNetServIf.p_IpAddr = optarg; break;
+                zNetServ_.p_IpAddr = optarg; break;
             case 'p':
-                zNetServIf.p_port = optarg; break;
+                zNetServ_.p_port = optarg; break;
             case 'U':
-                zNetServIf.zServType = UDP;
+                zNetServ_.zServType = UDP;
             case 'f':
-                if (-1 == stat(optarg, &zStatIf) || !S_ISREG(zStatIf.st_mode)) {
+                if (-1 == stat(optarg, &zStat_) || !S_ISREG(zStat_.st_mode)) {
                         zPrint_Time();
                         fprintf(stderr, "\033[31;01m配置文件异常!\n用法: %s -f <PATH>\033[00m\n", zppArgv[0]);
                         exit(1);
@@ -373,5 +373,5 @@ main(_i zArgc, char **zppArgv) {
     zdaemonize("/");  // 转换自身为守护进程，解除与终端的关联关系
     zthread_poll_init();  // 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之
     zinit_env(zpConfFilePath);  // 运行环境初始化
-    zstart_server(&zNetServIf);  // 启动网络服务
+    zstart_server(&zNetServ_);  // 启动网络服务
 }

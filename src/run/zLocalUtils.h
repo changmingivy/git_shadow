@@ -2,7 +2,7 @@
 
 #include "zCommon.h"
 
-struct zNativeUtils__ {
+struct zLocalUtils__ {
     void (* daemonize) (const char *);
     void (* sleep) (_d);
     void * (* system) (void *);
@@ -14,5 +14,5 @@ struct zNativeUtils__ {
 };
 
 #ifndef _SELF_
-extern struct zNativeUtils__ zNativeUtils_;
+extern struct zLocalUtils__ zLocalUtils_;
 #endif

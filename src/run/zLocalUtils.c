@@ -34,7 +34,7 @@ zthread_system(void *zpCmd);
 static _i
 zdel_linebreak(char *zpStr);
 
-struct zNativeUtils__ zNativeUtils_ = {
+struct zLocalUtils__ zLocalUtils_ = {
     .daemonize = zdaemonize,
     .sleep = zsleep,
     .system = zthread_system,

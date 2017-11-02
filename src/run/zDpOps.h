@@ -235,10 +235,6 @@ extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
 /* 全局 META HASH */
 extern struct zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
-/* 以 ANSI 字符集中的前 128 位成员作为索引 */
-extern void (* zJsonParseOps[128]) (void *, void *);
-
-
 struct zDpOps__ {
     _i (* show_meta) (zMeta__ *, _i);
     _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);

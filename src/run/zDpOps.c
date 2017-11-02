@@ -9,7 +9,9 @@
 #include "zNetUtils.h"
 #include "zLibSsh.h"
 #include "zLibGit.h"
+#include "zLocalOps.h"
 #include "zPosixReg.h"
+#include "zThreadPool.h"
 
 #define _SELF_
 #include "zDpOps.h"
@@ -103,12 +105,13 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMeta__ *zpMeta_) {
     zpBuf['E'] = zpMeta_->p_ExtraData;
 
     for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter += 2) {
-        if (NULL == zJsonParseOps[(_i)(zRegRes_->p_rets[zCnter][0])]) {
+        if (NULL == zLocalOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])]) {
             strcpy(zpMeta_->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
             zPosixReg_.free_res(zRegRes_);
             return -7;
         }
-        zJsonParseOps[(_i)(zRegRes_->p_rets[zCnter][0])](zRegRes_->p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_->p_rets[zCnter][0])]);
+
+        zLocalOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])](zRegRes_->p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_->p_rets[zCnter][0])]);
     }
 
     zPosixReg_.free_res(zRegRes_);
@@ -420,7 +423,7 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     _i zErrNo;
-    if (0 == (zErrNo = zinit_one_repo_env(zpMeta_->p_data))) {
+    if (0 == (zErrNo = zLocalOps_.proj_init(zpMeta_->p_data))) {
         zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     }
 
@@ -445,7 +448,7 @@ zrefresh_cache(zMeta__ *zpMeta_) {
 //        zOldRefData_[zCnter[0]].p_SubVecWrap_ = zpGlobRepo_[zpMeta_->RepoId]->CommitVecWrap_.p_RefData_[zCnter[0]].p_SubVecWrap_;
 //    }
 
-    zgenerate_cache(zpMeta_);  // 复用了 zops_route 函数传下来的 Meta__ 结构体(栈内存)
+    zLocalOps_.get_revs(zpMeta_);  // 复用了 zops_route 函数传下来的 Meta__ 结构体(栈内存)
 
 //    zCnter[1] = zpGlobRepo_[zpMeta_->RepoId]->CommitVecWrap_.VecSiz;
 //    if (zCnter[1] > zCnter[0]) {
@@ -604,7 +607,7 @@ zprint_diff_files(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->CommitId)) {
-        if ((void *) -1 == zget_file_list(zpMeta_)) {
+        if ((void *) -1 == zLocalOps_.get_diff_files(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             zpMeta_->p_data = "==== 无差异 ====";
             return -71;
@@ -678,7 +681,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->CommitId)) {
-        if ((void *) -1 == zget_file_list(zpMeta_)) {
+        if ((void *) -1 == zLocalOps_.get_diff_files(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             zpMeta_->p_data = "==== 无差异 ====";
             return -71;
@@ -701,7 +704,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_FileId();  // 宏内部会解锁
     if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->CommitId, zpMeta_->FileId)) {
-        if ((void *) -1 == zget_diff_content(zpMeta_)) {
+        if ((void *) -1 == zLocalOps_.get_diff_contents(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             return -72;
         }
@@ -769,7 +772,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
             zpGlobRepo_[zpMeta_->RepoId]->p_RepoPath + 9,\
             zpMeta_->RepoId,\
 \
-            zNetServ_.p_IpAddr, zNetServ_.p_port,\
+            zNetSrv_.p_IpAddr, zNetSrv_.p_port,\
             zpMeta_->RepoId, zpGlobRepo_[zpMeta_->RepoId]->p_RepoPath\
             );\
 } while(0)
@@ -783,9 +786,9 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
     zRegRes__ *zpRegRes_, zRegRes_[1] = {{.RepoId = zpMeta_->RepoId}};  // 使用项目内存池
     zpRegRes_ = zRegRes_;
 
-    zreg_compile(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
-    zreg_match(zRegRes_, zRegInit_, zpMeta_->p_data);
-    zReg_Free_Metasource(zRegInit_);
+    zPosixReg_.compile(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
+    zPosixReg_.match(zRegRes_, zRegInit_, zpMeta_->p_data);
+    zPosixReg_.free_meta(zRegInit_);
     *zppRegRes_Out = zpRegRes_;
 
     if (strtol(zpMeta_->p_ExtraData, NULL, 10) != zRegRes_->cnt) { return -28; }
@@ -793,7 +796,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
     if (zForecastedHostNum < zRegRes_->cnt) {
         /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
         /* 加空格最长16字节，如："123.123.123.123 " */
-        zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zalloc_cache(zpMeta_->RepoId, zRegRes_->cnt * sizeof(zDpCcur__));
+        zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zLocalOps_.alloc(zpMeta_->RepoId, zRegRes_->cnt * sizeof(zDpCcur__));
     } else {
         zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zpGlobRepo_[zpMeta_->RepoId]->DpCcur_;
     }
@@ -841,7 +844,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
         zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter].p_TaskCnt = &zpGlobRepo_[zpMeta_->RepoId]->DpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
-        zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr = zconvert_ip_str_to_bin(zRegRes_->p_rets[zCnter]);
+        zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr = zNetUtils_.to_bin(zRegRes_->p_rets[zCnter]);
         zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].InitState = 0;
         zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].p_next = NULL;
 
@@ -869,7 +872,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
         }
 
         /* 对新加入的目标机执行初始化动作 */
-        zAdd_To_Thread_Pool(zssh_ccur_simple_init_host, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
+        zThreadPool_.add(zssh_ccur_simple_init_host, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
 zExistMark:;
     }
 
@@ -891,7 +894,7 @@ zExistMark:;
         _i zOffSet = sprintf(zpMeta_->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMeta_->DataLen) && (zCnter < zpGlobRepo_[zpMeta_->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].InitState) {
-                zconvert_ip_bin_to_str(zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr, zIpStrAddrBuf);
+                zNetUtils_.to_str(zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, " %s", zIpStrAddrBuf);
                 zFailHostCnt++;
 
