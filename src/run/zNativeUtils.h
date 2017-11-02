@@ -6,7 +6,7 @@
 #include "zCommon.h"
 #endif
 
-struct zLocalUtils__ {
+struct zNativeUtils__ {
     void (* daemonize) (const char *);
     void (* sleep) (_d);
     void * (* system) (void *);
@@ -17,4 +17,4 @@ struct zLocalUtils__ {
     _i (* del_lb) (char *);
 };
 
-// extern struct zLocalUtils__ zLocalUtils_;
+// extern struct zNativeUtils__ zNativeUtils_;

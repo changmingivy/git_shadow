@@ -40,11 +40,11 @@
 #endif
 
 #ifndef ZLOCALOPS_H
-#include "zLocalOps.h"
+#include "zNativeOps.h"
 #endif
 
 #ifndef ZLOCALUTILS_H
-#include "zLocalUtils.h"
+#include "zNativeUtils.h"
 #endif
 
 #ifndef ZPOSIXREG_H

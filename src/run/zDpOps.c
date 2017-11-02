@@ -15,8 +15,8 @@
 extern struct zNetUtils__ zNetUtils_;
 extern struct zLibSsh__ zLibSsh_;
 extern struct zLibGit__ zLibGit_;
-extern struct zLocalOps__ zLocalOps_;
-extern struct zLocalUtils__ zLocalUtils_;
+extern struct zNativeOps__ zNativeOps_;
+extern struct zNativeUtils__ zNativeUtils_;
 extern struct zPosixReg__ zPosixReg_;
 extern struct zThreadPool__ zThreadPool_;
 
@@ -107,13 +107,13 @@ zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
     zpBuf['E'] = zpMeta_->p_ExtraData;
 
     for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter += 2) {
-        if (NULL == zLocalOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])]) {
+        if (NULL == zNativeOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])]) {
             strcpy(zpMeta_->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
             zPosixReg_.free_res(zRegRes_);
             return -7;
         }
 
-        zLocalOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])](zRegRes_->p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_->p_rets[zCnter][0])]);
+        zNativeOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])](zRegRes_->p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_->p_rets[zCnter][0])]);
     }
 
     zPosixReg_.free_res(zRegRes_);
@@ -425,7 +425,7 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     _i zErrNo;
-    if (0 == (zErrNo = zLocalOps_.proj_init(zpMeta_->p_data))) {
+    if (0 == (zErrNo = zNativeOps_.proj_init(zpMeta_->p_data))) {
         zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     }
 
@@ -450,7 +450,7 @@ zrefresh_cache(zMeta__ *zpMeta_) {
 //        zOldRefData_[zCnter[0]].p_SubVecWrap_ = zpGlobRepo_[zpMeta_->RepoId]->CommitVecWrap_.p_RefData_[zCnter[0]].p_SubVecWrap_;
 //    }
 
-    zLocalOps_.get_revs(zpMeta_);  // 复用了 zops_route 函数传下来的 Meta__ 结构体(栈内存)
+    zNativeOps_.get_revs(zpMeta_);  // 复用了 zops_route 函数传下来的 Meta__ 结构体(栈内存)
 
 //    zCnter[1] = zpGlobRepo_[zpMeta_->RepoId]->CommitVecWrap_.VecSiz;
 //    if (zCnter[1] > zCnter[0]) {
@@ -609,7 +609,7 @@ zprint_diff_files(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->CommitId)) {
-        if ((void *) -1 == zLocalOps_.get_diff_files(zpMeta_)) {
+        if ((void *) -1 == zNativeOps_.get_diff_files(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             zpMeta_->p_data = "==== 无差异 ====";
             return -71;
@@ -683,7 +683,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_CommitId();  // 宏内部会解锁
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->CommitId)) {
-        if ((void *) -1 == zLocalOps_.get_diff_files(zpMeta_)) {
+        if ((void *) -1 == zNativeOps_.get_diff_files(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             zpMeta_->p_data = "==== 无差异 ====";
             return -71;
@@ -706,7 +706,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 
     zCheck_FileId();  // 宏内部会解锁
     if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->CommitId, zpMeta_->FileId)) {
-        if ((void *) -1 == zLocalOps_.get_diff_contents(zpMeta_)) {
+        if ((void *) -1 == zNativeOps_.get_diff_contents(zpMeta_)) {
             pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->RwLock));
             return -72;
         }
@@ -798,7 +798,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
     if (zForecastedHostNum < zRegRes_->cnt) {
         /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
         /* 加空格最长16字节，如："123.123.123.123 " */
-        zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zLocalOps_.alloc(zpMeta_->RepoId, zRegRes_->cnt * sizeof(zDpCcur__));
+        zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zNativeOps_.alloc(zpMeta_->RepoId, zRegRes_->cnt * sizeof(zDpCcur__));
     } else {
         zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_ = zpGlobRepo_[zpMeta_->RepoId]->DpCcur_;
     }
@@ -1155,9 +1155,9 @@ zErrMark:
         zSubMeta_.RepoId = zpMeta_->RepoId;
 
         zSubMeta_.DataType = zIsCommitDataType;
-        zLocalOps_.get_revs(&zSubMeta_);
+        zNativeOps_.get_revs(&zSubMeta_);
         zSubMeta_.DataType = zIsDpDataType;
-        zLocalOps_.get_revs(&zSubMeta_);
+        zNativeOps_.get_revs(&zSubMeta_);
     }
 
 zEndMark:
@@ -1173,7 +1173,7 @@ static _i
 zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpMeta_->p_ExtraData, zpGlobRepo_[zpMeta_->RepoId]->zLastDpSig, 40)) {
-        zDpCcur__ *zpDpSelf_ = zLocalOps_.alloc(zpMeta_->RepoId, sizeof(zDpCcur__));
+        zDpCcur__ *zpDpSelf_ = zNativeOps_.alloc(zpMeta_->RepoId, sizeof(zDpCcur__));
         zpDpSelf_->RepoId = zpMeta_->RepoId;
         zpDpSelf_->p_HostIpStrAddr = zpMeta_->p_data;
         zpDpSelf_->p_CcurLock = NULL;  // 标记无需发送通知给调用者的条件变量
@@ -1213,7 +1213,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->RepoId]->RepoPathLen + zpMeta_->DataLen;
-    zppCommonBuf[0] = zLocalOps_.alloc(zpMeta_->RepoId, 2 * zCommonBufLen);
+    zppCommonBuf[0] = zNativeOps_.alloc(zpMeta_->RepoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 
     pthread_mutex_lock(&zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock);
@@ -1243,7 +1243,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                     return 0;
                 }
 
-                zLocalUtils_.sleep(0.1);
+                zNativeUtils_.sleep(0.1);
             }
 
             pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->RepoId]->DpRetryLock) );

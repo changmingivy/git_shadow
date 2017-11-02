@@ -17,7 +17,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zLocalUtils.h"
+#include "zNativeUtils.h"
 
 static void
 zdaemonize(const char *zpWorkDir);
@@ -37,7 +37,7 @@ zthread_system(void *zpCmd);
 static _i
 zdel_linebreak(char *zpStr);
 
-struct zLocalUtils__ zLocalUtils_ = {
+struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,
     .sleep = zsleep,
     .system = zthread_system,

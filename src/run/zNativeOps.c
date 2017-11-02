@@ -12,13 +12,13 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#include "zLocalOps.h"
+#include "zNativeOps.h"
 
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 
 extern struct zPosixReg__ zPosixReg_;
-extern struct zLocalUtils__ zLocalUtils_;
+extern struct zNativeUtils__ zNativeUtils_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zDpOps__ zDpOps_;
@@ -45,7 +45,7 @@ zsys_load_monitor(void *zpParam);
 static void *
 zinit_env(const char *zpConfPath);
 
-struct zLocalOps__ zLocalOps_ = {
+struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
     .get_diff_files = zget_file_list,
     .get_diff_contents = zget_diff_content,
@@ -135,7 +135,7 @@ zget_diff_content(void *zpParam) {
 
     /* 此处读取行内容，因为没有下一级数据，故采用大片读取，不再分行 */
     zCnter = 0;
-    if (0 < (zBaseDataLen = zLocalUtils_.read_hunk(zRes, zBytes(1448), zpShellRetHandler))) {
+    if (0 < (zBaseDataLen = zNativeUtils_.read_hunk(zRes, zBytes(1448), zpShellRetHandler))) {
         zpTmpBaseData_[0] = zalloc_cache(zpMeta_->RepoId, sizeof(zBaseData__) + zBaseDataLen);
         zpTmpBaseData_[0]->DataLen = zBaseDataLen;
         memcpy(zpTmpBaseData_[0]->p_data, zRes, zBaseDataLen);
@@ -144,7 +144,7 @@ zget_diff_content(void *zpParam) {
         zpTmpBaseData_[1]->p_next = NULL;
 
         zCnter++;
-        for (; 0 < (zBaseDataLen = zLocalUtils_.read_hunk(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
+        for (; 0 < (zBaseDataLen = zNativeUtils_.read_hunk(zRes, zBytes(1448), zpShellRetHandler)); zCnter++) {
             zpTmpBaseData_[0] = zalloc_cache(zpMeta_->RepoId, sizeof(zBaseData__) + zBaseDataLen);
             zpTmpBaseData_[0]->DataLen = zBaseDataLen;
             memcpy(zpTmpBaseData_[0]->p_data, zRes, zBaseDataLen);
@@ -323,7 +323,7 @@ zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellR
     zBaseData__ *zpTmpBaseData_[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
 
-    for (zCnter = 0; NULL != zLocalUtils_.read_line(zpCommonBuf, zMaxBufLen, zpShellRetHandler); zCnter++) {
+    for (zCnter = 0; NULL != zNativeUtils_.read_line(zpCommonBuf, zMaxBufLen, zpShellRetHandler); zCnter++) {
         zBaseDataLen = strlen(zpCommonBuf);
         zpTmpBaseData_[0] = zalloc_cache(zpMeta_->RepoId, sizeof(zBaseData__) + zBaseDataLen);
         if (0 == zCnter) { zpTmpBaseData_[2] = zpTmpBaseData_[1] = zpTmpBaseData_[0]; }
@@ -402,7 +402,7 @@ zget_file_list(void *zpParam) {
     zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
 
     /* 差异文件数量 >24 时使用 git 原生视图，避免占用太多资源，同时避免爆栈 */
-    if (NULL == zLocalUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
+    if (NULL == zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         pclose(zpShellRetHandler);
         return (void *) -1;
     } else {
@@ -426,7 +426,7 @@ zget_file_list(void *zpParam) {
     zpRootNode_ = NULL;
     zLineCnter = 0;
     zPosixReg_.compile(zRegInit_, "[^/]+");
-    if (NULL != zLocalUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
+    if (NULL != zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         zBaseDataLen = strlen(zCommonBuf);
 
         zCommonBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
@@ -436,7 +436,7 @@ zget_file_list(void *zpParam) {
         zpTmpNode_[2] = zpTmpNode_[1] = zpTmpNode_[0] = NULL;
         zGenerate_Tree_Node(); /* 添加树节点 */
 
-        while (NULL != zLocalUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
+        while (NULL != zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
             zBaseDataLen = strlen(zCommonBuf);
 
             zCommonBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
@@ -566,7 +566,7 @@ zgenerate_cache(void *zpParam) {
 
     /* 第一行单独处理，避免后续每次判断是否是第一行 */
     zCnter = 0;
-    if (NULL != zLocalUtils_.read_line(zCommonBuf, zGlobCommonBufSiz, zpShellRetHandler)) {
+    if (NULL != zNativeUtils_.read_line(zCommonBuf, zGlobCommonBufSiz, zpShellRetHandler)) {
         /* 只提取比最近一次布署版本更新的提交记录 */
         if ((zIsCommitDataType == zpMeta_->DataType)
                 && (0 == (strncmp(zpGlobRepo_[zpMeta_->RepoId]->zLastDpSig, zCommonBuf, zBytes(40))))) { goto zMarkSkip; }
@@ -580,7 +580,7 @@ zgenerate_cache(void *zpParam) {
         zpTmpBaseData_[1]->p_next = NULL;
 
         zCnter++;
-        for (; (zCnter < zCacheSiz) && (NULL != zLocalUtils_.read_line(zCommonBuf, zGlobCommonBufSiz, zpShellRetHandler)); zCnter++) {
+        for (; (zCnter < zCacheSiz) && (NULL != zNativeUtils_.read_line(zCommonBuf, zGlobCommonBufSiz, zpShellRetHandler)); zCnter++) {
             /* 只提取比最近一次布署版本更新的提交记录 */
             if ((zIsCommitDataType == zpMeta_->DataType)
                     && (0 == (strncmp(zpGlobRepo_[zpMeta_->RepoId]->zLastDpSig, zCommonBuf, zBytes(40))))) { goto zMarkSkip; }
@@ -828,7 +828,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     sprintf(zCommonBuf, "cat %s%s | tail -1", zpGlobRepo_[zRepoId]->p_RepoPath, zDpSigLogPath);
     FILE *zpShellRetHandler;
     zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
-    if (zBytes(40) != zLocalUtils_.read_hunk(zpGlobRepo_[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
+    if (zBytes(40) != zNativeUtils_.read_hunk(zpGlobRepo_[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
         zpGlobRepo_[zRepoId]->zLastDpSig[40] = '\0';
     }
     pclose(zpShellRetHandler);
@@ -907,7 +907,7 @@ zsys_load_monitor(void *zpParam) {
          */
         if (70 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
 
-        zLocalUtils_.sleep(0.1);
+        zNativeUtils_.sleep(0.1);
     }
     return zpParam;  // 消除编译警告信息
 }
@@ -935,22 +935,22 @@ zinit_env(const char *zpConfPath) {
     _i zCnter = 0;
 
     /* json 解析时的回调函数索引 */
-    zLocalOps_.json_parser['O']  // OpsId
-        = zLocalOps_.json_parser['P']  // ProjId
-        = zLocalOps_.json_parser['R']  // RevId
-        = zLocalOps_.json_parser['F']  // FileId
-        = zLocalOps_.json_parser['H']  // HostId
-        = zLocalOps_.json_parser['C']  // CacheId
-        = zLocalOps_.json_parser['D']  // DataType
+    zNativeOps_.json_parser['O']  // OpsId
+        = zNativeOps_.json_parser['P']  // ProjId
+        = zNativeOps_.json_parser['R']  // RevId
+        = zNativeOps_.json_parser['F']  // FileId
+        = zNativeOps_.json_parser['H']  // HostId
+        = zNativeOps_.json_parser['C']  // CacheId
+        = zNativeOps_.json_parser['D']  // DataType
         = zparse_digit;
 
-    zLocalOps_.json_parser['d']  // data
-        = zLocalOps_.json_parser['E']  // ExtraData
+    zNativeOps_.json_parser['d']  // data
+        = zNativeOps_.json_parser['E']  // ExtraData
         = zparse_str;
 
     zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
     while (zGlobRepoNumLimit > zCnter) {
-        if (NULL == zLocalUtils_.read_line(zConfBuf[zCnter] + sizeof(void *), zGlobCommonBufSiz, zpFile)) {
+        if (NULL == zNativeUtils_.read_line(zConfBuf[zCnter] + sizeof(void *), zGlobCommonBufSiz, zpFile)) {
             goto zMarkFin;
         } else {
             zThreadPool_.add(zinit_one_repo_env_thread_wraper, zConfBuf[zCnter++]);
@@ -968,7 +968,7 @@ zMarkFin:
 //    char zCpuNumBuf[8];
 //    zpFile = NULL;
 //    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
-//    zCheck_Null_Exit( zLocalUtils_.read_line(zCpuNumBuf, 8, zpFile) );
+//    zCheck_Null_Exit( zNativeUtils_.read_line(zCpuNumBuf, 8, zpFile) );
 //    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
 //    fclose(zpFile);
 

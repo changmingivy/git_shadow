@@ -5,7 +5,7 @@
 #include <string.h>
 
 static git_repository *
-zgit_env_init(char *zpLocalRepoAddr);
+zgit_env_init(char *zpNativeRepoAddr);
 
 static void
 zgit_env_clean(git_repository *zpRepoCredHandler);
@@ -32,9 +32,9 @@ struct zLibGit__ zLibGit_ = {
     .get_one_commitsig_and_timestamp = zgit_get_one_commitsig_and_timestamp
 };
 
-/* 代码库新建或载入时调用一次即可；zpLocallRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
+/* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 static git_repository *
-zgit_env_init(char *zpLocalRepoAddr) {
+zgit_env_init(char *zpNativeRepoAddr) {
     git_repository *zpRepoHandler;
 
     if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
@@ -42,7 +42,7 @@ zgit_env_init(char *zpLocalRepoAddr) {
         zpRepoHandler = NULL;
     }
 
-    if (0 != git_repository_open(&zpRepoHandler, zpLocalRepoAddr)) {
+    if (0 != git_repository_open(&zpRepoHandler, zpNativeRepoAddr)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zpRepoHandler = NULL;
     }

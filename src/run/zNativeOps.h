@@ -9,7 +9,7 @@
 #endif
 
 #ifndef ZLOCALUTILS_H
-#include "zLocalUtils.h"
+#include "zNativeUtils.h"
 #endif
 
 #ifndef ZTHREADPOOL_H
@@ -58,7 +58,7 @@ typedef struct __zBaseData__ {
 } zBaseData__;
 
 
-struct zLocalOps__ {
+struct zNativeOps__ {
     void * (* get_revs) (void *);
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
@@ -73,4 +73,4 @@ struct zLocalOps__ {
 };
 
 
-// extern struct zLocalOps__ zLocalOps_;
+// extern struct zNativeOps__ zNativeOps_;

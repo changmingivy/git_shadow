@@ -16,11 +16,11 @@
 #endif
 
 #ifndef ZLOCALUTILS_H
-#include "run/zLocalUtils.h"
+#include "run/zNativeUtils.h"
 #endif
 
 #ifndef ZLOCALOPS_H
-#include "run/zLocalOps.h"
+#include "run/zNativeOps.h"
 #endif
 
 #ifndef ZTHREADPOOL_H
@@ -34,9 +34,9 @@
 #define UDP 0
 #define TCP 1
 
-extern struct zLocalUtils__ zLocalUtils_;
+extern struct zNativeUtils__ zNativeUtils_;
 extern struct zThreadPool__ zThreadPool_;
-extern struct zLocalOps__ zLocalOps_;
+extern struct zNativeOps__ zNativeOps_;
 extern struct zRun__ zRun_;
 
 zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
@@ -71,13 +71,13 @@ main(_i zArgc, char **zppArgv) {
     }
 
     /* 转换自身为守护进程，解除与终端的关联关系 */
-    zLocalUtils_.daemonize("/");
+    zNativeUtils_.daemonize("/");
 
     /* 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之 */
     zThreadPool_.init();
 
     /* 扫描所有项目库并初始化之 */
-    zLocalOps_.proj_init_all(zpConfFilePath);
+    zNativeOps_.proj_init_all(zpConfFilePath);
 
     /* 启动网络服务 */
     zRun_.run(&zNetSrv_);
