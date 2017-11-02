@@ -5,6 +5,9 @@
 
 #include "zRun.h"
 
+extern struct zThreadPool__ zThreadPool_;
+extern struct zNetUtils__ zNetUtils_;
+extern struct zDpOps__ zDpOps_;
 
 static void zstart_server(void *zpParam);
 

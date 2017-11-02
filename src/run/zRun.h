@@ -25,8 +25,8 @@ typedef struct zSockAcceptParam__ {
 struct zRun__ {
 	void (* run) (void *);
 
-	_i (* ops[16]) (struct zMeta__ *, _i);
+	_i (* ops[16]) (zMeta__ *, _i);
 };
 
 
-extern struct zRun__ zRun_;
+// extern struct zRun__ zRun_;

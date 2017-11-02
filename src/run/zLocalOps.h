@@ -53,4 +53,4 @@ struct zLocalOps__ {
 };
 
 
-extern struct zLocalOps__ zLocalOps_;
+// extern struct zLocalOps__ zLocalOps_;

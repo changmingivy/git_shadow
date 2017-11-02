@@ -5,4 +5,4 @@ struct zThreadPool__ {
     void (* add) (void * (*) (void *), void *);
 };
 
-extern struct zThreadPool__ zThreadPool_;
+// extern struct zThreadPool__ zThreadPool_;

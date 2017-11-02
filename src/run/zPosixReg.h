@@ -27,4 +27,4 @@ struct zPosixReg__ {
 };
 
 
-extern struct zPosixReg__ zPosixReg_;
+// extern struct zPosixReg__ zPosixReg_;

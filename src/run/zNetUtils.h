@@ -20,4 +20,4 @@ struct zNetUtils__ {
 };
 
 
-extern struct zNetUtils__ zNetUtils_;
+// extern struct zNetUtils__ zNetUtils_;

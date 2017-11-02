@@ -17,4 +17,4 @@ struct zLocalUtils__ {
     _i (* del_lb) (char *);
 };
 
-extern struct zLocalUtils__ zLocalUtils_;
+// extern struct zLocalUtils__ zLocalUtils_;

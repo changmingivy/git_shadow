@@ -74,25 +74,25 @@ typedef struct {
     _ui *p_TaskCnt;  // SSH 任务完成计数
 } zDpCcur__;
 
-typedef struct {
+typedef struct __zDpRes__ {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
     char ErrMsg[256];  // 存放目标主机返回的错误信息
-    struct zDpRes__ *p_next;
+    struct __zDpRes__ *p_next;
 } zDpRes__;
 
 /* 在zSend__之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
-typedef struct {
-    struct zVecWrap__ *p_SubVecWrap_;  // 传递给 sendmsg 的下一级数据
+typedef struct __zRefData__ {
+    struct __zVecWrap__ *p_SubVecWrap_;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
 } zRefData__;
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
-typedef struct {
+typedef struct __zVecWrap__ {
     _i VecSiz;
     struct iovec *p_Vec_;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefData_ 中对应的 p_data 字段
-    struct zRefData__ *p_RefData_;
+    struct __zRefData__ *p_RefData_;
 } zVecWrap__;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
@@ -151,24 +151,24 @@ typedef struct {
 
     zDpCcur__ DpCcur_[zForecastedHostNum];
     zDpCcur__ *p_DpCcur_;
-    struct zDpRes__ *p_DpResList_;  // 1、更新 IP 时对比差异；2、收集布署状态
-    struct zDpRes__ *p_DpResHash_[zDpHashSiz];  // 对上一个字段每个值做的散列
+    zDpRes__ *p_DpResList_;  // 1、更新 IP 时对比差异；2、收集布署状态
+    zDpRes__ *p_DpResHash_[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
     pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
-    struct zVecWrap__ CommitVecWrap_;  // 存放 commit 记录的原始队列信息
+    zVecWrap__ CommitVecWrap_;  // 存放 commit 记录的原始队列信息
     struct iovec CommitVec_[zCacheSiz];
-    struct zRefData__ CommitRefData_[zCacheSiz];
+    zRefData__ CommitRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedCommitVecWrap_;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
+    zVecWrap__ SortedCommitVecWrap_;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    struct zVecWrap__ DpVecWrap_;  // 存放 deploy 记录的原始队列信息
+    zVecWrap__ DpVecWrap_;  // 存放 deploy 记录的原始队列信息
     struct iovec DpVec_[zCacheSiz];
-    struct zRefData__ DpRefData_[zCacheSiz];
+    zRefData__ DpRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedDpVecWrap_;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    zVecWrap__ SortedDpVecWrap_;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
     struct iovec SortedDpVec_[zCacheSiz];
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
@@ -177,7 +177,7 @@ typedef struct {
 } zRepo__;
 
 /* 数据交互格式 */
-typedef struct {
+typedef struct __zMeta__ {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
@@ -191,10 +191,10 @@ typedef struct {
     _ui ExtraDataLen;
 
     /* 以下为 Tree 专属数据 */
-    struct zMeta__ *p_father;  // Tree 父节点
-    struct zMeta__ *p_left;  // Tree 左节点
-    struct zMeta__ *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
-    struct zMeta__ **pp_ResHash;  // Tree 按行号对应的散列
+    struct __zMeta__ *p_father;  // Tree 父节点
+    struct __zMeta__ *p_left;  // Tree 左节点
+    struct __zMeta__ *p_FirstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
+    struct __zMeta__ **pp_ResHash;  // Tree 按行号对应的散列
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
 } zMeta__;
@@ -221,7 +221,7 @@ extern zNetSrv__ zNetSrv_;
 // extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
 //
 /* 全局 META HASH */
-extern struct zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
+extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
 struct zDpOps__ {
     _i (* show_meta) (zMeta__ *, _i);
@@ -242,4 +242,4 @@ struct zDpOps__ {
     void (* struct_to_json) (char *, zMeta__ *);
 };
 
-extern struct zDpOps__ zDpOps_;
+// extern struct zDpOps__ zDpOps_;

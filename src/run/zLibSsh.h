@@ -10,4 +10,4 @@ struct zLibSsh__ {
 };
 
 
-extern struct zLibSsh__ zLibSsh_;
+// extern struct zLibSsh__ zLibSsh_;

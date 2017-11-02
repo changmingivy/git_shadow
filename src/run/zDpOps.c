@@ -22,9 +22,17 @@
 
 #include "zDpOps.h"
 
+extern struct zNetUtils__ zNetUtils_;
+extern struct zLibSsh__ zLibSsh_;
+extern struct zLibGit__ zLibGit_;
+extern struct zLocalOps__ zLocalOps_;
+extern struct zLocalUtils__ zLocalUtils_;
+extern struct zPosixReg__ zPosixReg_;
+extern struct zThreadPool__ zThreadPool_;
+extern struct zRun__ zRun_;
 
 static void
-zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMeta__ *zpMeta_);
+zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_);
 
 static _i
 zshow_all_repo_meta(zMeta__ *zpMeta_ __attribute__ ((__unused__)), _i zSd);
@@ -88,7 +96,7 @@ struct zDpOps__ zDpOps_ = {
  *  返回：出错返回-1，正常返回0
  */
 static _i
-zconvert_json_str_to_struct(char *zpJsonStr, struct zMeta__ *zpMeta_) {
+zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
     zRegInit__ zRegInit_[1];
     zRegRes__ zRegRes_[1] = {{.RepoId = -1}};  // 此时尚没取得 zpMeta_->Repo_ 之值，不可使用项目内存池
 
@@ -129,7 +137,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, struct zMeta__ *zpMeta_) {
  * 将结构体数据转换成生成json文本
  */
 static void
-zconvert_struct_to_json_str(char *zpJsonStrBuf, struct zMeta__ *zpMeta_) {
+zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
     sprintf(
             zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
             zpMeta_->OpsId,

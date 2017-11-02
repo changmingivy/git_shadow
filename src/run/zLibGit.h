@@ -20,4 +20,4 @@ struct zLibGit__ {
     _i (* get_one_commitsig_and_timestamp) (char *, git_repository *, git_revwalk *);
 };
 
-extern struct zLibGit__ zLibGit_;
+//extern struct zLibGit__ zLibGit_;

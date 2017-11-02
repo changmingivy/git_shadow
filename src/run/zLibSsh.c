@@ -12,6 +12,8 @@
 
 #define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
 
+extern struct zNetUtils__ zNetUtils_;
+
 static _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock);
 
