@@ -1,6 +1,6 @@
 #define ZDPOPS_H
 
-#define _XOPEN_SOURCE 700
+#include "zDpOps.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,7 +11,6 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zDpOps.h"
 
 extern struct zNetUtils__ zNetUtils_;
 extern struct zLibSsh__ zLibSsh_;

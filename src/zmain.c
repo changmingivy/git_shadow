@@ -27,13 +27,17 @@
 #include "run/zThreadPool.h"
 #endif
 
+#ifndef ZRUN_H
+#include "run/zRun.h"
+#endif
+
 #define UDP 0
 #define TCP 1
 
 extern struct zLocalUtils__ zLocalUtils_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zLocalOps__ zLocalOps_;
-extern void zstart_server(void *);
+extern struct zRun__ zRun_;
 
 
 _i
@@ -75,5 +79,5 @@ main(_i zArgc, char **zppArgv) {
     zLocalOps_.proj_init_all(zpConfFilePath);
 
     /* 启动网络服务 */
-    zstart_server(&zNetSrv_);
+    zRun_.run(&zNetSrv_);
 }
