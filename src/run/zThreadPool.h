@@ -1,4 +1,4 @@
-#define _ZTHREADPOOL_H
+#define ZTHREADPOOL_H
 
 struct zThreadPool__ {
     void (* init) (void);
