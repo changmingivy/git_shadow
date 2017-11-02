@@ -22,7 +22,7 @@ typedef struct {
 } zSockAcceptParam__;
 
 struct zRun__ {
-    void (* run) (void *);
+    void (* run) (zNetSrv__ *, char *);
     void * (* route) (void *);
 
     _i (* ops[16]) (zMeta__*, _i);

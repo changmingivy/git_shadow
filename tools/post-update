@@ -15,7 +15,7 @@ export HOME="/home/git"
     zPathOnHost="__PROJ_PATH"
     zMasterAddr="__MASTER_ADDR"
     zMasterPort="__MASTER_PORT"
-    zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
+    zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
     zProjId=`echo $1 | grep -o '[0-9]\+$'`;
     if [[ "" == ${zProjId} ]]; then
         zProjId=`echo $1 | grep -o '[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`;
@@ -59,6 +59,7 @@ export HOME="/home/git"
         exit 255
     fi
     export GIT_DIR="${zPathOnHost}/.git"
+    git checkout master
 
     zServSig=`git log ${zServBranchName} -1 --format=%H`
 
@@ -94,6 +95,7 @@ export HOME="/home/git"
     # 元数据布署，代码量可控，不必 KeepAlive
     cd ${zPathOnHost}_SHADOW
     export GIT_DIR="${zPathOnHost}_SHADOW/.git"
+    git checkout master
     git pull ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
     if [[ 0 -ne $? ]]; then
         \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
@@ -116,14 +118,24 @@ export HOME="/home/git"
 
     # 校验布署结果
     cd ${zPathOnHost}
-    export GIT_DIR="${zPathOnHost}/.git"
+    cd ../../`basename ${zPathOnHost}`/.git  # 兼容旧版项目库
+    if [[ 0 -eq $? ]]; then
+        cd ..
+        export GIT_DIR="`pwd`/.git"
+        git checkout master
+        git pull --force ${zPathOnHost}/.git ${zServBranchName}:${zServBranchName}
+        git reset -q --hard ${zServBranchName}
+    else
+        export GIT_DIR="${zPathOnHost}/.git"
+    fi
+
     zMasterSig=`git log master -1 --format=%H`
     if [[ "$zMasterSig" != "$zServSig" ]]; then  # 检查两个分支 git log 是否一致
         zTcpReply "${zServSig}>code version inconsistent(git log): branch ${zServBranchName} != branch master" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then  # 检查是否存在文件不一致现象(忽略未被 git 管理的新文件，如：log 等)
-        zTcpReply "${zServSig}>work area inconsistent(git status): ${zPathOnHost}" "B-"
+        zTcpReply "${zServSig}>work area inconsistent(git status): `pwd`" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
@@ -136,7 +148,7 @@ export HOME="/home/git"
             exit 255
         fi
     elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) # 检测是否有废弃的残留文件，若存在，则抛出错误
-        || (${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) ]]; then
+        || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
         zTcpReply "${zServSig}>既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}" "B-"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255

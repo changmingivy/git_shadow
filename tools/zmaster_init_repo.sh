@@ -85,7 +85,7 @@ git commit --allow-empty -m "____Dp_System_Init____"
 # 防止添加重复条目
 zExistMark=`cat ${zShadowPath}/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
 if [[ 0 -eq $zExistMark ]];then
-    zDirName=`dirname \`dirname ${zPathOnHost}\``
+    zDirName=`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``
     zBaseName=`basename ${zPathOnHost}`
     printf "${zProjId} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}\n" >> ${zShadowPath}/conf/master.conf
 fi
