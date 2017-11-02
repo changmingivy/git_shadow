@@ -23,7 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "zutils.h"
+#include "zCommon.h"
 
 struct addrinfo *
 zgenerate_hint(_i zFlags) {

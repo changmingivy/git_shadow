@@ -96,7 +96,7 @@ strip ${zShadowPath}/bin/git_shadow
 clang -Wall -Wextra -std=c99 -O2 \
     -I${zShadowPath}/inc \
     -o ${zShadowPath}/tools/notice \
-    ${zShadowPath}/src/extra/znotice.c
+    ${zShadowPath}/src/zExtraUtils/znotice.c
 strip ${zShadowPath}/tools/notice
 
 export LD_LIBRARY_PATH=${zShadowPath}/lib/libssh2/lib64:${zShadowPath}/lib/libgit2/lib:$LD_LIBRARY_PATH
