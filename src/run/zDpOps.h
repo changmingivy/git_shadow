@@ -1,39 +1,72 @@
 #ifndef _Z_BSD
-    #define _XOPEN_SOURCE 700
-    #define _DEFAULT_SOURCE
-    #define _BSD_SOURCE
+    #ifndef _XOPEN_SOURCE
+        #define _XOPEN_SOURCE 700
+    #endif
+    
+    #ifndef _DEFAULT_SOURCE
+        #define _DEFAULT_SOURCE
+    #endif
+    
+    #ifndef _BSD_SOURCE
+        #define _BSD_SOURCE
+    #endif
 #endif
 
-#include <semaphore.h>
-#include <sys/socket.h>  // uio.h
-#include <pthread.h>
+#ifndef SEMAPHORE_H
+    #include <semaphore.h>
+#define SEMAPHORE_H
+#endif
 
-#include "git2.h"
-#include "zCommon.h"
+#ifndef SYS_SOCKET_H
+    #include <sys/socket.h>  // uio.h
+#define SYS_SOCKET_H
+#endif
+
+#ifndef PTHREAD_H
+    #include <pthread.h>
+#define PTHREAD_H
+#endif
+
+#ifndef GIT2_H
+    #include "git2.h"
+#define GIT2_H
+#endif
+
+#ifndef ZCOMMON_H
+    #include "zCommon.h"
+#define ZCOMMON_H
+#endif
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
 #define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 #define zCacheSiz 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
 #define zDpTraficLimit 256  // 同一项目可同时发出的 push 连接数量上限
-#define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
-#define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 #define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
+#define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
+#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
 
-typedef void * (* zThreadPoolOps) (void *);  // 线程池回调函数
+#define zGlobCommonBufSiz 1024
 
-struct zThreadPool__ {
+#define zDpUnLock 0
+#define zDpLocked 1
+
+#define zRepoGood 0
+#define zRepoDamaged 1
+
+#define zIsCommitDataType 0
+#define zIsDpDataType 1
+
+typedef struct zThreadPool__ {
     pthread_t SelfTid;
     pthread_cond_t CondVar;
 
-    zThreadPoolOps func;
+    void * (* func) (void *);
     void *p_param;
-};
-typedef struct zThreadPool__ zThreadPool__;
+} zThreadPool__;
 
-struct zDpCcur__ {
-    zThreadPool__ *zpThreadSourceIf;  // 必须放置在首位
+typedef struct zDpCcur__ {
+    zThreadPool__ *zpThreadSource_;  // 必须放置在首位
     _i RepoId;
     char *p_HostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
     char *p_HostServPort;  // 字符串形式的端口号，如："22"
@@ -51,35 +84,31 @@ struct zDpCcur__ {
     pthread_cond_t *p_CcurCond;  // 线程同步条件变量
     pthread_mutex_t *p_CcurLock;  // 同步锁
     _ui *p_TaskCnt;  // SSH 任务完成计数
-};
-typedef struct zDpCcur__ zDpCcur__;
+} zDpCcur__;
 
-struct zDpRes__ {
+typedef struct zDpRes__ {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
     char ErrMsg[256];  // 存放目标主机返回的错误信息
     struct zDpRes__ *p_next;
-};
-typedef struct zDpRes__ zDpRes__;
+} zDpRes__;
 
 /* 在zSend__之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
-struct zRefData__ {
-    struct zVecWrap__ *p_SubVecWrapIf;  // 传递给 sendmsg 的下一级数据
+typedef struct zRefData__ {
+    struct zVecWrap__ *p_SubVecWrap_;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
-};
-typedef struct zRefData__ zRefData__;
+} zRefData__;
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
-struct zVecWrap__ {
+typedef struct zVecWrap__ {
     _i VecSiz;
-    struct iovec *p_VecIf;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefDataIf 中对应的 p_data 字段
-    struct zRefData__ *p_RefDataIf;
-};
-typedef struct zVecWrap__ zVecWrap__;
+    struct iovec *p_Vec_;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefData_ 中对应的 p_data 字段
+    struct zRefData__ *p_RefData_;
+} zVecWrap__;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
-struct zRepo__ {
+typedef struct zRepo__ {
     _i RepoId;  // 项目代号
     time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
@@ -132,39 +161,35 @@ struct zRepo__ {
 
     pthread_mutex_t ReplyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
-    zDpCcur__ DpCcurIf[zForecastedHostNum];
-    zDpCcur__ *p_DpCcurIf;
-    struct zDpRes__ *p_DpResListIf;  // 1、更新 IP 时对比差异；2、收集布署状态
-    struct zDpRes__ *p_DpResHashIf[zDpHashSiz];  // 对上一个字段每个值做的散列
+    zDpCcur__ DpCcur_[zForecastedHostNum];
+    zDpCcur__ *p_DpCcur_;
+    struct zDpRes__ *p_DpResList_;  // 1、更新 IP 时对比差异；2、收集布署状态
+    struct zDpRes__ *p_DpResHash_[zDpHashSiz];  // 对上一个字段每个值做的散列
 
     pthread_rwlock_t RwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
     pthread_mutex_t DpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
-    struct zVecWrap__ CommitVecWrapIf;  // 存放 commit 记录的原始队列信息
-    struct iovec CommitVecIf[zCacheSiz];
-    struct zRefData__ CommitRefDataIf[zCacheSiz];
+    struct zVecWrap__ CommitVecWrap_;  // 存放 commit 记录的原始队列信息
+    struct iovec CommitVec_[zCacheSiz];
+    struct zRefData__ CommitRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedCommitVecWrapIf;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
+    struct zVecWrap__ SortedCommitVecWrap_;  // 存放经过排序的 commit 记录的缓存队列信息，提交记录总是有序的，不需要再分配静态空间
 
-    struct zVecWrap__ DpVecWrapIf;  // 存放 deploy 记录的原始队列信息
-    struct iovec DpVecIf[zCacheSiz];
-    struct zRefData__ DpRefDataIf[zCacheSiz];
+    struct zVecWrap__ DpVecWrap_;  // 存放 deploy 记录的原始队列信息
+    struct iovec DpVec_[zCacheSiz];
+    struct zRefData__ DpRefData_[zCacheSiz];
 
-    struct zVecWrap__ SortedDpVecWrapIf;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
-    struct iovec SortedDpVecIf[zCacheSiz];
+    struct zVecWrap__ SortedDpVecWrap_;  // 存放经过排序的 deploy 记录的缓存（从文件里直接取出的是旧的在前面，需要逆向排序）
+    struct iovec SortedDpVec_[zCacheSiz];
 
     void *p_MemPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t MemLock;  // 内存池锁
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
-};
-typedef struct zRepo__ zRepo__;
-
-/* 全局 META HASH */
-struct zRepo__ *zpGlobRepoIf[zGlobRepoIdLimit] = {NULL};
+} zRepo__;
 
 /* 数据交互格式 */
-struct zMeta__ {
+typedef struct zMeta__ {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
@@ -184,8 +209,55 @@ struct zMeta__ {
     struct zMeta__ **pp_ResHash;  // Tree 按行号对应的散列
     _i LineNum;  // 行号
     _i OffSet;  // 纵向偏移
-};
-typedef struct zMeta__ zMeta__;
+} zMeta__;
 
 
+/* 既有的项目 ID 最大值 */
 extern _i zGlobMaxRepoId;
+
+/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
+extern pthread_mutex_t zGlobCommonLock;
+extern pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
+
+/* 指定服务端自身的Ip地址与端口 */
+typedef struct zNetSrv__ {
+    char *p_IpAddr;  // 字符串形式的ip点分格式地式
+    char *p_port;  // 字符串形式的端口，如："80"
+    _i zServType;  // 网络服务类型：TCP/UDP
+} zNetSrv__;
+
+extern struct zNetSrv__ zNetSrv_;
+
+/* 服务接口 */
+extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
+
+/* 全局 META HASH */
+extern struct zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
+
+/* 以 ANSI 字符集中的前 128 位成员作为索引 */
+extern void (* zJsonParseOps[128]) (void *, void *);
+
+
+struct zDpOps__ {
+    _i (* show_meta) (zMeta__ *, _i);
+    _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);
+    
+    _i (* print_revs) (zMeta__ *, _i);
+    _i (* print_diff_files) (zMeta__ *, _i);
+    _i (* print_diff_contents) (zMeta__ *, _i);
+    
+    _i (* creat) (zMeta__ *, _i);
+    _i (* req_dp) (zMeta__ *, _i __attribute__ ((__unused__)));
+    _i (* dp) (zMeta__ *, _i);
+    _i (* state_confirm) (zMeta__ *, _i __attribute__ ((__unused__)));
+    _i (* lock) (zMeta__ *, _i);
+    _i (* req_file) (zMeta__ *, _i);
+    
+    void * (* route) (void *);
+    void (* struct_to_json) (char *, zMeta__ *);
+};
+
+#ifndef _SELF_
+extern struct zDpOps__ zDpOps_;
+#endif

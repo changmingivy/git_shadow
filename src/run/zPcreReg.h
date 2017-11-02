@@ -6,7 +6,7 @@
 #include "zCommon.h"
 
 #define zMatchMax 1024
-struct zPcreResInfo{
+struct zPcreRes__{
     char *p_rets[zMatchMax];  //matched results
     _ui ResLen[zMatchMax];  // results' strlen
     _ui cnt;         //total num of matched substrings
@@ -14,20 +14,20 @@ struct zPcreResInfo{
     void * (* alloc_fn) (_i, size_t);
     _i RepoId;
 };
-typedef struct zPcreResInfo zPcreResInfo;
+typedef struct zPcreRes__ zPcreRes__;
 
-struct zPcreInitInfo {
+struct zPcreInit__ {
     pcre2_code *p_pd;
     pcre2_match_data *p_MatchData;
 };
-typedef struct zPcreInitInfo zPcreInitInfo;
+typedef struct zPcreInit__ zPcreInit__;
 
 struct zPcreReg__ {
-    void (* init) (zPcreInitInfo *, const char *);
-    void (* match) (zPcreResInfo *, const zPcreInitInfo *, const char *, _ui);
+    void (* init) (zPcreInit__ *, const char *);
+    void (* match) (zPcreRes__ *, const zPcreInit__ *, const char *, _ui);
 
-    void (* free_meta) (zPcreInitInfo *);
-    void (* free_res) (zPcreResInfo *);
+    void (* free_meta) (zPcreInit__ *);
+    void (* free_res) (zPcreRes__ *);
 };
 
 

@@ -51,8 +51,8 @@
 
 #include "../inc/zCommon.h"
 
-#define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
-#define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
+//#define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
+//#define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 
 #define zGlobBufSiz 1024
 //#define zErrMsgBufSiz 256
@@ -66,7 +66,7 @@
 #define zWatchHashSiz 1024  // 最多可监控的路径总数
 #define zServHashSiz 16
 
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
+//#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
 
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
 

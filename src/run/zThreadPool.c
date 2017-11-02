@@ -37,21 +37,21 @@ typedef struct zThreadTask__ {
 } zThreadTask__ ;
 
 /* 线程池栈结构 */
-static zThreadTask__ *zpPoolStackIf[zThreadPollSiz];
+static zThreadTask__ *zpPoolStack_[zThreadPollSiz];
 
 static _i zStackHeader = -1;
 static pthread_mutex_t zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t zThreadPoolTidTrash;
 
 static void
-zthread_canceled_cleanup(void *zpIf) {
-    zThreadTask__ *zpSelfTask = (zThreadTask__ *) zpIf;
+zthread_canceled_cleanup(void *zp_) {
+    zThreadTask__ *zpSelfTask = (zThreadTask__ *) zp_;
     pthread_cond_destroy(&(zpSelfTask->CondVar));
     free(zpSelfTask);
 }
 
 static void *
-zthread_pool_meta_func(void *zpIf) {
+zthread_pool_meta_func(void *zp_) {
     zThreadTask__ *zpSelfTask;
     zMem_C_Alloc(zpSelfTask, zThreadTask__, 1);  // 分配已清零的空间
     zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->CondVar), NULL) );
@@ -63,12 +63,12 @@ zthread_pool_meta_func(void *zpIf) {
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
 
-    void **zppMetaIf = &zpIf;
+    void **zppMeta_ = &zp_;
 
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
     if (zStackHeader < zThreadPollSizMark) {
-        zpPoolStackIf[++zStackHeader] = zpSelfTask;
+        zpPoolStack_[++zStackHeader] = zpSelfTask;
         while (NULL == zpSelfTask->func) {
             pthread_cond_wait( &(zpSelfTask->CondVar), &zStackHeaderLock );
         }
@@ -78,12 +78,12 @@ zMark:
         if (NULL == zpSelfTask->p_param) {
             zpSelfTask->func(zpSelfTask->p_param);
         } else {
-            zppMetaIf = zpSelfTask->p_param;
+            zppMeta_ = zpSelfTask->p_param;
             pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
 
-            zppMetaIf[0] = zpSelfTask;  // 用于为 pthread_cancel 提供参数
+            zppMeta_[0] = zpSelfTask;  // 用于为 pthread_cancel 提供参数
             zpSelfTask->func(zpSelfTask->p_param);
-            zppMetaIf[0] = NULL;
+            zppMeta_[0] = NULL;
 
             pthread_cleanup_pop(0);
         }
@@ -120,9 +120,9 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
         pthread_mutex_lock(&zStackHeaderLock);
     }
     _i zKeepStackHeader= zStackHeader;
-    zpPoolStackIf[zStackHeader]->func = zFunc;
-    zpPoolStackIf[zStackHeader]->p_param = zpParam;
+    zpPoolStack_[zStackHeader]->func = zFunc;
+    zpPoolStack_[zStackHeader]->p_param = zpParam;
     zStackHeader--;
     pthread_mutex_unlock(&zStackHeaderLock);
-    pthread_cond_signal(&(zpPoolStackIf[zKeepStackHeader]->CondVar));
+    pthread_cond_signal(&(zpPoolStack_[zKeepStackHeader]->CondVar));
 }

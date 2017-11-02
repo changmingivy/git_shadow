@@ -88,7 +88,7 @@ struct zNativeUtils__ zNativeUtils_ = {
  */
 static void
 zclose_fds(pid_t zPid) {
-    struct dirent *zpDirIf;
+    struct dirent *zpDir_;
     char zStrPid[8], zPath[64];
 
     sprintf(zStrPid, "%d", zPid);
@@ -99,8 +99,8 @@ zclose_fds(pid_t zPid) {
 
     _i zFD;
     DIR *zpDir = opendir(zPath);
-    while (NULL != (zpDirIf = readdir(zpDir))) {
-        zFD = strtol(zpDirIf->d_name, NULL, 10);
+    while (NULL != (zpDir_ = readdir(zpDir))) {
+        zFD = strtol(zpDir_->d_name, NULL, 10);
         if (2 != zFD) { close(zFD); }
     }
     closedir(zpDir);
@@ -195,10 +195,10 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
  */
 static void
 zsleep(_d zSecs) {
-    struct timespec zNanoSecIf;
-    zNanoSecIf.tv_sec = (_i) zSecs;
-    zNanoSecIf.tv_nsec  = (zSecs - zNanoSecIf.tv_sec) * 1000000000;
-    nanosleep( &zNanoSecIf, NULL );
+    struct timespec zNanoSec_;
+    zNanoSec_.tv_sec = (_i) zSecs;
+    zNanoSec_.tv_nsec  = (zSecs - zNanoSec_.tv_sec) * 1000000000;
+    nanosleep( &zNanoSec_, NULL );
 }
 
 /*
@@ -206,11 +206,11 @@ zsleep(_d zSecs) {
  */
 // _d
 // zreal_time() {
-//     struct timespec zNanoSecIf;
-//     if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSecIf)) {
+//     struct timespec zNanoSec_;
+//     if (0 > clock_gettime(CLOCK_REALTIME, &zNanoSec_)) {
 //         return -1.0;
 //     } else {
-//         return (zNanoSecIf.tv_sec + (((_d) zNanoSecIf.tv_nsec) / 1000000000));
+//         return (zNanoSec_.tv_sec + (((_d) zNanoSec_.tv_nsec) / 1000000000));
 //     }
 // }
 

@@ -9,16 +9,16 @@
 #undef _SELF_
 
 static void
-zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern);
+zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
 
 static void
-zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSubject);
+zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject);
 
 static void
-zreg_free_res(zRegResInfo *zpResIf);
+zreg_free_res(zRegRes__ *zpRes_);
 
 static void
-zreg_free_meta(zRegInitInfo *zpInitIf);
+zreg_free_meta(zRegInit__ *zpInit_);
 
 /* 对外公开的接口 */
 struct zPosixReg__ zPosixReg_ = {
@@ -30,72 +30,72 @@ struct zPosixReg__ zPosixReg_ = {
 
 /* 使用 posix 扩展正则 */
 static void
-zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern) {
+zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
-    if (0 != (zErrNo = regcomp(zpRegInitIfOut, zpRegPattern, REG_EXTENDED))) {
+    if (0 != (zErrNo = regcomp(zpRegInit_Out, zpRegPattern, REG_EXTENDED))) {
         zPrint_Time();
-        regerror(zErrNo, zpRegInitIfOut, zErrBuf, zBytes(256));
+        regerror(zErrNo, zpRegInit_Out, zErrBuf, zBytes(256));
         zPrint_Err(0, NULL, zErrBuf);
-        regfree(zpRegInitIfOut);
+        regfree(zpRegInit_Out);
         exit(1);
     }
 }
 
 static void
-zreg_match(zRegResInfo *zpRegResIfOut, regex_t *zpRegInitIf, const char *zpRegSubject) {
+zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject) {
     _i zErrNo, zDynSubjectlen, zResStrLen;
     _ui zOffSet = 0;
     char zErrBuf[256];
-    regmatch_t zMatchResIf;
+    regmatch_t zMatchRes_;
 
-    zpRegResIfOut->cnt = 0;
+    zpRegRes_Out->cnt = 0;
     zDynSubjectlen = strlen(zpRegSubject);
 
     /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
-    if (NULL == zpRegResIfOut->alloc_fn) {
-        zMem_Alloc(zpRegResIfOut->p_rets[0], char, 2 * zDynSubjectlen);
+    if (NULL == zpRegRes_Out->alloc_fn) {
+        zMem_Alloc(zpRegRes_Out->p_rets[0], char, 2 * zDynSubjectlen);
     } else {
-        zpRegResIfOut->p_rets[0] = zpRegResIfOut->alloc_fn(zpRegResIfOut->RepoId, zBytes(2 * zDynSubjectlen));
+        zpRegRes_Out->p_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->RepoId, zBytes(2 * zDynSubjectlen));
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
-        if (0 != (zErrNo = regexec(zpRegInitIf, zpRegSubject, 1, &zMatchResIf, 0))) {
+        if (0 != (zErrNo = regexec(zpRegInit_, zpRegSubject, 1, &zMatchRes_, 0))) {
             if (REG_NOMATCH == zErrNo) { break; }
             else {
                 zPrint_Time();
-                regerror(zErrNo, zpRegInitIf, zErrBuf, zBytes(256));
+                regerror(zErrNo, zpRegInit_, zErrBuf, zBytes(256));
                 zPrint_Err(0, NULL, zErrBuf);
-                regfree(zpRegInitIf);
+                regfree(zpRegInit_);
                 exit(1);
             }
         }
 
-        zResStrLen = zMatchResIf.rm_eo - zMatchResIf.rm_so;
+        zResStrLen = zMatchRes_.rm_eo - zMatchRes_.rm_so;
         if (0 == zResStrLen) { break; }
 
-        zpRegResIfOut->ResLen[zpRegResIfOut->cnt] = zResStrLen;
-        zpRegResIfOut->cnt++;
+        zpRegRes_Out->ResLen[zpRegRes_Out->cnt] = zResStrLen;
+        zpRegRes_Out->cnt++;
 
-        zpRegResIfOut->p_rets[zCnter] = zpRegResIfOut->p_rets[0] + zOffSet;
-        strncpy(zpRegResIfOut->p_rets[zCnter], zpRegSubject + zMatchResIf.rm_so, zResStrLen);
-        zpRegResIfOut->p_rets[zCnter][zResStrLen] = '\0';
+        zpRegRes_Out->p_rets[zCnter] = zpRegRes_Out->p_rets[0] + zOffSet;
+        strncpy(zpRegRes_Out->p_rets[zCnter], zpRegSubject + zMatchRes_.rm_so, zResStrLen);
+        zpRegRes_Out->p_rets[zCnter][zResStrLen] = '\0';
 
-        zOffSet += zMatchResIf.rm_eo + 1;  // '+ 1' for '\0'
-        zpRegSubject += zMatchResIf.rm_eo + 1;
-        zDynSubjectlen -= zMatchResIf.rm_eo + 1;
+        zOffSet += zMatchRes_.rm_eo + 1;  // '+ 1' for '\0'
+        zpRegSubject += zMatchRes_.rm_eo + 1;
+        zDynSubjectlen -= zMatchRes_.rm_eo + 1;
     }
 }
 
 /* 内存是全量分配给成员 [0] 的，只需释放一次 */
 static void
-zreg_free_res(zRegResInfo *zpResIf) {
-    free((zpResIf)->p_rets[0]);
+zreg_free_res(zRegRes__ *zpRes_) {
+    free((zpRes_)->p_rets[0]);
 }
 
 static void
-zreg_free_meta(zRegInitInfo *zpInitIf) {
-    regfree((zpInitIf));
+zreg_free_meta(zRegInit__ *zpInit_) {
+    regfree((zpInit_));
 }
 
 #undef zMatchLimit

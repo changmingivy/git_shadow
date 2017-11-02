@@ -3,7 +3,7 @@
 #include "zCommon.h"
 
 #define zMatchLimit 1024
-struct zRegResInfo {
+struct zRegRes__ {
     char *p_rets[zMatchLimit];  //matched results
     _ui ResLen[zMatchLimit];  // results' strlen
     _ui cnt;         //total num of matched substrings
@@ -11,16 +11,16 @@ struct zRegResInfo {
     void * (* alloc_fn) (_i, size_t);
     _i RepoId;
 };
-typedef struct zRegResInfo zRegResInfo;
+typedef struct zRegRes__ zRegRes__;
 
-typedef regex_t zRegInitInfo;
+typedef regex_t zRegInit__;
 
 struct zPosixReg__ {
-    void (* compile) (zRegInitInfo *, const char *);
-    void (* match) (zRegResInfo *, regex_t *, const char *);
+    void (* compile) (zRegInit__ *, const char *);
+    void (* match) (zRegRes__ *, regex_t *, const char *);
 
-    void (* free_meta) (zRegInitInfo *);
-    void (* free_res) (zRegResInfo *);
+    void (* free_meta) (zRegInit__ *);
+    void (* free_res) (zRegRes__ *);
 };
 
 #ifndef _SELF_

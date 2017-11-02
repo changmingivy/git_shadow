@@ -84,8 +84,8 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
 #else
     zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
 #endif
-    struct sockaddr *zpAddrIf = zgenerate_serv_addr(zpHost, zpPort);
-    zCheck_Negative_Return(bind(zSd, zpAddrIf, INET_ADDRSTRLEN), -1);
+    struct sockaddr *zpAddr_ = zgenerate_serv_addr(zpHost, zpPort);
+    zCheck_Negative_Return(bind(zSd, zpAddr_, INET_ADDRSTRLEN), -1);
 
     zCheck_Negative_Return(listen(zSd, 5), -1);
 
@@ -142,7 +142,7 @@ static _i
 zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr) {
     if (NULL == zpVec_) { return -1; }
 
-    struct msghdr zMsgIf = {
+    struct msghdr zMsg_ = {
         .msg_name = zpAddr,
         .msg_namelen = (NULL == zpAddr) ? 0 : INET6_ADDRSTRLEN,
         .msg_iov = zpVec_,
@@ -152,7 +152,7 @@ zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockadd
         .msg_flags = 0
     };
 
-    return sendmsg(zSd, &zMsgIf, MSG_NOSIGNAL | zFlags);
+    return sendmsg(zSd, &zMsg_, MSG_NOSIGNAL | zFlags);
 }
 
 static _i
