@@ -59,10 +59,17 @@ struct zLocalOps__ zLocalOps_ = {
 };
 
 
-/************
- * META OPS *
- ************/
+/*************
+ * GLOB VARS *
+ *************/
+_i zGlobMaxRepoId;
 zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
+
+/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
+pthread_mutex_t zGlobCommonLock;
+pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+_ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
+
 
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 static void *

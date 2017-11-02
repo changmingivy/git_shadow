@@ -39,6 +39,7 @@ extern struct zThreadPool__ zThreadPool_;
 extern struct zLocalOps__ zLocalOps_;
 extern struct zRun__ zRun_;
 
+zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
 
 _i
 main(_i zArgc, char **zppArgv) {
