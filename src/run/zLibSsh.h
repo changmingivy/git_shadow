@@ -1,5 +1,10 @@
 #define ZLIBSSH_H
+
+#ifndef _Z_BSD
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 700
+#endif
+#endif
 
 #ifndef ZCOMMON_H
 #include "zCommon.h"

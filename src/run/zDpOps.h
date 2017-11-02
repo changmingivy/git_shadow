@@ -16,10 +16,12 @@
 
 #endif
 
-#include <sys/socket.h>  // uio.h
-#include <semaphore.h>
+#ifndef PTHREAD_H
 #include <pthread.h>
-#include "git2.h"
+#define PTHREAD_H
+#endif
+
+#include <semaphore.h>
 
 #ifndef ZCOMMON_H
 #include "zCommon.h"

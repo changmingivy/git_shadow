@@ -1,5 +1,7 @@
 #ifndef _Z_BSD
+#ifndef _XOPEN_SOURCE
 #define _XOPEN_SOURCE 700
+#endif
 #endif
 
 #include <sys/types.h>
