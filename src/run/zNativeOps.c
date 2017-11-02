@@ -718,8 +718,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zRegRes_->p_rets[1][zRegRes_->ResLen[1] - (zRegRes_ + 1)->ResLen[0]] = '\0';
     /* 拼接结果字符串 */
     while ('/' == zRegRes_->p_rets[1][0]) { zRegRes_->p_rets[1]++; }  // 去除多余的 '/'
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, sizeof("/home/git/.____DpSystem/") + zRegRes_->ResLen[1]);
-    zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath, "%s%s%s%s", "/home/git/", zRegRes_->p_rets[1], ".____DpSystem/", (zRegRes_ + 1)->p_rets[0]);
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zRegRes_->ResLen[1]);
+    zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath, "%s%s%s/%d/%s", "/home/git/", zRegRes_->p_rets[1], ".____DpSystem", zRepoId, (zRegRes_ + 1)->p_rets[0]);
     zPosixReg_.free_res(zRegRes_ + 1);
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */

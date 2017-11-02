@@ -15,7 +15,7 @@ export HOME="/home/git"
     zPathOnHost="__PROJ_PATH"
     zMasterAddr="__MASTER_ADDR"
     zMasterPort="__MASTER_PORT"
-    zProjOnLinePath="`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}`"
+    zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
     zProjId=`echo $1 | grep -o '[0-9]\+$'`;
     if [[ "" == ${zProjId} ]]; then
         zProjId=`echo $1 | grep -o '[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`;
