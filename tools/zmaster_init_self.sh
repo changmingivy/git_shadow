@@ -6,7 +6,7 @@
 #   (3) yum install openssl-devel
 
 # 布署系统全局共用变量
-export zGitShadowPath=/home/git/zgit_shadow2
+export zGitShadowPath=${HOME}/zgit_shadow2
 
 zServAddr=$1
 zServPort=$2
@@ -21,14 +21,29 @@ eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/post-update
 eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/zhost_self_deploy.sh
 eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/zhost_self_deploy.sh
 
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP '\d+(?=.*zauto_restart.sh)'`
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP '\d+(?=.*git_shadow)'`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+\w*\s*${zShadowPath}/tools/zauto_restart.sh)"`
+kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/bin/git_shadow)"`
 
 mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
 mkdir -p ${zShadowPath}/conf
 touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
+
+# build libpcre2
+# wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
+# mkdir ${zShadowPath}/lib/libpcre2_source/____build
+# if [[ 0 -eq $? ]]; then
+#     cd ${zShadowPath}/lib/libpcre2_source/____build && rm -rf * .*
+#     cmake .. \
+#         -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libpcre2 \
+#         -DBUILD_SHARED_LIBS=ON \
+#         -DPCRE2_BUILD_PCRE2GREP=OFF \
+#         -DPCRE2_BUILD_TESTS=OFF
+#     cmake --build . --target install
+# fi
+# zLibPcrePath=${zShadowPath}/lib/libpcre2/lib64
+# if [[ 0 -eq  `ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
 
 # build libssh2
 mkdir ${zShadowPath}/lib/libssh2_source/____build
@@ -58,23 +73,30 @@ zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
 # 编译主程序，静态库文件路径一定要放在源文件之后，如查使用静态库，则必须在此之前链接 zlib curl openssl crypto (-lz -lcurl -lssl -lcrypto)
+###############################################
+#    -I${zShadowPath}/lib/libpcre2/include \
+#    -L${zLibPcrePath} \
+#    -lpcre2-8 \
+###############################################
 clang -Wall -Wextra -std=c99 -O2 -lpthread \
     -I${zShadowPath}/inc \
     -I${zShadowPath}/lib/libssh2/include \
-    -I${zShadowPath}/lib/libgit2/include \
     -L${zLibSshPath} \
-    -L${zLibGitPath} \
     -lssh2 \
+    -I${zShadowPath}/lib/libgit2/include \
+    -L${zLibGitPath} \
     -lgit2 \
     -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/src/zmain.c
+    ${zShadowPath}/src/zmain.c \
+    ${zShadowPath}/src/run/*.c
+
 strip ${zShadowPath}/bin/git_shadow
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
 clang -Wall -Wextra -std=c99 -O2 \
     -I${zShadowPath}/inc \
     -o ${zShadowPath}/tools/notice \
-    ${zShadowPath}/src/extra/znotice.c
+    ${zShadowPath}/src/zExtraUtils/znotice.c
 strip ${zShadowPath}/tools/notice
 
 export LD_LIBRARY_PATH=${zShadowPath}/lib/libssh2/lib64:${zShadowPath}/lib/libgit2/lib:$LD_LIBRARY_PATH

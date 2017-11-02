@@ -21,6 +21,9 @@ then
     exit 1
 fi
 
+# 为服务分支 server$ProjId 建立统一的别名 server，方便 gitlab hooks 推送代码
+ln -sT ${zDeployPath}/.git/refs/heads/server${zProjId} ${zDeployPath}/.git/refs/heads/server
+
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     cd ${zDeployPath}

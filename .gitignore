@@ -6,6 +6,7 @@ bin/
 log/
 lib/libssh2/
 lib/libgit2/
+lib/libpcre2/
 ____build/
 
 *.gz
