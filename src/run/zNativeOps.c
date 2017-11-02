@@ -1,5 +1,4 @@
-#define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
+#include "zNativeOps.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -12,7 +11,6 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#include "zNativeOps.h"
 
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳

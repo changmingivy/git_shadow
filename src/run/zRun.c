@@ -13,7 +13,7 @@ extern struct zDpOps__ zDpOps_;
 static void zstart_server (void *zpParam);
 static void * zops_route (void *zpParam);
 
-struct zRun__ zRun_ = { 
+struct zRun__ zRun_ = {
     .run = zstart_server,
     .route = zops_route,
     .ops = { NULL }

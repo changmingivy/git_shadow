@@ -144,16 +144,16 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
 // static void *
 // zssh_ccur(void  *zpParam) {
 //     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-// 
+//
 //     zLibSsh_.exec(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_HostServPort, zpDpCcur_->p_Cmd,
 //             zpDpCcur_->p_UserName, zpDpCcur_->p_PubKeyPath, zpDpCcur_->p_PrivateKeyPath, zpDpCcur_->p_PassWd, zpDpCcur_->zAuthType,
 //             zpDpCcur_->p_RemoteOutPutBuf, zpDpCcur_->RemoteOutPutBufSiz, zpDpCcur_->p_CcurLock);
-// 
+//
 //     pthread_mutex_lock(zpDpCcur_->p_CcurLock);
 //     (* (zpDpCcur_->p_TaskCnt))++;
 //     pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
 //     pthread_cond_signal(zpDpCcur_->p_CcurCond);
-// 
+//
 //     return NULL;
 // };
 
@@ -169,14 +169,14 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
 // static void *
 // zssh_ccur_simple(void  *zpParam) {
 //     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-// 
+//
 //     zssh_exec_simple(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_Cmd, zpDpCcur_->p_CcurLock);
-// 
+//
 //     pthread_mutex_lock(zpDpCcur_->p_CcurLock);
 //     (* (zpDpCcur_->p_TaskCnt))++;
 //     pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
 //     pthread_cond_signal(zpDpCcur_->p_CcurCond);
-// 
+//
 //     return NULL;
 // };
 

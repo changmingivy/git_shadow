@@ -1,11 +1,11 @@
+#include "zPosixReg.h"
+
 #include <unistd.h>
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-
-#include "zPosixReg.h"
 
 static void
 zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);

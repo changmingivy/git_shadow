@@ -1,9 +1,9 @@
+#include "zPcreReg.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-
-#include "zPcreReg.h"
 
 static void
 zpcre_init(zPcreInit__ *zpPcreInit_Out, const char *zpPcrePattern);

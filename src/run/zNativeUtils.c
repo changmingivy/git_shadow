@@ -1,5 +1,7 @@
 #define _XOPEN_SOURCE 700
 
+#include "zNativeUtils.h"
+
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -16,8 +18,6 @@
 
 #include <time.h>
 #include <errno.h>
-
-#include "zNativeUtils.h"
 
 static void
 zdaemonize(const char *zpWorkDir);

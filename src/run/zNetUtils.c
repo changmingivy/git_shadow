@@ -1,6 +1,4 @@
-#define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-#define _BSD_SOURCE
+#include "zNetUtils.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -10,8 +8,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "zNetUtils.h"
 
 static _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType);
