@@ -1,4 +1,15 @@
+#include <unistd.h>
+#include <sys/select.h>
+#include <stdio.h>
+#include <time.h>
+#include <pthread.h>
+
+#include "libssh2.h"
+#include "zCommon.h"
+
+#define _SELF_
 #include "zLibSsh.h"
+#undef _SELF_
 
 #define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
 

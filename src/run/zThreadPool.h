@@ -3,4 +3,6 @@ struct zThreadPool__ {
     void (* add) (void * (*) (void *), void *);
 };
 
+#ifndef _SELF_
 extern struct zThreadPool__ zThreadPool_;
+#endif

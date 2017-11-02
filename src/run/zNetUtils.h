@@ -16,4 +16,6 @@ struct zNetUtils__ {
 };
 
 
+#ifndef _SELF_
 extern struct zNetUtils__ zNetUtils_;
+#endif

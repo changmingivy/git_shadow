@@ -1,12 +1,11 @@
-
 #define PCRE2_STATIC
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
+
 #include "pcre2.h"  //compile with '-lpcre2-8'
 
 #include "zCommon.h"
 
 #define zMatchMax 1024
-
 struct zPcreResInfo{
     char *p_rets[zMatchMax];  //matched results
     _ui ResLen[zMatchMax];  // results' strlen
@@ -32,4 +31,6 @@ struct zPcreReg__ {
 };
 
 
+#ifndef _SELF_
 extern struct zPcreReg__ zPcreReg_;
+#endif

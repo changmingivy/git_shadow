@@ -4,7 +4,9 @@
 #include <string.h>
 #include <errno.h>
 
+#define _SELF_
 #include "zPosixReg.h"
+#undef _SELF_
 
 static void
 zreg_compile(zRegInitInfo *zpRegInitIfOut, const char *zpRegPattern);

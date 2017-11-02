@@ -23,4 +23,6 @@ struct zPosixReg__ {
     void (* free_res) (zRegResInfo *);
 };
 
+#ifndef _SELF_
 extern struct zPosixReg__ zPosixReg_;
+#endif

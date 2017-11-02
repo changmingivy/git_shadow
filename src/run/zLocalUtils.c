@@ -12,7 +12,9 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zNativeUtils.h"
+#define _SELF_
+#include "zLocalUtils.h"
+#undef _SELF_
 
 static void
 zdaemonize(const char *zpWorkDir);

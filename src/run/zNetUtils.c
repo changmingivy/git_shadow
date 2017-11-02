@@ -7,7 +7,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define _SELF_
 #include "zNetUtils.h"
+#undef _SELF
 
 static _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType);
