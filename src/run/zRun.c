@@ -8,9 +8,11 @@
 
 extern struct zThreadPool__ zThreadPool_;
 extern struct zNetUtils__ zNetUtils_;
+extern struct zNativeUtils__ zNativeUtils_;
+extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 
-static void zstart_server (void *zpParam);
+static void zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath);
 static void * zops_route (void *zpParam);
 
 struct zRun__ zRun_ = {
@@ -71,12 +73,19 @@ struct zRun__ zRun_ = {
  */
 
 static void
-zstart_server(void *zpParam) {
-    zRun_.ops[0] = NULL;  // ztest_func;  // 留作功能测试接口
+zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath) {
+
+    zNativeUtils_.daemonize("/");  /* 成为守护进程 */
+
+    zThreadPool_.init();  /* 线程池初始化 */
+
+    zNativeOps_.proj_init_all(zpConfFilePath);  /* 扫描所有项目库并初始化之 */
+
+    zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zRun_.ops[3] = zDpOps_.lock;  // 恢复布署／撤销功能
-    zRun_.ops[4] = NULL;  // 已解决 CentOS-6 平台上 sendmsg 的问题，不再需要 zupdate_ip_db_proxy()
+    zRun_.ops[4] = NULL;
     zRun_.ops[5] = zDpOps_.show_meta_all;  // 显示所有有效项目的元信息
     zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
     zRun_.ops[7] = NULL;
@@ -84,15 +93,13 @@ zstart_server(void *zpParam) {
     zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zRun_.ops[10] = zDpOps_.print_diff_files;  // 显示差异文件路径列表
     zRun_.ops[11] = zDpOps_.print_diff_contents;  // 显示差异文件内容
-    zRun_.ops[12] = zDpOps_.dp;  // 布署或撤销
+    zRun_.ops[12] = zDpOps_.dp;  // 批量布署或撤销
     zRun_.ops[13] = zDpOps_.req_dp;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zRun_.ops[14] = zDpOps_.req_file;  // 请求服务器传输指定的文件
     zRun_.ops[15] = NULL;
 
-    /* 如下部分配置网络服务 */
-    _i zMajorSd;
-    zNetSrv__ *zpNetSrv_ = (zNetSrv__ *)zpParam;
-    zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_IpAddr, zpNetSrv_->p_port, zpNetSrv_->zServType);  // 返回的 socket 已经做完 bind 和 listen
+    /* 返回的 socket 已经做完 bind 和 listen */
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_IpAddr, zpNetSrv_->p_port, zpNetSrv_->zServType);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};

@@ -1,7 +1,9 @@
 #ifndef _Z_BSD
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 700
-#endif
+    #ifndef _XOPEN_SOURCE
+        #define _XOPEN_SOURCE 700
+        #define _DEFAULT_SOURCE
+        #define _BSD_SOURCE
+    #endif
 #endif
 
 #include <sys/types.h>
@@ -15,18 +17,6 @@
 #include "zCommon.h"
 #endif
 
-#ifndef ZLOCALUTILS_H
-#include "run/zNativeUtils.h"
-#endif
-
-#ifndef ZLOCALOPS_H
-#include "run/zNativeOps.h"
-#endif
-
-#ifndef ZTHREADPOOL_H
-#include "run/zThreadPool.h"
-#endif
-
 #ifndef ZRUN_H
 #include "run/zRun.h"
 #endif
@@ -34,9 +24,6 @@
 #define UDP 0
 #define TCP 1
 
-extern struct zNativeUtils__ zNativeUtils_;
-extern struct zThreadPool__ zThreadPool_;
-extern struct zNativeOps__ zNativeOps_;
 extern struct zRun__ zRun_;
 
 zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
@@ -70,15 +57,7 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-    /* 转换自身为守护进程，解除与终端的关联关系 */
-    zNativeUtils_.daemonize("/");
 
-    /* 初始化线程池：旧的线程池设计，在大压力下应用有阻死风险，暂不用之 */
-    zThreadPool_.init();
-
-    /* 扫描所有项目库并初始化之 */
-    zNativeOps_.proj_init_all(zpConfFilePath);
-
-    /* 启动网络服务 */
-    zRun_.run(&zNetSrv_);
+    /* 启动服务 */
+    zRun_.run(&zNetSrv_, zpConfFilePath);
 }
