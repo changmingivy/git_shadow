@@ -11,15 +11,6 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zNetUtils.h"
-#include "zLibSsh.h"
-#include "zLibGit.h"
-#include "zLocalOps.h"
-#include "zLocalUtils.h"
-#include "zPosixReg.h"
-#include "zThreadPool.h"
-#include "zRun.h"
-
 #include "zDpOps.h"
 
 extern struct zNetUtils__ zNetUtils_;
@@ -29,7 +20,9 @@ extern struct zLocalOps__ zLocalOps_;
 extern struct zLocalUtils__ zLocalUtils_;
 extern struct zPosixReg__ zPosixReg_;
 extern struct zThreadPool__ zThreadPool_;
-extern struct zRun__ zRun_;
+
+static _i
+zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_);
 
 static void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_);
@@ -70,9 +63,6 @@ zlock_repo(zMeta__ *zpMeta_, _i zSd);
 static _i
 zreq_file(zMeta__ *zpMeta_, _i zSd);
 
-static void *
-zops_route(void *zpParam);
-
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
     .show_meta = zshow_one_repo_meta,
@@ -86,7 +76,7 @@ struct zDpOps__ zDpOps_ = {
     .state_confirm = zstate_confirm,
     .lock = zlock_repo,
     .req_file = zreq_file,
-    .route = zops_route,
+    .json_to_struct = zconvert_json_str_to_struct,
     .struct_to_json = zconvert_struct_to_json_str
 };
 
@@ -152,21 +142,21 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
 }
 
 
-static void *
-zssh_ccur(void  *zpParam) {
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-
-    zLibSsh_.exec(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_HostServPort, zpDpCcur_->p_Cmd,
-            zpDpCcur_->p_UserName, zpDpCcur_->p_PubKeyPath, zpDpCcur_->p_PrivateKeyPath, zpDpCcur_->p_PassWd, zpDpCcur_->zAuthType,
-            zpDpCcur_->p_RemoteOutPutBuf, zpDpCcur_->RemoteOutPutBufSiz, zpDpCcur_->p_CcurLock);
-
-    pthread_mutex_lock(zpDpCcur_->p_CcurLock);
-    (* (zpDpCcur_->p_TaskCnt))++;
-    pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
-    pthread_cond_signal(zpDpCcur_->p_CcurCond);
-
-    return NULL;
-};
+// static void *
+// zssh_ccur(void  *zpParam) {
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+// 
+//     zLibSsh_.exec(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_HostServPort, zpDpCcur_->p_Cmd,
+//             zpDpCcur_->p_UserName, zpDpCcur_->p_PubKeyPath, zpDpCcur_->p_PrivateKeyPath, zpDpCcur_->p_PassWd, zpDpCcur_->zAuthType,
+//             zpDpCcur_->p_RemoteOutPutBuf, zpDpCcur_->RemoteOutPutBufSiz, zpDpCcur_->p_CcurLock);
+// 
+//     pthread_mutex_lock(zpDpCcur_->p_CcurLock);
+//     (* (zpDpCcur_->p_TaskCnt))++;
+//     pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
+//     pthread_cond_signal(zpDpCcur_->p_CcurCond);
+// 
+//     return NULL;
+// };
 
 
 /* 简化参数版函数 */
@@ -177,19 +167,19 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
 
 
 /* 简化参数版函数 */
-static void *
-zssh_ccur_simple(void  *zpParam) {
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-
-    zssh_exec_simple(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_Cmd, zpDpCcur_->p_CcurLock);
-
-    pthread_mutex_lock(zpDpCcur_->p_CcurLock);
-    (* (zpDpCcur_->p_TaskCnt))++;
-    pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
-    pthread_cond_signal(zpDpCcur_->p_CcurCond);
-
-    return NULL;
-};
+// static void *
+// zssh_ccur_simple(void  *zpParam) {
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+// 
+//     zssh_exec_simple(zpDpCcur_->p_HostIpStrAddr, zpDpCcur_->p_Cmd, zpDpCcur_->p_CcurLock);
+// 
+//     pthread_mutex_lock(zpDpCcur_->p_CcurLock);
+//     (* (zpDpCcur_->p_TaskCnt))++;
+//     pthread_mutex_unlock(zpDpCcur_->p_CcurLock);
+//     pthread_cond_signal(zpDpCcur_->p_CcurCond);
+// 
+//     return NULL;
+// };
 
 
 /* 远程主机初始化专用 */
@@ -933,7 +923,7 @@ static _i
 zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrRegRes_Out) {
     zVecWrap__ *zpTopVecWrap_;
     _i zErrNo = 0;
-    time_t zRemoteHostInitTimeSpent;
+    time_t zRemoteHostInitTimeSpent = 0;
 
     if (zIsCommitDataType == zpMeta_->DataType) {
         zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->RepoId]->CommitVecWrap_);
@@ -1485,73 +1475,4 @@ zreq_file(zMeta__ *zpMeta_, _i zSd) {
 
     close(zFd);
     return 0;
-}
-
-
-/*
- * 网络服务路由函数
- */
-static void *
-zops_route(void *zpParam) {
-    _i zSd = ((zSockAcceptParam__ *) zpParam)->ConnSd;
-    _i zErrNo;
-    char zJsonBuf[zGlobCommonBufSiz] = {'\0'};
-    char *zpJsonBuf = zJsonBuf;
-
-    /* 必须清零，以防脏栈数据导致问题 */
-    zMeta__ zMeta_;
-    memset(&zMeta_, 0, sizeof(zMeta__));
-
-    /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zGlobCommonBufSiz == (zMeta_.DataLen = recv(zSd, zpJsonBuf, zGlobCommonBufSiz, 0))) {
-        zMem_C_Alloc(zpJsonBuf, char, zGlobCommonBufSiz * 1024);  // 用清零的空间，保障正则匹配不出现混乱
-        strcpy(zpJsonBuf, zJsonBuf);
-        zMeta_.DataLen += recv(zSd, zpJsonBuf + zMeta_.DataLen, zGlobCommonBufSiz * 1024 - zMeta_.DataLen, 0);
-    }
-
-    if (zBytes(6) > zMeta_.DataLen) {
-        close(zSd);
-        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
-        return NULL;
-    }
-
-    /* .p_data 与 .p_ExtraData 成员空间 */
-    zMeta_.DataLen += (zMeta_.DataLen > zGlobCommonBufSiz) ? zMeta_.DataLen : zGlobCommonBufSiz;
-    zMeta_.ExtraDataLen = zGlobCommonBufSiz;
-    char zDataBuf[zMeta_.DataLen], zExtraDataBuf[zMeta_.ExtraDataLen];
-    memset(zDataBuf, 0, zMeta_.DataLen);
-    memset(zExtraDataBuf, 0, zMeta_.ExtraDataLen);
-    zMeta_.p_data = zDataBuf;
-    zMeta_.p_ExtraData = zExtraDataBuf;
-
-    if (0 > (zErrNo = zconvert_json_str_to_struct(zpJsonBuf, &zMeta_))) {
-        zMeta_.OpsId = zErrNo;
-        goto zMarkCommonAction;
-    }
-
-    if (0 > zMeta_.OpsId || 16 <= zMeta_.OpsId || NULL == zRun_.ops[zMeta_.OpsId]) {
-        zMeta_.OpsId = -1;  // 此时代表错误码
-        goto zMarkCommonAction;
-    }
-
-    if ((1 != zMeta_.OpsId) && (5 != zMeta_.OpsId)
-            && ((zGlobMaxRepoId < zMeta_.RepoId) || (0 >= zMeta_.RepoId) || (NULL == zpGlobRepo_[zMeta_.RepoId]))) {
-        zMeta_.OpsId = -2;  // 此时代表错误码
-        goto zMarkCommonAction;
-    }
-
-    if (0 > (zErrNo = zRun_.ops[zMeta_.OpsId](&zMeta_, zSd))) {
-        zMeta_.OpsId = zErrNo;  // 此时代表错误码
-zMarkCommonAction:
-        zconvert_struct_to_json_str(zpJsonBuf, &zMeta_);
-        zpJsonBuf[0] = '[';
-        zNetUtils_.sendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
-        zNetUtils_.sendto(zSd, "]", zBytes(1), 0, NULL);
-
-        fprintf(stderr, "\n\033[31;01m[ DEBUG ] \033[00m%s", zpJsonBuf);  // 错误信息，打印出一份，防止客户端socket已关闭时，信息丢失
-    }
-
-    close(zSd);
-    if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
-    return NULL;
 }

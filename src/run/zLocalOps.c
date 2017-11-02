@@ -12,16 +12,17 @@
 #include <string.h>
 #include <sys/mman.h>
 
-#include "zPosixReg.h"
-#include "zLocalUtils.h"
-#include "zThreadPool.h"
-#include "zLibGit.h"
-#include "zDpOps.h"
-
 #include "zLocalOps.h"
 
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
+
+extern struct zPosixReg__ zPosixReg_;
+extern struct zLocalUtils__ zLocalUtils_;
+extern struct zThreadPool__ zThreadPool_;
+extern struct zLibGit__ zLibGit_;
+extern struct zDpOps__ zDpOps_;
+
 
 static void *
 zalloc_cache(_i zRepoId, _ui zSiz);
@@ -61,6 +62,8 @@ struct zLocalOps__ zLocalOps_ = {
 /************
  * META OPS *
  ************/
+zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
+
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 static void *
 zalloc_cache(_i zRepoId, _ui zSiz) {

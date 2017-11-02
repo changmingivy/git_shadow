@@ -4,6 +4,26 @@
 #include "zCommon.h"
 #endif
 
+#ifndef ZPOSIXREG_H
+#include "zPosixReg.h"
+#endif
+
+#ifndef ZLOCALUTILS_H
+#include "zLocalUtils.h"
+#endif
+
+#ifndef ZTHREADPOOL_H
+#include "zThreadPool.h"
+#endif
+
+#ifndef ZLIBGIT_H
+#include "zLibGit.h"
+#endif
+
+#ifndef ZDPOPS_H
+#include "zDpOps.h"
+#endif
+
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
@@ -31,8 +51,8 @@
 
 
 /* 用于提取原始数据 */
-typedef struct {
-    struct zBaseData__ *p_next;
+typedef struct __zBaseData__ {
+    struct __zBaseData__ *p_next;
     _i DataLen;
     char p_data[];
 } zBaseData__;

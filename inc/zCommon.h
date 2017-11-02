@@ -153,16 +153,18 @@
     zpObjToFree = zpBridgePointer = NULL;\
 } while(0)
 
-// #define zMap_Alloc(zpRet, zType, zCnt) do {\
-// 	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
-// 		zPrint_Err(0, NULL, "mmap failed!");\
-// 		_exit(1);\
-// 	}\
-// } while(0)
-// 
-// #define zMap_Free(zpRet, zType, zCnt) do {\
-// 	munmap(zpRet, (zCnt) * sizeof(zType));\
-// } while(0)
+/*
+#define zMap_Alloc(zpRet, zType, zCnt) do {\
+	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
+		zPrint_Err(0, NULL, "mmap failed!");\
+		_exit(1);\
+	}\
+} while(0)
+
+#define zMap_Free(zpRet, zType, zCnt) do {\
+	munmap(zpRet, (zCnt) * sizeof(zType));\
+} while(0)
+*/
 
 /*
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种

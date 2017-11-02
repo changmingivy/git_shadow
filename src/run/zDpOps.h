@@ -16,13 +16,41 @@
 
 #endif
 
-#include <semaphore.h>
 #include <sys/socket.h>  // uio.h
+#include <semaphore.h>
 #include <pthread.h>
 #include "git2.h"
 
 #ifndef ZCOMMON_H
 #include "zCommon.h"
+#endif
+
+#ifndef ZNETUTILS_H
+#include "zNetUtils.h"
+#endif
+
+#ifndef ZLIBSSH_H
+#include "zLibSsh.h"
+#endif
+
+#ifndef ZLIBGIT_H
+#include "zLibGit.h"
+#endif
+
+#ifndef ZLOCALOPS_H
+#include "zLocalOps.h"
+#endif
+
+#ifndef ZLOCALUTILS_H
+#include "zLocalUtils.h"
+#endif
+
+#ifndef ZPOSIXREG_H
+#include "zPosixReg.h"
+#endif
+
+#ifndef ZTHREADPOOL_H
+#include "zThreadPool.h"
 #endif
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
@@ -176,7 +204,27 @@ typedef struct {
     _ui MemPoolOffSet;  // 动态指示下一次内存分配的起始地址
 } zRepo__;
 
-/* 数据交互格式 */
+
+/* 既有的项目 ID 最大值 */
+extern _i zGlobMaxRepoId;
+
+/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
+extern pthread_mutex_t zGlobCommonLock;
+extern pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
+
+/* 指定服务端自身的Ip地址与端口 */
+typedef struct {
+    char *p_IpAddr;  // 字符串形式的ip点分格式地式
+    char *p_port;  // 字符串形式的端口，如："80"
+    _i zServType;  // 网络服务类型：TCP/UDP
+} zNetSrv__;
+
+extern zNetSrv__ zNetSrv_;
+
+/* 全局 META HASH */
+extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
+
 typedef struct __zMeta__ {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
@@ -199,30 +247,6 @@ typedef struct __zMeta__ {
     _i OffSet;  // 纵向偏移
 } zMeta__;
 
-
-/* 既有的项目 ID 最大值 */
-extern _i zGlobMaxRepoId;
-
-/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
-extern pthread_mutex_t zGlobCommonLock;
-extern pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
-extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
-
-/* 指定服务端自身的Ip地址与端口 */
-typedef struct {
-    char *p_IpAddr;  // 字符串形式的ip点分格式地式
-    char *p_port;  // 字符串形式的端口，如："80"
-    _i zServType;  // 网络服务类型：TCP/UDP
-} zNetSrv__;
-
-extern zNetSrv__ zNetSrv_;
-
-// /* 服务接口 */
-// extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
-//
-/* 全局 META HASH */
-extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
-
 struct zDpOps__ {
     _i (* show_meta) (zMeta__ *, _i);
     _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);
@@ -232,13 +256,14 @@ struct zDpOps__ {
     _i (* print_diff_contents) (zMeta__ *, _i);
 
     _i (* creat) (zMeta__ *, _i);
-    _i (* req_dp) (zMeta__ *, _i __attribute__ ((__unused__)));
+    _i (* req_dp) (zMeta__ *, _i);
     _i (* dp) (zMeta__ *, _i);
-    _i (* state_confirm) (zMeta__ *, _i __attribute__ ((__unused__)));
+    _i (* state_confirm) (zMeta__ *, _i);
     _i (* lock) (zMeta__ *, _i);
     _i (* req_file) (zMeta__ *, _i);
 
     void * (* route) (void *);
+    _i (* json_to_struct) (char *, zMeta__ *);
     void (* struct_to_json) (char *, zMeta__ *);
 };
 

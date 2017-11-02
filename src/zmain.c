@@ -9,10 +9,21 @@
 #include <time.h>
 #include <errno.h>
 
+#ifndef ZCOMMON_H
 #include "zCommon.h"
+#endif
+
+#ifndef ZLOCALUTILS_H
 #include "run/zLocalUtils.h"
+#endif
+
+#ifndef ZLOCALOPS_H
 #include "run/zLocalOps.h"
+#endif
+
+#ifndef ZTHREADPOOL_H
 #include "run/zThreadPool.h"
+#endif
 
 #define UDP 0
 #define TCP 1
@@ -21,14 +32,6 @@ extern struct zLocalUtils__ zLocalUtils_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zLocalOps__ zLocalOps_;
 extern void zstart_server(void *);
-
-typedef struct zNetSrv__ {
-    char *p_IpAddr;  // 字符串形式的ip点分格式地式
-    char *p_port;  // 字符串形式的端口，如："80"
-    _i zServType;  // 网络服务类型：TCP/UDP
-} zNetSrv__;
-
-struct zNetSrv__ zNetSrv_;
 
 
 _i

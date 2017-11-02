@@ -8,7 +8,6 @@
 
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
-#include "zCommon.h"
 
 #define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
 

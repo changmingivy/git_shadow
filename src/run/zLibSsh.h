@@ -1,6 +1,10 @@
 #define ZLIBSSH_H
 #define _XOPEN_SOURCE 700
 
+#ifndef ZCOMMON_H
+#include "zCommon.h"
+#endif
+
 #ifndef ZNETUTILS_H
 #include "zNetUtils.h"
 #endif

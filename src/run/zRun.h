@@ -21,11 +21,9 @@ typedef struct zSockAcceptParam__ {
     _i ConnSd;
 } zSockAcceptParam__;
 
-
 struct zRun__ {
 	void (* run) (void *);
-
-	_i (* ops[16]) (zMeta__ *, _i);
+	_i (* ops[16]) (zMeta__*, _i);
 };
 
 
