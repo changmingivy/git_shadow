@@ -17,6 +17,9 @@
 #define UDP 0
 #define TCP 1
 
+extern struct zLocalUtils__ zLocalUtils_;
+extern struct zThreadPool__ zThreadPool_;
+extern struct zLocalOps__ zLocalOps_;
 extern void zstart_server(void *);
 
 typedef struct zNetSrv__ {
