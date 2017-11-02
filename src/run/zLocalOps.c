@@ -18,11 +18,8 @@
 #include "zLibGit.h"
 #include "zDpOps.h"
 
-#define _SELF_
 #include "zLocalOps.h"
-#undef _SELF_
 
-#define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 #define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
 #define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
 

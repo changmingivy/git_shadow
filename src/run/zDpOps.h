@@ -1,40 +1,28 @@
+#define ZDPOPS_H
+
 #ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-    #endif
-    
-    #ifndef _DEFAULT_SOURCE
-        #define _DEFAULT_SOURCE
-    #endif
-    
-    #ifndef _BSD_SOURCE
-        #define _BSD_SOURCE
-    #endif
+
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
 #endif
 
-#ifndef SEMAPHORE_H
-    #include <semaphore.h>
-#define SEMAPHORE_H
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
 #endif
 
-#ifndef SYS_SOCKET_H
-    #include <sys/socket.h>  // uio.h
-#define SYS_SOCKET_H
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
 #endif
 
-#ifndef PTHREAD_H
-    #include <pthread.h>
-#define PTHREAD_H
 #endif
 
-#ifndef GIT2_H
-    #include "git2.h"
-#define GIT2_H
-#endif
+#include <semaphore.h>
+#include <sys/socket.h>  // uio.h
+#include <pthread.h>
+#include "git2.h"
 
 #ifndef ZCOMMON_H
-    #include "zCommon.h"
-#define ZCOMMON_H
+#include "zCommon.h"
 #endif
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
@@ -57,7 +45,7 @@
 #define zIsCommitDataType 0
 #define zIsDpDataType 1
 
-typedef struct zThreadPool__ {
+typedef struct {
     pthread_t SelfTid;
     pthread_cond_t CondVar;
 
@@ -65,7 +53,7 @@ typedef struct zThreadPool__ {
     void *p_param;
 } zThreadPool__;
 
-typedef struct zDpCcur__ {
+typedef struct {
     zThreadPool__ *zpThreadSource_;  // 必须放置在首位
     _i RepoId;
     char *p_HostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
@@ -86,7 +74,7 @@ typedef struct zDpCcur__ {
     _ui *p_TaskCnt;  // SSH 任务完成计数
 } zDpCcur__;
 
-typedef struct zDpRes__ {
+typedef struct {
     _ui ClientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
     _i DpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i InitState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
@@ -95,20 +83,20 @@ typedef struct zDpRes__ {
 } zDpRes__;
 
 /* 在zSend__之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
-typedef struct zRefData__ {
+typedef struct {
     struct zVecWrap__ *p_SubVecWrap_;  // 传递给 sendmsg 的下一级数据
     char *p_data;  // 实际存放数据正文的地方
 } zRefData__;
 
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
-typedef struct zVecWrap__ {
+typedef struct {
     _i VecSiz;
     struct iovec *p_Vec_;  // 此数组中的每个成员的 iov_base 字段均指向 p_RefData_ 中对应的 p_data 字段
     struct zRefData__ *p_RefData_;
 } zVecWrap__;
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
-typedef struct zRepo__ {
+typedef struct {
     _i RepoId;  // 项目代号
     time_t  CacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     char *p_RepoPath;  // 项目路径，如："/home/git/miaopai_TEST"
@@ -189,7 +177,7 @@ typedef struct zRepo__ {
 } zRepo__;
 
 /* 数据交互格式 */
-typedef struct zMeta__ {
+typedef struct {
     _i OpsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
     _i RepoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i CommitId;  // 版本号（对应于svn或git的单次提交标识）
@@ -221,39 +209,37 @@ extern pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时�
 extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
 /* 指定服务端自身的Ip地址与端口 */
-typedef struct zNetSrv__ {
+typedef struct {
     char *p_IpAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
     _i zServType;  // 网络服务类型：TCP/UDP
 } zNetSrv__;
 
-extern struct zNetSrv__ zNetSrv_;
+extern zNetSrv__ zNetSrv_;
 
-/* 服务接口 */
-extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
-
+// /* 服务接口 */
+// extern _i (* zNetOps[16]) (struct zMeta__ *, _i);
+//
 /* 全局 META HASH */
 extern struct zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
 struct zDpOps__ {
     _i (* show_meta) (zMeta__ *, _i);
     _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);
-    
+
     _i (* print_revs) (zMeta__ *, _i);
     _i (* print_diff_files) (zMeta__ *, _i);
     _i (* print_diff_contents) (zMeta__ *, _i);
-    
+
     _i (* creat) (zMeta__ *, _i);
     _i (* req_dp) (zMeta__ *, _i __attribute__ ((__unused__)));
     _i (* dp) (zMeta__ *, _i);
     _i (* state_confirm) (zMeta__ *, _i __attribute__ ((__unused__)));
     _i (* lock) (zMeta__ *, _i);
     _i (* req_file) (zMeta__ *, _i);
-    
+
     void * (* route) (void *);
     void (* struct_to_json) (char *, zMeta__ *);
 };
 
-#ifndef _SELF_
 extern struct zDpOps__ zDpOps_;
-#endif

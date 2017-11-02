@@ -1,7 +1,12 @@
+#define ZDPOPS_H
+
 #define _XOPEN_SOURCE 700
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <errno.h>
@@ -10,12 +15,12 @@
 #include "zLibSsh.h"
 #include "zLibGit.h"
 #include "zLocalOps.h"
+#include "zLocalUtils.h"
 #include "zPosixReg.h"
 #include "zThreadPool.h"
+#include "zRun.h"
 
-#define _SELF_
 #include "zDpOps.h"
-#undef _SELF_
 
 
 static void
@@ -1021,7 +1026,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
 
     /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
     for (_ui zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->RepoId]->TotalHost; zCnter++) {
-        zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
+        zThreadPool_.add(zgit_push_ccur, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
     }
 
     /* 测算超时时间 */
@@ -1103,7 +1108,7 @@ zErrMark:
         _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < zpMeta_->DataLen) && (zCnter < zpGlobRepo_[zpMeta_->RepoId]->TotalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].DpState) {
-                zconvert_ip_bin_to_str(zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr, zIpStrAddrBuf);
+                zNetUtils_.to_str(zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ClientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ErrMsg[0] ? "" : zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].ErrMsg
@@ -1153,9 +1158,9 @@ zErrMark:
         zSubMeta_.RepoId = zpMeta_->RepoId;
 
         zSubMeta_.DataType = zIsCommitDataType;
-        zgenerate_cache(&zSubMeta_);
+        zLocalOps_.get_revs(&zSubMeta_);
         zSubMeta_.DataType = zIsDpDataType;
-        zgenerate_cache(&zSubMeta_);
+        zLocalOps_.get_revs(&zSubMeta_);
     }
 
 zEndMark:
@@ -1171,7 +1176,7 @@ static _i
 zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpMeta_->p_ExtraData, zpGlobRepo_[zpMeta_->RepoId]->zLastDpSig, 40)) {
-        zDpCcur__ *zpDpSelf_ = zalloc_cache(zpMeta_->RepoId, sizeof(zDpCcur__));
+        zDpCcur__ *zpDpSelf_ = zLocalOps_.alloc(zpMeta_->RepoId, sizeof(zDpCcur__));
         zpDpSelf_->RepoId = zpMeta_->RepoId;
         zpDpSelf_->p_HostIpStrAddr = zpMeta_->p_data;
         zpDpSelf_->p_CcurLock = NULL;  // 标记无需发送通知给调用者的条件变量
@@ -1211,7 +1216,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->RepoId]->RepoPathLen + zpMeta_->DataLen;
-    zppCommonBuf[0] = zalloc_cache(zpMeta_->RepoId, 2 * zCommonBufLen);
+    zppCommonBuf[0] = zLocalOps_.alloc(zpMeta_->RepoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 
     pthread_mutex_lock(&zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock);
@@ -1240,7 +1245,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                         || ((zpGlobRepo_[zpMeta_->RepoId]->TotalHost == zpGlobRepo_[zpMeta_->RepoId]->DpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->RepoId]->ResType[1]))) {
                     return 0;
                 }
-                zsleep(0.1);
+
+                zLocalUtils_.sleep(0.1);
             }
 
             pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->RepoId]->DpRetryLock) );
@@ -1272,7 +1278,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                     zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter].p_CcurLock = &zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock;
                     zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter].p_CcurCond = &zpGlobRepo_[zpMeta_->RepoId]->DpSyncCond;
                     zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter].p_TaskCnt = &zpGlobRepo_[zpMeta_->RepoId]->DpTaskFinCnt;
-                    zAdd_To_Thread_Pool(zssh_ccur_simple_init_host, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
+
+                    zThreadPool_.add(zssh_ccur_simple_init_host, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
 
                     /* 调整目标机初始化状态数据（布署状态数据不调整！）*/
                     zpGlobRepo_[zpMeta_->RepoId]->p_DpResList_[zCnter].InitState = 0;
@@ -1325,7 +1332,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                         }
                         pthread_mutex_unlock(&zGlobCommonLock);
 
-                        zAdd_To_Thread_Pool(zgit_push_ccur, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
+                        zThreadPool_.add(zgit_push_ccur, &(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_[zCnter]));
                     }
                 }
 
@@ -1397,7 +1404,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zpTmp_->DpState = -1;
                     zpGlobRepo_[zpMeta_->RepoId]->ResType[1] = -1;
 
-                    snprintf(zpTmp_->ErrMsg, zErrMsgBufSiz, "%s", zpMeta_->p_data + 40);  // 所有的状态回复前40个字节均是 git SHA1sig
+                    snprintf(zpTmp_->ErrMsg, 256, "%s", zpMeta_->p_data + 40);  // 所有的状态回复前40个字节均是 git SHA1sig
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock));
                     pthread_cond_signal(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_->p_CcurCond);
                     return -102;  // 返回负数，用于打印日志
@@ -1416,7 +1423,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
 
             /* 调试功能：布署耗时统计，必须在锁内执行 */
             char zIpStrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
-            zconvert_ip_bin_to_str(zpMeta_->HostId, zIpStrAddr);
+            zNetUtils_.to_str(zpMeta_->HostId, zIpStrAddr);
             _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
                     zpLogStrId,
                     zIpStrAddr,
@@ -1478,7 +1485,7 @@ zreq_file(zMeta__ *zpMeta_, _i zSd) {
  */
 static void *
 zops_route(void *zpParam) {
-    _i zSd = ((zSocketAcceptParam__ *) zpParam)->ConnSd;
+    _i zSd = ((zSockAcceptParam__ *) zpParam)->ConnSd;
     _i zErrNo;
     char zJsonBuf[zGlobCommonBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
@@ -1514,7 +1521,7 @@ zops_route(void *zpParam) {
         goto zMarkCommonAction;
     }
 
-    if (0 > zMeta_.OpsId || zServHashSiz <= zMeta_.OpsId || NULL == zNetServ[zMeta_.OpsId]) {
+    if (0 > zMeta_.OpsId || 16 <= zMeta_.OpsId || NULL == zRun_.ops[zMeta_.OpsId]) {
         zMeta_.OpsId = -1;  // 此时代表错误码
         goto zMarkCommonAction;
     }
@@ -1525,7 +1532,7 @@ zops_route(void *zpParam) {
         goto zMarkCommonAction;
     }
 
-    if (0 > (zErrNo = zNetServ[zMeta_.OpsId](&zMeta_, zSd))) {
+    if (0 > (zErrNo = zRun_.ops[zMeta_.OpsId](&zMeta_, zSd))) {
         zMeta_.OpsId = zErrNo;  // 此时代表错误码
 zMarkCommonAction:
         zconvert_struct_to_json_str(zpJsonBuf, &zMeta_);

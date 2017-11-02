@@ -1,6 +1,10 @@
+#define ZNETUTILS_H
+
 #include <netdb.h>
 
+#ifndef ZCOMMON_H
 #include "zCommon.h"
+#endif
 
 struct zNetUtils__ {
     _i (* gen_serv_sd) (char *, char *, _i);
@@ -11,11 +15,9 @@ struct zNetUtils__ {
     _i (* sendmsg) (_i, struct iovec *, size_t, _i, struct sockaddr *);
     _i (* recv_all) (_i, void *, size_t, _i, struct sockaddr *);
 
-    _ui (* to_bin)(const char *zpStrAddr);
-    void (* to_str)(_ui zIpBinAddr, char *zpBufOUT);
+    _ui (* to_bin)(const char *);
+    void (* to_str)(_ui, char *);
 };
 
 
-#ifndef _SELF_
 extern struct zNetUtils__ zNetUtils_;
-#endif

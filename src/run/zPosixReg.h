@@ -1,17 +1,20 @@
+#define ZPOSIXREG_H
+
 #include <regex.h>
 
+#ifndef ZCOMMON_H
 #include "zCommon.h"
+#endif
 
 #define zMatchLimit 1024
-struct zRegRes__ {
+typedef struct {
     char *p_rets[zMatchLimit];  //matched results
     _ui ResLen[zMatchLimit];  // results' strlen
     _ui cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (_i, size_t);
     _i RepoId;
-};
-typedef struct zRegRes__ zRegRes__;
+} zRegRes__ ;
 
 typedef regex_t zRegInit__;
 
@@ -23,6 +26,5 @@ struct zPosixReg__ {
     void (* free_res) (zRegRes__ *);
 };
 
-#ifndef _SELF_
+
 extern struct zPosixReg__ zPosixReg_;
-#endif

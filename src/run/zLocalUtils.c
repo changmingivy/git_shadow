@@ -9,12 +9,15 @@
 #include <string.h>
 #include <dirent.h>
 #include <signal.h>
+
+#ifdef _Z_BSD
+    #include <netinet/in.h>
+#endif
+
 #include <time.h>
 #include <errno.h>
 
-#define _SELF_
 #include "zLocalUtils.h"
-#undef _SELF_
 
 static void
 zdaemonize(const char *zpWorkDir);

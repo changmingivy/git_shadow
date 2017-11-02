@@ -6,10 +6,12 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <time.h>
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
 
-#define _SELF_
 #include "zNetUtils.h"
-#undef _SELF
 
 static _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType);
@@ -62,7 +64,7 @@ zgenerate_serv_addr(char *zpHost, char *zpPort) {
     _i zErr = getaddrinfo(zpHost, zpPort, zpHint, &zpRes);
     if (-1 == zErr){
         zPrint_Err(errno, NULL, gai_strerror(zErr));
-        exit(1);
+        _exit(1);
     }
 
     return zpRes->ai_addr;

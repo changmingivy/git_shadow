@@ -1,5 +1,10 @@
-#include "zCommon.h"
+#define ZLOCALOPS_H
 
+#ifndef ZCOMMON_H
+#include "zCommon.h"
+#endif
+
+#define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zReset_Mem_Pool_State(zRepoId) do {\
@@ -26,7 +31,7 @@
 
 
 /* 用于提取原始数据 */
-typedef struct zBaseData__ {
+typedef struct {
     struct zBaseData__ *p_next;
     _i DataLen;
     char p_data[];
@@ -47,6 +52,5 @@ struct zLocalOps__ {
     void * (* sysload_monitor) (void *);
 };
 
-#ifndef _SELF_
+
 extern struct zLocalOps__ zLocalOps_;
-#endif

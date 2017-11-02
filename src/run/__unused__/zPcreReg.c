@@ -3,9 +3,7 @@
 #include <time.h>
 #include <errno.h>
 
-#define _SELF_
 #include "zPcreReg.h"
-#undef _SELF_
 
 static void
 zpcre_init(zPcreInit__ *zpPcreInit_Out, const char *zpPcrePattern);

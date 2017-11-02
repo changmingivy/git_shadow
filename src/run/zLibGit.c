@@ -1,10 +1,8 @@
+#include "zLibGit.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define _SELF_
-#include "zLibGit.h"
-#undef _SELF_
 
 static git_repository *
 zgit_env_init(char *zpLocalRepoAddr);

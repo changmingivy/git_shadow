@@ -1,3 +1,4 @@
+#define ZCOMMON_H
 
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
@@ -87,7 +88,7 @@
     void *zpMiddleTmpPoint = (zRes);\
     if (NULL == (zpMiddleTmpPoint)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
-        exit(1);\
+        _exit(1);\
     }\
 } while(0)
 
@@ -103,7 +104,7 @@
     _i zX = (zRes);\
     if (0 > zX) {\
         zPrint_Err(errno, #zRes " < 0", "");\
-        exit(1);\
+        _exit(1);\
     }\
 } while(0)
 
@@ -119,7 +120,7 @@
     _i zX = (zRet);\
     if (0 != zX) {\
         zPrint_Err(zRet, #zRet " != 0", "");\
-        exit(1);\
+        _exit(1);\
     }\
 } while(0)
 
@@ -155,7 +156,7 @@
 // #define zMap_Alloc(zpRet, zType, zCnt) do {\
 // 	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
 // 		zPrint_Err(0, NULL, "mmap failed!");\
-// 		exit(1);\
+// 		_exit(1);\
 // 	}\
 // } while(0)
 // 

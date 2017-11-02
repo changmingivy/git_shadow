@@ -1,6 +1,10 @@
+#define ZLOCALUTILS_H
+
 #include <stdio.h>
 
+#ifndef ZCOMMON_H
 #include "zCommon.h"
+#endif
 
 struct zLocalUtils__ {
     void (* daemonize) (const char *);
@@ -13,6 +17,4 @@ struct zLocalUtils__ {
     _i (* del_lb) (char *);
 };
 
-#ifndef _SELF_
 extern struct zLocalUtils__ zLocalUtils_;
-#endif
