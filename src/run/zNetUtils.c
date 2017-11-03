@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <poll.h>
 
 static _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType);
@@ -90,6 +92,17 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
     return zSd;
 }
 
+/*
+ *  将指定的套接字属性设置为非阻塞
+ */
+static void
+zset_nonblocking(_i zSd) {
+    _i zOpts;
+    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zOpts |= O_NONBLOCK;
+    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+}
+
 /* Used by client */
 static _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
@@ -99,13 +112,19 @@ ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
     _i zSd = socket(AF_INET, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
 
-//    for (_i i = 4; i > 0; --i) {
-        if (0 == connect(zSd, zpAddr, zLen)) { return zSd; }
-        close(zSd);
-//        sleep(i);
-//    }
+    zset_nonblocking(zSd);
 
-    return -1;
+    if (0 == connect(zSd, zpAddr, zLen)) {
+        return zSd;
+    } else {
+        struct pollfd zWd_ = {zSd, POLLIN | POLLOUT, -1};
+        /*
+         * poll 出错返回 -1，超时返回 0，
+         * 在超时之前成功建立连接，则返回可用连接数量
+         */
+        if (0 < poll(&zWd_, 1, 10 * 1000)) { return zSd; }
+        else { close(zSd); return -1; }  // 超时或出错
+    }
 }
 
 /* Used by client */
@@ -170,18 +189,6 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr) 
 //         zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr, &zAddrLen);
 //     }
 //     return zRecvSiz;
-// }
-
-/*
- *  将指定的套接字属性设置为非阻塞
- */
-// #include <fcntl.h>
-// static void
-// zset_nonblocking(_i zSd) {
-//     _i zOpts;
-//     zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
-//     zOpts |= O_NONBLOCK;
-//     zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
 // }
 
 /*
