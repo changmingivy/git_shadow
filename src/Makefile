@@ -26,3 +26,5 @@ zmain.o:
 zLibUtils.a:
 	(cd $(SUB_SRC_DIR); $(MAKE))
 
+install: git_shadow
+	@mv git_shadow $(INSTALL_DIR)
