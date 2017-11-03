@@ -43,19 +43,21 @@ struct zNetUtils__ zNetUtils_ = {
 };
 
 /* Generate a socket fd used by server to do 'accept' */
-static struct sockaddr *
+static struct addrinfo *
 zgenerate_serv_addr(char *zpHost, char *zpPort) {
-    struct addrinfo *zpRes_, zHints_;
-    zHints_.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV;
-    zHints_.ai_family = AF_INET;
+    _i zErr = -1;
+    struct addrinfo *zpRes_ = NULL,
+                    zHints_  = {
+                        .ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV,
+                        .ai_family = AF_INET
+                    };
 
-    _i zErr = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_);
-    if (-1 == zErr){
+    if (0 != (zErr = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))){
         zPrint_Err(errno, NULL, gai_strerror(zErr));
-        _exit(1);
+        return NULL;
     }
 
-    return zpRes_->ai_addr;
+    return zpRes_;
 }
 
 /*
@@ -64,21 +66,22 @@ zgenerate_serv_addr(char *zpHost, char *zpPort) {
  */
 static _i
 zgenerate_serv_SD(char *zpHost, char *zpPort, _i zServType) {
-    _i zSockType = (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM;
-    _i zSd = socket(AF_INET, zSockType, 0);
-    zCheck_Negative_Return(zSd, -1);
+    struct addrinfo *zpAddrInfo_ = NULL;
+    _i zSd = -1;
 
-    _i zReuseMark = 1;
+    zCheck_Negative_Exit( zSd = socket(AF_INET, (0 == zServType) ? SOCK_DGRAM : SOCK_STREAM, 0) );
+
+    /* 不等待，直接重用地址与端口 */
 #ifdef _Z_BSD
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+    zCheck_Negative_Exit( setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i)) );
 #else
-    zCheck_Negative_Exit(setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zReuseMark, sizeof(_i)));  // 不等待，直接重用地址与端口
+    zCheck_Negative_Exit( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zSd, sizeof(_i)) );
 #endif
-    struct sockaddr *zpAddr__ = zgenerate_serv_addr(zpHost, zpPort);
-
-    zCheck_Negative_Exit( bind(zSd, zpAddr__, INET_ADDRSTRLEN) );
+    zCheck_Null_Exit( zpAddrInfo_ = zgenerate_serv_addr(zpHost, zpPort) );
+    zCheck_Negative_Exit( bind(zSd, zpAddrInfo_->ai_addr, INET_ADDRSTRLEN) );
     zCheck_Negative_Exit( listen(zSd, 6) );
 
+    freeaddrinfo(zpAddrInfo_);
     return zSd;
 }
 
@@ -124,14 +127,19 @@ ztry_connect(struct sockaddr *zpAddr_, socklen_t zLen, _i zSockType, _i zProto) 
 /* Used by client */
 static _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
-    struct addrinfo *zpRes_ = NULL, *zpTmp_ = NULL, zHints_;
-    _i zSd, zErr;
+    _i zSd = -1, zErr = -1;
+    struct addrinfo *zpRes_ = NULL,
+                    *zpTmp_ = NULL,
+                    zHints_ = {
+                        .ai_flags = (0 == zFlags) ? AI_NUMERICHOST | AI_NUMERICSERV : zFlags,
+                        .ai_family = AF_INET
+                    };
 
-    zHints_.ai_flags = (0 == zFlags) ? AI_NUMERICHOST | AI_NUMERICSERV : zFlags;
-    zHints_.ai_family = AF_INET;
 
-    zErr = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_);
-    if (-1 == zErr){ zPrint_Err(errno, NULL, gai_strerror(zErr)); }
+    if (0 != (zErr = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))){
+        zPrint_Err(errno, NULL, gai_strerror(zErr));
+        return -1;
+    }
 
     for (zpTmp_ = zpRes_; NULL != zpTmp_; zpTmp_ = zpTmp_->ai_next) {
         if(0 < (zSd = ztry_connect(zpTmp_->ai_addr, INET_ADDRSTRLEN, 0, 0))) {
