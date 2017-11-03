@@ -106,15 +106,19 @@ ztry_connect(struct sockaddr *zpAddr_, socklen_t zLen, _i zSockType, _i zProto) 
 
     if (0 == connect(zSd, zpAddr_, zLen)) {
         return zSd;
-    } else {
+    } else {  /* 多线程环境检查 errno == EINPROGRESS 也无意义 */
         struct pollfd zWd_ = {zSd, POLLIN | POLLOUT, -1};
         /*
          * poll 出错返回 -1，超时返回 0，
          * 在超时之前成功建立连接，则返回可用连接数量
+         * connect 8 秒超时
          */
-        if (0 < poll(&zWd_, 1, 10 * 1000)) { return zSd; }
-        else { close(zSd); return -1; }  // 超时或出错
+        if (0 < poll(&zWd_, 1, 8 * 1000)) { return zSd; }
     }
+
+    /* 已超时或出错 */
+    close(zSd);
+    return -1;
 }
 
 /* Used by client */
