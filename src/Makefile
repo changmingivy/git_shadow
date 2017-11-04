@@ -3,13 +3,13 @@ all: git_shadow
 CC = clang
 CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 
+ROOT_DIR = ${HOME}/zgit_shadow2
+
 # third party libs, absolute path
 SSH_LIB_DIR = $(ROOT_DIR)/lib/libssh2/lib
 GIT_LIB_DIR = $(ROOT_DIR)/lib/libgit2/lib
 
 # include files
-ROOT_DIR = ${HOME}/zgit_shadow2
-
 INC_DIR = $(ROOT_DIR)/inc
 SSH_INC_DIR = $(ROOT_DIR)/lib/libssh2/include
 GIT_INC_DIR = $(ROOT_DIR)/lib/libgit2/include
