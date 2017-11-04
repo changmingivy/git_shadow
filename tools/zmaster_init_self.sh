@@ -72,25 +72,9 @@ fi
 zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
-# 编译主程序，静态库文件路径一定要放在源文件之后，如查使用静态库，则必须在此之前链接 zlib curl openssl crypto (-lz -lcurl -lssl -lcrypto)
-###############################################
-#    -I${zShadowPath}/lib/libpcre2/include \
-#    -L${zLibPcrePath} \
-#    -lpcre2-8 \
-###############################################
-clang -Wall -Wextra -std=c99 -O2 -lpthread \
-    -I${zShadowPath}/inc \
-    -I${zShadowPath}/lib/libssh2/include \
-    -L${zLibSshPath} \
-    -lssh2 \
-    -I${zShadowPath}/lib/libgit2/include \
-    -L${zLibGitPath} \
-    -lgit2 \
-    -o ${zShadowPath}/bin/git_shadow \
-    ${zShadowPath}/src/zmain.c \
-    ${zShadowPath}/src/run/*.c
-
-strip ${zShadowPath}/bin/git_shadow
+# 主程序编译
+cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} install
+# strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
 clang -Wall -Wextra -std=c99 -O2 \

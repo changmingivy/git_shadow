@@ -4,8 +4,8 @@ CC = clang
 CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 
 INC_DIR = ../../inc
-SSH_INC_DIR = ../../lib/libssh2/include
-GIT_INC_DIR = ../../lib/libgit2/include
+SSH_INC_DIR =
+GIT_INC_DIR =
 
 $(LIB_NAME):\
 	$(LIB_NAME)(zRun.o)\
