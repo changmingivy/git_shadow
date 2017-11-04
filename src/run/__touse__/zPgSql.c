@@ -2,6 +2,9 @@
 
 #include "zCommon.h"
 
+/*
+ * 编译：-lpq
+ */
 
 _i
 main(void) {
@@ -72,6 +75,43 @@ main(void) {
 //
 // int PQisthreadsafe();  // 返回 1，表示当前运行环境中的PQ是线程安全的
 //  In particular, you cannot issue concurrent commands from different threads through the same connection object. (If you need to run concurrent commands, use multiple connections.)
+
+
+// 对于需要重复执行析 SQL 语句，可以生成一个预处理过的对象，而后重复使用，提升效率，类似于正则表达式的编译环节
+// 注：服务器端生成的此种对象无法通过 libpq 中的函数直接销毁！
+// PGresult *PQprepare(PGconn *conn,
+//                     const char *stmtName,
+//                     const char *query,  // SQL 语句，可以以 $1 $2 ... $N 的形式调用外部提供的参数
+//                     int nParams,  // 参数数量
+//                     const Oid *paramTypes);  // 参数类型，由于指定 OID 太麻烦，也可以直接在 SQL 语句中以  $1::bigint 的整式强制指定或不指定，由服务器推导类型，若使用这种风格，则此处可以置为 NULL
+//
+// 执行预处理过的 SQL 对象，指定对象名称，若为 NULL，则代表运行全局唯一的匿名对象
+// PGresult *PQexecPrepared(PGconn *conn,
+//                          const char *stmtName,
+//                          int nParams,  // 实际指定的参数数量
+//                          const char * const *paramValues,  // 每次运行时的实际参数值，每个参数的类型在预生成SQL对象时已经指定
+//                          const int *paramLengths,  // 文本字段该字段将被忽略，可以为任意值，二进制字段需要分别指定各自的长度
+//                          const int *paramFormats,  // 文本字段置 0，二进制置1，若指针置为 NULL，则以全部为文本字段处理
+//                          int resultFormat);  // 置 0 表示要求返回的结果是文本格式，置 1 则表示要求二进制格式的结果
+
+
+// 以命令行惯用的格式显示 SQL 命令返回的内容
+// void PQprint(FILE *fout,      /* 输出流 */
+//              const PGresult *res,
+//              const PQprintOpt *po);
+// typedef struct
+// {
+//     pqbool  header;      /* 打印输出域标题和行计数 */
+//     pqbool  align;       /* 填充对齐域 */
+//     pqbool  standard;    /* 旧的格式 */
+//     pqbool  html3;       /* 输出 HTML 表格 */
+//     pqbool  expanded;    /* 扩展表格 */
+//     pqbool  pager;       /* 如果必要为输出使用页 */
+//     char    *fieldSep;   /* 域分隔符 */
+//     char    *tableOpt;   /* 用于 HTML 表格元素的属性 */
+//     char    *caption;    /* HTML 表格标题 */
+//     char    **fieldName; /* 替换域名称的空终止数组 */
+// } PQprintOpt;
 
     PQclear(zpRes);
     PQfinish(zpConn);
