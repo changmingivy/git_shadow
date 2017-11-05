@@ -87,7 +87,7 @@ struct zDpOps__ zDpOps_ = {
 static _i
 zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
     zRegInit__ zRegInit_[1];
-    zRegRes__ zRegRes_[1] = {{.RepoId = -1}};  // 此时尚没取得 zpMeta_->Repo_ 之值，不可使用项目内存池
+    zRegRes__ zRegRes_[1] = {{.alloc_fn = NULL}};  // 此时尚没取得 zpMeta_->Repo_ 之值，不可使用项目内存池
 
     zPosixReg_.compile(zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
     zPosixReg_.match(zRegRes_, zRegInit_, zpJsonStr);
@@ -785,7 +785,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
     zDpRes__ *zpOldDpResList_, *zpTmpDpRes_, *zpOldDpResHash_[zDpHashSiz];
 
     zRegInit__ zRegInit_[1];
-    zRegRes__ *zpRegRes_, zRegRes_[1] = {{.RepoId = zpMeta_->RepoId}};  // 使用项目内存池
+    zRegRes__ *zpRegRes_, zRegRes_[1] = {{.alloc_fn = zNativeOps_.alloc, .RepoId = zpMeta_->RepoId}};  // 使用项目内存池
     zpRegRes_ = zRegRes_;
 
     zPosixReg_.compile(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");

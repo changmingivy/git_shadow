@@ -415,7 +415,7 @@ zget_file_list(void *zpParam) {
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInit__ zRegInit_[1];
-    zRegRes__ zRegRes_[1] = {{.RepoId = zpMeta_->RepoId}};  // 使用项目内存池
+    zRegRes__ zRegRes_[1] = {{.alloc_fn = zalloc_cache, .RepoId = zpMeta_->RepoId}};  // 使用项目内存池
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->CommitId) = zalloc_cache(zpMeta_->RepoId, sizeof(zVecWrap__));
@@ -677,7 +677,7 @@ zMarkSkip:
 static _i
 zinit_one_repo_env(char *zpRepoMetaData) {
     zRegInit__ zRegInit_[2];
-    zRegRes__ zRegRes_[2] = {{.RepoId = -1}, {.RepoId = -1}};  // 使用系统 *alloc 函数分配内存
+    zRegRes__ zRegRes_[2] = {{.alloc_fn = NULL}};  // 使用系统 *alloc 函数分配内存
 
     _i zRepoId, zErrNo;
 
