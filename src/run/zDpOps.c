@@ -1396,6 +1396,21 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zpTmp_->DpState = 1;
 
                     zpLogStrId = zpGlobRepo_[zpMeta_->RepoId]->zDpingSig;
+
+                    /* 调试功能：布署耗时统计，必须在锁内执行 */
+                    char zIpStrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
+                    zNetUtils_.to_str(zpMeta_->HostId, zIpStrAddr);
+                    _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
+                            zpLogStrId,
+                            zIpStrAddr,
+                            time(NULL) - zpGlobRepo_[zpMeta_->RepoId]->DpBaseTimeStamp);
+                    write(zpGlobRepo_[zpMeta_->RepoId]->DpTimeSpentLogFd, zTimeCntBuf, zWrLen);
+
+                    pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock));
+                    if (zpGlobRepo_[zpMeta_->RepoId]->DpReplyCnt == zpGlobRepo_[zpMeta_->RepoId]->DpTotalTask) {
+                        pthread_cond_signal(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_->p_CcurCond);
+                    }
+                    return 0;
                 } else if ('-' == zpMeta_->p_ExtraData[1]) {
                     zpGlobRepo_[zpMeta_->RepoId]->DpReplyCnt = zpGlobRepo_[zpMeta_->RepoId]->DpTotalTask;  // 发生错误，计数打满，用于通知结束布署等待状态
                     zpTmp_->DpState = -1;
@@ -1417,21 +1432,6 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock));
                 return -103;  // 未知的返回内容
             }
-
-            /* 调试功能：布署耗时统计，必须在锁内执行 */
-            char zIpStrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
-            zNetUtils_.to_str(zpMeta_->HostId, zIpStrAddr);
-            _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
-                    zpLogStrId,
-                    zIpStrAddr,
-                    time(NULL) - zpGlobRepo_[zpMeta_->RepoId]->DpBaseTimeStamp);
-            write(zpGlobRepo_[zpMeta_->RepoId]->DpTimeSpentLogFd, zTimeCntBuf, zWrLen);
-
-            pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->RepoId]->DpSyncLock));
-            if (zpGlobRepo_[zpMeta_->RepoId]->DpReplyCnt == zpGlobRepo_[zpMeta_->RepoId]->DpTotalTask) {
-                pthread_cond_signal(zpGlobRepo_[zpMeta_->RepoId]->p_DpCcur_->p_CcurCond);
-            }
-            return 0;
         }
     }
 
