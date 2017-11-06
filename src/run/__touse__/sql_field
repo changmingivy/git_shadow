@@ -1,0 +1,8 @@
+table0: proj_meta
+ProjId  PathOnHost  SourceUrl  SourceBranch  SourceVcsType  NeedPull
+
+table2: proj_dp_log
+ProjId  RevSig  TimeStamp  GlobRes  GlobTimeSpent  TotalHostCnt  FailedHostCnt
+
+table2: proj_dp_log_detail
+ProjId  Rev  HostIp  Res  TimeSpent  Detail
