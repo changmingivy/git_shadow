@@ -173,6 +173,7 @@ zMarkCommonAction:
         zNetUtils_.sendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
         zNetUtils_.sendto(zSd, "]", zBytes(1), 0, NULL);
 
+        zPrint_Time();
         fprintf(stderr, "\n\033[31;01m[ DEBUG ] \033[00m%s", zpJsonBuf);  // 错误信息，打印出一份，防止客户端socket已关闭时，信息丢失
     }
 

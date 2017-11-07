@@ -35,7 +35,7 @@ static void *
 zgenerate_cache(void *zpParam);
 
 static _i
-zinit_one_repo_env(char *zpRepoMetaData);
+zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr);
 
 static void *
 zsys_load_monitor(void *zpParam);
@@ -65,7 +65,7 @@ zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
 /* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
 pthread_mutex_t zGlobCommonLock;
-pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
 _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
 
@@ -669,65 +669,68 @@ zMarkSkip:
     free(zpGlobRepo_[zRepoId]->p_RepoPath);\
     free(zpGlobRepo_[zRepoId]);\
     zpGlobRepo_[zRepoId] = NULL;\
-    zPosixReg_.free_res(zRegRes_);\
-    zPrint_Time();\
 } while(0)
+
+//    /* 仅在新建项目时使用，在外壳中进行检测：正则匹配项目基本信息（5个字段） */
+//    zPosixReg_.compile(zRegInit_, "(\\w|[[:punct:]])+");
+//    zPosixReg_.match(zRegRes_, zRegInit_, zppRepoMetaData);
+//    zPosixReg_.free_meta(zRegInit_);
+//    if (5 > zRegRes_->cnt) {
+//        return -34;
+//    }
 
 
 static _i
-zinit_one_repo_env(char *zpRepoMetaData) {
-    zRegInit__ zRegInit_[2];
-    zRegRes__ zRegRes_[2] = {{.alloc_fn = NULL}};  // 使用系统 *alloc 函数分配内存
-
-    _i zRepoId, zErrNo;
-
-    /* 正则匹配项目基本信息（5个字段） */
-    zPosixReg_.compile(zRegInit_, "(\\w|[[:punct:]])+");
-    zPosixReg_.match(zRegRes_, zRegInit_, zpRepoMetaData);
-    zPosixReg_.free_meta(zRegInit_);
-    if (5 > zRegRes_->cnt) {
-        zPosixReg_.free_res(zRegRes_);
-        zPrint_Time();
-        return -34;
-    }
+zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
+    zRegInit__ *zpRegInit_ = NULL;
+    zRegRes__ *zpRegRes_ = NULL;
+    _i zRepoId = 0, zErrNo = 0, zOrigPathLen = 0;
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
-    zRepoId = strtol(zRegRes_->p_rets[0], NULL, 10);
-    if ((zGlobRepoIdLimit > zRepoId) && (0 < zRepoId)) {} else {
-        zPosixReg_.free_res(zRegRes_);
-        zPrint_Time();
-        return -32;
-    }
+    zRepoId = strtol(zpRepoMetaStr_->p_id, NULL, 10);
 
-    if (NULL != zpGlobRepo_[zRepoId]) {
-        zPosixReg_.free_res(zRegRes_);
-        zPrint_Time();
-        return -35;
-    }
+    if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) { return -32; }
+    if (NULL != zpGlobRepo_[zRepoId]) { return -35; }
 
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zpGlobRepo_[zRepoId], zRepo__, 1);
     zpGlobRepo_[zRepoId]->RepoId = zRepoId;
-    zpGlobRepo_[zRepoId]->SelfPushMark = (6 == zRegRes_->cnt) ? 1 : 0;
+    zpGlobRepo_[zRepoId]->SelfPushMark = (NULL == zpRepoMetaStr_->p_NeedPull || 'N' == zpRepoMetaStr_->p_NeedPull[0]) ? 0 : 1;
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
-    zPosixReg_.compile(zRegInit_ + 1, "[^/]+[/]*$");
-    zPosixReg_.match(zRegRes_ + 1, zRegInit_ + 1, zRegRes_->p_rets[1]);
-    zPosixReg_.free_meta(zRegInit_ + 1);
-    /* 去掉 basename 部分 */
-    zRegRes_->p_rets[1][zRegRes_->ResLen[1] - (zRegRes_ + 1)->ResLen[0]] = '\0';
-    /* 拼接结果字符串 */
-    while ('/' == zRegRes_->p_rets[1][0]) { zRegRes_->p_rets[1]++; }  // 去除多余的 '/'
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zRegRes_->ResLen[1]);
-    zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath, "%s%s%s/%d/%s", "/home/git/", zRegRes_->p_rets[1], ".____DpSystem", zRepoId, (zRegRes_ + 1)->p_rets[0]);
-    zPosixReg_.free_res(zRegRes_ + 1);
+    zPosixReg_.compile(zpRegInit_, "[^/]+[/]*$");
+    zPosixReg_.match(zpRegRes_, zpRegInit_, zpRepoMetaStr_->p_PathOnHost);
+    zPosixReg_.free_meta(zpRegInit_);
+
+    if (0 == zpRegRes_->cnt) { /* Handle Err ? */ }
+
+    /* 去掉 basename 部分，之后拼接出最终的字符串 */
+    zOrigPathLen = strlen(zpRepoMetaStr_->p_PathOnHost);
+    zpRepoMetaStr_->p_PathOnHost[zOrigPathLen - zpRegRes_->ResLen[0]] = '\0';
+    while ('/' == zpRepoMetaStr_->p_PathOnHost[0]) {
+        zpRepoMetaStr_->p_PathOnHost++;  /* 去除多余的 '/' */
+    }
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zOrigPathLen);
+    zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath,
+            "%s%s%s/%d/%s",
+            "/home/git/",
+            zpRepoMetaStr_->p_PathOnHost,
+            ".____DpSystem",
+            zRepoId,
+            zpRegRes_->p_rets[0]);
+    zPosixReg_.free_res(zpRegRes_);
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->MaxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_RepoPath, _PC_PATH_MAX);
 
     /* 调用SHELL执行检查和创建 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->RepoPathLen];
-    sprintf(zCommonBuf, "sh ${zGitShadowPath}/tools/zmaster_init_repo.sh \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"", zRegRes_->p_rets[0], zpGlobRepo_[zRepoId]->p_RepoPath + 9, zRegRes_->p_rets[2], zRegRes_->p_rets[3], zRegRes_->p_rets[4]);
+    sprintf(zCommonBuf, "sh ${zGitShadowPath}/tools/zmaster_init_repo.sh \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
+            zpRepoMetaStr_->p_id,
+            zpGlobRepo_[zRepoId]->p_RepoPath + 9,
+            zpRepoMetaStr_->p_SourceUrl,
+            zpRepoMetaStr_->p_SourceBranch,
+            zpRepoMetaStr_->p_SourceVcsType);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS( system(zCommonBuf) );
@@ -742,43 +745,26 @@ zinit_one_repo_env(char *zpRepoMetaData) {
         return -38;
     }
 
-    /* 打开日志文件 */
-    char zPathBuf[zGlobCommonBufSiz];
-    sprintf(zPathBuf, "%s%s", zpGlobRepo_[zRepoId]->p_RepoPath, zDpSigLogPath);
-    zpGlobRepo_[zRepoId]->DpSigLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
-
-    sprintf(zPathBuf, "%s%s", zpGlobRepo_[zRepoId]->p_RepoPath, zDpTimeSpentLogPath);
-    zpGlobRepo_[zRepoId]->DpTimeSpentLogFd = open(zPathBuf, O_WRONLY | O_CREAT | O_APPEND, 0755);
-
-    if ((-1 == zpGlobRepo_[zRepoId]->DpSigLogFd) || (-1 == zpGlobRepo_[zRepoId]->DpTimeSpentLogFd)) {
-        close(zpGlobRepo_[zRepoId]->DpSigLogFd);
-        zFree_Source();
-        return -39;
-    }
-
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobCommonBufSiz];
-    if (0 == strcmp("git", zRegRes_->p_rets[4])) {
+    if (0 == strcmp("git", zpRepoMetaStr_->p_SourceVcsType)) {
         sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
-                zRegRes_->p_rets[2],
-                zRegRes_->p_rets[3],
+                zpRepoMetaStr_->p_SourceUrl,
+                zpRepoMetaStr_->p_SourceBranch,
                 zRepoId);
-    } else if (0 == strcmp("svn", zRegRes_->p_rets[4])) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock; svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
+    } else if (0 == strcmp("svn", zpRepoMetaStr_->p_SourceVcsType)) {
+        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
+                " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
                 zRepoId);
     } else {
-        close(zpGlobRepo_[zRepoId]->DpSigLogFd);
         zFree_Source();
         return -37;
     }
 
     zMem_Alloc(zpGlobRepo_[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
     strcpy(zpGlobRepo_[zRepoId]->p_PullCmd, zPullCmdBuf);
-
-    /* 清理资源占用 */
-    zPosixReg_.free_res(zRegRes_);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -811,6 +797,7 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->ReplyCntLock, NULL));
+
     /* 用于保证 "git pull" 原子性拉取的互斥锁 */
     zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->PullLock, NULL));
 
@@ -818,7 +805,8 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     zCheck_Negative_Exit( sem_init(&(zpGlobRepo_[zRepoId]->DpTraficControl), 0, zDpTraficLimit) );
 
     /* 缓存版本初始化 */
-    zpGlobRepo_[zRepoId]->CacheId = 1000000000;
+    zpGlobRepo_[zRepoId]->CacheId = 0;
+
     /* 上一次布署结果状态初始化 */
     zpGlobRepo_[zRepoId]->RepoState = zRepoGood;
 
@@ -855,16 +843,18 @@ zinit_one_repo_env(char *zpRepoMetaData) {
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_GitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_RepoPath) );  // 目标库
 
-    /* 放锁 */
+    /* 释放锁 */
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->RwLock));
 
     /* 标记初始化动作已全部完成 */
     zpGlobRepo_[zRepoId]->zInitRepoFinMark = 1;
 
-    /* 全局实际项目 ID 最大值调整 */
+    /* 全局实际项目 ID 最大值调整并通知上层调用者本项目初始化任务完成 */
     pthread_mutex_lock(&zGlobCommonLock);
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
+    (* (zpRepoMetaStr_->p_TaskCnt)) ++;
     pthread_mutex_unlock(&zGlobCommonLock);
+    pthread_cond_signal(&zGlobCommonCond);
 
     return 0;
 }
@@ -874,9 +864,9 @@ zinit_one_repo_env(char *zpRepoMetaData) {
 /* 用于线程并发执行的外壳函数 */
 static void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
-    char *zpOrigStr = ((char *) zpParam) + sizeof(void *);
-    _i zErrNo;
-    if (0 > (zErrNo = zinit_one_repo_env(zpOrigStr))) {
+    _i zErrNo = 0;
+
+    if (0 > (zErrNo = zinit_one_repo_env((zRepoMetaStr__ *) zpParam))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
     }
 
@@ -903,7 +893,7 @@ zsys_load_monitor(void *zpParam) {
          * 由于是无限循环监控任务，允许存在无效的通知
          * 工作线程等待在 80% 的水平线上，此处降到 70% 才通知
          */
-        if (70 > zGlobMemLoad) { pthread_cond_signal(&zSysLoadCond); }
+        if (70 > zGlobMemLoad) { pthread_cond_signal(&zGlobCommonCond); }
 
         zNativeUtils_.sleep(0.1);
     }
@@ -928,10 +918,6 @@ zparse_str(void *zpIn, void *zpOut) {
 /* 读取项目信息，初始化配套环境 */
 static void *
 zinit_env(const char *zpConfPath) {
-    FILE *zpFile = NULL;
-    static char zConfBuf[zGlobRepoNumLimit][zGlobCommonBufSiz];  // 预置 128 个静态缓存区
-    _i zCnter = 0;
-
     /* json 解析时的回调函数索引 */
     zNativeOps_.json_parser['O']  // OpsId
         = zNativeOps_.json_parser['P']  // ProjId
@@ -946,21 +932,22 @@ zinit_env(const char *zpConfPath) {
         = zNativeOps_.json_parser['E']  // ExtraData
         = zparse_str;
 
-    zCheck_Null_Exit( zpFile = fopen(zpConfPath, "r") );
-    while (zGlobRepoNumLimit > zCnter) {
-        if (NULL == zNativeUtils_.read_line(zConfBuf[zCnter] + sizeof(void *), zGlobCommonBufSiz, zpFile)) {
-            goto zMarkFin;
-        } else {
-            zThreadPool_.add(zinit_one_repo_env_thread_wraper, zConfBuf[zCnter++]);
-        }
+    zPgRes__ *zpPgRes_ = NULL;
+    _i zCnter = 0;
+
+    // TO DO: get res from postgreSQL
+    // if failed, exit
+    while (zpPgRes_->TupleCnt > zCnter) {
+        zThreadPool_.add(zinit_one_repo_env_thread_wraper, &(zpPgRes_->p_RepoMetaStr[zCnter++]));
     }
 
-    /* 若代码为数量超过可以管理的上限，报错退出 */
-    zPrint_Err(0, NULL, "代码库数量超出上限，布署系统已退出");
-    exit(1);
+    pthread_mutex_lock(&zGlobCommonLock);
+    while (zpPgRes_->TupleCnt > zpPgRes_->TaskCnt) {
+        pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
+    }
+    pthread_mutex_unlock(&zGlobCommonLock);
 
-zMarkFin:
-    fclose(zpFile);
+    // TO DO: free postgreSQL source
 
 #ifndef _Z_BSD
 //    char zCpuNumBuf[8];

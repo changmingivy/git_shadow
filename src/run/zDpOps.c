@@ -242,7 +242,7 @@ zgit_push_ccur(void *zp_) {
     /* when memory load > 80%，waiting ... */
     pthread_mutex_lock(&zGlobCommonLock);
     while (80 < zGlobMemLoad) {
-        pthread_cond_wait(&zSysLoadCond, &zGlobCommonLock);
+        pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
     }
     pthread_mutex_unlock(&zGlobCommonLock);
 
@@ -1325,7 +1325,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                         /* when memory load >= 80%，waiting ... */
                         pthread_mutex_lock(&zGlobCommonLock);
                         while (80 <= zGlobMemLoad) {
-                            pthread_cond_wait(&zSysLoadCond, &zGlobCommonLock);
+                            pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
                         }
                         pthread_mutex_unlock(&zGlobCommonLock);
 

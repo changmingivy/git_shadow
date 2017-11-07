@@ -138,9 +138,6 @@ typedef struct {
     time_t LastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
     pthread_mutex_t PullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
 
-    _i DpSigLogFd;  // 每个代码库的布署日志日志文件，用于存储 SHA1-sig+TimeStamp
-    _i DpTimeSpentLogFd;  // 布署耗时日志
-
     /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
     char zInitRepoFinMark;
 
@@ -212,7 +209,7 @@ extern _i zGlobMaxRepoId;
 
 /* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
 extern pthread_mutex_t zGlobCommonLock;
-extern pthread_cond_t zSysLoadCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
+extern pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
 extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
 /* 指定服务端自身的Ip地址与端口 */

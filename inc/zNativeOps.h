@@ -45,6 +45,7 @@
         zpGlobRepo_[zRepoId]->p_MemPool = zppPrev;\
     }\
     zpGlobRepo_[zRepoId]->MemPoolOffSet = sizeof(void *);\
+    /* memset(zpGlobRepo_[zRepoId]->p_MemPool, 0, zMemPoolSiz); */\
     \
     pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->MemLock));\
 } while(0)
@@ -66,12 +67,34 @@ typedef struct __zBaseData__ {
 } zBaseData__;
 
 
+typedef struct __zRepoMetaStr__ {
+    void *_;  // used to kill pthread
+    _i *p_TaskCnt;
+
+    char *p_id;
+    char *p_PathOnHost;
+    char *p_SourceUrl;
+    char *p_SourceBranch;
+    char *p_SourceVcsType;
+    char *p_NeedPull;
+} zRepoMetaStr__;
+
+
+typedef struct __zPgRes__ {
+    _i TupleCnt;
+    //_i FieldCnt;
+    _i TaskCnt;
+
+    zRepoMetaStr__ *p_RepoMetaStr;
+} zPgRes__;
+
+
 struct zNativeOps__ {
     void * (* get_revs) (void *);
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 
-    _i (* proj_init) (char *zpRepoMetaData);
+    _i (* proj_init) (zRepoMetaStr__ *);
     void * (* proj_init_all) (const char *);
 
     /* 以 ANSI 字符集中的前 128 位成员作为索引 */
