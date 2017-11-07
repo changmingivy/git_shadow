@@ -16,12 +16,9 @@
 
 #endif
 
-#ifndef PTHREAD_H
-#include <pthread.h>
-#define PTHREAD_H
-#endif
-
-#include <semaphore.h>
+#include <pthread.h>  //  该头文件内部已使用 #define _PTHREAD_H 避免重复
+#include <semaphore.h>  //  该头文件内部已使用 #define _SEMAPHORE_H 避免重复
+#include <libpq-fe.h>  //  该头文件内部已使用 #define LIBPQ_FE_H 避免重复
 
 #ifndef ZCOMMON_H
 #include "zCommon.h"
@@ -152,6 +149,9 @@ typedef struct {
 
     /* 本项目 git 库全局 Handler */
     git_repository *p_GitRepoHandler;
+
+    /* 本项目 pgSQL 全局 Handler */
+    PGconn *p_PgConn;
 
     /* 用于控制并发流量的信号量 */
     sem_t DpTraficControl;

@@ -11,8 +11,6 @@
 #include <time.h>
 #include <errno.h>
 
-#include <libpq-fe.h>
-
 extern struct zNetUtils__ zNetUtils_;
 extern struct zLibSsh__ zLibSsh_;
 extern struct zLibGit__ zLibGit_;

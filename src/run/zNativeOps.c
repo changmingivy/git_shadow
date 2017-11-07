@@ -799,12 +799,32 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->CacheId = 0;
 
-    /* 上一次布署结果状态初始化 */
-    zpGlobRepo_[zRepoId]->RepoState = zRepoGood;
+    /* 本项目全局 pgSQL 连接 Handler */
+    zpGlobRepo_[zRepoId]->p_PgConn = PQconnectdb(zGlobPgConnInfo);
+    if (CONNECTION_OK != PQstatus(zpGlobRepo_[zRepoId]->p_PgConn)) {
+        zPrint_Err(0, NULL, PQerrorMessage(zpGlobRepo_[zRepoId]->p_PgConn));
+        PQfinish(zpGlobRepo_[zRepoId]->p_PgConn);
+        exit(1);
+    }
 
-    // OPEN REPO PQconn, and get the last dp sig
-    /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
-    // TO DO: 初始化 zpGlobRepo_[zRepoId]->zLastDpSig;
+    /* 获取最近一次布署的相关信息 */
+    PGresult *zpPgRes = PQexec(zpGlobRepo_[zRepoId]->p_PgConn, "SELECT RevSig,GlobRes FROM tb_proj_log_ order by TimeStamp DESC limit 1");  // TO DO: SQL cmd...
+    if (PGRES_TUPLES_OK != PQresultStatus(zpPgRes) || 2 != PQnfields(zpPgRes) || 1 != PQntuples(zpPgRes)) {
+        PQclear(zpPgRes);
+        PQfinish(zpGlobRepo_[zRepoId]->p_PgConn);
+        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));
+        exit(1);
+    } else {
+        /* 提取最近一次布署的SHA1 sig */
+        strncpy(zpGlobRepo_[zRepoId]->zLastDpSig, PQgetvalue(zpPgRes, 0, 0), 40);
+
+        /* 上一次布署结果状态初始化 */
+        if ('F' == PQgetvalue(zpPgRes, 1, 0)[0]) { zpGlobRepo_[zRepoId]->RepoState = zRepoDamaged; }
+        else { zpGlobRepo_[zRepoId]->RepoState = zRepoGood; }
+
+        PQclear(zpPgRes);
+        PQfinish(zpGlobRepo_[zRepoId]->p_PgConn);
+    }
 
     /* 指针指向自身的静态数据项 */
     zpGlobRepo_[zRepoId]->CommitVecWrap_.p_Vec_ = zpGlobRepo_[zRepoId]->CommitVec_;
@@ -981,6 +1001,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     zMem_Alloc(zPgRes_.p_RepoMetaStr, sizeof(zRepoMetaStr__), zPgRes_.TupleCnt);
 
+    /* 只在每次启动时执行一次，非效率瓶颈 */
     for (zCnter[0] = 0; zCnter[0] < zTupleCnt; zCnter[0]++) {
         for (zCnter[1] = 0; zCnter[1] < zFieldCnt; zCnter[1]++) {
             zPgRes_.p_RepoMetaStr[zCnter[0]].p_TaskCnt = &zPgRes_.TaskCnt;

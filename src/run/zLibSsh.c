@@ -4,11 +4,7 @@
 #include <sys/select.h>
 #include <stdio.h>
 #include <time.h>
-
-#ifndef PTHREAD_H
 #include <pthread.h>
-#define PTHREAD_H
-#endif
 
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
