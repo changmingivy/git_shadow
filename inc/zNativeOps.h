@@ -1,3 +1,4 @@
+#ifndef ZLOCALOPS_H
 #define ZLOCALOPS_H
 
 #ifndef _Z_BSD
@@ -8,29 +9,12 @@
     #endif
 #endif
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
-
-#ifndef ZPOSIXREG_H
 #include "zPosixReg.h"
-#endif
-
-#ifndef ZLOCALUTILS_H
 #include "zNativeUtils.h"
-#endif
-
-#ifndef ZTHREADPOOL_H
 #include "zThreadPool.h"
-#endif
-
-#ifndef ZLIBGIT_H
 #include "zLibGit.h"
-#endif
-
-#ifndef ZDPOPS_H
 #include "zDpOps.h"
-#endif
 
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
@@ -115,3 +99,5 @@ struct zNativeOps__ {
 
 
 // extern struct zNativeOps__ zNativeOps_;
+
+#endif  // #ifndef ZLOCALOPS_H

@@ -1,10 +1,8 @@
+#ifndef ZLIBGIT_H
 #define ZLIBGIT_H
 
 #include "git2.h"
-
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 typedef struct git_revwalk zGitRevWalk__;
 
@@ -21,3 +19,5 @@ struct zLibGit__ {
 };
 
 //extern struct zLibGit__ zLibGit_;
+
+#endif  // #ifndef ZLIBGIT_H

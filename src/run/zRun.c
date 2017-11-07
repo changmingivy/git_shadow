@@ -12,7 +12,7 @@ extern struct zNativeUtils__ zNativeUtils_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 
-static void zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath);
+static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
 
 struct zRun__ zRun_ = {
@@ -74,13 +74,13 @@ struct zRun__ zRun_ = {
  */
 
 static void
-zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath) {
+zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
 
     zNativeUtils_.daemonize("/");  /* 成为守护进程 */
 
     zThreadPool_.init();  /* 线程池初始化 */
 
-    zNativeOps_.proj_init_all(zpConfFilePath);  /* 扫描所有项目库并初始化之 */
+    zNativeOps_.proj_init_all(zpPgLogin_);  /* 扫描所有项目库并初始化之 */
 
     zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库

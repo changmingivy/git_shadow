@@ -1,5 +1,3 @@
-#define ZDPOPS_H
-
 #include "zDpOps.h"
 
 #include <unistd.h>

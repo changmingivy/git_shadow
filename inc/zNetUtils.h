@@ -1,3 +1,4 @@
+#ifndef ZNETUTILS_H
 #define ZNETUTILS_H
 
 #ifndef _Z_BSD
@@ -10,10 +11,7 @@
 
 
 #include <netdb.h>
-
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 struct zNetUtils__ {
     _i (* gen_serv_sd) (char *, char *, _i);
@@ -30,3 +28,5 @@ struct zNetUtils__ {
 
 
 // extern struct zNetUtils__ zNetUtils_;
+
+#endif  // #ifndef ZNETUTILS_H

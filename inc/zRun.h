@@ -1,20 +1,10 @@
+#ifndef ZRUN_H
 #define ZRUN_H
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
-
-#ifndef ZTHREADPOOL_H
 #include "zThreadPool.h"
-#endif
-
-#ifndef ZNETUTILS_H
 #include "zNetUtils.h"
-#endif
-
-#ifndef ZDPOPS_H
 #include "zDpOps.h"
-#endif
 
 typedef struct __zSockAcceptParam__ {
     void *p_ThreadPoolMeta_;  // 未使用，仅占位
@@ -31,3 +21,4 @@ struct zRun__ {
 
 
 // extern struct zRun__ zRun_;
+#endif  // #ifndef ZRUN_H

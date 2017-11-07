@@ -1,10 +1,8 @@
+#ifndef ZPOSIXREG_H
 #define ZPOSIXREG_H
 
 #include <regex.h>
-
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 #define zMatchLimit 1024
 typedef struct {
@@ -28,3 +26,5 @@ struct zPosixReg__ {
 
 
 // extern struct zPosixReg__ zPosixReg_;
+
+#endif  // #ifndef ZPOSIXREG_H

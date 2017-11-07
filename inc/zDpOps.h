@@ -1,56 +1,32 @@
+#ifndef ZDPOPS_H
 #define ZDPOPS_H
 
 #ifndef _Z_BSD
+    #ifndef _XOPEN_SOURCE
+    #define _XOPEN_SOURCE 700
+    #endif
 
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 700
-#endif
+    #ifndef _DEFAULT_SOURCE
+    #define _DEFAULT_SOURCE
+    #endif
 
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
-#endif
-
-#ifndef _BSD_SOURCE
-#define _BSD_SOURCE
-#endif
-
+    #ifndef _BSD_SOURCE
+    #define _BSD_SOURCE
+    #endif
 #endif
 
 #include <pthread.h>  //  该头文件内部已使用 #define _PTHREAD_H 避免重复
 #include <semaphore.h>  //  该头文件内部已使用 #define _SEMAPHORE_H 避免重复
 #include <libpq-fe.h>  //  该头文件内部已使用 #define LIBPQ_FE_H 避免重复
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
-
-#ifndef ZNETUTILS_H
 #include "zNetUtils.h"
-#endif
-
-#ifndef ZLIBSSH_H
 #include "zLibSsh.h"
-#endif
-
-#ifndef ZLIBGIT_H
 #include "zLibGit.h"
-#endif
-
-#ifndef ZLOCALOPS_H
 #include "zNativeOps.h"
-#endif
-
-#ifndef ZLOCALUTILS_H
 #include "zNativeUtils.h"
-#endif
-
-#ifndef ZPOSIXREG_H
 #include "zPosixReg.h"
-#endif
-
-#ifndef ZTHREADPOOL_H
 #include "zThreadPool.h"
-#endif
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
 #define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
@@ -268,3 +244,5 @@ struct zDpOps__ {
 };
 
 // extern struct zDpOps__ zDpOps_;
+
+#endif  //  #ifndef ZDPOPS_H

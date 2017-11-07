@@ -1,12 +1,11 @@
+#ifndef ZPCREREG_H
 #define ZPCREREG_H
+
 #define PCRE2_STATIC
 #define PCRE2_CODE_UNIT_WIDTH 8  //must define this before pcre2.h
 
 #include "pcre2.h"  //compile with '-lpcre2-8'
-
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 #define zMatchMax 1024
 typedef struct {
@@ -32,4 +31,6 @@ struct zPcreReg__ {
 };
 
 
-extern struct zPcreReg__ zPcreReg_;
+// extern struct zPcreReg__ zPcreReg_;
+
+#endif  // #define ZPCREREG_H

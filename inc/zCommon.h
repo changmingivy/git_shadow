@@ -1,3 +1,4 @@
+#ifndef ZCOMMON_H
 #define ZCOMMON_H
 
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
@@ -217,3 +218,5 @@
     sigaction(____zSigSet[24], &zSigActionIf, NULL);\
     sigaction(____zSigSet[25], &zSigActionIf, NULL);\
 } while(0)
+
+#endif  //  #ifndef ZCOMMON_H

@@ -1,10 +1,8 @@
+#ifndef ZLOCALUTILS_H
 #define ZLOCALUTILS_H
 
 #include <stdio.h>
-
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 struct zNativeUtils__ {
     void (* daemonize) (const char *);
@@ -18,3 +16,5 @@ struct zNativeUtils__ {
 };
 
 // extern struct zNativeUtils__ zNativeUtils_;
+
+#endif  // #ifndef ZLOCALUTILS_H
