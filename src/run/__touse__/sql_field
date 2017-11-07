@@ -1,11 +1,11 @@
-table0: proj_meta
+table0: tb_proj_meta
 ProjId  PathOnHost  SourceUrl  SourceBranch  SourceVcsType  NeedPull
 int     string      string     string        string         char(Y/N)
 
-table2: dp_log_<ProjId>
-ProjId  RevSig  TimeStamp  GlobRes(0 Success/-1 FakeSuccess/-2 Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
-int     string  bigint     smallint                                   int            int           int
+table2: tb_dp_log_<ProjId>
+ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
+int     string  bigint     char                 int            int           int
 
-table2: dp_log_detail_<ProjId>
+table2: tb_dp_log_detail_<ProjId>
 RevSig  TimeStamp  HostIp  Res(0 Success/-1 Unknown/-2 Fail)  TimeSpent  Detail
 string  bigint     string  smallint                           int        string

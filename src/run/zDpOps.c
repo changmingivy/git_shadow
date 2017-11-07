@@ -11,6 +11,7 @@
 #include <time.h>
 #include <errno.h>
 
+#include <libpq-fe.h>
 
 extern struct zNetUtils__ zNetUtils_;
 extern struct zLibSsh__ zLibSsh_;
@@ -424,11 +425,57 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
  */
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
-    _i zErrNo;
-    if (0 == (zErrNo = zNativeOps_.proj_init(zpMeta_->p_data))) {
-        zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+    zRepoMetaStr__ zRepoMetaStr_;
+    zRegInit__ *zpRegInit_ = NULL;
+    zRegRes__ *zpRegRes_ = NULL;
+    _i zErrNo = 0;
+
+    zPosixReg_.compile(zpRegInit_, "(\\w|[[:punct:]])+");
+    zPosixReg_.match(zpRegRes_, zpRegInit_, zpMeta_->p_data);
+    zPosixReg_.free_meta(zpRegInit_);
+
+    if (5 > zpRegRes_->cnt) { return -34; }
+
+    zRepoMetaStr_.p_id = zpRegRes_->p_rets[0];
+    zRepoMetaStr_.p_PathOnHost = zpRegRes_->p_rets[1];
+    zRepoMetaStr_.p_SourceUrl = zpRegRes_->p_rets[2];
+    zRepoMetaStr_.p_SourceBranch = zpRegRes_->p_rets[3];
+    zRepoMetaStr_.p_SourceVcsType = zpRegRes_->p_rets[4];
+    if (5 == zpRegRes_->cnt) {
+        zRepoMetaStr_.p_NeedPull = NULL;
+    } else {
+        zRepoMetaStr_.p_NeedPull = zpRegRes_->p_rets[5];
     }
 
+    if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMetaStr_))) {
+        PGconn *zpPgMetaConn = NULL;
+        PGresult *zpPgMetaRes = NULL;
+
+        /* 连接 pgSQL server */
+        zpPgMetaConn = PQconnectdb(zGlobPgConnInfo);
+        if (CONNECTION_OK != PQstatus(zpPgMetaConn)) {
+            zPrint_Err(0, NULL, PQerrorMessage(zpPgMetaConn));
+            PQfinish(zpPgMetaConn);
+            zErrNo = -31;
+            goto zMarkEnd;
+        }
+
+        /* 执行 SQL cmd */
+        zpPgMetaRes = PQexec(zpPgMetaConn, "...");  // TO DO: SQL command
+        if (PGRES_COMMAND_OK != PQresultStatus(zpPgMetaRes)) {
+            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgMetaRes));
+            PQclear(zpPgMetaRes);
+            PQfinish(zpPgMetaConn);
+            zErrNo = -31;
+            goto zMarkEnd;
+        }
+
+    }
+
+    zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+
+zMarkEnd:
+    zPosixReg_.free_res(zpRegRes_);
     return zErrNo;
 }
 

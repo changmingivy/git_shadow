@@ -67,6 +67,7 @@ pthread_mutex_t zGlobCommonLock;
 pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
 _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
+char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所有布署相关数据存放于一个数据库中
 
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 static void *
@@ -670,14 +671,6 @@ zMarkSkip:
     zpGlobRepo_[zRepoId] = NULL;\
 } while(0)
 
-//    /* 仅在新建项目时使用，在外壳中进行检测：正则匹配项目基本信息（5个字段） */
-//    zPosixReg_.compile(zRegInit_, "(\\w|[[:punct:]])+");
-//    zPosixReg_.match(zRegRes_, zRegInit_, zppRepoMetaData);
-//    zPosixReg_.free_meta(zRegInit_);
-//    if (5 > zRegRes_->cnt) {
-//        return -34;
-//    }
-
 
 static _i
 zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
@@ -913,7 +906,7 @@ zparse_str(void *zpIn, void *zpOut) {
 /* 读取项目信息，初始化配套环境 */
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_) {
-    char zPgConnInfo[2048], zDBPassFilePath[1024], zErrBuf[256];
+    char zDBPassFilePath[1024], zErrBuf[256];
     char *zpHomePath = NULL, *zpFieldName = NULL;
     struct stat zStat_;
 
@@ -943,7 +936,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     zCheck_NeZero_Exit( chmod(zpPgLogin_->p_PassFilePath, 00600) );
 
     /* 生成连接 pgSQL 的元信息 */
-    snprintf(zPgConnInfo, 2048,
+    snprintf(zGlobPgConnInfo, 2048,
             "%s%s"
             "%s%s"
             "%s%s"
@@ -967,7 +960,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             );
 
     /* 尝试连接到 pgSQL server */
-    zpPgMetaConn = PQconnectdb(zPgConnInfo);
+    zpPgMetaConn = PQconnectdb(zGlobPgConnInfo);
     if (CONNECTION_OK != PQstatus(zpPgMetaConn)) {
         zPrint_Err(0, NULL, PQerrorMessage(zpPgMetaConn));
         PQfinish(zpPgMetaConn);
@@ -975,7 +968,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     }
 
     /* 执行 SQL cmd */
-    zpPgMetaRes = PQexec(zpPgMetaConn, "TO DO: SQL cmd...");
+    zpPgMetaRes = PQexec(zpPgMetaConn, "SELECT * FROM tb_proj_meta");
     if (PGRES_TUPLES_OK != PQresultStatus(zpPgMetaRes)) {
         zPrint_Err(0, NULL, PQresultErrorMessage(zpPgMetaRes));
         PQclear(zpPgMetaRes);
@@ -1028,13 +1021,6 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     PQfinish(zpPgMetaConn);
 
 #ifndef _Z_BSD
-//    char zCpuNumBuf[8];
-//    zpFile = NULL;
-//    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
-//    zCheck_Null_Exit( zNativeUtils_.read_line(zCpuNumBuf, 8, zpFile) );
-//    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
-//    fclose(zpFile);
-
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
 

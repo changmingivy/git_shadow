@@ -211,6 +211,7 @@ extern _i zGlobMaxRepoId;
 extern pthread_mutex_t zGlobCommonLock;
 extern pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
 extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
+extern char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所有布署相关数据存放于一个数据库中
 
 /* 指定服务端自身的Ip地址与端口 */
 typedef struct {
