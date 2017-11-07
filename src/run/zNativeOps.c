@@ -676,7 +676,9 @@ static _i
 zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     zRegInit__ *zpRegInit_ = NULL;
     zRegRes__ *zpRegRes_ = NULL;
-    _i zRepoId = 0, zErrNo = 0, zOrigPathLen = 0;
+    _i zRepoId = 0,
+       zErrNo = 0,
+       zStrLen = 0;
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
     zRepoId = strtol(zpRepoMetaStr_->p_id, NULL, 10);
@@ -697,12 +699,12 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     if (0 == zpRegRes_->cnt) { /* Handle Err ? */ }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
-    zOrigPathLen = strlen(zpRepoMetaStr_->p_PathOnHost);
-    zpRepoMetaStr_->p_PathOnHost[zOrigPathLen - zpRegRes_->ResLen[0]] = '\0';
+    zStrLen = strlen(zpRepoMetaStr_->p_PathOnHost);
+    zpRepoMetaStr_->p_PathOnHost[zStrLen - zpRegRes_->ResLen[0]] = '\0';
     while ('/' == zpRepoMetaStr_->p_PathOnHost[0]) {
         zpRepoMetaStr_->p_PathOnHost++;  /* 去除多余的 '/' */
     }
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zOrigPathLen);
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zStrLen);
     zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath,
             "%s%s%s/%d/%s",
             "/home/git/",
@@ -740,13 +742,13 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobCommonBufSiz];
     if (0 == strcmp("git", zpRepoMetaStr_->p_SourceVcsType)) {
-        sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
+        zStrLen = sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
                 zpRepoMetaStr_->p_SourceUrl,
                 zpRepoMetaStr_->p_SourceBranch,
                 zRepoId);
     } else if (0 == strcmp("svn", zpRepoMetaStr_->p_SourceVcsType)) {
-        sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
+        zStrLen = sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
                 " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
                 zRepoId);
@@ -755,7 +757,7 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
         return -37;
     }
 
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_PullCmd, char, 1 + strlen(zPullCmdBuf));
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_PullCmd, char, 1 + zStrLen);
     strcpy(zpGlobRepo_[zRepoId]->p_PullCmd, zPullCmdBuf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
@@ -856,9 +858,11 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 标记初始化动作已全部完成 */
     zpGlobRepo_[zRepoId]->zInitRepoFinMark = 1;
 
-    /* 全局实际项目 ID 最大值调整并通知上层调用者本项目初始化任务完成 */
+    /* 全局实际项目 ID 最大值调整，并通知上层调用者本项目初始化任务完成 */
     pthread_mutex_lock(&zGlobCommonLock);
+
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
+
     (* (zpRepoMetaStr_->p_TaskCnt)) ++;
     pthread_mutex_unlock(&zGlobCommonLock);
     pthread_cond_signal(&zGlobCommonCond);

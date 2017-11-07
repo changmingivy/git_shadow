@@ -75,12 +75,12 @@ struct zRun__ zRun_ = {
 
 static void
 zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
-
-    zNativeUtils_.daemonize("/");  /* 成为守护进程 */
-
-    zThreadPool_.init();  /* 线程池初始化 */
-
-    zNativeOps_.proj_init_all(zpPgLogin_);  /* 扫描所有项目库并初始化之 */
+    /* 成为守护进程 */
+    zNativeUtils_.daemonize("/");
+    /* 线程池初始化 */
+    zThreadPool_.init();
+    /* 扫描所有项目库并初始化之 */
+    zNativeOps_.proj_init_all(zpPgLogin_);
 
     zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
