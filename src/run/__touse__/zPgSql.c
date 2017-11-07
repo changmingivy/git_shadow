@@ -18,8 +18,8 @@ main(void) {
         "host=db.yixia.com"
         "port=9527"
         "user=admin"
-        "passfile=/home/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
-        "dbname=testdb"
+        "passfile=/home/git/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
+        "dbname=dpDB"
         "sslmode=allow"
         "connect_timeout=10";
 

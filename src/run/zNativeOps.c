@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #include <time.h>
 #include <errno.h>
@@ -11,9 +12,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-
-#define zDpSigLogPath "_SHADOW/log/deploy/meta"  // 40位SHA1 sig字符串 + 时间戳
-#define zDpTimeSpentLogPath "_SHADOW/log/deploy/TimeSpent"  // 40位SHA1 sig字符串 + 时间戳
+#include <libpq-fe.h>
 
 extern struct zPosixReg__ zPosixReg_;
 extern struct zNativeUtils__ zNativeUtils_;
@@ -41,7 +40,7 @@ static void *
 zsys_load_monitor(void *zpParam);
 
 static void *
-zinit_env(const char *zpConfPath);
+zinit_env(zPgLogin__ *zpPgLogin_);
 
 struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
@@ -810,14 +809,9 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 上一次布署结果状态初始化 */
     zpGlobRepo_[zRepoId]->RepoState = zRepoGood;
 
+    // OPEN REPO PQconn, and get the last dp sig
     /* 提取最近一次布署的SHA1 sig，日志文件不会为空，初创时即会以空库的提交记录作为第一条布署记录 */
-    sprintf(zCommonBuf, "cat %s%s | tail -1", zpGlobRepo_[zRepoId]->p_RepoPath, zDpSigLogPath);
-    FILE *zpShellRetHandler;
-    zCheck_Null_Exit( zpShellRetHandler = popen(zCommonBuf, "r") );
-    if (zBytes(40) != zNativeUtils_.read_hunk(zpGlobRepo_[zRepoId]->zLastDpSig, zBytes(40), zpShellRetHandler)) {
-        zpGlobRepo_[zRepoId]->zLastDpSig[40] = '\0';
-    }
-    pclose(zpShellRetHandler);
+    // TO DO: 初始化 zpGlobRepo_[zRepoId]->zLastDpSig;
 
     /* 指针指向自身的静态数据项 */
     zpGlobRepo_[zRepoId]->CommitVecWrap_.p_Vec_ = zpGlobRepo_[zRepoId]->CommitVec_;
@@ -909,6 +903,7 @@ static void
 zparse_digit(void *zpIn, void *zpOut) {
     *((_i *)zpOut) = strtol(zpIn, NULL, 10);
 }
+
 static void
 zparse_str(void *zpIn, void *zpOut) {
     strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
@@ -917,7 +912,132 @@ zparse_str(void *zpIn, void *zpOut) {
 
 /* 读取项目信息，初始化配套环境 */
 static void *
-zinit_env(const char *zpConfPath) {
+zinit_env(zPgLogin__ *zpPgLogin_) {
+    char zPgConnInfo[2048], zDBPassFilePath[1024], zErrBuf[256];
+    char *zpHomePath = NULL, *zpFieldName = NULL;
+    struct stat zStat_;
+
+    PGconn *zpPgMetaConn = NULL;
+    PGresult *zpPgMetaRes = NULL;
+
+    _i zFieldCnt = 0,
+       zTupleCnt = 0,
+       zCnter[2] = {0};
+    zPgRes__ zPgRes_ = {0, 0, 0, NULL};
+
+    /* 确保 pgSQL 密钥文件存在并合法 */
+    if (NULL == zpPgLogin_->p_PassFilePath) {
+        if (NULL == (zpHomePath = getenv("HOME"))) {
+            zpHomePath = "/home/git";
+        }
+
+        snprintf(zDBPassFilePath, 1024, "%s/.pqpass", zpHomePath);
+        zpPgLogin_->p_PassFilePath = zDBPassFilePath;
+    }
+
+    zCheck_NeZero_Exit( stat(zpPgLogin_->p_PassFilePath, &zStat_) );
+    if (!S_ISREG(zStat_.st_mode)) {
+        zPrint_Err(0, NULL, "postgreSQL: passfile is not a regular file!");
+        exit(1);
+    }
+    zCheck_NeZero_Exit( chmod(zpPgLogin_->p_PassFilePath, 00600) );
+
+    /* 生成连接 pgSQL 的元信息 */
+    snprintf(zPgConnInfo, 2048,
+            "%s%s"
+            "%s%s"
+            "%s%s"
+            "%s%s"
+            "%s%s"
+            "%s%s"
+            "sslmode=allow"
+            "connect_timeout=5",
+            NULL == zpPgLogin_->p_addr ? "host=" : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "localhost" : zpPgLogin_->p_host) : "",
+            NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
+            NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
+            "port=",
+            NULL == zpPgLogin_->p_port ? "5432" : zpPgLogin_->p_port,
+            "user=",
+            NULL == zpPgLogin_->p_UserName ? "git" : zpPgLogin_->p_UserName,
+            "passfile=",
+            zpPgLogin_->p_PassFilePath,
+            "dbname=",
+            NULL == zpPgLogin_->p_DBName ? "dpDB": zpPgLogin_->p_DBName
+            );
+
+    /* 尝试连接到 pgSQL server */
+    zpPgMetaConn = PQconnectdb(zPgConnInfo);
+    if (CONNECTION_OK != PQstatus(zpPgMetaConn)) {
+        zPrint_Err(0, NULL, PQerrorMessage(zpPgMetaConn));
+        PQfinish(zpPgMetaConn);
+        exit(1);
+    }
+
+    /* 执行 SQL cmd */
+    zpPgMetaRes = PQexec(zpPgMetaConn, "TO DO: SQL cmd...");
+    if (PGRES_TUPLES_OK != PQresultStatus(zpPgMetaRes)) {
+        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgMetaRes));
+        PQclear(zpPgMetaRes);
+        PQfinish(zpPgMetaConn);
+        exit(1);
+    }
+
+    zPgRes_.TupleCnt = PQntuples(zpPgMetaRes);
+    zPgRes_.FieldCnt = PQnfields(zpPgMetaRes);
+
+    zMem_Alloc(zPgRes_.p_RepoMetaStr, sizeof(zRepoMetaStr__), zPgRes_.TupleCnt);
+
+    for (zCnter[0] = 0; zCnter[0] < zTupleCnt; zCnter[0]++) {
+        for (zCnter[1] = 0; zCnter[1] < zFieldCnt; zCnter[1]++) {
+            zPgRes_.p_RepoMetaStr[zCnter[0]].p_TaskCnt = &zPgRes_.TaskCnt;
+
+            zpFieldName = PQfname(zpPgMetaRes, zCnter[1]);
+            if (0 == strcmp("ProjId", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_id = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else if (0 == strcmp("PathOnHost", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_PathOnHost = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else if (0 == strcmp("SourceUrl", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceUrl = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else if (0 == strcmp("SourceBranch", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceBranch = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else if (0 == strcmp("SourceVcsType", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceVcsType = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else if (0 == strcmp("NeedPull", zpFieldName)) {
+                zPgRes_.p_RepoMetaStr[zCnter[0]].p_NeedPull = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+            } else {
+                sprintf(zErrBuf, "\033[31;01m[pgSQL]\nUnknown field: %s\033[00m", zpFieldName);
+                zPrint_Err(0, NULL, zErrBuf);
+            }
+        }
+    }
+
+    for (zCnter[0] = 0; zPgRes_.TupleCnt > zCnter[0]; zCnter[0]++) {
+        zThreadPool_.add(zinit_one_repo_env_thread_wraper, &(zPgRes_.p_RepoMetaStr[zCnter[0]]));
+    }
+
+    pthread_mutex_lock(&zGlobCommonLock);
+    while (zPgRes_.TupleCnt > zPgRes_.TaskCnt) {
+        pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
+    }
+    pthread_mutex_unlock(&zGlobCommonLock);
+
+    /* 清理资源占用，创建新项目时，需要重新建立连接 */
+    free(zPgRes_.p_RepoMetaStr);
+    PQclear(zpPgMetaRes);
+    PQfinish(zpPgMetaConn);
+
+#ifndef _Z_BSD
+//    char zCpuNumBuf[8];
+//    zpFile = NULL;
+//    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
+//    zCheck_Null_Exit( zNativeUtils_.read_line(zCpuNumBuf, 8, zpFile) );
+//    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
+//    fclose(zpFile);
+
+    zThreadPool_.add(zsys_load_monitor, NULL);
+#endif
+
     /* json 解析时的回调函数索引 */
     zNativeOps_.json_parser['O']  // OpsId
         = zNativeOps_.json_parser['P']  // ProjId
@@ -931,34 +1051,6 @@ zinit_env(const char *zpConfPath) {
     zNativeOps_.json_parser['d']  // data
         = zNativeOps_.json_parser['E']  // ExtraData
         = zparse_str;
-
-    zPgRes__ *zpPgRes_ = NULL;
-    _i zCnter = 0;
-
-    // TO DO: get res from postgreSQL
-    // if failed, exit
-    while (zpPgRes_->TupleCnt > zCnter) {
-        zThreadPool_.add(zinit_one_repo_env_thread_wraper, &(zpPgRes_->p_RepoMetaStr[zCnter++]));
-    }
-
-    pthread_mutex_lock(&zGlobCommonLock);
-    while (zpPgRes_->TupleCnt > zpPgRes_->TaskCnt) {
-        pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
-    }
-    pthread_mutex_unlock(&zGlobCommonLock);
-
-    // TO DO: free postgreSQL source
-
-#ifndef _Z_BSD
-//    char zCpuNumBuf[8];
-//    zpFile = NULL;
-//    zCheck_Null_Exit( zpFile = popen("cat /proc/cpuinfo | grep -c 'processor[[:blank:]]\\+:'", "r") );
-//    zCheck_Null_Exit( zNativeUtils_.read_line(zCpuNumBuf, 8, zpFile) );
-//    zSysCpuNum = strtol(zCpuNumBuf, NULL, 10);
-//    fclose(zpFile);
-
-    zThreadPool_.add(zsys_load_monitor, NULL);
-#endif
 
     return NULL;
 }

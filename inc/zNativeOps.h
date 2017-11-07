@@ -67,6 +67,16 @@ typedef struct __zBaseData__ {
 } zBaseData__;
 
 
+typedef struct __zPgLogin__ {
+    char * p_host;
+    char * p_addr;
+    char * p_port;
+    char * p_UserName;
+    char * p_PassFilePath;
+    char * p_DBName;
+} zPgLogin__;
+
+
 typedef struct __zRepoMetaStr__ {
     void *_;  // used to kill pthread
     _i *p_TaskCnt;
@@ -82,7 +92,7 @@ typedef struct __zRepoMetaStr__ {
 
 typedef struct __zPgRes__ {
     _i TupleCnt;
-    //_i FieldCnt;
+    _i FieldCnt;
     _i TaskCnt;
 
     zRepoMetaStr__ *p_RepoMetaStr;
@@ -95,7 +105,7 @@ struct zNativeOps__ {
     void * (* get_diff_contents) (void *);
 
     _i (* proj_init) (zRepoMetaStr__ *);
-    void * (* proj_init_all) (const char *);
+    void * (* proj_init_all) (zPgLogin__ *);
 
     /* 以 ANSI 字符集中的前 128 位成员作为索引 */
     void (* json_parser[128]) (void *, void *);

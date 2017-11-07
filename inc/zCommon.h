@@ -108,6 +108,14 @@
     }\
 } while(0)
 
+#define zCheck_NeZero_Exit(zRes) do{\
+    _i zX = (zRes);\
+    if (0 != zX) {\
+        zPrint_Err(errno, #zRes " < 0", "");\
+        _exit(1);\
+    }\
+} while(0)
+
 #define zCheck_Pthread_Func_Return(zRet, __VA_ARGS__) do{\
     _i zX = (zRet);\
     if (0 != zX) {\

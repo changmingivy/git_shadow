@@ -30,34 +30,51 @@ zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
 
 _i
 main(_i zArgc, char **zppArgv) {
-    char *zpConfFilePath = NULL;
-    struct stat zStat_;
+    zPgLogin__ zPgLogin_ = {NULL, NULL, NULL, NULL, NULL, NULL};
     zNetSrv_.zServType = TCP;
 
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "Uh:p:f:"));) {
+    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"));) {
         switch (zOpt) {
+            case 'u':
+                zNetSrv_.zServType = UDP; break;
             case 'h':
                 zNetSrv_.p_IpAddr = optarg; break;
             case 'p':
                 zNetSrv_.p_port = optarg; break;
+            case 'H':
+                zPgLogin_.p_host = optarg; break;
+            case 'A':
+                zPgLogin_.p_addr = optarg; break;
+            case 'P':
+                zPgLogin_.p_port = optarg; break;
             case 'U':
-                zNetSrv_.zServType = UDP;
-            case 'f':
-                if (-1 == stat(optarg, &zStat_) || !S_ISREG(zStat_.st_mode)) {
-                        zPrint_Time();
-                        fprintf(stderr, "\033[31;01m配置文件异常!\n用法: %s -f <PATH>\033[00m\n", zppArgv[0]);
-                        _exit(1);
-                }
-                zpConfFilePath = optarg;
-                break;
+                zPgLogin_.p_UserName = optarg; break;
+            case 'F':
+                zPgLogin_.p_PassFilePath = optarg; break;
+            case 'D':
+                zPgLogin_.p_DBName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPrint_Time();
-                fprintf(stderr, "\033[31;01mInvalid option: %c\nUsage: %s -f <Config File Absolute Path>\033[00m\n", optopt, zppArgv[0]);
+                fprintf(stderr,
+                        "\033[31;01m"
+                        "Invalid option: %c\n"
+                        "Usage: %s\n"
+                        "[-u] /* UDP or TCP */\n"
+                        "[-h host] /* host name or domain name or host IPv4 address */\n"
+                        "[-p tcp_port] /* tcp serv port */\n"
+                        "[-H postgreSQL_host] /* PQdb host name or domain name, default 'localhost' */\n"
+                        "[-A postgreSQL_addr ] /* PQdb host IPv4 addr, if exist, '-H' will be ignored */\n"
+                        "[-P postgreSQL_port] /* PQdb host serv port, default '5432' */\n"
+                        "[-U postgreSQL_username] /* PQdb login name, default 'dpDB' */\n"
+                        "[-F postgreSQL_passfile] /* PQdb pass file, default '$HOME/.pgpass' */\n"
+                        "[-D postgreSQL_DBname] /* which PQdb database to login, default 'git' */\n"
+                        "\033[00m\n",
+                        optopt, zppArgv[0]);
                 _exit(1);
            }
     }
 
 
     /* 启动服务 */
-    zRun_.run(&zNetSrv_, zpConfFilePath);
+    zRun_.run(&zNetSrv_, &zPgLogin_);
 }
