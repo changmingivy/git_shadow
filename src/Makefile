@@ -25,7 +25,8 @@ git_shadow: zmain.o zLibUtils.a
 	$(CC) -o git_shadow\
 		-L$(SSH_LIB_DIR) -lssh2\
 		-L$(GIT_LIB_DIR) -lgit2\
-		-l pthread\
+		-lpthread\
+		-lpq\
 		zmain.o $(SUB_SRC_DIR)/zLibUtils.a
 
 # main() func...

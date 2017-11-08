@@ -582,11 +582,11 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 执行 SQL cmd */
-        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "...");  // TO DO: SQL cmd
+        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64");  // TO DO: SQL cmd
         if (PGRES_TUPLES_OK != PQresultStatus(zpPgRes)) {
             PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
 
-            zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "...");  // TO DO: SQL cmd
+            zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64");  // TO DO: SQL cmd
             if (PGRES_TUPLES_OK != PQresultStatus(zpPgRes)) {
                 zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));
                 PQclear(zpPgRes);
@@ -642,19 +642,23 @@ zgenerate_cache(void *zpParam) {
             zpTopVecWrap_->p_refData_[zCnter].p_subVecWrap_ = NULL;
         }
 
-        if (zIsDpDataType == zpMeta_->dataType) {
-            /* 存储最近一次布署的 SHA1 sig，执行布署时首先对比布署目标与最近一次布署，若相同，则直接返回成功 */
-            strcpy(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpTopVecWrap_->p_refData_[zCnter - 1].p_data);
-            /* 将布署记录按逆向时间排序（新记录显示在前面） */
-            for (_i i = 0; i < zpTopVecWrap_->vecSiz; i++) {
-                zCnter--;
-                zpSortedTopVecWrap_->p_vec_[zCnter].iov_base = zpTopVecWrap_->p_vec_[i].iov_base;
-                zpSortedTopVecWrap_->p_vec_[zCnter].iov_len = zpTopVecWrap_->p_vec_[i].iov_len;
-            }
-        } else {
-            /* 提交记录缓存本来就是有序的，不需要额外排序 */
-            zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
-        }
+        // !!! 布署记录已不需要额外排序：SQL 返回的结果的序列已经与提交列表相同
+        // if (zIsDpDataType == zpMeta_->dataType) {
+        //     /* 存储最近一次布署的 SHA1 sig，执行布署时首先对比布署目标与最近一次布署，若相同，则直接返回成功 */
+        //     strcpy(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpTopVecWrap_->p_refData_[zCnter - 1].p_data);
+        //     /* 将布署记录按逆向时间排序（新记录显示在前面） */
+        //     for (_i i = 0; i < zpTopVecWrap_->vecSiz; i++) {
+        //         zCnter--;
+        //         zpSortedTopVecWrap_->p_vec_[zCnter].iov_base = zpTopVecWrap_->p_vec_[i].iov_base;
+        //         zpSortedTopVecWrap_->p_vec_[zCnter].iov_len = zpTopVecWrap_->p_vec_[i].iov_len;
+        //     }
+        // } else {
+        //     /* 提交记录缓存本来就是有序的，不需要额外排序 */
+        //     zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
+        // }
+
+        /* 提交记录与布署记录缓存均是有序的，不需要额外排序 */
+        zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
         ((char *)(zpSortedTopVecWrap_->p_vec_[0].iov_base))[0] = '[';

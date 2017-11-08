@@ -6,6 +6,6 @@ table2: tb_dp_log_<ProjId>
 ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
 int     string  bigint     char                                         int            int           int
 
-table2: tb_dp_log_detail_<ProjId>
-RevSig  CacheId    HostIp  HostRes(0 Success/-1 Unknown/-2 Fail)  HostTimeSpent  HostDetail
-string  bigint     string  smallint                           int        string
+table2: tb_dp_log_host_detail_<ProjId>
+RevSig  CacheId    Ip      Res(0 Success/-1 Unknown/-2 Fail)  TimeSpent  ErrNo     Detail
+string  bigint     string  smallint                           int        smallint  string

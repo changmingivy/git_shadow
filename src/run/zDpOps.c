@@ -1185,13 +1185,6 @@ zErrMark:
         /* 更新最新一次布署版本号，并将本次布署信息写入日志 */
         strcpy(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
 
-        /* 换行符要写入，但'\0' 不能写入 */
-        _i zLogStrLen = sprintf(zppCommonBuf[0], "%s_%zd\n", zpGlobRepo_[zpMeta_->repoId]->lastDpSig, time(NULL));
-        if (zLogStrLen != write(zpGlobRepo_[zpMeta_->repoId]->dpSigLogFd, zppCommonBuf[0], zLogStrLen)) {
-            zPrint_Err(0, NULL, "日志写入失败： <_SHADOW/log/deploy/meta> !");
-            //exit(1);
-        }
-
         /* deploy success, create a new "CURRENT" branch */
         sprintf(zppCommonBuf[0], "cd %s; git branch -f `git log CURRENT -1 --format=%%H`; git branch -f CURRENT", zpGlobRepo_[zpMeta_->repoId]->p_repoPath);
         if (0 != WEXITSTATUS( system(zppCommonBuf[0])) ) {
@@ -1213,7 +1206,21 @@ zErrMark:
         zNativeOps_.get_revs(&zSubMeta_);
     }
 
-zEndMark:
+zEndMark:;
+    /* 无论布署成败，都写入 pgSQL 日志表: db_dp_log_<ProjId> */
+    PGresult *zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "");  // TO DO: SQL cmd
+    if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {
+        PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+
+        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "");  // TO DO: SQL cmd
+        if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {
+            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));
+            PQclear(zpPgRes);
+            PQfinish(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+            exit(1);
+        }
+    }
+
     return zErrNo;
 }
 
@@ -1426,6 +1433,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
 static _i
 zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
+    time_t zTimeSpent = 0;
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zpMeta_->hostId) {
@@ -1435,11 +1443,13 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
             /* 'B' 标识布署状态回复，'C' 目标机的 keep alive 消息 */
             if ('B' == zpMeta_->p_extraData[0]) {
                 if (0 != zpTmp_->dpState) {
+                    // SQL log... ???
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     return 0;
                 }
 
                 if (0 != strncmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_data, zBytes(40))) {
+                    // SQL log...
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     return -101;  // 返回负数，用于打印日志
                 }
@@ -1451,14 +1461,11 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zpLogStrId = zpGlobRepo_[zpMeta_->repoId]->dpingSig;
 
                     /* 调试功能：布署耗时统计，必须在锁内执行 */
-                    char zIpStrAddr[INET_ADDRSTRLEN], zTimeCntBuf[128];
+                    char zIpStrAddr[INET_ADDRSTRLEN];
                     zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
-                    _i zWrLen = sprintf(zTimeCntBuf, "[%s] [%s]\t\t[TimeSpent(s): %ld]\n",
-                            zpLogStrId,
-                            zIpStrAddr,
-                            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp);
-                    write(zpGlobRepo_[zpMeta_->repoId]->dpTimeSpentLogFd, zTimeCntBuf, zWrLen);
+                    zTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
 
+                    // SQL log...
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     if (zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt == zpGlobRepo_[zpMeta_->repoId]->dpTotalTask) {
                         pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
@@ -1468,12 +1475,16 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt = zpGlobRepo_[zpMeta_->repoId]->dpTotalTask;  // 发生错误，计数打满，用于通知结束布署等待状态
                     zpTmp_->dpState = -1;
                     zpGlobRepo_[zpMeta_->repoId]->resType[1] = -1;
+                    zTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
 
                     snprintf(zpTmp_->errMsg, 256, "%s", zpMeta_->p_data + 40);  // 所有的状态回复前40个字节均是 git SHA1sig
+
+                    // SQL log...
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
                     return -102;  // 返回负数，用于打印日志
                 } else {
+                    // SQL log...
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     return -103;  // 未知的返回内容
                 }
@@ -1482,6 +1493,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                 return 0;
             } else {
+                // SQL log...
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                 return -103;  // 未知的返回内容
             }
