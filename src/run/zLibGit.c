@@ -20,7 +20,7 @@ static void
 zgit_destroy_revwalker(git_revwalk *zpRevWalker);
 
 static _i
-zgit_get_one_commitsig_and_timestamp(char *zpResOut, git_repository *zpRepo, git_revwalk *zpRevWalker);
+zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
 
 struct zLibGit__ zLibGit_ = {
     .env_init = zgit_env_init,
@@ -59,14 +59,14 @@ zgit_env_clean(git_repository *zpRepoCredHandler) {
 
 /* SSH 身份认证 */
 static _i
-zgit_cred_acquire_cb(git_cred **zppResOut, const char *zpUrl __attribute__ ((__unused__)),
+zgit_cred_acquire_cb(git_cred **zppResOUT, const char *zpUrl __attribute__ ((__unused__)),
         const char * zpUsernameFromUrl __attribute__ ((__unused__)),
         unsigned int zpAllowedTypes __attribute__ ((__unused__)),
         void * zPayload __attribute__ ((__unused__))) {
 #ifdef _Z_BSD
-    if (0 != git_cred_ssh_key_new(zppResOut, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
+    if (0 != git_cred_ssh_key_new(zppResOUT, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
 #else
-    if (0 != git_cred_ssh_key_new(zppResOut, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
+    if (0 != git_cred_ssh_key_new(zppResOUT, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
 #endif
         if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
         else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
@@ -215,15 +215,16 @@ zgit_destroy_revwalker(git_revwalk *zpRevWalker) {
 }
 
 /*
- * 结果返回：正常返回取到的数据总长度，0 表示已取完所有记录，-1 表示出错
- * 参数返回：git log --format="%H\0%ct\0" 格式的单条数据
+ * 结果返回：正常返回时间戳，若返回 0 表示已取完所有记录，返回 -1 表示出错
+ * 参数返回：git log --format="%H" 格式的单条数据
  * 用途：每调用一次取出一条数据
  */
 static _i
-zgit_get_one_commitsig_and_timestamp(char *zpResOut, git_repository *zpRepo, git_revwalk *zpRevWalker) {
+zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker) {
     git_oid zOid;
     git_commit *zpCommit = NULL;
-    _i zErrNo = 0, zResLen = 0;
+    _i zErrNo = 0;
+    time_t zTimeStamp = 0;
 
     zErrNo = git_revwalk_next(&zOid, zpRevWalker);
 
@@ -233,15 +234,15 @@ zgit_get_one_commitsig_and_timestamp(char *zpResOut, git_repository *zpRepo, git
             return -1;
         }
 
-        if ('\0' == git_oid_tostr(zpResOut, sizeof(git_oid), &zOid)[0]) {
+        if ('\0' == git_oid_tostr(zpRevSigOUT, sizeof(git_oid), &zOid)[0]) {
             git_commit_free(zpCommit);
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
 
-        zResLen += 42 + snprintf(zpResOut + 41, 64 - 41, "%ld", git_commit_time(zpCommit));
+        zTimeStamp = git_commit_time(zpCommit);
         git_commit_free(zpCommit);
-        return zResLen;
+        return zTimeStamp;
     } else if (GIT_ITEROVER == zErrNo) {
         return 0;
     } else {

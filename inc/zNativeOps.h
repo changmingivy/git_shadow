@@ -64,17 +64,18 @@ typedef struct __zPgLogin__ {
 // ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
 // RevSig  CacheId    HostIp  HostRes(0 Success/-1 Unknown/-2 Fail)  HostTimeSpent  HostDetail
 typedef struct __zDpLog__ {
-    void *_;  // used to kill pthread
-    _i *p_taskCnt;
+    //void *_;  // used to kill pthread
+    //_i *p_taskCnt;
 
     char *p_projId;
     char *p_revSig;
-    char *p_cacheId;  /* use to mark multi dp for the same revSig*/
     char *p_timeStamp;  /* the time when dp finished */
-    char *p_globRes;  /* s/success, S/(fake success), f/fail*/
+    char *p_globRes;  /* s/success, S/(fake Success == 90% * success, etc.), f/fail*/
     char *p_globTimeSpent;
     char *p_totalHostCnt;
     char *p_failedHostCnt;
+
+    char *p_cacheId;  /* use to mark multi dp for the same revSig*/
     char *p_hostIp;
     char *p_hostRes;  /* s/success, u/unknown, f/fail */
     char *p_hostTimeSpent;

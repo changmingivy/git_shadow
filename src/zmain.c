@@ -13,13 +13,8 @@
 #include <time.h>
 #include <errno.h>
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
-
-#ifndef ZRUN_H
 #include "zRun.h"
-#endif
 
 #define UDP 0
 #define TCP 1
