@@ -1249,6 +1249,20 @@ zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
  * 外壳函数
  * 12：布署／撤销
  */
+#define zPg_Alter_Dp_Res(zpPgHandler, zpPgRes, zSQLCmd) do {\
+    zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, zSQLCmd);\
+    if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {\
+        PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);\
+        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, zSQLCmd);\
+        if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {\
+            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));\
+            PQclear(zpPgRes);\
+            PQfinish(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);\
+            exit(1);\
+        }\
+    }\
+} while(0);
+
 static _i
 zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
     /* 系统高负载时，不接受布署请求，保留 20% 的性能提供查询等’读‘操作 */
@@ -1267,9 +1281,11 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
         return -11;
     }
 
-    _i zErrNo, zCommonBufLen;
-    char *zppCommonBuf[2];
-    zRegRes__ *zpHostStrAddrRegRes_;
+    char *zppCommonBuf[2] = {NULL};
+    zRegRes__ *zpHostStrAddrRegRes_ = NULL;
+    PGresult *zpPgRes = NULL;
+    _i zErrNo = 0,
+       zCommonBufLen = 0;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + zpMeta_->dataLen;
@@ -1300,6 +1316,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)  /* 检测是否有新的布署请求 */
                         || ((zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {
+
+                    zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                     return 0;
                 }
 
@@ -1413,6 +1431,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                     return 0;
                 }
             } else {
+                zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
                 return 0;
             }
@@ -1434,6 +1453,7 @@ static _i
 zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
     time_t zTimeSpent = 0;
+    PGresult *zpPgRes = NULL;
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zpMeta_->hostId) {
@@ -1466,6 +1486,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
 
                     // SQL log...
+                zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     if (zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt == zpGlobRepo_[zpMeta_->repoId]->dpTotalTask) {
                         pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
@@ -1502,7 +1523,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
 
     return 0;
 }
-
+#undef zPg_Alter_Dp_Res
 
 /*
  * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务
