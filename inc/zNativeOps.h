@@ -46,7 +46,7 @@
 /* 用于提取原始数据 */
 typedef struct __zBaseData__ {
     struct __zBaseData__ *p_next;
-    _i DataLen;
+    _i dataLen;
     char p_data[];
 } zBaseData__;
 
@@ -55,31 +55,52 @@ typedef struct __zPgLogin__ {
     char * p_host;
     char * p_addr;
     char * p_port;
-    char * p_UserName;
-    char * p_PassFilePath;
-    char * p_DBName;
+    char * p_userName;
+    char * p_passFilePath;
+    char * p_dbName;
 } zPgLogin__;
 
 
-typedef struct __zRepoMetaStr__ {
+// ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
+// RevSig  CacheId    HostIp  HostRes(0 Success/-1 Unknown/-2 Fail)  HostTimeSpent  HostDetail
+typedef struct __zDpLog__ {
     void *_;  // used to kill pthread
-    _i *p_TaskCnt;
+    _i *p_taskCnt;
+
+    char *p_projId;
+    char *p_revSig;
+    char *p_cacheId;  /* use to mark multi dp for the same revSig*/
+    char *p_timeStamp;  /* the time when dp finished */
+    char *p_globRes;  /* s/success, S/(fake success), f/fail*/
+    char *p_globTimeSpent;
+    char *p_totalHostCnt;
+    char *p_failedHostCnt;
+    char *p_hostIp;
+    char *p_hostRes;  /* s/success, u/unknown, f/fail */
+    char *p_hostTimeSpent;
+    char *p_hostDetail;
+} zDpLog__;
+
+
+typedef struct __zRepoMeta__ {
+    void *_;  // used to kill pthread
+    _i *p_taskCnt;
 
     char *p_id;
-    char *p_PathOnHost;
-    char *p_SourceUrl;
-    char *p_SourceBranch;
-    char *p_SourceVcsType;
-    char *p_NeedPull;
-} zRepoMetaStr__;
+    char *p_pathOnHost;
+    char *p_sourceUrl;
+    char *p_sourceBranch;
+    char *p_sourceVcsType;
+    char *p_needPull;
+} zRepoMeta__;
 
 
 typedef struct __zPgRes__ {
-    _i TupleCnt;
-    _i FieldCnt;
-    _i TaskCnt;
+    _i tupleCnt;
+    _i fieldCnt;
+    _i taskCnt;
 
-    zRepoMetaStr__ *p_RepoMetaStr;
+    zRepoMeta__ *p_repoMeta;
 } zPgRes__;
 
 
@@ -88,7 +109,7 @@ struct zNativeOps__ {
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 
-    _i (* proj_init) (zRepoMetaStr__ *);
+    _i (* proj_init) (zRepoMeta__ *);
     void * (* proj_init_all) (zPgLogin__ *);
 
     /* 以 ANSI 字符集中的前 128 位成员作为索引 */

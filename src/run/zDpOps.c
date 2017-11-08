@@ -421,7 +421,7 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
  */
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
-    zRepoMetaStr__ zRepoMetaStr_;
+    zRepoMeta__ zRepoMeta_;
     zRegInit__ *zpRegInit_ = NULL;
     zRegRes__ *zpRegRes_ = NULL;
     _i zErrNo = 0;
@@ -432,18 +432,18 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
 
     if (5 > zpRegRes_->cnt) { return -34; }
 
-    zRepoMetaStr_.p_id = zpRegRes_->p_rets[0];
-    zRepoMetaStr_.p_PathOnHost = zpRegRes_->p_rets[1];
-    zRepoMetaStr_.p_SourceUrl = zpRegRes_->p_rets[2];
-    zRepoMetaStr_.p_SourceBranch = zpRegRes_->p_rets[3];
-    zRepoMetaStr_.p_SourceVcsType = zpRegRes_->p_rets[4];
+    zRepoMeta_.p_id = zpRegRes_->p_rets[0];
+    zRepoMeta_.p_PathOnHost = zpRegRes_->p_rets[1];
+    zRepoMeta_.p_SourceUrl = zpRegRes_->p_rets[2];
+    zRepoMeta_.p_SourceBranch = zpRegRes_->p_rets[3];
+    zRepoMeta_.p_SourceVcsType = zpRegRes_->p_rets[4];
     if (5 == zpRegRes_->cnt) {
-        zRepoMetaStr_.p_NeedPull = NULL;
+        zRepoMeta_.p_NeedPull = NULL;
     } else {
-        zRepoMetaStr_.p_NeedPull = zpRegRes_->p_rets[5];
+        zRepoMeta_.p_NeedPull = zpRegRes_->p_rets[5];
     }
 
-    if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMetaStr_))) {
+    if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
         PGconn *zpPgMetaConn = NULL;
         PGresult *zpPgMetaRes = NULL;
 

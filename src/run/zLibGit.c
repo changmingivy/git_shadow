@@ -193,7 +193,7 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
         return NULL;
     }
 
-    /* zSortType 显示順序：[0]順序、[1]逆序 */
+    /* zSortType 显示順序：[0] git 默认排序，新记录在上、[1]逆序，旧记录在上 */
     if (0 == zSortType) { zSortType = GIT_SORT_TIME; }
     else { zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE; }
 

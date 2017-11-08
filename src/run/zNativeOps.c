@@ -34,7 +34,7 @@ static void *
 zgenerate_cache(void *zpParam);
 
 static _i
-zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr);
+zinit_one_repo_env(zRepoMeta__ *zpRepoMeta);
 
 static void *
 zsys_load_monitor(void *zpParam);
@@ -673,7 +673,7 @@ zMarkSkip:
 
 
 static _i
-zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
+zinit_one_repo_env(zRepoMeta__ *zpRepoMeta_) {
     zRegInit__ *zpRegInit_ = NULL;
     zRegRes__ *zpRegRes_ = NULL;
     _i zRepoId = 0,
@@ -681,7 +681,7 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
        zStrLen = 0;
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
-    zRepoId = strtol(zpRepoMetaStr_->p_id, NULL, 10);
+    zRepoId = strtol(zpRepoMeta_->p_id, NULL, 10);
 
     if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) { return -32; }
     if (NULL != zpGlobRepo_[zRepoId]) { return -35; }
@@ -689,26 +689,26 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zpGlobRepo_[zRepoId], zRepo__, 1);
     zpGlobRepo_[zRepoId]->RepoId = zRepoId;
-    zpGlobRepo_[zRepoId]->SelfPushMark = (NULL == zpRepoMetaStr_->p_NeedPull || 'N' == zpRepoMetaStr_->p_NeedPull[0]) ? 0 : 1;
+    zpGlobRepo_[zRepoId]->SelfPushMark = (NULL == zpRepoMeta_->p_NeedPull || 'N' == zpRepoMeta_->p_NeedPull[0]) ? 0 : 1;
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zPosixReg_.compile(zpRegInit_, "[^/]+[/]*$");
-    zPosixReg_.match(zpRegRes_, zpRegInit_, zpRepoMetaStr_->p_PathOnHost);
+    zPosixReg_.match(zpRegRes_, zpRegInit_, zpRepoMeta_->p_PathOnHost);
     zPosixReg_.free_meta(zpRegInit_);
 
     if (0 == zpRegRes_->cnt) { /* Handle Err ? */ }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
-    zStrLen = strlen(zpRepoMetaStr_->p_PathOnHost);
-    zpRepoMetaStr_->p_PathOnHost[zStrLen - zpRegRes_->ResLen[0]] = '\0';
-    while ('/' == zpRepoMetaStr_->p_PathOnHost[0]) {
-        zpRepoMetaStr_->p_PathOnHost++;  /* 去除多余的 '/' */
+    zStrLen = strlen(zpRepoMeta_->p_PathOnHost);
+    zpRepoMeta_->p_PathOnHost[zStrLen - zpRegRes_->ResLen[0]] = '\0';
+    while ('/' == zpRepoMeta_->p_PathOnHost[0]) {
+        zpRepoMeta_->p_PathOnHost++;  /* 去除多余的 '/' */
     }
     zMem_Alloc(zpGlobRepo_[zRepoId]->p_RepoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zStrLen);
     zpGlobRepo_[zRepoId]->RepoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_RepoPath,
             "%s%s%s/%d/%s",
             "/home/git/",
-            zpRepoMetaStr_->p_PathOnHost,
+            zpRepoMeta_->p_PathOnHost,
             ".____DpSystem",
             zRepoId,
             zpRegRes_->p_rets[0]);
@@ -720,11 +720,11 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
     /* 调用SHELL执行检查和创建 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->RepoPathLen];
     sprintf(zCommonBuf, "sh ${zGitShadowPath}/tools/zmaster_init_repo.sh \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"",
-            zpRepoMetaStr_->p_id,
+            zpRepoMeta_->p_id,
             zpGlobRepo_[zRepoId]->p_RepoPath + 9,
-            zpRepoMetaStr_->p_SourceUrl,
-            zpRepoMetaStr_->p_SourceBranch,
-            zpRepoMetaStr_->p_SourceVcsType);
+            zpRepoMeta_->p_SourceUrl,
+            zpRepoMeta_->p_SourceBranch,
+            zpRepoMeta_->p_SourceVcsType);
 
     /* system 返回的是与 waitpid 中的 status 一样的值，需要用宏 WEXITSTATUS 提取真正的错误码 */
     zErrNo = WEXITSTATUS( system(zCommonBuf) );
@@ -741,13 +741,13 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
 
     /* 检测并生成项目代码定期更新命令 */
     char zPullCmdBuf[zGlobCommonBufSiz];
-    if (0 == strcmp("git", zpRepoMetaStr_->p_SourceVcsType)) {
+    if (0 == strcmp("git", zpRepoMeta_->p_SourceVcsType)) {
         zStrLen = sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
-                zpRepoMetaStr_->p_SourceUrl,
-                zpRepoMetaStr_->p_SourceBranch,
+                zpRepoMeta_->p_SourceUrl,
+                zpRepoMeta_->p_SourceBranch,
                 zRepoId);
-    } else if (0 == strcmp("svn", zpRepoMetaStr_->p_SourceVcsType)) {
+    } else if (0 == strcmp("svn", zpRepoMeta_->p_SourceVcsType)) {
         zStrLen = sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
                 " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
                 zpGlobRepo_[zRepoId]->p_RepoPath,
@@ -863,7 +863,7 @@ zinit_one_repo_env(zRepoMetaStr__ *zpRepoMetaStr_) {
 
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
 
-    (* (zpRepoMetaStr_->p_TaskCnt)) ++;
+    (* (zpRepoMeta_->p_TaskCnt)) ++;
     pthread_mutex_unlock(&zGlobCommonLock);
     pthread_cond_signal(&zGlobCommonCond);
 
@@ -877,7 +877,7 @@ static void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
     _i zErrNo = 0;
 
-    if (0 > (zErrNo = zinit_one_repo_env((zRepoMetaStr__ *) zpParam))) {
+    if (0 > (zErrNo = zinit_one_repo_env((zRepoMeta__ *) zpParam))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
     }
 
@@ -1003,26 +1003,31 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     zPgRes_.TupleCnt = PQntuples(zpPgMetaRes);
     zPgRes_.FieldCnt = PQnfields(zpPgMetaRes);
 
-    zMem_Alloc(zPgRes_.p_RepoMetaStr, sizeof(zRepoMetaStr__), zPgRes_.TupleCnt);
+    if (0 == zPgRes_.TupleCnt) {
+        zPrint_Err(0, NULL, "No valid repo found!");
+        goto zMarkNotFound;
+    }
+
+    zMem_Alloc(zPgRes_.p_RepoMeta, sizeof(zRepoMeta__), zPgRes_.TupleCnt);
 
     /* 只在每次启动时执行一次，非效率瓶颈 */
     for (zCnter[0] = 0; zCnter[0] < zTupleCnt; zCnter[0]++) {
         for (zCnter[1] = 0; zCnter[1] < zFieldCnt; zCnter[1]++) {
-            zPgRes_.p_RepoMetaStr[zCnter[0]].p_TaskCnt = &zPgRes_.TaskCnt;
+            zPgRes_.p_RepoMeta[zCnter[0]].p_TaskCnt = &zPgRes_.TaskCnt;
 
             zpFieldName = PQfname(zpPgMetaRes, zCnter[1]);
             if (0 == strcmp("ProjId", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_id = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_id = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else if (0 == strcmp("PathOnHost", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_PathOnHost = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_PathOnHost = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else if (0 == strcmp("SourceUrl", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceUrl = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_SourceUrl = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else if (0 == strcmp("SourceBranch", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceBranch = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_SourceBranch = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else if (0 == strcmp("SourceVcsType", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_SourceVcsType = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_SourceVcsType = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else if (0 == strcmp("NeedPull", zpFieldName)) {
-                zPgRes_.p_RepoMetaStr[zCnter[0]].p_NeedPull = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
+                zPgRes_.p_RepoMeta[zCnter[0]].p_NeedPull = PQgetvalue(zpPgMetaRes, zCnter[1], zCnter[0]);
             } else {
                 sprintf(zErrBuf, "\033[31;01m[pgSQL]\nUnknown field: %s\033[00m", zpFieldName);
                 zPrint_Err(0, NULL, zErrBuf);
@@ -1031,7 +1036,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     }
 
     for (zCnter[0] = 0; zPgRes_.TupleCnt > zCnter[0]; zCnter[0]++) {
-        zThreadPool_.add(zinit_one_repo_env_thread_wraper, &(zPgRes_.p_RepoMetaStr[zCnter[0]]));
+        zThreadPool_.add(zinit_one_repo_env_thread_wraper, &(zPgRes_.p_RepoMeta[zCnter[0]]));
     }
 
     pthread_mutex_lock(&zGlobCommonLock);
@@ -1041,7 +1046,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     pthread_mutex_unlock(&zGlobCommonLock);
 
     /* 清理资源占用，创建新项目时，需要重新建立连接 */
-    free(zPgRes_.p_RepoMetaStr);
+    free(zPgRes_.p_RepoMeta);
+zMarkNotFound:
     PQclear(zpPgMetaRes);
     PQfinish(zpPgMetaConn);
 

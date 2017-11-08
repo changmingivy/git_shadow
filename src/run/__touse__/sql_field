@@ -4,8 +4,8 @@ int     string      string     string        string         char(Y/N)
 
 table2: tb_dp_log_<ProjId>
 ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
-int     string  bigint     char                 int            int           int
+int     string  bigint     char                                         int            int           int
 
 table2: tb_dp_log_detail_<ProjId>
-RevSig  TimeStamp  HostIp  Res(0 Success/-1 Unknown/-2 Fail)  TimeSpent  Detail
+RevSig  CacheId    HostIp  HostRes(0 Success/-1 Unknown/-2 Fail)  HostTimeSpent  HostDetail
 string  bigint     string  smallint                           int        string
