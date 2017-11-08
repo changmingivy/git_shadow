@@ -20,27 +20,27 @@
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zReset_Mem_Pool_State(zRepoId) do {\
-    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->MemLock));\
+    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->memLock));\
     \
-    void **zppPrev = zpGlobRepo_[zRepoId]->p_MemPool;\
+    void **zppPrev = zpGlobRepo_[zRepoId]->p_memPool;\
     while(NULL != zppPrev[0]) {\
         zppPrev = zppPrev[0];\
-        munmap(zpGlobRepo_[zRepoId]->p_MemPool, zMemPoolSiz);\
-        zpGlobRepo_[zRepoId]->p_MemPool = zppPrev;\
+        munmap(zpGlobRepo_[zRepoId]->p_memPool, zMemPoolSiz);\
+        zpGlobRepo_[zRepoId]->p_memPool = zppPrev;\
     }\
-    zpGlobRepo_[zRepoId]->MemPoolOffSet = sizeof(void *);\
-    /* memset(zpGlobRepo_[zRepoId]->p_MemPool, 0, zMemPoolSiz); */\
+    zpGlobRepo_[zRepoId]->memPoolOffSet = sizeof(void *);\
+    /* memset(zpGlobRepo_[zRepoId]->p_memPool, 0, zMemPoolSiz); */\
     \
-    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->MemLock));\
+    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->memLock));\
 } while(0)
 
 
 /* 用于提取深层对象 */
-#define zGet_OneCommitVecWrap_(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_RefData_[zCommitId].p_SubVecWrap_)
-#define zGet_OneFileVecWrap_(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_RefData_[zCommitId].p_SubVecWrap_->p_RefData_[zFileId].p_SubVecWrap_)
+#define zGet_OneCommitVecWrap_(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_)
+#define zGet_OneFileVecWrap_(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_->p_refData_[zFileId].p_subVecWrap_)
 
-#define zGet_OneCommitSig(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_RefData_[zCommitId].p_data)
-#define zGet_OneFilePath(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_RefData_[zCommitId].p_SubVecWrap_->p_RefData_[zFileId].p_data)
+#define zGet_OneCommitSig(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_data)
+#define zGet_OneFilePath(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_->p_refData_[zFileId].p_data)
 
 
 /* 用于提取原始数据 */

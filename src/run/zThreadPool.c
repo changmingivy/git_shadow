@@ -25,8 +25,8 @@ struct zThreadPool__ zThreadPool_ = {
 };
 
 typedef struct zThreadTask__ {
-    pthread_t SelfTid;
-    pthread_cond_t CondVar;
+    pthread_t selfTid;
+    pthread_cond_t condVar;
 
     void * (* func) (void *);
 
@@ -43,7 +43,7 @@ static pthread_t zThreadPoolTidTrash;
 static void
 zthread_canceled_cleanup(void *zp_) {
     zThreadTask__ *zpSelfTask = (zThreadTask__ *) zp_;
-    pthread_cond_destroy(&(zpSelfTask->CondVar));
+    pthread_cond_destroy(&(zpSelfTask->condVar));
     free(zpSelfTask);
 }
 
@@ -51,10 +51,10 @@ static void *
 zthread_pool_meta_func(void *zp_) {
     zThreadTask__ *zpSelfTask;
     zMem_C_Alloc(zpSelfTask, zThreadTask__, 1);  // 分配已清零的空间
-    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->CondVar), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
 
-    zpSelfTask->SelfTid = pthread_self();
-    pthread_detach(zpSelfTask->SelfTid);
+    zpSelfTask->selfTid = pthread_self();
+    pthread_detach(zpSelfTask->selfTid);
 
     /* 线程可被cancel，且cancel属性设置为立即退出 */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
@@ -67,7 +67,7 @@ zMark:
     if (zStackHeader < zThreadPollSizMark) {
         zpPoolStack_[++zStackHeader] = zpSelfTask;
         while (NULL == zpSelfTask->func) {
-            pthread_cond_wait( &(zpSelfTask->CondVar), &zStackHeaderLock );
+            pthread_cond_wait( &(zpSelfTask->condVar), &zStackHeaderLock );
         }
         pthread_mutex_unlock(&zStackHeaderLock);
 
@@ -89,7 +89,7 @@ zMark:
         goto zMark;
     } else {  // 太多空闲线程时，回收资源
         pthread_mutex_unlock(&zStackHeaderLock);
-        pthread_cond_destroy(&(zpSelfTask->CondVar));
+        pthread_cond_destroy(&(zpSelfTask->condVar));
         free(zpSelfTask);
         return (void *) -1;
     }
@@ -121,5 +121,5 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
     zpPoolStack_[zStackHeader]->p_param = zpParam;
     zStackHeader--;
     pthread_mutex_unlock(&zStackHeaderLock);
-    pthread_cond_signal(&(zpPoolStack_[zKeepStackHeader]->CondVar));
+    pthread_cond_signal(&(zpPoolStack_[zKeepStackHeader]->condVar));
 }

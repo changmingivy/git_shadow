@@ -55,7 +55,7 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
     if (NULL == zpRegRes_Out->alloc_fn) {
         zMem_Alloc(zpRegRes_Out->p_rets[0], char, 2 * zDynSubjectlen);
     } else {
-        zpRegRes_Out->p_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->RepoId, zBytes(2 * zDynSubjectlen));
+        zpRegRes_Out->p_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->repoId, zBytes(2 * zDynSubjectlen));
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
@@ -73,7 +73,7 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
         zResStrLen = zMatchRes_.rm_eo - zMatchRes_.rm_so;
         if (0 == zResStrLen) { break; }
 
-        zpRegRes_Out->ResLen[zpRegRes_Out->cnt] = zResStrLen;
+        zpRegRes_Out->resLen[zpRegRes_Out->cnt] = zResStrLen;
         zpRegRes_Out->cnt++;
 
         zpRegRes_Out->p_rets[zCnter] = zpRegRes_Out->p_rets[0] + zOffSet;

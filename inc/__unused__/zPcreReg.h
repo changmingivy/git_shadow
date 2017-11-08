@@ -10,16 +10,16 @@
 #define zMatchMax 1024
 typedef struct {
     char *p_rets[zMatchMax];  //matched results
-    _ui ResLen[zMatchMax];  // results' strlen
+    _ui resLen[zMatchMax];  // results' strlen
     _ui cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (_i, size_t);
-    _i RepoId;
+    _i repoId;
 } zPcreRes__;
 
 typedef struct {
     pcre2_code *p_pd;
-    pcre2_match_data *p_MatchData;
+    pcre2_match_data *p_matchData;
 } zPcreInit__ ;
 
 struct zPcreReg__ {

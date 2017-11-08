@@ -100,12 +100,12 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[15] = NULL;
 
     /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_IpAddr, zpNetSrv_->p_port, zpNetSrv_->zServType);
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zpNetSrv_->servType);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
     for (_ui zCnter = 0;; zCnter++) {
-        if (-1 == (zSockAcceptParam_[zCnter % 64].ConnSd = accept(zMajorSd, NULL, 0))) {
+        if (-1 == (zSockAcceptParam_[zCnter % 64].connSd = accept(zMajorSd, NULL, 0))) {
             zPrint_Err(errno, "-1 == accept(...)", NULL);
         } else {
             zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
@@ -119,7 +119,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
  */
 static void *
 zops_route(void *zpParam) {
-    _i zSd = ((zSockAcceptParam__ *) zpParam)->ConnSd;
+    _i zSd = ((zSockAcceptParam__ *) zpParam)->connSd;
     _i zErrNo;
     char zJsonBuf[zGlobCommonBufSiz] = {'\0'};
     char *zpJsonBuf = zJsonBuf;
@@ -129,45 +129,45 @@ zops_route(void *zpParam) {
     memset(&zMeta_, 0, sizeof(zMeta__));
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zGlobCommonBufSiz == (zMeta_.DataLen = recv(zSd, zpJsonBuf, zGlobCommonBufSiz, 0))) {
+    if (zGlobCommonBufSiz == (zMeta_.dataLen = recv(zSd, zpJsonBuf, zGlobCommonBufSiz, 0))) {
         zMem_C_Alloc(zpJsonBuf, char, zGlobCommonBufSiz * 1024);  // 用清零的空间，保障正则匹配不出现混乱
         strcpy(zpJsonBuf, zJsonBuf);
-        zMeta_.DataLen += recv(zSd, zpJsonBuf + zMeta_.DataLen, zGlobCommonBufSiz * 1024 - zMeta_.DataLen, 0);
+        zMeta_.dataLen += recv(zSd, zpJsonBuf + zMeta_.dataLen, zGlobCommonBufSiz * 1024 - zMeta_.dataLen, 0);
     }
 
-    if (zBytes(6) > zMeta_.DataLen) {
+    if (zBytes(6) > zMeta_.dataLen) {
         close(zSd);
         zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
         return NULL;
     }
 
-    /* .p_data 与 .p_ExtraData 成员空间 */
-    zMeta_.DataLen += (zMeta_.DataLen > zGlobCommonBufSiz) ? zMeta_.DataLen : zGlobCommonBufSiz;
-    zMeta_.ExtraDataLen = zGlobCommonBufSiz;
-    char zDataBuf[zMeta_.DataLen], zExtraDataBuf[zMeta_.ExtraDataLen];
-    memset(zDataBuf, 0, zMeta_.DataLen);
-    memset(zExtraDataBuf, 0, zMeta_.ExtraDataLen);
+    /* .p_data 与 .p_extraData 成员空间 */
+    zMeta_.dataLen += (zMeta_.dataLen > zGlobCommonBufSiz) ? zMeta_.dataLen : zGlobCommonBufSiz;
+    zMeta_.extraDataLen = zGlobCommonBufSiz;
+    char zDataBuf[zMeta_.dataLen], zExtraDataBuf[zMeta_.extraDataLen];
+    memset(zDataBuf, 0, zMeta_.dataLen);
+    memset(zExtraDataBuf, 0, zMeta_.extraDataLen);
     zMeta_.p_data = zDataBuf;
-    zMeta_.p_ExtraData = zExtraDataBuf;
+    zMeta_.p_extraData = zExtraDataBuf;
 
     if (0 > (zErrNo = zDpOps_.json_to_struct(zpJsonBuf, &zMeta_))) {
-        zMeta_.OpsId = zErrNo;
+        zMeta_.opsId = zErrNo;
         goto zMarkCommonAction;
     }
 
-    if (0 > zMeta_.OpsId || 16 <= zMeta_.OpsId || NULL == zRun_.ops[zMeta_.OpsId]) {
-        zMeta_.OpsId = -1;  // 此时代表错误码
+    if (0 > zMeta_.opsId || 16 <= zMeta_.opsId || NULL == zRun_.ops[zMeta_.opsId]) {
+        zMeta_.opsId = -1;  // 此时代表错误码
         goto zMarkCommonAction;
     }
 
-    if ((1 != zMeta_.OpsId) && (5 != zMeta_.OpsId)
-            && ((zGlobMaxRepoId < zMeta_.RepoId) || (0 >= zMeta_.RepoId) || (NULL == zpGlobRepo_[zMeta_.RepoId]))) {
-        zMeta_.OpsId = -2;  // 此时代表错误码
+    if ((1 != zMeta_.opsId) && (5 != zMeta_.opsId)
+            && ((zGlobMaxRepoId < zMeta_.repoId) || (0 >= zMeta_.repoId) || (NULL == zpGlobRepo_[zMeta_.repoId]))) {
+        zMeta_.opsId = -2;  // 此时代表错误码
         goto zMarkCommonAction;
     }
 
-    if (0 > (zErrNo = zRun_.ops[zMeta_.OpsId](&zMeta_, zSd))) {
-        zMeta_.OpsId = zErrNo;  // 此时代表错误码
+    if (0 > (zErrNo = zRun_.ops[zMeta_.opsId](&zMeta_, zSd))) {
+        zMeta_.opsId = zErrNo;  // 此时代表错误码
 zMarkCommonAction:
         zDpOps_.struct_to_json(zpJsonBuf, &zMeta_);
         zpJsonBuf[0] = '[';

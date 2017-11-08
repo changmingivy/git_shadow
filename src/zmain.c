@@ -31,14 +31,14 @@ zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
 _i
 main(_i zArgc, char **zppArgv) {
     zPgLogin__ zPgLogin_ = {NULL, NULL, NULL, NULL, NULL, NULL};
-    zNetSrv_.zServType = TCP;
+    zNetSrv_.servType = TCP;
 
     for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"));) {
         switch (zOpt) {
             case 'u':
-                zNetSrv_.zServType = UDP; break;
+                zNetSrv_.servType = UDP; break;
             case 'h':
-                zNetSrv_.p_IpAddr = optarg; break;
+                zNetSrv_.p_ipAddr = optarg; break;
             case 'p':
                 zNetSrv_.p_port = optarg; break;
             case 'H':
@@ -48,11 +48,11 @@ main(_i zArgc, char **zppArgv) {
             case 'P':
                 zPgLogin_.p_port = optarg; break;
             case 'U':
-                zPgLogin_.p_UserName = optarg; break;
+                zPgLogin_.p_userName = optarg; break;
             case 'F':
-                zPgLogin_.p_PassFilePath = optarg; break;
+                zPgLogin_.p_passFilePath = optarg; break;
             case 'D':
-                zPgLogin_.p_DBName = optarg; break;
+                zPgLogin_.p_dbName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPrint_Time();
                 fprintf(stderr,

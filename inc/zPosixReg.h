@@ -5,9 +5,9 @@
 #include "zCommon.h"
 
 #define zMatchLimit 1024
-typedef struct {
+typedef struct __zRegRes__ {
     char *p_rets[zMatchLimit];  //matched results
-    _ui ResLen[zMatchLimit];  // results' strlen
+    _ui resLen[zMatchLimit];  // results' strlen
     _ui cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (_i, _ui);
