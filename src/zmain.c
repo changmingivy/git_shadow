@@ -51,19 +51,18 @@ main(_i zArgc, char **zppArgv) {
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPrint_Time();
                 fprintf(stderr,
-                        "\033[31;01m"
-                        "Invalid option: %c\n"
-                        "Usage: %s\n"
-                        "[-u] /* UDP or TCP */\n"
-                        "[-h host] /* host name or domain name or host IPv4 address */\n"
-                        "[-p tcp_port] /* tcp serv port */\n"
-                        "[-H postgreSQL_host] /* PQdb host name or domain name, default 'localhost' */\n"
-                        "[-A postgreSQL_addr ] /* PQdb host IPv4 addr, if exist, '-H' will be ignored */\n"
-                        "[-P postgreSQL_port] /* PQdb host serv port, default '5432' */\n"
-                        "[-U postgreSQL_username] /* PQdb login name, default 'dpDB' */\n"
-                        "[-F postgreSQL_passfile] /* PQdb pass file, default '$HOME/.pgpass' */\n"
-                        "[-D postgreSQL_DBname] /* which PQdb database to login, default 'git' */\n"
-                        "\033[00m\n",
+                        "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
+                        "Usage:\n"
+                        "%s\n"
+                        "[-u]  /* UDP or TCP */\n"
+                        "[-h host]  /* host name or domain name or host IPv4 address */\n"
+                        "[-p tcp_port]  /* tcp serv port */\n"
+                        "[-H postgreSQL_host]  /* PQdb host name or domain name, default 'localhost' */\n"
+                        "[-A postgreSQL_addr ]  /* PQdb host IPv4 addr, if exist, '-H' will be ignored */\n"
+                        "[-P postgreSQL_port]  /* PQdb host serv port, default '5432' */\n"
+                        "[-U postgreSQL_username]  /* PQdb login name, default 'dpDB' */\n"
+                        "[-F postgreSQL_passfile]  /* PQdb pass file, default '$HOME/.pgpass' */\n"
+                        "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'git' */\n",
                         optopt, zppArgv[0]);
                 _exit(1);
            }
