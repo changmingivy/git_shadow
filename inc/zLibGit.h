@@ -10,7 +10,7 @@ struct zLibGit__ {
     git_repository * (* env_init) (char *);
     void (* env_clean) (git_repository *);
 
-    _i (* remote_push) (git_repository *, char *, char **, _i);
+    _i (* remote_push) (git_repository *, char *, char **, _i, char *);
 
     zGitRevWalk__ * (* generate_revwalker) (git_repository *, char *, _i);
     void (* destroy_revwalker) (git_revwalk *);

@@ -11,7 +11,7 @@ static void
 zgit_env_clean(git_repository *zpRepoCredHandler);
 
 static _i
-zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt);
+zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
 
 static zGitRevWalk__ *
 zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType);
@@ -129,12 +129,17 @@ zgit_cred_acquire_cb(git_cred **zppResOUT, const char *zpUrl __attribute__ ((__u
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 static _i
-zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
+zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     };
 
@@ -145,7 +150,12 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
         git_remote_free(zRemote);
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
@@ -162,7 +172,12 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
@@ -170,7 +185,8 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     // if (0 != git_remote_update_tips(zRemote, &zConnOpts, 0, 0, NULL)) {
     //     git_remote_disconnect(zRemote);
     //     git_remote_free(zRemote);
-    //     zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+    //    strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+    //    zpErrBufOUT[255] = '\0';
     //     return -1;
     // }
 

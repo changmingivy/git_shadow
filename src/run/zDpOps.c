@@ -140,11 +140,12 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
 
 // static void *
 // zssh_ccur(void  *zpParam) {
+//     char zErrBuf[256] = {'\0'};
 //     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 //
 //     zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort, zpDpCcur_->p_cmd,
 //             zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
-//             zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz, zpDpCcur_->p_ccurLock);
+//             zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz, zpDpCcur_->p_ccurLock, zErrBuf);
 //
 //     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
 //     (* (zpDpCcur_->p_taskCnt))++;
@@ -157,17 +158,18 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
 
 /* 简化参数版函数 */
 static _i
-zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
-    return zLibSsh_.exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock);
+zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
+    return zLibSsh_.exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock, zpErrBufOUT);
 }
 
 
 /* 简化参数版函数 */
 // static void *
 // zssh_ccur_simple(void  *zpParam) {
+//     char zErrBuf[256] = {'\0'};
 //     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 //
-//     zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock);
+//     zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock, zErrBuf);
 //
 //     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
 //     (* (zpDpCcur_->p_taskCnt))++;
@@ -181,17 +183,19 @@ zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock) {
 /* 远程主机初始化专用 */
 static void *
 zssh_ccur_simple_init_host(void  *zpParam) {
+    char zErrBuf[256] = {'\0'};
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
     _ui zHostId = zNetUtils_.to_bin(zpDpCcur_->p_hostIpStrAddr);
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId % zDpHashSiz];
     for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
         if (zHostId == zpTmp_->clientAddr) {
-            if (0 == zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock)) {
+            if (0 == zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock, zErrBuf)) {
                 zpTmp_->initState = 1;
             } else {
                 zpTmp_->initState = -1;
                 zpGlobRepo_[zpDpCcur_->repoId]->resType[0] = -1;
+                strcpy(zpTmp_->errMsg, zErrBuf);
             }
 
             pthread_mutex_lock(zpDpCcur_->p_ccurLock);
@@ -214,8 +218,10 @@ zssh_ccur_simple_init_host(void  *zpParam) {
         if (____zHostId == ____zpTmp_->clientAddr) {\
             pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
             ____zpTmp_->dpState = -1;\
-            zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt = zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
             zpGlobRepo_[zpDpCcur_->repoId]->resType[1] = -1;\
+            strcpy(____zpTmp_->errMsg, zErrBuf);\
+\
+            zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt = zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
             pthread_cond_signal(zpGlobRepo_[zpDpCcur_->repoId]->p_dpCcur_->p_ccurCond);\
             pthread_mutex_unlock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
             break;\
@@ -228,6 +234,7 @@ static void *
 zgit_push_ccur(void *zp_) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp_;
 
+    char zErrBuf[256] = {'\0'};
     char zRemoteRepoAddrBuf[64 + zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
     char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
     zpGitRefs[0] = zGitRefsBuf[0];
@@ -249,7 +256,7 @@ zgit_push_ccur(void *zp_) {
     /* {'+' == git push --force} push TWO branchs together */
     sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcur_->repoId);
     sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcur_->repoId);
-    if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2)) {
+    if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
         sprintf(zCmdBuf,
@@ -275,9 +282,9 @@ zgit_push_ccur(void *zp_) {
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
                 zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath
                 );
-        if (0 == zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zCmdBuf, &(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock))) {
+        if (0 == zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zCmdBuf, &(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock), zErrBuf)) {
             /* if init-ops success, then try deploy once more... */
-            if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2)) { zNative_Fail_Confirm(); }
+            if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, zErrBuf)) { zNative_Fail_Confirm(); }
         } else {
             zNative_Fail_Confirm();
         }
