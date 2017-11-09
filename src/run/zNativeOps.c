@@ -35,7 +35,7 @@ static void *
 zgenerate_cache(void *zpParam);
 
 static _i
-zinit_one_repo_env(zRepoMeta__ *zpRepoMeta);
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta);
 
 static void *
 zsys_load_monitor(void *zpParam);
@@ -577,27 +577,28 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = zCnter;
 
     } else if (zIsDpDataType == zpMeta_->dataType) {
-        PGresult *zpPgRes = NULL;
+        zPgResHd__ *zpPgResHd_ = NULL;
+        zPgRes__ *zpPgRes_ = NULL;
 
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->dpVecWrap_);
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 执行 SQL cmd */
-        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64");  // TO DO: SQL cmd
-        if (PGRES_TUPLES_OK != PQresultStatus(zpPgRes)) {
-            PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_,
+                        "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64", true))) {  // TO DO: SQL cmd
+            zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
-            zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64");  // TO DO: SQL cmd
-            if (PGRES_TUPLES_OK != PQresultStatus(zpPgRes)) {
-                zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));
-                PQclear(zpPgRes);
-                PQfinish(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64", true))) {
+                zPgSQL_.res_clear(zpPgResHd_, NULL);
+                zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+                zPrint_Err(0, NULL, "!!! FATAL !!!");
                 exit(1);
             }
         }
 
         /* 存储的是实际的对象数量 */
-        zpTopVecWrap_->vecSiz = PQntuples(zpPgRes);
+        zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
+        zpTopVecWrap_->vecSiz = zpPgRes_->tupleCnt;
         zpSortedTopVecWrap_->vecSiz
             = zpTopVecWrap_->vecSiz
             = (zCacheSiz < zpTopVecWrap_->vecSiz) ? zCacheSiz : zpTopVecWrap_->vecSiz;
@@ -606,14 +607,14 @@ zgenerate_cache(void *zpParam) {
             zDpLog_[zCnter].p_revSig = zalloc_cache(zpMeta_->repoId, zBytes(64));
             zDpLog_[zCnter].p_timeStamp = zDpLog_[zCnter].p_revSig + 44;
 
-            strncpy(zDpLog_[zCnter].p_revSig, PQgetvalue(zpPgRes, 0, 0), 40);
+            strncpy(zDpLog_[zCnter].p_revSig, zpPgRes_->tupleRes_->pp_fields[0], 40);
             zDpLog_[zCnter].p_revSig[40] = '\0';
 
-            strncpy(zDpLog_[zCnter].p_timeStamp, PQgetvalue(zpPgRes, 0, 1), 20);
+            strncpy(zDpLog_[zCnter].p_timeStamp, zpPgRes_->tupleRes_->pp_fields[1], 20);
             zDpLog_[zCnter].p_timeStamp[20] = '\0';  // 确保至少存在一个 '\0'
         }
 
-        PQclear(zpPgRes);
+        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     } else {
         zPrint_Err(0, NULL, "数据类型错误!");
         exit(1);
@@ -910,9 +911,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     zGlobMaxRepoId = zRepoId > zGlobMaxRepoId ? zRepoId : zGlobMaxRepoId;
 
-    (* (zpRepoMeta_->p_taskCnt)) ++;
-    pthread_mutex_unlock(&zGlobCommonLock);
-    pthread_cond_signal(&zGlobCommonCond);
+    if (NULL == zpRepoMeta_->p_taskCnt) {
+        pthread_mutex_unlock(&zGlobCommonLock);
+    } else {
+        (* (zpRepoMeta_->p_taskCnt)) ++;
+        pthread_mutex_unlock(&zGlobCommonLock);
+        pthread_cond_signal(&zGlobCommonCond);
+    }
 
     return 0;
 }
@@ -977,17 +982,13 @@ zparse_str(void *zpIn, void *zpOut) {
 /* 读取项目信息，初始化配套环境 */
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_) {
-    char zDBPassFilePath[1024], zErrBuf[256];
-    char *zpHomePath = NULL, *zpFieldName = NULL;
+    char zDBPassFilePath[1024];
+    char *zpHomePath = NULL;
     struct stat zStat_;
 
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
-
-    _i zFieldCnt = 0,
-       zTupleCnt = 0,
-       zCnter[2] = {0};
 
     /* 确保 pgSQL 密钥文件存在并合法 */
     if (NULL == zpPgLogin_->p_passFilePath) {

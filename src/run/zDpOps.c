@@ -16,6 +16,7 @@ extern struct zNativeOps__ zNativeOps_;
 extern struct zNativeUtils__ zNativeUtils_;
 extern struct zPosixReg__ zPosixReg_;
 extern struct zThreadPool__ zThreadPool_;
+extern struct zPgSQL__ zPgSQL_;
 
 static _i
 zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_);
@@ -428,54 +429,51 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
  */
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
-    zRepoMeta__ zRepoMeta_;
     zRegInit__ *zpRegInit_ = NULL;
     zRegRes__ *zpRegRes_ = NULL;
     _i zErrNo = 0;
+
+    zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
+    zPgConnHd__ *zpPgConnHd_ = NULL;
+    zPgResHd__ *zpPgResHd_ = NULL;
 
     zPosixReg_.compile(zpRegInit_, "(\\w|[[:punct:]])+");
     zPosixReg_.match(zpRegRes_, zpRegInit_, zpMeta_->p_data);
     zPosixReg_.free_meta(zpRegInit_);
 
     if (5 > zpRegRes_->cnt) { return -34; }
+    char *zpStrPtr[zpRegRes_->cnt];
+    zRepoMeta_.pp_fields = zpStrPtr;
 
-    zRepoMeta_.p_id = zpRegRes_->p_rets[0];
-    zRepoMeta_.p_pathOnHost = zpRegRes_->p_rets[1];
-    zRepoMeta_.p_sourceUrl = zpRegRes_->p_rets[2];
-    zRepoMeta_.p_sourceBranch = zpRegRes_->p_rets[3];
-    zRepoMeta_.p_sourceVcsType = zpRegRes_->p_rets[4];
+    zRepoMeta_.pp_fields[0] = zpRegRes_->p_rets[0];
+    zRepoMeta_.pp_fields[1] = zpRegRes_->p_rets[1];
+    zRepoMeta_.pp_fields[2] = zpRegRes_->p_rets[2];
+    zRepoMeta_.pp_fields[3] = zpRegRes_->p_rets[3];
+    zRepoMeta_.pp_fields[4] = zpRegRes_->p_rets[4];
     if (5 == zpRegRes_->cnt) {
-        zRepoMeta_.p_needPull = NULL;
+        zRepoMeta_.pp_fields[5]= NULL;
     } else {
-        zRepoMeta_.p_needPull = zpRegRes_->p_rets[5];
+        zRepoMeta_.pp_fields[5]= zpRegRes_->p_rets[5];
     }
 
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
-        PGconn *zpPgMetaConn = NULL;
-        PGresult *zpPgMetaRes = NULL;
-
         /* 连接 pgSQL server */
-        zpPgMetaConn = PQconnectdb(zGlobPgConnInfo);
-        if (CONNECTION_OK != PQstatus(zpPgMetaConn)) {
-            zPrint_Err(0, NULL, PQerrorMessage(zpPgMetaConn));
-            PQfinish(zpPgMetaConn);
+        if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
+            zPgSQL_.conn_clear(zpPgConnHd_);
             zErrNo = -31;
             goto zMarkEnd;
         }
 
         /* 执行 SQL cmd */
-        zpPgMetaRes = PQexec(zpPgMetaConn, "...");  // TO DO: SQL command
-        if (PGRES_COMMAND_OK != PQresultStatus(zpPgMetaRes)) {
-            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgMetaRes));
-            PQclear(zpPgMetaRes);
-            PQfinish(zpPgMetaConn);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, "...", false))) {  // TO DO: SQL command
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpPgConnHd_);
             zErrNo = -31;
             goto zMarkEnd;
         }
 
+        zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     }
-
-    zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
 
 zMarkEnd:
     zPosixReg_.free_res(zpRegRes_);
@@ -819,7 +817,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 \
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
+            &zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpMeta_->repoId,\
@@ -1208,15 +1206,15 @@ zErrMark:
 
 zEndMark:;
     /* 无论布署成败，都写入 pgSQL 日志表: db_dp_log_<ProjId> */
-    PGresult *zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "");  // TO DO: SQL cmd
-    if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {
-        PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+    zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "...", false);  // TO DO: SQL cmd
+    if (NULL == zpPgResHd_) {
+        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+        zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "...", false);  // TO DO: SQL cmd
 
-        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, "");  // TO DO: SQL cmd
-        if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {
-            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));
-            PQclear(zpPgRes);
-            PQfinish(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);
+        if (NULL == zpPgResHd_) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+            zPrint_Err(0, NULL, "!!! FATAL !!!");
             exit(1);
         }
     }
@@ -1249,20 +1247,6 @@ zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
  * 外壳函数
  * 12：布署／撤销
  */
-#define zPg_Alter_Dp_Res(zpPgHandler, zpPgRes, zSQLCmd) do {\
-    zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, zSQLCmd);\
-    if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {\
-        PQreset(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);\
-        zpPgRes = PQexec(zpGlobRepo_[zpMeta_->repoId]->p_pgConn, zSQLCmd);\
-        if (PGRES_COMMAND_OK != PQresultStatus(zpPgRes)) {\
-            zPrint_Err(0, NULL, PQresultErrorMessage(zpPgRes));\
-            PQclear(zpPgRes);\
-            PQfinish(zpGlobRepo_[zpMeta_->repoId]->p_pgConn);\
-            exit(1);\
-        }\
-    }\
-} while(0);
-
 static _i
 zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
     /* 系统高负载时，不接受布署请求，保留 20% 的性能提供查询等’读‘操作 */
@@ -1283,9 +1267,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
 
     char *zppCommonBuf[2] = {NULL};
     zRegRes__ *zpHostStrAddrRegRes_ = NULL;
-    PGresult *zpPgRes = NULL;
-    _i zErrNo = 0,
-       zCommonBufLen = 0;
+    _i zErrNo = 0, zCommonBufLen = 0;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + zpMeta_->dataLen;
@@ -1317,7 +1299,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)  /* 检测是否有新的布署请求 */
                         || ((zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {
 
-                    zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
+                    //zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                     return 0;
                 }
 
@@ -1431,7 +1413,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                     return 0;
                 }
             } else {
-                zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
+                //zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
                 return 0;
             }

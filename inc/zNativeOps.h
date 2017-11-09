@@ -101,7 +101,7 @@ struct zNativeOps__ {
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 
-    _i (* proj_init) (zRepoMeta__ *);
+    _i (* proj_init) (zPgResTuple__ *);
     void * (* proj_init_all) (zPgLogin__ *);
 
     /* 以 ANSI 字符集中的前 128 位成员作为索引 */
