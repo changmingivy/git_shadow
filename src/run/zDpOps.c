@@ -817,7 +817,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 \
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            &zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
             zpMeta_->repoId,\
@@ -1371,7 +1371,11 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp = time(NULL);
 
             /* 在执行动作之前再检查一次布署结果，防止重新初始化的时间里已全部返回成功状态，从而造成无用的布署重试 */
-            if (zpGlobRepo_[zpMeta_->repoId]->totalHost > zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
+            if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
+                //zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
+                pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
+                return 0;
+            } else {
                 /* 对失败的目标主机重试布署 */
                 for (_ui zCnter = 0; zCnter < zpHostStrAddrRegRes_->cnt; zCnter++) {
                     /* 检测是否有新的布署请求 */
@@ -1412,10 +1416,6 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
                     pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
                     return 0;
                 }
-            } else {
-                //zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
-                pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
-                return 0;
             }
 
             /* 超时上限延长为 2 倍 */
@@ -1435,7 +1435,6 @@ static _i
 zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
     time_t zTimeSpent = 0;
-    PGresult *zpPgRes = NULL;
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zpMeta_->hostId) {
@@ -1468,7 +1467,6 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     zTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
 
                     // SQL log...
-                zPg_Alter_Dp_Res("");  /* TO DO: SQL cmd */
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     if (zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt == zpGlobRepo_[zpMeta_->repoId]->dpTotalTask) {
                         pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
