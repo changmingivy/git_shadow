@@ -14,6 +14,7 @@
 #include "zNativeUtils.h"
 #include "zThreadPool.h"
 #include "zLibGit.h"
+#include "zPgSQL.h"
 #include "zDpOps.h"
 
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
@@ -51,16 +52,6 @@ typedef struct __zBaseData__ {
 } zBaseData__;
 
 
-typedef struct __zPgLogin__ {
-    char * p_host;
-    char * p_addr;
-    char * p_port;
-    char * p_userName;
-    char * p_passFilePath;
-    char * p_dbName;
-} zPgLogin__;
-
-
 // ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
 // RevSig  CacheId    HostIp  HostRes(0 Success/-1 Unknown/-2 Fail)  HostTimeSpent  HostDetail
 typedef struct __zDpLog__ {
@@ -83,26 +74,26 @@ typedef struct __zDpLog__ {
 } zDpLog__;
 
 
-typedef struct __zRepoMeta__ {
-    void *_;  // used to kill pthread
-    _i *p_taskCnt;
-
-    char *p_id;
-    char *p_pathOnHost;
-    char *p_sourceUrl;
-    char *p_sourceBranch;
-    char *p_sourceVcsType;
-    char *p_needPull;
-} zRepoMeta__;
-
-
-typedef struct __zPgRes__ {
-    _i tupleCnt;
-    _i fieldCnt;
-    _i taskCnt;
-
-    zRepoMeta__ *p_repoMeta;
-} zPgRes__;
+// typedef struct __zRepoMeta__ {
+//     void *_;  // used to kill pthread
+//     _i *p_taskCnt;
+// 
+//     char *p_id;
+//     char *p_pathOnHost;
+//     char *p_sourceUrl;
+//     char *p_sourceBranch;
+//     char *p_sourceVcsType;
+//     char *p_needPull;
+// } zRepoMeta__;
+// 
+// 
+// typedef struct __zPgRes__ {
+//     _i tupleCnt;
+//     _i fieldCnt;
+//     _i taskCnt;
+// 
+//     zRepoMeta__ *p_repoMeta;
+// } zPgRes__;
 
 
 struct zNativeOps__ {

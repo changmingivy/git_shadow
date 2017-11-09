@@ -1,4 +1,4 @@
-#include "zPgSql.h"
+#include "zPgSQL.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +39,7 @@ zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
 /*
  * 外部调用接口
  */
-struct zPgSql__ zPgSql_ = {
+struct zPgSQL__ zPgSQL_ = {
     .check_thread_safe = zpg_check_thread_safe,
 
     .conn = zpg_conn,
@@ -137,25 +137,31 @@ static zPgRes__ *
 zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     _i zTupleCnt = 0,
        zFieldCnt = 0,
-       zCnter = 0,
        t = 0,
        f = 0;
     zPgRes__ *zpPgRes_ = NULL;
 
     zTupleCnt = PQntuples(zpPgResHd_);
     zFieldCnt = PQnfields(zpPgResHd_);
-    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) + ((1 + zTupleCnt) * zFieldCnt) * sizeof(char *));
+
+    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) +
+            zTupleCnt * (sizeof(zPgResTuple__) + (1 + zFieldCnt) * sizeof(void *)));
+
+    zpPgRes_->tupleRes_[0].pp_fields = (char **) (
+            (char *) zpPgRes_ + sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
+            );
 
     zpPgRes_->tupleCnt = zTupleCnt;
     zpPgRes_->fieldCnt = zFieldCnt;
 
     for (f = 0; f < zFieldCnt; f++) {
-        zpPgRes_->p_res[zCnter++] = PQfname(zpPgResHd_, f);
+        zpPgRes_->fieldNames_.pp_fields[f] = PQfname(zpPgResHd_, f);
     }
 
     for (t = 0; t < zTupleCnt; t++) {
+        zpPgRes_->tupleRes_[t].pp_fields = zpPgRes_->tupleRes_[0].pp_fields + t * (1 + zFieldCnt) * sizeof(void *);
         for (f = 0; f < zFieldCnt; f++) {
-            zpPgRes_->p_res[zCnter++] = PQgetvalue(zpPgResHd_, t, f);
+            zpPgRes_->tupleRes_[t].pp_fields[f] = PQgetvalue(zpPgResHd_, t, f);
         }
     }
 

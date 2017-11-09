@@ -196,7 +196,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
 }
 
 /*
- * [ git log --format=%H ] + [ git log --format=%ct ]
+ * [ git log --format=%H ] and [ git log --format=%ct ]
  * success return zpRevWalker, fail return NULL
  */
 static zGitRevWalk__ *

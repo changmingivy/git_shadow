@@ -26,6 +26,7 @@
 #include "zNativeOps.h"
 #include "zNativeUtils.h"
 #include "zPosixReg.h"
+#include "zPgSQL.h"
 #include "zThreadPool.h"
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
@@ -127,7 +128,7 @@ typedef struct {
     git_repository *p_gitRepoHandler;
 
     /* 本项目 pgSQL 全局 Handler */
-    PGconn *p_pgConn;
+    zPgConnHd__ *p_pgConnHd_;
 
     /* 用于控制并发流量的信号量 */
     sem_t dpTraficControl;
