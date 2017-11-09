@@ -35,6 +35,12 @@ zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_);
 static void
 zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
 
+static bool
+zpg_conn_check(const char *zpConnInfo);
+
+static bool
+zpg_thread_safe_check();
+
 
 /*
  * 外部调用接口
@@ -51,7 +57,10 @@ struct zPgSQL__ zPgSQL_ = {
     .parse_res = zpg_parse_res,
 
     .res_clear = zpg_res_clear,
-    .conn_clear = zpg_conn_clear
+    .conn_clear = zpg_conn_clear,
+
+	.thread_safe_check = zpg_thread_safe_check,
+	.conn_check = zpg_conn_check
 };
 
 
@@ -192,12 +201,17 @@ zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
  * 检查所在环境是否是线程安全的
  */
 static bool
-zpg_check_thread_safe() {
-    if (1 == PQisthreadsafe()) {
-        return true;
-    } else {
-        return false;
-    }
+zpg_thread_safe_check() {
+    return 1 == PQisthreadsafe() ? true : false;
+}
+
+
+/*
+ * 测试 pgSQL 服务器是否正常连接
+ */
+static bool
+zpg_conn_check(const char *zpConnInfo) {
+	return PQPING_OK == PQping(zpConnInfo) ? true : false;
 }
 
 

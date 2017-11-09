@@ -11,6 +11,7 @@ extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
+extern struct zPgSQL__ zPgSQL_;
 
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
@@ -50,7 +51,6 @@ struct zRun__ zRun_ = {
  *  -28：前端指定的IP数量与实际解析出的数量不一致
  *  -29：一台或多台目标机环境初化失败(SSH 连接至目标机建立接收项目文件的元信息——git 仓库)
  *
- *  -31：新创建的项目信息无法写入后端 postgreSQL 数据库
  *  -32：请求创建的项目ID超出系统允许的最大或最小值（创建或载入项目代码库时出错）
  *  -33：无法创建请求的项目路径
  *  -34：请求创建的新项目信息格式错误（合法字段数量少于 5 个或大于 6 个，第6个字段用于标记是被动拉取代码还是主动推送代码）
@@ -66,6 +66,9 @@ struct zRun__ zRun_ = {
  *
  *  -80：目标机请求的文件路径不存在或无权访问
  *
+ *  -90：pgSQL 连接失败
+ *  -91：pgSQL 命令执行失败
+ *
  *  -101：目标机返回的版本号与正在布署的不一致
  *  -102：目标机返回的错误信息
  *  -103：目标机返回的状态信息Type无法识别
@@ -75,10 +78,18 @@ struct zRun__ zRun_ = {
 
 static void
 zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
+    /* 检查 pgSQL 运行环境是否是线程安全的 */
+    if (false == zPgSQL_.thread_safe_check()) {
+        zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
     /* 成为守护进程 */
     zNativeUtils_.daemonize("/");
+
     /* 线程池初始化 */
     zThreadPool_.init();
+
     /* 扫描所有项目库并初始化之 */
     zNativeOps_.proj_init_all(zpPgLogin_);
 

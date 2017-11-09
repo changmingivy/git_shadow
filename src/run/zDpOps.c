@@ -460,7 +460,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
         /* 连接 pgSQL server */
         if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
-            zErrNo = -31;
+            zErrNo = -90;
             goto zMarkEnd;
         }
 
@@ -468,7 +468,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, "...", false))) {  // TO DO: SQL command
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpPgConnHd_);
-            zErrNo = -31;
+            zErrNo = -91;
             goto zMarkEnd;
         }
 
@@ -985,6 +985,9 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
         zErrNo = -10;
         goto zEndMark;
     }
+
+    /* 检查 pgSQL 是否可以正常连通 */
+    if (false == zPgSQL_.conn_check(zGlobPgConnInfo)) { return -90; }
 
     /* 检查是否允许布署 */
     if (zDpLocked == zpGlobRepo_[zpMeta_->repoId]->dpLock) {

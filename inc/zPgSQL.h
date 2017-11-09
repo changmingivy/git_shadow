@@ -53,6 +53,9 @@ struct zPgSQL__ {
 
     void (* res_clear) (zPgResHd__ *, zPgRes__ *);
     void (* conn_clear) (zPgConnHd__ *);
+
+    bool (* conn_check) (const char *);
+    bool (* thread_safe_check) ();
 };
 
 
