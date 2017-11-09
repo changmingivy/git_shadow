@@ -8,10 +8,57 @@
 #include <errno.h>
 
 
+static bool
+zpg_check_thread_safe();
+
+static zPgConnHd__ *
+zpg_conn(const char *zpConnInfo);
+
+static void
+zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
+
+static zPgResHd__ *
+zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, bool zNeedRet);
+
+static zPgResHd__ *
+zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt);
+
+static zPgResHd__ *
+zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, bool zNeedRet);
+
+static zPgRes__ *
+zpg_parse_res(zPgResHd__ *zpPgResHd_);
+
+static void
+zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_);
+
+static void
+zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
+
+
+/*
+ * 外部调用接口
+ */
+struct zPgSql__ zPgSql_ = {
+    .check_thread_safe = zpg_check_thread_safe,
+
+    .conn = zpg_conn,
+
+    .exec = zpg_exec,
+    .prepare = zpg_prepare,
+    .prepare_exec = zpg_prepare_exec,
+
+    .parse_res = zpg_parse_res,
+
+    .res_clear = zpg_res_clear,
+    .conn_clear = zpg_conn_clear
+};
+
+
 /*
  * 连接 pgSQL server
  */
-zPgConnHd__ *
+static zPgConnHd__ *
 zpg_conn(const char *zpConnInfo) {
     zPgConnHd__ *zpPgConnHd_ = PQconnectdb(zpConnInfo);
     if (CONNECTION_OK == PQstatus(zpPgConnHd_)) {
@@ -27,7 +74,7 @@ zpg_conn(const char *zpConnInfo) {
 /*
  * 断线重连
  */
-void
+static void
 zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
     PQreset(zpPgConnHd_);
 }
@@ -37,7 +84,7 @@ zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
  * 执行 SQL cmd
  * zHaveRet 置非零值时，表时此 SQL 属于查询类，有结果需要返回
  * */
-zPgResHd__ *
+static zPgResHd__ *
 zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, bool zNeedRet) {
     zPgResHd__ *zpPgResHd_ = PQexec(zpPgConnHd_, zpSQL);
     if ((true == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
@@ -53,7 +100,7 @@ zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, bool zNeedRet) {
 /*
  * 预编译重复执行的 SQL cmd，加快执行速度
  */
-zPgResHd__ *
+static zPgResHd__ *
 zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt) {
     zPgResHd__ *zpPgResHd_ = PQprepare(zpPgConnHd_, zpPreObjName, zpSQL, zParamCnt, NULL);
     if (PGRES_COMMAND_OK == PQresultStatus(zpPgResHd_)) {
@@ -69,7 +116,7 @@ zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjNam
 /*
  * 使用预编译的 SQL 对象快速执行 SQL cmd
  */
-zPgResHd__ *
+static zPgResHd__ *
 zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, bool zNeedRet) {
     zPgResHd__ *zpPgResHd_ = PQexecPrepared(zpPgConnHd_, zpPreObjName, zParamCnt, zppParamValues, NULL, NULL, 0);
     if ((true == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
@@ -86,7 +133,7 @@ zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCn
  * 解析并输出 SQL 查询类命令返回的结果
  * 返回的数据中，第一组是字段名称
  */
-zPgRes__ *
+static zPgRes__ *
 zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     _i zTupleCnt = 0,
        zFieldCnt = 0,
@@ -119,7 +166,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
 /*
  * 清理 SQL 查询结果相关资源
  */
-void
+static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
     PQclear(zpPgResHd_);
     if (NULL != zpPgRes_) { free(zpPgRes_); }
@@ -129,7 +176,7 @@ zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
 /*
  * 清理 pgSQL 连接句柄
  */
-void
+static void
 zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
     PQfinish(zpPgConnHd_);
 }
@@ -138,7 +185,7 @@ zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
 /*
  * 检查所在环境是否是线程安全的
  */
-bool
+static bool
 zpg_check_thread_safe() {
     if (1 == PQisthreadsafe()) {
         return true;
