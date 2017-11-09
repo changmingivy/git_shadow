@@ -4,6 +4,11 @@
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
+typedef enum __bool {
+    false = 0,
+    true = 1,
+} bool;
+
 /*
  * =>>> Aliases For All Basic Types <<<=
  */
@@ -49,20 +54,20 @@
     time_t ____zMarkNow = time(NULL);  /* Mark the time when this process start */\
     struct tm *____zpCurrentTimeIf = localtime(&____zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
     fprintf(stderr, "\033[31m[%d-%d-%d %d:%d:%d] \033[00m",\
-			____zpCurrentTimeIf->tm_year + 1900,\
-			____zpCurrentTimeIf->tm_mon + 1, /* Month (0-11) */\
-			____zpCurrentTimeIf->tm_mday,\
-			____zpCurrentTimeIf->tm_hour,\
-			____zpCurrentTimeIf->tm_min,\
-			____zpCurrentTimeIf->tm_sec\
-			);\
+            ____zpCurrentTimeIf->tm_year + 1900,\
+            ____zpCurrentTimeIf->tm_mon + 1,  /* Month (0-11) */\
+            ____zpCurrentTimeIf->tm_mday,\
+            ____zpCurrentTimeIf->tm_hour,\
+            ____zpCurrentTimeIf->tm_min,\
+            ____zpCurrentTimeIf->tm_sec\
+            );\
 } while(0)
 
 /*
  * =>>> Error Management <<<=
  */
-#define zPrint_Err(zErrNo, zCause, zCustomContents) do{ \
-    zPrint_Time(); \
+#define zPrint_Err(zErrNo, zCause, zCustomContents) do {\
+    zPrint_Time();\
     fprintf(stderr,\
     "\033[31;01m\n====[ ERROR ]====\033[00m\n"\
     "\033[31;01mFile:\033[00m %s\n"\
@@ -164,14 +169,14 @@
 
 /*
 #define zMap_Alloc(zpRet, zType, zCnt) do {\
-	if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
-		zPrint_Err(0, NULL, "mmap failed!");\
-		_exit(1);\
-	}\
+    if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
+        zPrint_Err(0, NULL, "mmap failed!");\
+        _exit(1);\
+    }\
 } while(0)
 
 #define zMap_Free(zpRet, zType, zCnt) do {\
-	munmap(zpRet, (zCnt) * sizeof(zType));\
+    munmap(zpRet, (zCnt) * sizeof(zType));\
 } while(0)
 */
 
