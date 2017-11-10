@@ -473,7 +473,9 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
             + zpRegRes_->resLen[3]
             + zpRegRes_->resLen[4]
             + 4];
-        sprintf(zCmdBuf, "INSERT INTO tb_proj_meta (ProjId, PathOnHost, SourceUrl, SourceBranch, SourceVcsType, NeedPull) VALUES (%s, %s, %s, %s, %s, %s)",
+        sprintf(zCmdBuf, "INSERT INTO tb_proj_meta "
+                "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
+                "VALUES (%s, %s, %s, %s, %s, %s);",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
@@ -955,7 +957,7 @@ zExistMark:;
     if ((-1 == zpGlobRepo_[zpMeta_->repoId]->resType[0])
             || (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
         char zIpStrAddrBuf[INET_ADDRSTRLEN];
-        _ui zFailHostCnt = 0;
+        _ui zFailedHostCnt = 0;
         _i zOffSet = sprintf(zpMeta_->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState) {
@@ -964,7 +966,7 @@ zExistMark:;
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
                         );
-                zFailHostCnt++;
+                zFailedHostCnt++;
 
                 /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
                 zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = 0;
@@ -972,7 +974,7 @@ zExistMark:;
         }
 
         /* 主机数超过 10 台，且失败率低于 10% 返回成功，否则返回失败 */
-        if ((10 < zpGlobRepo_[zpMeta_->repoId]->totalHost) && ( zFailHostCnt < zpGlobRepo_[zpMeta_->repoId]->totalHost / 10)) { return 0; }
+        if ((10 < zpGlobRepo_[zpMeta_->repoId]->totalHost) && ( zFailedHostCnt < zpGlobRepo_[zpMeta_->repoId]->totalHost / 10)) { return 0; }
         else { return -23; }
     }
 
@@ -986,9 +988,11 @@ zExistMark:;
  */
 static _i
 zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrRegRes_Out) {
-    zVecWrap__ *zpTopVecWrap_;
     _i zErrNo = 0;
+    zVecWrap__ *zpTopVecWrap_ = NULL;
+    _i zFailedHostCnt = 0;
     time_t zRemoteHostInitTimeSpent = 0;
+    zPgResHd__ *zpPgResHd_ = NULL;
 
     if (zIsCommitDataType == zpMeta_->dataType) {
         zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_);
@@ -1043,6 +1047,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
             "cp -R ${zGitShadowPath}/tools ./;"\
             "chmod 0755 ./tools/post-update;"\
             "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
+            "echo %ld > cache_id;"
             "git add --all .;"\
             "git commit --allow-empty -m _;"\
             "git push --force %s/.git master:master_SHADOW",
@@ -1050,6 +1055,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
             zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),  // SHA1 commit sig
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath,
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
+            zpGlobRepo_[zpMeta_->repoId]->cacheId,
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath
             );
 
@@ -1180,7 +1186,8 @@ zErrMark:
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
                         );
 
-                /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+                /* 未返回成功状态的主机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+                zFailedHostCnt++;
                 zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = 0;
             }
         }
@@ -1222,14 +1229,24 @@ zErrMark:
         zNativeOps_.get_revs(&zSubMeta_);
     }
 
-zEndMark:;
     /* 无论布署成败，都写入 pgSQL 日志表: db_dp_log_<ProjId> */
-    zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "...", false);  // TO DO: SQL cmd
-    if (NULL == zpPgResHd_) {
-        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-        zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "...", false);  // TO DO: SQL cmd
+zEndMark:
+    sprintf(zppCommonBuf[0], "INSERT INTO tb_proj_log_%d "
+            "(proj_id, rev_sig, cache_id, time_stamp, glob_res, glob_time_spent, total_host_cnt, failed_host_cnt) "
+            "VALUES (%d, %s, %ld, %ld, %d, %ld, %d, %d);",
+            zpMeta_->repoId,
+            zpMeta_->repoId,
+            zpGlobRepo_[zpMeta_->repoId]->dpingSig,
+            zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
+            zpGlobRepo_[zpMeta_->repoId]->cacheId,
+            0 == zErrNo ? 0 : (-10000 == zErrNo? -1 : -2),
+            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
+            zpGlobRepo_[zpMeta_->repoId]->totalHost,
+            0 == zErrNo ? 0 : (-10000 == zErrNo? zpGlobRepo_[zpMeta_->repoId]->totalHost - zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt: zFailedHostCnt));
 
-        if (NULL == zpPgResHd_) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
+        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -1265,7 +1282,7 @@ zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
  * 外壳函数
  * 12：布署／撤销
  */
-#define zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, zpSQL) do {\
+#define zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zpSQL) do {\
     /* 非关键环节，允许失败发生，不必确定最终执行结果 */\
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {\
         zPgSQL_.conn_clear(zpPgConnHd_);\
@@ -1330,7 +1347,12 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
 
-                    zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
+                    sprintf(zppCommonBuf[0], "UPDATE tb_proj_log_%d SET glob_res = 0, glob_time_spent = %ld, failed_host_cnt = 0 WHERE time_stamp = %ld;",
+                            zpMeta_->repoId,
+                            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
+                            zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
+                            );
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
                     return 0;
                 }
 
@@ -1405,7 +1427,12 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
-                zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
+                sprintf(zppCommonBuf[0], "UPDATE tb_proj_log_%d SET glob_res = 0, glob_time_spent = %ld, failed_host_cnt = 0 WHERE time_stamp = %ld;",
+                        zpMeta_->repoId,
+                        time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
+                        zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
+                        );
+                zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
                 return 0;
             } else {
                 /* 对失败的目标主机重试布署 */
@@ -1485,8 +1512,6 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
 
                 if (0 != strncmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_data, zBytes(40))) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-
-                    zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                     return -101;  // 返回负数，用于打印日志
                 }
 
@@ -1506,7 +1531,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                         pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
                     }
 
-                    zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                     return 0;
                 } else if ('-' == zpMeta_->p_extraData[1]) {
                     zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt = zpGlobRepo_[zpMeta_->repoId]->dpTotalTask;  // 发生错误，计数打满，用于通知结束布署等待状态
@@ -1519,12 +1544,10 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
 
-                    zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                     return -102;  // 返回负数，用于打印日志
                 } else {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-
-                    zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                     return -103;  // 未知的返回内容
                 }
             } else if ('C' == zpMeta_->p_extraData[0]) {
@@ -1533,8 +1556,6 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                 return 0;
             } else {
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-
-                zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                 return -103;  // 未知的返回内容
             }
         }
@@ -1543,7 +1564,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     return 0;
 }
 
-#undef zPg_Alter_Record
+#undef zPg_Update_Record
 
 /*
  * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务

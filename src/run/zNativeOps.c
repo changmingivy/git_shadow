@@ -583,7 +583,7 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 执行 SQL cmd */
-        sprintf(zCommonBuf, "SELECT RevSig, TimeStamp FROM tb_dp_log_%d DESC ORDER BY TimeStamp LIMIT %d",
+        sprintf(zCommonBuf, "SELECT rev_sig, time_stamp FROM tb_dp_log_%d DESC ORDER BY time_stamp LIMIT %d",
                 zpMeta_->repoId,
                 zCacheSiz);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
@@ -747,7 +747,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     /* 调用SHELL执行检查和创建 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->repoPathLen];
-    sprintf(zCommonBuf, "sh ${zGitShadowPath}/tools/zmaster_init_repo.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+    sprintf(zCommonBuf, "sh ${zGitShadowPath}/serv_tools/zmaster_init_repo.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zpGlobRepo_[zRepoId]->repoId,
             zpGlobRepo_[zRepoId]->p_repoPath + 9,
             zpRepoMeta_->pp_fields[2],
@@ -826,7 +826,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zCheck_Negative_Exit( sem_init(&(zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
 
     /* 缓存版本初始化 */
-    zpGlobRepo_[zRepoId]->cacheId = 0;
+    zpGlobRepo_[zRepoId]->cacheId = time(NULL);
 
     /* 本项目全局 pgSQL 连接 Handler */
     if (NULL == (zpGlobRepo_[zRepoId]->p_pgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
@@ -838,7 +838,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
 
     /* 获取最近一次布署的相关信息 */
-    sprintf(zCommonBuf, "SELECT RevSig, GlobRes FROM tb_proj_log_%d ORDER BY TimeStamp DESC LIMIT 1",
+    sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM tb_proj_log_%d ORDER BY time_stamp DESC LIMIT 1",
             zRepoId);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
@@ -1038,7 +1038,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 执行 SQL cmd */
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-                    "SELECT ProjId, PathOnHost,SourceUrl,SourceBranch,SourceVcsType,NeedPull FROM tb_proj_meta",
+                    "SELECT proj_id, path_on_host,source_url,source_branch,source_vcs_type,need_pull FROM tb_proj_meta",
                     true))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");

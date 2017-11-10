@@ -1,11 +1,11 @@
 table0: tb_proj_meta
-ProjId  PathOnHost  SourceUrl  SourceBranch  SourceVcsType  NeedPull
+proj_id  path_on_host  source_url  source_branch  source_vcs_type  need_pull
 int     string      string     string        string         bool(TRUE/FALSE)
 
 table2: tb_dp_log_<ProjId>
-ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt
-int     string  bigint     char                                         int            int           int
+proj_id  rev_sig  cache_id time_stamp  glob_res(0 success | -1 fake success | -2 fail)  glob_time_spent  total_host_cnt  failed_host_cnt
+int     string  bigint     bigint        smallint                                         int            int           int
 
 table2: tb_dp_log_host_detail_<ProjId>
-RevSig  CacheId    Ip      Res(0 Success/-1 Unknown/-2 Fail)  TimeSpent  ErrNo     Detail
-string  bigint     string  smallint                           int        smallint  string
+host_ip rev_sig  cache_id   res(0 Success/-1 Unknown/-2 Fail)  time_spent  err_no     detail
+string  string   bigint     smallint                           int         smallint   string
