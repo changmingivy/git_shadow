@@ -127,7 +127,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
 static void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
     sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%d,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
             zpMeta_->opsId,
             zpMeta_->cacheId,
             zpMeta_->repoId,
@@ -1490,49 +1490,76 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
  * 8：布署成功人工确认
  * 9：布署成功主机自动确认
  */
+#define zGenerate_SQL_Cmd() do {\
+    sprintf(zCmdBuf, "INSERT INTO tb_dp_log_host_detail_%d "\
+            "(host_ip, rev_sig, cache_id, res, time_spent, err_no, detail) "\
+            "VALUES (%s, %s, %ld, %d, %ld, %d, %s)",\
+            zpMeta_->repoId,\
+            zIpStrAddr,\
+            zSigBuf,\
+            zpMeta_->cacheId,\
+            0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
+            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,\
+            zErrNo,\
+            zpTmp_->errMsg);\
+    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);\
+} while (0);
+
 static _i
 zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     time_t zTimeSpent = 0;
+    _i zErrNo = 0;
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
 
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
 
+    char zIpStrAddr[INET_ADDRSTRLEN], zSigBuf[44], zCmdBuf[1024];
+    zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
+    strncpy(zSigBuf, zpMeta_->p_data, 40);
+    zSigBuf[40] = '\0';
+
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zpMeta_->hostId) {
             pthread_mutex_lock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
 
-            char *zpLogStrId;
+            zpTmp_->errMsg[0] = '\0';
+
             /* 'B' 标识布署状态回复，'C' 目标机的 keep alive 消息 */
             if ('B' == zpMeta_->p_extraData[0]) {
                 if (0 != zpTmp_->dpState) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-                    return 0;
+                    zErrNo = 0;
+                    goto zMarkEnd;
                 }
 
-                if (0 != strncmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_data, zBytes(40))) {
+                if (0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zSigBuf)) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-                    return -101;  // 返回负数，用于打印日志
+                    zErrNo = -101;
+
+                    zGenerate_SQL_Cmd();
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+
+                    goto zMarkEnd;
                 }
 
                 if ('+' == zpMeta_->p_extraData[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
                     zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt++;
                     zpTmp_->dpState = 1;
 
-                    zpLogStrId = zpGlobRepo_[zpMeta_->repoId]->dpingSig;
-
                     /* 调试功能：布署耗时统计，必须在锁内执行 */
-                    char zIpStrAddr[INET_ADDRSTRLEN];
-                    zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
                     zTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
 
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     if (zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt == zpGlobRepo_[zpMeta_->repoId]->dpTotalTask) {
                         pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
                     }
+                    zErrNo = 0;
 
-                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
-                    return 0;
+                    zGenerate_SQL_Cmd();
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+
+                    goto zMarkEnd;
                 } else if ('-' == zpMeta_->p_extraData[1]) {
                     zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt = zpGlobRepo_[zpMeta_->repoId]->dpTotalTask;  // 发生错误，计数打满，用于通知结束布署等待状态
                     zpTmp_->dpState = -1;
@@ -1543,25 +1570,40 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
 
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
+                    zErrNo = -102;
 
-                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
-                    return -102;  // 返回负数，用于打印日志
+                    zGenerate_SQL_Cmd();
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+
+                    goto zMarkEnd;
                 } else {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-                    return -103;  // 未知的返回内容
+                    zErrNo = -103;  // 未知的返回内容
+
+                    zGenerate_SQL_Cmd();
+                    zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+
+                    goto zMarkEnd;
                 }
             } else if ('C' == zpMeta_->p_extraData[0]) {
                 zpGlobRepo_[zpMeta_->repoId]->dpKeepAliveStamp = time(NULL);
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-                return 0;
+                zErrNo = 0;
+                goto zMarkEnd;
             } else {
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
-                return -103;  // 未知的返回内容
+                zErrNo = -103;  // 未知的返回内容
+
+                zGenerate_SQL_Cmd();
+                zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+
+                goto zMarkEnd;
             }
         }
     }
 
-    return 0;
+zMarkEnd:
+    return zErrNo;
 }
 
 #undef zPg_Update_Record
