@@ -8,9 +8,6 @@
 #include <errno.h>
 
 
-static bool
-zpg_check_thread_safe();
-
 static zPgConnHd__ *
 zpg_conn(const char *zpConnInfo);
 
@@ -46,9 +43,8 @@ zpg_thread_safe_check();
  * 外部调用接口
  */
 struct zPgSQL__ zPgSQL_ = {
-    .check_thread_safe = zpg_check_thread_safe,
-
     .conn = zpg_conn,
+    .conn_reset = zpg_conn_reset,
 
     .exec = zpg_exec,
     .prepare = zpg_prepare,
@@ -59,8 +55,8 @@ struct zPgSQL__ zPgSQL_ = {
     .res_clear = zpg_res_clear,
     .conn_clear = zpg_conn_clear,
 
-	.thread_safe_check = zpg_thread_safe_check,
-	.conn_check = zpg_conn_check
+    .thread_safe_check = zpg_thread_safe_check,
+    .conn_check = zpg_conn_check
 };
 
 
@@ -211,7 +207,7 @@ zpg_thread_safe_check() {
  */
 static bool
 zpg_conn_check(const char *zpConnInfo) {
-	return PQPING_OK == PQping(zpConnInfo) ? true : false;
+    return PQPING_OK == PQping(zpConnInfo) ? true : false;
 }
 
 

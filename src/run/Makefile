@@ -16,6 +16,7 @@ $(LIB_NAME):\
 	$(LIB_NAME)(zNativeUtils.o)\
 	$(LIB_NAME)(zNetUtils.o)\
 	$(LIB_NAME)(zPosixReg.o)\
+	$(LIB_NAME)(zPgSQL.o)\
 	$(LIB_NAME)(zThreadPool.o)
 
 .c.o:

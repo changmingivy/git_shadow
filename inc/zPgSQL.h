@@ -4,7 +4,6 @@
 #include <libpq-fe.h>
 #include "zCommon.h"
 
-
 typedef struct __zPgLogin__ {
     char * p_host;
     char * p_addr;
@@ -14,10 +13,8 @@ typedef struct __zPgLogin__ {
     char * p_dbName;
 } zPgLogin__;
 
-
 typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;
-
 
 typedef struct __zPgResTuple__ {
     void *p_gc;  // thread garbage collection
@@ -26,7 +23,6 @@ typedef struct __zPgResTuple__ {
 
     char **pp_fields;
 } zPgResTuple__;
-
 
 typedef struct __zPgRes__ {
     _i tupleCnt;
@@ -38,10 +34,7 @@ typedef struct __zPgRes__ {
     zPgResTuple__ tupleRes_[];
 } zPgRes__;
 
-
 struct zPgSQL__ {
-    bool (* check_thread_safe) ();
-
     zPgConnHd__ * (* conn) (const char *);
     void (* conn_reset) (zPgConnHd__ *);
 
@@ -54,10 +47,9 @@ struct zPgSQL__ {
     void (* res_clear) (zPgResHd__ *, zPgRes__ *);
     void (* conn_clear) (zPgConnHd__ *);
 
-    bool (* conn_check) (const char *);
     bool (* thread_safe_check) ();
+    bool (* conn_check) (const char *);
 };
-
 
 // extern struct zPgSQL__ zPgSQL_ ;
 
