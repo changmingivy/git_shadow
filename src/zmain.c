@@ -25,10 +25,11 @@ zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
 
 _i
 main(_i zArgc, char **zppArgv) {
-    zPgLogin__ zPgLogin_ = {NULL, NULL, NULL, NULL, NULL, NULL};
+    zPgLogin__ zPgLogin_ = { NULL, NULL, NULL, NULL, NULL, NULL };
     zNetSrv_.servType = TCP;
+    _i zOpt = 0;
 
-    for (_i zOpt = 0; -1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"));) {
+    while (-1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'u':
                 zNetSrv_.servType = UDP; break;
@@ -64,7 +65,7 @@ main(_i zArgc, char **zppArgv) {
                         "[-F postgreSQL_passfile]  /* PQdb pass file, default '$HOME/.pgpass' */\n"
                         "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'git' */\n",
                         optopt, zppArgv[0]);
-                _exit(1);
+                exit(1);
            }
     }
 

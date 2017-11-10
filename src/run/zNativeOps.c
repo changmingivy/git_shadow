@@ -545,8 +545,7 @@ zgenerate_cache(void *zpParam) {
     time_t zTimeStamp = 0;
 
     /* 计算本函数需要用到的最大 BufSiz */
-    _i zMaxBufLen = 256 + zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 12;
-    char zCommonBuf[zMaxBufLen];
+    char zCommonBuf[256 + zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 12];
 
     if (zIsCommitDataType == zpMeta_->dataType) {
         zGitRevWalk__ *zpRevWalker = NULL;
@@ -556,7 +555,7 @@ zgenerate_cache(void *zpParam) {
 
         sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zCommonBuf, 0))) {
-            zPrint_Err(0, NULL, "\n!!! git repo ERR !!!\n");
+            zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  // 出现严重错误，退出程序
         } else {
             for (zCnter = 0; zCnter < zCacheSiz && 0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zDpLog_[zCnter].p_revSig); zCnter++) {
@@ -584,11 +583,13 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 执行 SQL cmd */
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_,
-                        "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64", true))) {  // TO DO: SQL cmd
+        sprintf(zCommonBuf, "SELECT RevSig, TimeStamp FROM tb_dp_log_%d DESC ORDER BY TimeStamp LIMIT %d",
+                zpMeta_->repoId,
+                zCacheSiz);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, "SELECT RevSig,TimeStamp FROM tb_dp_log_3 DESC ORDER BY TimeStamp LIMIT 64", true))) {
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
                 zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
                 zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -705,6 +706,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     _i zRepoId = 0,
        zErrNo = 0,
        zStrLen = 0;
+    zPgResHd__ *zpPgResHd_ = NULL;
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
@@ -722,7 +724,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zPosixReg_.match(zpRegRes_, zpRegInit_, zpRepoMeta_->pp_fields[1]);
     zPosixReg_.free_meta(zpRegInit_);
 
-    if (0 == zpRegRes_->cnt) { /* Handle Err ? */ }
+    if (0 == zpRegRes_->cnt) { /* Handle ERROR ? */ }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
     zStrLen = strlen(zpRepoMeta_->pp_fields[1]);
@@ -766,15 +768,14 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     }
 
     /* 检测并生成项目代码定期更新命令 */
-    char zPullCmdBuf[zGlobCommonBufSiz];
     if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zPullCmdBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
+        zStrLen = sprintf(zCommonBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
                 zpGlobRepo_[zRepoId]->p_repoPath,
                 zpRepoMeta_->pp_fields[2],
                 zpRepoMeta_->pp_fields[3],
                 zRepoId);
     } else if (0 == strcmp("svn", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zPullCmdBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
+        zStrLen = sprintf(zCommonBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
                 " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
                 zpGlobRepo_[zRepoId]->p_repoPath,
                 zRepoId);
@@ -784,7 +785,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     }
 
     zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullCmd, char, 1 + zStrLen);
-    strcpy(zpGlobRepo_[zRepoId]->p_pullCmd, zPullCmdBuf);
+    strcpy(zpGlobRepo_[zRepoId]->p_pullCmd, zCommonBuf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -837,11 +838,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
 
     /* 获取最近一次布署的相关信息 */
-    zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_,
-            "SELECT RevSig,GlobRes FROM tb_proj_log_ order by TimeStamp DESC limit 1",
-            true);  // TO DO: SQL cmd...
-
-    if (NULL == zpPgResHd_) {
+    sprintf(zCommonBuf, "SELECT RevSig, GlobRes FROM tb_proj_log_%d ORDER BY TimeStamp DESC LIMIT 1",
+            zRepoId);
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
@@ -1038,7 +1037,9 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     }
 
     /* 执行 SQL cmd */
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, "SELECT * FROM tb_proj_meta", true))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
+                    "SELECT ProjId, PathOnHost,SourceUrl,SourceBranch,SourceVcsType,NeedPull FROM tb_proj_meta",
+                    true))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);

@@ -51,6 +51,4 @@ struct zPgSQL__ {
     bool (* conn_check) (const char *);
 };
 
-// extern struct zPgSQL__ zPgSQL_ ;
-
 #endif  // #ifndef ZPGSQL_H

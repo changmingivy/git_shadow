@@ -110,7 +110,4 @@ struct zNativeOps__ {
     void * (* sysload_monitor) (void *);
 };
 
-
-// extern struct zNativeOps__ zNativeOps_;
-
 #endif  // #ifndef ZLOCALOPS_H

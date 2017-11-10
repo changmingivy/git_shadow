@@ -15,6 +15,4 @@ struct zNativeUtils__ {
     _i (* del_lb) (char *);
 };
 
-// extern struct zNativeUtils__ zNativeUtils_;
-
 #endif  // #ifndef ZLOCALUTILS_H

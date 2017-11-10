@@ -244,6 +244,4 @@ struct zDpOps__ {
     void (* struct_to_json) (char *, zMeta__ *);
 };
 
-// extern struct zDpOps__ zDpOps_;
-
 #endif  //  #ifndef ZDPOPS_H

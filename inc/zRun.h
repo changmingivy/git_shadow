@@ -11,7 +11,6 @@ typedef struct __zSockAcceptParam__ {
     _i connSd;
 } zSockAcceptParam__;
 
-
 struct zRun__ {
     void (* run) (zNetSrv__ *, zPgLogin__ *);
     void * (* route) (void *);
@@ -19,6 +18,4 @@ struct zRun__ {
     _i (* ops[16]) (zMeta__*, _i);
 };
 
-
-// extern struct zRun__ zRun_;
 #endif  // #ifndef ZRUN_H

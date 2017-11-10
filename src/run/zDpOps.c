@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <time.h>
 #include <errno.h>
 
@@ -451,7 +452,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     zRepoMeta_.pp_fields[3] = zpRegRes_->p_rets[3];
     zRepoMeta_.pp_fields[4] = zpRegRes_->p_rets[4];
     if (5 == zpRegRes_->cnt) {
-        zRepoMeta_.pp_fields[5]= NULL;
+        zRepoMeta_.pp_fields[5]= "Y";
     } else {
         zRepoMeta_.pp_fields[5]= zpRegRes_->p_rets[5];
     }
@@ -465,7 +466,21 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
         }
 
         /* 执行 SQL cmd */
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, "...", false))) {  // TO DO: SQL command
+        char zCmdBuf[256
+            + zpRegRes_->resLen[0]
+            + zpRegRes_->resLen[1]
+            + zpRegRes_->resLen[2]
+            + zpRegRes_->resLen[3]
+            + zpRegRes_->resLen[4]
+            + 4];
+        sprintf(zCmdBuf, "INSERT INTO tb_proj_meta (ProjId, PathOnHost, SourceUrl, SourceBranch, SourceVcsType, NeedPull) VALUES (%s, %s, %s, %s, %s, %s)",
+                zRepoMeta_.pp_fields[0],
+                zRepoMeta_.pp_fields[1],
+                zRepoMeta_.pp_fields[2],
+                zRepoMeta_.pp_fields[3],
+                zRepoMeta_.pp_fields[4],
+                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? "TRUE" : "FALSE");
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpPgConnHd_);
             zErrNo = -91;
@@ -1251,7 +1266,7 @@ zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 #define zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, zpSQL) do {\
-    /* 非关键环节，不必确定最终执行结果 */\
+    /* 非关键环节，允许失败发生，不必确定最终执行结果 */\
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {\
         zPgSQL_.conn_clear(zpPgConnHd_);\
     } else {\
@@ -1313,8 +1328,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
         while(1) {
             /* 等待剩余的所有主机状态都得到确认，不必在锁内执行 */
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
-                if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)  /* 检测是否有新的布署请求 */
-                        || ((zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {
+                if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
+
                     zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                     return 0;
                 }
@@ -1389,6 +1404,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             /* 在执行动作之前再检查一次布署结果，防止重新初始化的时间里已全部返回成功状态，从而造成无用的布署重试 */
             if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
+
                 zPg_Alter_Record(zpPgConnHd_, zpPgResHd_, "");  /* TO DO: SQL cmd */
                 return 0;
             } else {

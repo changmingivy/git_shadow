@@ -1,6 +1,6 @@
 table0: tb_proj_meta
 ProjId  PathOnHost  SourceUrl  SourceBranch  SourceVcsType  NeedPull
-int     string      string     string        string         char(Y/N)
+int     string      string     string        string         bool(TRUE/FALSE)
 
 table2: tb_dp_log_<ProjId>
 ProjId  RevSig  TimeStamp  GlobRes(S Success | s FakeSuccess | F Fail)  GlobTimeSpent  TotalHostCnt  FailedHostCnt

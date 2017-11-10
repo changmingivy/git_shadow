@@ -9,7 +9,6 @@
     #endif
 #endif
 
-
 #include <netdb.h>
 #include "zCommon.h"
 
@@ -25,8 +24,5 @@ struct zNetUtils__ {
     _ui (* to_bin)(const char *);
     void (* to_str)(_ui, char *);
 };
-
-
-// extern struct zNetUtils__ zNetUtils_;
 
 #endif  // #ifndef ZNETUTILS_H
