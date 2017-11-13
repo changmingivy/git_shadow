@@ -9,3 +9,48 @@ int     string  bigint     bigint        smallint                               
 table2: tb_dp_log_host_detail_<ProjId>
 host_ip rev_sig  cache_id   res(0 Success/-1 Unknown/-2 Fail)  time_spent  err_no     detail
 string  string   bigint     smallint                           int         smallint   string
+
+
+
+PRIMARY KEY == UNIQUE + NOT NULL
+PRIMARY KEY(a, b)  -- 主键可以建立在多个列的组合上
+
+CREATE TABLE products (
+    product_no integer PRIMARY KEY,
+    name text,
+    price numeric
+);
+
+CREATE TABLE orders (
+    order_id integer PRIMARY KEY,
+    product_no integer REFERENCES products (product_no), -- 外键
+    quantity integer
+);
+
+CREATE TABLE t1 (
+  a integer PRIMARY KEY,
+  b integer,
+  c integer,
+  FOREIGN KEY (b, c) REFERENCES other_table (c1, c2)
+);
+
+CREATE TABLE products (
+    product_no integer PRIMARY KEY,
+    name text,
+    price numeric
+);
+
+CREATE TABLE orders (
+    order_id integer PRIMARY KEY,
+    shipping_address text,
+    ...
+);
+
+CREATE TABLE order_items (
+    product_no integer REFERENCES products ON DELETE RESTRICT ON UPDATE RESTRICT, -- 禁止删除或更改被引用的行
+    order_id integer REFERENCES orders ON DELETE CASCADE ON UPDATE CASCADE,  -- 删除或更改一个被引用的行时，会同步删除或更改所有级联的数据
+    quantity integer,
+    PRIMARY KEY (product_no, order_id)
+);
+
+
