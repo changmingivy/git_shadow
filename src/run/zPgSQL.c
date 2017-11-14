@@ -18,6 +18,9 @@ static zPgResHd__ *
 zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, bool zNeedRet);
 
 static zPgResHd__ *
+zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, const char * const *zppParamValues, bool zNeedRet);
+
+static zPgResHd__ *
 zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt);
 
 static zPgResHd__ *
@@ -47,6 +50,7 @@ struct zPgSQL__ zPgSQL_ = {
     .conn_reset = zpg_conn_reset,
 
     .exec = zpg_exec,
+    .exec_with_param = zpg_exec_with_param,
     .prepare = zpg_prepare,
     .prepare_exec = zpg_prepare_exec,
 
@@ -92,6 +96,22 @@ zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
 static zPgResHd__ *
 zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, bool zNeedRet) {
     zPgResHd__ *zpPgResHd_ = PQexec(zpPgConnHd_, zpSQL);
+    if ((true == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
+        return zpPgResHd_;
+    } else {
+        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        PQclear(zpPgResHd_);
+        return NULL;
+    }
+}
+
+
+/*
+ * 使用带外部参数的方式执行 SQL cmd
+ */
+static zPgResHd__ *
+zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, const char * const *zppParamValues, bool zNeedRet) {
+    zPgResHd__ *zpPgResHd_ = PQexecParams(zpPgConnHd_, zpCmd, zParamCnt, NULL, zppParamValues, NULL, NULL, 0);
     if ((true == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {

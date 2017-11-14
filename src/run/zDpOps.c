@@ -473,9 +473,9 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
             + zpRegRes_->resLen[3]
             + zpRegRes_->resLen[4]
             + 4];
-        sprintf(zCmdBuf, "INSERT INTO tb_proj_meta "
+        sprintf(zCmdBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES (%s, %s, %s, %s, %s, %s);",
+                "VALUES (%s, %s, %s, %s, %s, %s)",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
@@ -990,6 +990,7 @@ static _i
 zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrRegRes_Out) {
     _i zErrNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
+    _ui zCnter = 0;
     _i zFailedHostCnt = 0;
     time_t zRemoteHostInitTimeSpent = 0;
     zPgResHd__ *zpPgResHd_ = NULL;
@@ -1087,7 +1088,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     strncpy(zpMeta_->p_extraData, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId), zBytes(40));
 
     /* 重置布署相关状态 */
-    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
+    for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].dpState = 0;
     }
     zpGlobRepo_[zpMeta_->repoId]->dpTotalTask = zpGlobRepo_[zpMeta_->repoId]->totalHost;
@@ -1096,8 +1097,36 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     //zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt = 0;
     zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit = 0;
 
-    /* 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之下并发布署；参数与之前的SSH动作完全相同，此处无需再次赋值 */
-    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
+    /* 预置本次布署日志 */
+    _i zOffSet = sprintf(zppCommonBuf[0], "INSERT INTO dp_log (proj_id,rev_sig,time_stamp,cache_id,host_ip) VALUES ");
+    for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
+        zOffSet += sprintf(zppCommonBuf[0] + zOffSet, "($1,$2,$3,$4,%s),", zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr);
+    }
+    zppCommonBuf[0][zOffSet - 1] = '\0';  /* 去除最后一个逗号 */
+
+    char zParamBuf[3][44] = {{'\0'}};
+    const char **zppParam = NULL,
+          *zpParam[4] = {zParamBuf[0], zpGlobRepo_[zpMeta_->repoId]->dpingSig, zParamBuf[1], zParamBuf[2]};
+    sprintf(zParamBuf[0], "%d", zpMeta_->repoId);
+    sprintf(zParamBuf[1], "%ld", zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp);
+    sprintf(zParamBuf[2], "%ld", zpGlobRepo_[zpMeta_->repoId]->cacheId);
+    zppParam = zpParam;
+
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, false))) {
+        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, false))) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+            zPrint_Err(0, NULL, "!!! FATAL !!!");
+            exit(1);
+        }
+    }
+
+    /*
+     * 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之内并发布署
+     * 参数与之前的SSH动作完全相同，此处无需再次赋值
+     */
+    for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
         zThreadPool_.add(zgit_push_ccur, &(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter]));
     }
 
@@ -1229,31 +1258,7 @@ zErrMark:
         zNativeOps_.get_revs(&zSubMeta_);
     }
 
-    /* 无论布署成败，都写入 pgSQL 日志表: db_dp_log_<ProjId> */
 zEndMark:
-    sprintf(zppCommonBuf[0], "INSERT INTO tb_proj_log_%d "
-            "(proj_id, rev_sig, cache_id, time_stamp, glob_res, glob_time_spent, total_host_cnt, failed_host_cnt) "
-            "VALUES (%d, %s, %ld, %ld, %d, %ld, %d, %d);",
-            zpMeta_->repoId,
-            zpMeta_->repoId,
-            zpGlobRepo_[zpMeta_->repoId]->dpingSig,
-            zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
-            zpGlobRepo_[zpMeta_->repoId]->cacheId,
-            0 == zErrNo ? 0 : (-10000 == zErrNo? -1 : -2),
-            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
-            zpGlobRepo_[zpMeta_->repoId]->totalHost,
-            0 == zErrNo ? 0 : (-10000 == zErrNo? zpGlobRepo_[zpMeta_->repoId]->totalHost - zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt: zFailedHostCnt));
-
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
-        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-            zPrint_Err(0, NULL, "!!! FATAL !!!");
-            exit(1);
-        }
-    }
-
     return zErrNo;
 }
 
@@ -1319,7 +1324,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
     zPgResHd__ *zpPgResHd_ = NULL;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
-    zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + zpMeta_->dataLen;
+    zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
     zppCommonBuf[0] = zNativeOps_.alloc(zpMeta_->repoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 
@@ -1347,9 +1352,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
 
-                    sprintf(zppCommonBuf[0], "UPDATE tb_proj_log_%d SET glob_res = 0, glob_time_spent = %ld, failed_host_cnt = 0 WHERE time_stamp = %ld;",
+                    sprintf(zppCommonBuf[0], "UPDATE dp_log SET glob_res = 0, WHERE proj_id == %d AND time_stamp = %ld",
                             zpMeta_->repoId,
-                            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
                             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                             );
                     zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
@@ -1427,9 +1431,8 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
-                sprintf(zppCommonBuf[0], "UPDATE tb_proj_log_%d SET glob_res = 0, glob_time_spent = %ld, failed_host_cnt = 0 WHERE time_stamp = %ld;",
+                sprintf(zppCommonBuf[0], "UPDATE dp_log SET glob_res = 0, WHERE proj_id == %d AND time_stamp = %ld",
                         zpMeta_->repoId,
-                        time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,
                         zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                         );
                 zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
@@ -1491,7 +1494,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
  * 9：布署成功主机自动确认
  */
 #define zGenerate_SQL_Cmd() do {\
-    sprintf(zCmdBuf, "INSERT INTO tb_dp_log_host_detail_%d "\
+    sprintf(zCmdBuf, "INSERT INTO dp_log_host_detail_%d "\
             "(host_ip, rev_sig, cache_id, res, time_spent, err_no, detail) "\
             "VALUES (%s, %s, %ld, %d, %ld, %d, %s)",\
             zpMeta_->repoId,\

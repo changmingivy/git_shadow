@@ -583,9 +583,9 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 执行 SQL cmd */
-        sprintf(zCommonBuf, "SELECT rev_sig, time_stamp FROM tb_dp_log_%d DESC ORDER BY time_stamp LIMIT %d",
-                zpMeta_->repoId,
-                zCacheSiz);
+        sprintf(zCommonBuf, "SELECT rev_sig, time_stamp FROM dp_log DESC ORDER BY time_stamp LIMIT %d WHERE proj_id == %d",
+                zCacheSiz,
+                zpMeta_->repoId);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
@@ -838,8 +838,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
 
     /* 获取最近一次布署的相关信息 */
-    sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM tb_proj_log_%d ORDER BY time_stamp DESC LIMIT 1",
-            zRepoId);
+    sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM dp_log ORDER BY time_stamp DESC LIMIT 1 WHERE proj_id == %d", zRepoId);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
@@ -1038,7 +1037,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 执行 SQL cmd */
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-                    "SELECT proj_id, path_on_host,source_url,source_branch,source_vcs_type,need_pull FROM tb_proj_meta",
+                    "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
                     true))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");

@@ -39,6 +39,7 @@ struct zPgSQL__ {
     void (* conn_reset) (zPgConnHd__ *);
 
     zPgResHd__ * (* exec) (zPgConnHd__ *, const char *, bool);
+    zPgResHd__ * (* exec_with_param) (zPgConnHd__ *, const char *, _i, const char * const *, bool);
     zPgResHd__ * (* prepare) (zPgConnHd__ *, const char *, const char *, _i);
     zPgResHd__ * (* prepare_exec) (zPgConnHd__ *, const char *, _i, const char * const *, bool);
 
