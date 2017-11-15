@@ -43,6 +43,9 @@ zsys_load_monitor(void *zpParam);
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_);
 
+void *
+zextend_pg_partition(void *zp);
+
 struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
     .get_diff_files = zget_file_list,
@@ -53,7 +56,9 @@ struct zNativeOps__ zNativeOps_ = {
 
     .json_parser = { NULL },
     .alloc = zalloc_cache,
-    .sysload_monitor = zsys_load_monitor
+    .sysload_monitor = zsys_load_monitor,
+
+    .extend_pg_partition = zextend_pg_partition
 };
 
 
@@ -745,7 +750,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
 
-    /* 调用SHELL执行检查和创建 */
+    /* 调用外部 SHELL 执行检查和创建，便于维护 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->repoPathLen];
     sprintf(zCommonBuf, "sh ${zGitShadowPath}/serv_tools/zmaster_init_repo.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zpGlobRepo_[zRepoId]->repoId,
@@ -828,14 +833,43 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
 
+    /* 全局 libgit2 Handler 初始化 */
+    zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
+
     /* 本项目全局 pgSQL 连接 Handler */
     if (NULL == (zpGlobRepo_[zRepoId]->p_pgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
         zPrint_Err(0, NULL, "Connect to pgSQL failed");
         exit(1);
     }
 
-    /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
+    /* 每次启动时尝试创建必要的表 */
+    _l zFirstId = (time(NULL) / 1000000 + 2) * 1000000;  /* +2 的意义: 防止恰好在临界时间添加记录导致异常*/
+    sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d PARTITION OF dp_log FOR VALUES IN (%d) PARTITION BY RANGE (time_stamp);"
+        /* 若第一条 SQL 执行失败(说明是服务器重启，而非是新建项目)，不会执行第二条，故此处可能发生的错误不会带入之后的错误检查逻辑中 */
+        "CREATE TABLE IF NOT EXISTS dp_log_%d_%ld PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%ld);",
+        zRepoId, zRepoId,
+        zRepoId, zFirstId, zRepoId, zFirstId);
+
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
+        zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+        exit(1);
+    } else {
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
+    }
+
+    for (_l i = zFirstId; i < 11 * 1000000; i += 1000000) {
+        sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%ld PARTITION OF dp_log_%d FOR VALUES FROM (%ld) TO (%ld);",
+                zRepoId, i + 1000000, zRepoId, i, i + 1000000);
+
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+            exit(1);
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+        }
+    }
 
     /* 获取最近一次布署的相关信息 */
     sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM dp_log ORDER BY time_stamp DESC LIMIT 1 WHERE proj_id == %d", zRepoId);
@@ -964,6 +998,16 @@ zsys_load_monitor(void *zpParam) {
 
 
 /*
+ * 定时(每隔 90 万秒)创建新日志表
+ */
+void *
+zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
+    // TO DO
+    // 必须使用独立的 pgSQL 连接，不用使用全局连接
+}
+
+
+/*
  * json 解析回调：数字与字符串
  */
 static void
@@ -1035,8 +1079,33 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
         exit(1);
     }
 
-    /* 执行 SQL cmd */
+    /* 启动时尝试创建表，并查询已有项目信息 */
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
+                    "CREATE TABLE IF NOT EXISTS proj_meta "
+                    "("
+                    "proj_id         int NOT NULL PRIMARY KEY,"
+                    "path_on_host    string NOT NULL,"
+                    "source_url      string NOT NULL,"
+                    "source_branch   string NOT NULL,"
+                    "source_vcs_type string NOT NULL,"
+                    "need_pull       bool NOT NULL"
+                    ");"
+
+                    "CREATE TABLE IF NOT EXISTS dp_log "
+                    "("
+                    "proj_id         int NOT NULL,"
+                    "rev_sig         string NOT NULL,"
+                    "cache_id        bigint NOT NULL,"
+                    "time_stamp      bigint NOT NULL,"
+                    "time_limit      smallint NOT NULL DEFAULT 0,"
+                    "res             smallint NOT NULL DEFAULT -1,"
+                    "host_ip         string NOT NULL,"
+                    "host_res        smallint NOT NULL DEFAULT -1,"
+                    "host_timespent  smallint NOT NULL DEFAULT 0,"
+                    "host_errno      int NOT NULL DEFAULT 0,"
+                    "host_detail     string"
+                    ") PARTITION BY LIST (proj_id);"
+
                     "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
                     true))) {
         zPgSQL_.conn_clear(zpPgConnHd_);

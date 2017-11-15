@@ -108,6 +108,8 @@ struct zNativeOps__ {
     void (* json_parser[128]) (void *, void *);
     void * (* alloc) (_i, _ui);
     void * (* sysload_monitor) (void *);
+
+    void * (* extend_pg_partition) (void *zp);
 };
 
 #endif  // #ifndef ZLOCALOPS_H

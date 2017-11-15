@@ -435,7 +435,6 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     _i zErrNo = 0;
 
     zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
-    zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
 
     zPosixReg_.compile(zpRegInit_, "(\\w|[[:punct:]])+");
@@ -458,15 +457,8 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     }
 
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
-        /* 连接 pgSQL server */
-        if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
-            zPgSQL_.conn_clear(zpPgConnHd_);
-            zErrNo = -90;
-            goto zMarkEnd;
-        }
-
-        /* 执行 SQL cmd */
-        char zCmdBuf[256
+        /* 写入本项目元数据 */
+        char zCmdBuf[1024
             + zpRegRes_->resLen[0]
             + zpRegRes_->resLen[1]
             + zpRegRes_->resLen[2]
@@ -475,18 +467,20 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
             + 4];
         sprintf(zCmdBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
+                "VALUES (%s, %s, %s, %s, %s, %s);",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
                 zRepoMeta_.pp_fields[3],
                 zRepoMeta_.pp_fields[4],
-                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? "TRUE" : "FALSE");
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, false))) {
+                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? "TRUE" : "FALSE"
+                );
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 0)]->p_pgConnHd_, zCmdBuf, false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zPgSQL_.conn_clear(zpPgConnHd_);
             zErrNo = -91;
             goto zMarkEnd;
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
 
         zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);

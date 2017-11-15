@@ -94,6 +94,9 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     /* 扫描所有项目库并初始化之 */
     zNativeOps_.proj_init_all(zpPgLogin_);
 
+    /* 定时扩展 pgSQL 日志数据表的分区 */
+    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+
     zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）

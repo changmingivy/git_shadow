@@ -39,22 +39,19 @@ if [[ 0 -eq `ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
     ./configure --prefix=${HOME}/pgsql
     make && make install
 fi
-zLibPgPath=${HOME}/pgsql/lib
 
-# build libpcre2
-# wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
-# mkdir ${zShadowPath}/lib/libpcre2_source/____build
-# if [[ 0 -eq $? ]]; then
-#     cd ${zShadowPath}/lib/libpcre2_source/____build && rm -rf * .*
-#     cmake .. \
-#         -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libpcre2 \
-#         -DBUILD_SHARED_LIBS=ON \
-#         -DPCRE2_BUILD_PCRE2GREP=OFF \
-#         -DPCRE2_BUILD_TESTS=OFF
-#     cmake --build . --target install
-# fi
-# zLibPcrePath=${zShadowPath}/lib/libpcre2/lib64
-# if [[ 0 -eq  `ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
+# start postgresql
+zPgLibPath=${HOME}/pgsql/lib
+zPgBinPath=${HOME}/pgsql/bin
+zPgDataPath=${HOME}/pgsql/data
+
+${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
+${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
+${zPgBinPath}/createdb -O git dpDB
+
+# 需要 root 权限，防止 postgresql 主进程被 linux OOM_killer 杀掉
+# zPgPid=`head -1 ${zPgDataPath}/postmaster.pid`
+# (echo -1000 > /proc/$pid/oom_score_adj; echo -17 > /proc/$pid/oom_adj) 2>${zPgDataPath}/log
 
 # build libssh2
 mkdir ${zShadowPath}/lib/libssh2_source/____build
@@ -84,7 +81,7 @@ zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
 # 主程序编译
-cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zLibPgPath} install
+cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install
 # strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
@@ -99,3 +96,24 @@ ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -
 
 # 后台进入退出重启机制
 # ${zShadowPath}/serv_tools/zauto_restart.sh $zServAddr $zServPort &
+
+
+
+##################################################################################################
+
+# build libpcre2
+# wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
+# mkdir ${zShadowPath}/lib/libpcre2_source/____build
+# if [[ 0 -eq $? ]]; then
+#     cd ${zShadowPath}/lib/libpcre2_source/____build && rm -rf * .*
+#     cmake .. \
+#         -DCMAKE_INSTALL_PREFIX=${zShadowPath}/lib/libpcre2 \
+#         -DBUILD_SHARED_LIBS=ON \
+#         -DPCRE2_BUILD_PCRE2GREP=OFF \
+#         -DPCRE2_BUILD_TESTS=OFF
+#     cmake --build . --target install
+# fi
+# zLibPcrePath=${zShadowPath}/lib/libpcre2/lib64
+# if [[ 0 -eq  `ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
+
+##################################################################################################
