@@ -30,6 +30,17 @@ mkdir -p ${zShadowPath}/conf
 touch ${zShadowPath}/conf/master.conf
 rm -rf ${zShadowPath}/bin/*
 
+# build postgreSQL
+cd ${zShadowPath}/lib
+if [[ 0 -eq `ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
+    wget https://ftp.postgresql.org/pub/source/v10.1/postgresql-10.1.tar.bz2
+    tar -xf postgresql-10.1.tar.bz2
+    cd postgresql-10.1
+    ./configure --prefix=${HOME}/pgsql
+    make && make install
+fi
+zLibPgPath=${HOME}/pgsql/lib
+
 # build libpcre2
 # wget https://ftp.pcre.org/pub/pcre/pcre2-10.23.tar.gz
 # mkdir ${zShadowPath}/lib/libpcre2_source/____build
@@ -73,7 +84,7 @@ zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
 # 主程序编译
-cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} install
+cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zLibPgPath} install
 # strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
