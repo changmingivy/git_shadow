@@ -14,7 +14,7 @@ CREATE TABLE dp_log (
 	cache_id			bigint NOT NULL,  /* 用作目标机状态确认的标识之一 */
 	time_stamp			bigint NOT NULL,  /* 开始布署的时间(UNIX 时间戳) */
 	time_limit			smallint NOT NULL DEFAULT 0,  /* 布署超时限制(单位：秒) */
-	glob_res			smallint NOT NULL DEFAULT -1,  /* 全局整体布署结果 */
+	res			smallint NOT NULL DEFAULT -1,  /* 全局整体布署结果 */
 	host_ip				string NOT NULL,  /* 单台目标机 ip 地址 */
 	host_res			smallint NOT NULL DEFAULT -1,  /* 单台目标机的布署结果 */
 	host_timespent		smallint NOT NULL DEFAULT 0,  /* 单台目标机的实际布署耗时 */

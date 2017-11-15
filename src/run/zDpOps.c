@@ -1110,7 +1110,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     sprintf(zParamBuf[0], "%d", zpMeta_->repoId);
     sprintf(zParamBuf[1], "%ld", zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp);
     sprintf(zParamBuf[2], "%ld", zpGlobRepo_[zpMeta_->repoId]->cacheId);
-    zppParam = zpParam;
+    zppParam = zpParam;  // avoid compile warning...
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, false))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
@@ -1259,6 +1259,21 @@ zErrMark:
     }
 
 zEndMark:
+    sprintf(zppCommonBuf[0], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
+            zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit,
+            0 == zErrNo ? 0 : (-10000 == zErrNo? -1 : -2),
+            zpMeta_->repoId,
+            zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
+            );
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
+        zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
+            zPrint_Err(0, NULL, "!!! FATAL !!!");
+            exit(1);
+        }
+    }
     return zErrNo;
 }
 
@@ -1352,7 +1367,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
 
-                    sprintf(zppCommonBuf[0], "UPDATE dp_log SET glob_res = 0, WHERE proj_id == %d AND time_stamp = %ld",
+                    sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0, WHERE proj_id == %d AND time_stamp = %ld",
                             zpMeta_->repoId,
                             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                             );
@@ -1431,7 +1446,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
-                sprintf(zppCommonBuf[0], "UPDATE dp_log SET glob_res = 0, WHERE proj_id == %d AND time_stamp = %ld",
+                sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0, WHERE proj_id == %d AND time_stamp = %ld",
                         zpMeta_->repoId,
                         zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                         );
@@ -1494,17 +1509,17 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
  * 9：布署成功主机自动确认
  */
 #define zGenerate_SQL_Cmd() do {\
-    sprintf(zCmdBuf, "INSERT INTO dp_log_host_detail_%d "\
-            "(host_ip, rev_sig, cache_id, res, time_spent, err_no, detail) "\
-            "VALUES (%s, %s, %ld, %d, %ld, %d, %s)",\
+    sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = %s "\
+            "WHERE proj_id = %d, host_ip = %s, cache_id = %ld, rev_sig = %s",\
+            0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
+            zpMeta_->cacheId == zpGlobRepo_[zpMeta_->repoId]->cacheId ? time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp : 0,\
+            zErrNo,\
+            zpTmp_->errMsg,\
             zpMeta_->repoId,\
             zIpStrAddr,\
-            zSigBuf,\
             zpMeta_->cacheId,\
-            0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
-            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,\
-            zErrNo,\
-            zpTmp_->errMsg);\
+            zSigBuf\
+            );\
     zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);\
 } while (0);
 
