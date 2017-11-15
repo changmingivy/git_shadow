@@ -843,12 +843,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     }
 
     /* 每次启动时尝试创建必要的表 */
-    _l zFirstId = (time(NULL) / 1000000 + 2) * 1000000;  /* +2 的意义: 防止恰好在临界时间添加记录导致异常*/
+    _i zBaseId = time(NULL) / 1000000 + 2;  /* +2 的意义: 防止恰好在临界时间添加记录导致异常*/
     sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d PARTITION OF dp_log FOR VALUES IN (%d) PARTITION BY RANGE (time_stamp);"
         /* 若第一条 SQL 执行失败(说明是服务器重启，而非是新建项目)，不会执行第二条，故此处可能发生的错误不会带入之后的错误检查逻辑中 */
-        "CREATE TABLE IF NOT EXISTS dp_log_%d_%ld PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%ld);",
+        "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
         zRepoId, zRepoId,
-        zRepoId, zFirstId, zRepoId, zFirstId);
+        zRepoId, zBaseId, zRepoId, zBaseId);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -858,9 +858,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
 
-    for (_l i = zFirstId; i < 11 * 1000000; i += 1000000) {
-        sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%ld PARTITION OF dp_log_%d FOR VALUES FROM (%ld) TO (%ld);",
-                zRepoId, i + 1000000, zRepoId, i, i + 1000000);
+    for (_i zId = 0; zId < 10; zId++) {
+        sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
+                zRepoId, zBaseId + zId + 1, zRepoId, zBaseId + zId, zBaseId + zId + 1);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -998,12 +998,49 @@ zsys_load_monitor(void *zpParam) {
 
 
 /*
- * 定时(每隔 90 万秒)创建新日志表
+ * 定时扩展日志表分区
  */
 void *
 zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
-    // TO DO
-    // 必须使用独立的 pgSQL 连接，不用使用全局连接
+    zPgConnHd__ *zpPgConnHd_ = NULL;
+    zPgResHd__ *zpPgResHd_ = NULL;
+    char zCmdBuf[1024];
+
+    while (1) {
+        /* 每隔 10 万秒尝试创建新日志表 */
+        sleep(10 * 10000);
+
+        /* 尝试连接到 pgSQL server */
+        while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            zPrint_Err(0, NULL, "Connect to pgSQL failed");
+            sleep(120);
+        }
+
+        /* 非紧要任务，串行执行即可 */
+        _i zBaseId = time(NULL) / 1000000,
+           zId = 0;
+        for (_i zRepoId = 0; zRepoId <= zGlobMaxRepoId; zRepoId++) {
+            if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { continue; }
+
+            for (zId = 0; zId < 10; zId ++) {
+                sprintf(zCmdBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
+                        zRepoId, zBaseId + zId + 1, zRepoId, zBaseId + zId, zBaseId + zId + 1);
+
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, false))) {
+                    zPgSQL_.res_clear(zpPgResHd_, NULL);
+                    zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+                    continue;
+                } else {
+                    zPgSQL_.res_clear(zpPgResHd_, NULL);
+                }
+            }
+        }
+
+        zPgSQL_.conn_clear(zpPgConnHd_);
+    }
+
+    return NULL;
 }
 
 
