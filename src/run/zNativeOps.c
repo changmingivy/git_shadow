@@ -1103,35 +1103,39 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     }
 
     /* 启动时尝试创建表，并查询已有项目信息 */
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-                    "CREATE TABLE IF NOT EXISTS proj_meta "
-                    "("
-                    "proj_id         int NOT NULL PRIMARY KEY,"
-                    "path_on_host    varchar NOT NULL,"
-                    "source_url      varchar NOT NULL,"
-                    "source_branch   varchar NOT NULL,"
-                    "source_vcs_type varchar NOT NULL,"
-                    "need_pull       bool NOT NULL"
-                    ");"
+	zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
+			"CREATE TABLE IF NOT EXISTS proj_meta "
+			"("
+			"proj_id         int NOT NULL PRIMARY KEY,"
+            "path_on_host    varchar NOT NULL,"
+            "source_url      varchar NOT NULL,"
+            "source_branch   varchar NOT NULL,"
+            "source_vcs_type varchar NOT NULL,"
+            "need_pull       bool NOT NULL"
+            ");"
 
-                    "CREATE TABLE IF NOT EXISTS dp_log "
-                    "("
-                    "proj_id         int NOT NULL,"
-                    "rev_sig         varchar NOT NULL,"
-                    "cache_id        bigint NOT NULL,"
-                    "time_stamp      bigint NOT NULL,"
-                    "time_limit      smallint NOT NULL DEFAULT 0,"
-                    "res             smallint NOT NULL DEFAULT -1,"
-                    "host_ip         varchar NOT NULL,"
-                    "host_res        smallint NOT NULL DEFAULT -1,"
-                    "host_timespent  smallint NOT NULL DEFAULT 0,"
-                    "host_errno      int NOT NULL DEFAULT 0,"
-                    "host_detail     varchar"
-                    ") PARTITION BY LIST (proj_id);"
+            "CREATE TABLE IF NOT EXISTS dp_log "
+            "("
+            "proj_id         int NOT NULL,"
+            "rev_sig         varchar NOT NULL,"
+            "cache_id        bigint NOT NULL,"
+            "time_stamp      bigint NOT NULL,"
+            "time_limit      smallint NOT NULL DEFAULT 0,"
+            "res             smallint NOT NULL DEFAULT -1,"
+            "host_ip         varchar NOT NULL,"
+            "host_res        smallint NOT NULL DEFAULT -1,"
+            "host_timespent  smallint NOT NULL DEFAULT 0,"
+            "host_errno      int NOT NULL DEFAULT 0,"
+            "host_detail     varchar"
+            ") PARTITION BY LIST (proj_id);"
 
-                    "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
-                    true))) {
-        zPgSQL_.conn_clear(zpPgConnHd_);
+            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
+            true);
+
+	/* 已经执行完结并取回结果，立即断开连接 */
+    zPgSQL_.conn_clear(zpPgConnHd_);
+
+    if (NULL == zpPgRes_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
     } else {
@@ -1156,7 +1160,6 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     /* 清理资源占用，创建新项目时，需要重新建立连接 */
 zMarkNotFound:
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
-    //zPgSQL_.conn_clear(zpPgConnHd_);  // TO DO: 会导致 free abort！！！
 
 #ifndef _Z_BSD
     zThreadPool_.add(zsys_load_monitor, NULL);
