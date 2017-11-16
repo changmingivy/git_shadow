@@ -1090,13 +1090,13 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 生成连接 pgSQL 的元信息 */
     snprintf(zGlobPgConnInfo, 2048,
-            "%s%s"
-            "%s%s"
-            "%s%s"
-            "%s%s"
-            "%s%s"
-            "%s%s"
-            "sslmode=allow"
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "sslmode=allow "
             "connect_timeout=6",
             NULL == zpPgLogin_->p_addr ? "host=" : "",
             NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "localhost" : zpPgLogin_->p_host) : "",
@@ -1123,26 +1123,26 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
                     "CREATE TABLE IF NOT EXISTS proj_meta "
                     "("
                     "proj_id         int NOT NULL PRIMARY KEY,"
-                    "path_on_host    string NOT NULL,"
-                    "source_url      string NOT NULL,"
-                    "source_branch   string NOT NULL,"
-                    "source_vcs_type string NOT NULL,"
+                    "path_on_host    varchar NOT NULL,"
+                    "source_url      varchar NOT NULL,"
+                    "source_branch   varchar NOT NULL,"
+                    "source_vcs_type varchar NOT NULL,"
                     "need_pull       bool NOT NULL"
                     ");"
 
                     "CREATE TABLE IF NOT EXISTS dp_log "
                     "("
                     "proj_id         int NOT NULL,"
-                    "rev_sig         string NOT NULL,"
+                    "rev_sig         varchar NOT NULL,"
                     "cache_id        bigint NOT NULL,"
                     "time_stamp      bigint NOT NULL,"
                     "time_limit      smallint NOT NULL DEFAULT 0,"
                     "res             smallint NOT NULL DEFAULT -1,"
-                    "host_ip         string NOT NULL,"
+                    "host_ip         varchar NOT NULL,"
                     "host_res        smallint NOT NULL DEFAULT -1,"
                     "host_timespent  smallint NOT NULL DEFAULT 0,"
                     "host_errno      int NOT NULL DEFAULT 0,"
-                    "host_detail     string"
+                    "host_detail     varchar"
                     ") PARTITION BY LIST (proj_id);"
 
                     "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",

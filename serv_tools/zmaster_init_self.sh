@@ -28,12 +28,14 @@ kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/b
 mkdir -p ${zShadowPath}/log
 mkdir -p ${zShadowPath}/bin
 rm -rf ${zShadowPath}/bin/*
-touch ${HOME}/.pgpass
+if [[ 0 == `\ls ${HOME}/.pgpass | wc -l` ]]; then
+    echo "# hostname:port:database:username:password" > ${HOME}/.pgpass
+fi
 
 # build postgreSQL
-if [[ 0 -eq `ls -d ${zPgPath} | wc -l` ]]; then
+if [[ 0 -eq `\ls -d ${zPgPath} | wc -l` ]]; then
     cd ${zShadowPath}/lib
-    if [[ 0 -eq `ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
+    if [[ 0 -eq `\ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
         wget https://ftp.postgresql.org/pub/source/v10.1/postgresql-10.1.tar.bz2
     fi
     tar -xf postgresql-10.1.tar.bz2
@@ -65,7 +67,7 @@ if [[ 0 -eq $? ]]; then
     cmake --build . --target install
 fi
 zLibSshPath=${zShadowPath}/lib/libssh2/lib64
-if [[ 0 -eq  `ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib; fi
+if [[ 0 -eq  `\ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib; fi
 
 # build libgit2
 mkdir ${zShadowPath}/lib/libgit2_source/____build
@@ -80,7 +82,7 @@ if [[ 0 -eq $? ]]; then
     cmake --build . --target install
 fi
 zLibGitPath=${zShadowPath}/lib/libgit2/lib64
-if [[ 0 -eq  `ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
+if [[ 0 -eq  `\ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
 # 主程序编译
 cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install
@@ -116,6 +118,6 @@ ${zShadowPath}/bin/git_shadow -h $zServAddr -p $zServPort >>${zShadowPath}/log/o
 #     cmake --build . --target install
 # fi
 # zLibPcrePath=${zShadowPath}/lib/libpcre2/lib64
-# if [[ 0 -eq  `ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
+# if [[ 0 -eq  `\ls ${zLibPcrePath} | wc -l` ]]; then zLibPcrePath=${zShadowPath}/lib/libpcre2/lib; fi
 
 ##################################################################################################
