@@ -464,16 +464,16 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
             + zRegRes_.resLen[2]
             + zRegRes_.resLen[3]
             + zRegRes_.resLen[4]
-            + 4];
+        ];
         sprintf(zCmdBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES (%s, '%s', '%s', '%s', '%s', %s);",
+                "VALUES ('%s','%s','%s','%s','%s','%c')",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
                 zRepoMeta_.pp_fields[3],
                 zRepoMeta_.pp_fields[4],
-                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? "TRUE" : "FALSE"
+                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? 't' : 'f'  /* TRUE, FALSE */
                 );
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 0)]->p_pgConnHd_, zCmdBuf, false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -1504,7 +1504,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
  */
 #define zGenerate_SQL_Cmd() do {\
     sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
-            "WHERE proj_id = %d, host_ip = %s, cache_id = %ld, rev_sig = %s",\
+            "WHERE proj_id = %d AND host_ip = %s AND cache_id = %ld AND rev_sig = %s",\
             0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
             zpMeta_->cacheId == zpGlobRepo_[zpMeta_->repoId]->cacheId ? time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp : 0,\
             zErrNo,\

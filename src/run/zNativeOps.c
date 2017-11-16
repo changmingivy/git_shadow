@@ -695,6 +695,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     _i zRepoId = 0,
        zErrNo = 0,
        zStrLen = 0;
+    char *zpOrigPath = NULL,
+         zKeepValue = 0;
     zPgResHd__ *zpPgResHd_ = NULL;
 
     /* 提取项目ID，调整 zGlobMaxRepoId */
@@ -716,23 +718,20 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     if (0 == zRegRes_.cnt) { /* Handle ERROR ? */ }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
-    zStrLen = strlen(zpRepoMeta_->pp_fields[1]);
-    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = '\0';
-    while ('/' == zpRepoMeta_->pp_fields[1][0]) {
-        zpRepoMeta_->pp_fields[1]++;  /* 去除多余的 '/' */
-    }
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_repoPath, char, 32 + sizeof("/home/git/.____DpSystem/") + zStrLen);
-    zpGlobRepo_[zRepoId]->repoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_repoPath,
-            "%s%s%s/%d/%s",
-            "/home/git/",
-            zpRepoMeta_->pp_fields[1],
-            ".____DpSystem",
+    zpOrigPath = zpRepoMeta_->pp_fields[1];
+    zStrLen = strlen(zpOrigPath);
+    zKeepValue = zpOrigPath[zStrLen - zRegRes_.resLen[0]];
+    zpOrigPath[zStrLen - zRegRes_.resLen[0]] = '\0';
+    while ('/' == zpOrigPath[0]) { zpOrigPath++; }  /* 去除多余的 '/' */
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_repoPath, char, 128 + zStrLen);
+    zpGlobRepo_[zRepoId]->repoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_repoPath, "/home/git/%s/.____DpSystem/%d/%s",
+            zpOrigPath,
             zRepoId,
             zRegRes_.p_rets[0]);
     zPosixReg_.free_res(&zRegRes_);
 
     /* 恢复原始字符串，上层调用者需要使用 */
-    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = '/';
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = zKeepValue;
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
@@ -880,14 +879,14 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
                 exit(1);
             }
         } else if (1 == zpPgRes_->tupleCnt && 2 == zpPgRes_->fieldCnt) {
-            strncpy(zpGlobRepo_[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[1].pp_fields[zpPgRes_->fieldCnt], 40);  /* 提取最近一次布署的SHA1 sig */
+            strncpy(zpGlobRepo_[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);  /* 提取最近一次布署的SHA1 sig */
             zpGlobRepo_[zRepoId]->lastDpSig[40] = '\0';
 
-            /* 上一次布署结果 */
-            if ('F' == zpPgRes_->tupleRes_[1].pp_fields[1 + zpPgRes_->fieldCnt][0]) {
-                zpGlobRepo_[zRepoId]->repoState = zRepoDamaged;
-            } else {
+            /* 上一次布署结果:0 success, -1 fake success, -2 fail */
+            if (0 == strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10)) {
                 zpGlobRepo_[zRepoId]->repoState = zRepoGood;
+            } else {
+                zpGlobRepo_[zRepoId]->repoState = zRepoDamaged;
             }
 
             zPgSQL_.res_clear(zpPgResHd_, NULL);
