@@ -1158,7 +1158,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     /* 清理资源占用，创建新项目时，需要重新建立连接 */
 zMarkNotFound:
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
-    zPgSQL_.conn_clear(zpPgConnHd_);
+    //zPgSQL_.conn_clear(zpPgConnHd_);  // TO DO: 会导致 free abort！！！
 
 #ifndef _Z_BSD
     zThreadPool_.add(zsys_load_monitor, NULL);
