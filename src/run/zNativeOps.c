@@ -540,7 +540,8 @@ zMarkLarge:
  */
 static void *
 zgenerate_cache(void *zpParam) {
-    zDpLog__ zDpLog_[zCacheSiz] = {{ .p_revSig = NULL }};
+    char *zpRevSig[zCacheSiz] = { NULL };
+    char zTimeStampVec[16 * zCacheSiz];
     zVecWrap__ *zpTopVecWrap_ = NULL,
                *zpSortedTopVecWrap_ = NULL;
     zMeta__ *zpMeta_ = (zMeta__ *)zpParam,
@@ -563,13 +564,13 @@ zgenerate_cache(void *zpParam) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  // 出现严重错误，退出程序
         } else {
-            for (zCnter = 0; zCnter < zCacheSiz && 0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zDpLog_[zCnter].p_revSig); zCnter++) {
-                zDpLog_[zCnter].p_revSig = zalloc_cache(zpMeta_->repoId, zBytes(64));
-                zDpLog_[zCnter].p_timeStamp = zDpLog_[zCnter].p_revSig + 44;
-                if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(zDpLog_[zCnter].p_revSig, zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zpRevWalker))) {
-                    snprintf(zDpLog_[zCnter].p_timeStamp, 20, "%ld", zTimeStamp);
+            for (zCnter = 0; zCnter < zCacheSiz; zCnter++) {
+                zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(44));
+                if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(zpRevSig[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zpRevWalker))
+                        && 0 != strncmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpRevSig[zCnter], 40)) {
+                    snprintf(zTimeStampVec + 16 * zCnter, 20, "%ld", zTimeStamp);
                 } else {
-                    zDpLog_[zCnter].p_revSig = NULL;
+                    zpRevSig[zCnter] = NULL;
                     break;
                 }
             }
@@ -613,14 +614,9 @@ zgenerate_cache(void *zpParam) {
             = (zCacheSiz < zpTopVecWrap_->vecSiz) ? zCacheSiz : zpTopVecWrap_->vecSiz;
 
         for (zCnter = 0; zCnter < zpTopVecWrap_->vecSiz; zCnter++) {
-            zDpLog_[zCnter].p_revSig = zalloc_cache(zpMeta_->repoId, zBytes(64));
-            zDpLog_[zCnter].p_timeStamp = zDpLog_[zCnter].p_revSig + 44;
-
-            strncpy(zDpLog_[zCnter].p_revSig, zpPgRes_->tupleRes_->pp_fields[0], 40);
-            zDpLog_[zCnter].p_revSig[40] = '\0';
-
-            strncpy(zDpLog_[zCnter].p_timeStamp, zpPgRes_->tupleRes_->pp_fields[1], 20);
-            zDpLog_[zCnter].p_timeStamp[20] = '\0';  // 确保至少存在一个 '\0'
+            zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(44));
+            strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_->pp_fields[0]);
+            strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_->pp_fields[1]);
         }
 
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
@@ -629,8 +625,8 @@ zgenerate_cache(void *zpParam) {
         exit(1);
     }
 
-    if (NULL != zDpLog_[0].p_revSig) {
-        for (zCnter = 0; zCnter < zCacheSiz && NULL != zDpLog_[zCnter].p_revSig; zCnter++) {
+    if (NULL != zpRevSig[0]) {
+        for (zCnter = 0; zCnter < zCacheSiz && NULL != zpRevSig[zCnter]; zCnter++) {
             /* 用于转换成JsonStr */
             zSubMeta_.opsId = 0;
             zSubMeta_.repoId = zpMeta_->repoId;
@@ -638,8 +634,8 @@ zgenerate_cache(void *zpParam) {
             zSubMeta_.fileId = -1;
             zSubMeta_.cacheId =  zpGlobRepo_[zpMeta_->repoId]->cacheId;
             zSubMeta_.dataType = zpMeta_->dataType;
-            zSubMeta_.p_data = zDpLog_[zCnter].p_revSig;
-            zSubMeta_.p_extraData = zDpLog_[zCnter].p_timeStamp;
+            zSubMeta_.p_data = zpRevSig[zCnter];
+            zSubMeta_.p_extraData = zTimeStampVec + 16 * zCnter;
 
             /* 将zMeta__转换为JSON文本 */
             zDpOps_.struct_to_json(zCommonBuf, &zSubMeta_);
@@ -649,24 +645,9 @@ zgenerate_cache(void *zpParam) {
             zpTopVecWrap_->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
             memcpy(zpTopVecWrap_->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);
 
-            zpTopVecWrap_->p_refData_[zCnter].p_data = zDpLog_[zCnter].p_revSig;
+            zpTopVecWrap_->p_refData_[zCnter].p_data = zpRevSig[zCnter];
             zpTopVecWrap_->p_refData_[zCnter].p_subVecWrap_ = NULL;
         }
-
-        // !!! 布署记录已不需要额外排序：SQL 返回的结果的序列已经与提交列表相同
-        // if (zIsDpDataType == zpMeta_->dataType) {
-        //     /* 存储最近一次布署的 SHA1 sig，执行布署时首先对比布署目标与最近一次布署，若相同，则直接返回成功 */
-        //     strcpy(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpTopVecWrap_->p_refData_[zCnter - 1].p_data);
-        //     /* 将布署记录按逆向时间排序（新记录显示在前面） */
-        //     for (_i i = 0; i < zpTopVecWrap_->vecSiz; i++) {
-        //         zCnter--;
-        //         zpSortedTopVecWrap_->p_vec_[zCnter].iov_base = zpTopVecWrap_->p_vec_[i].iov_base;
-        //         zpSortedTopVecWrap_->p_vec_[zCnter].iov_len = zpTopVecWrap_->p_vec_[i].iov_len;
-        //     }
-        // } else {
-        //     /* 提交记录缓存本来就是有序的，不需要额外排序 */
-        //     zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
-        // }
 
         /* 提交记录与布署记录缓存均是有序的，不需要额外排序 */
         zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
