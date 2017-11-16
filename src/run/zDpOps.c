@@ -467,7 +467,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
             + 4];
         sprintf(zCmdBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES (%s, %s, %s, %s, %s, %s);",
+                "VALUES (%s, '%s', '%s', '%s', '%s', %s);",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
@@ -1094,7 +1094,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     /* 预置本次布署日志 */
     _i zOffSet = sprintf(zppCommonBuf[0], "INSERT INTO dp_log (proj_id,rev_sig,time_stamp,cache_id,host_ip) VALUES ");
     for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
-        zOffSet += sprintf(zppCommonBuf[0] + zOffSet, "($1,$2,$3,$4,%s),", zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr);
+        zOffSet += sprintf(zppCommonBuf[0] + zOffSet, "($1,$2,$3,$4,'%s'),", zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr);
     }
     zppCommonBuf[0][zOffSet - 1] = '\0';  /* 去除最后一个逗号 */
 

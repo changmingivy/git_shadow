@@ -567,8 +567,8 @@ zgenerate_cache(void *zpParam) {
             for (zCnter = 0; zCnter < zCacheSiz; zCnter++) {
                 zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(44));
                 if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(zpRevSig[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zpRevWalker))
-                        && 0 != strncmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpRevSig[zCnter], 40)) {
-                    snprintf(zTimeStampVec + 16 * zCnter, 20, "%ld", zTimeStamp);
+                        && 0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zpRevSig[zCnter])) {
+                    sprintf(zTimeStampVec + 16 * zCnter, "%ld", zTimeStamp);
                 } else {
                     zpRevSig[zCnter] = NULL;
                     break;
@@ -730,6 +730,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
             zRepoId,
             zRegRes_.p_rets[0]);
     zPosixReg_.free_res(&zRegRes_);
+
+    /* 恢复原始字符串，上层调用者需要使用 */
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = '/';
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
