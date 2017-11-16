@@ -1135,7 +1135,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 	/* 已经执行完结并取回结果，立即断开连接 */
     zPgSQL_.conn_clear(zpPgConnHd_);
 
-    if (NULL == zpPgRes_) {
+    if (NULL == zpPgResHd_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
     } else {
