@@ -1097,7 +1097,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "%s%s"
             "%s%s"
             "sslmode=allow"
-            "connect_timeout=5",
+            "connect_timeout=6",
             NULL == zpPgLogin_->p_addr ? "host=" : "",
             NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "localhost" : zpPgLogin_->p_host) : "",
             NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
