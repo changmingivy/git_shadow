@@ -18,7 +18,7 @@
 #endif
 
 #ifndef ZRUN_H
-#include "run/zRun.h"
+#include "zRun.h"
 #endif
 
 #define UDP 0

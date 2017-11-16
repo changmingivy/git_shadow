@@ -12,7 +12,7 @@ typedef struct {
     _ui ResLen[zMatchLimit];  // results' strlen
     _ui cnt;         //total num of matched substrings
 
-    void * (* alloc_fn) (_i, size_t);
+    void * (* alloc_fn) (_i, _ui);
     _i RepoId;
 } zRegRes__ ;
 
