@@ -28,6 +28,7 @@ kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/b
 mkdir -p ${zShadowPath}/log
 mkdir -p ${zShadowPath}/bin
 rm -rf ${zShadowPath}/bin/*
+touch ${HOME}/.pgpass
 
 # build postgreSQL
 if [[ 0 -eq `ls -d ${zPgPath} | wc -l` ]]; then
