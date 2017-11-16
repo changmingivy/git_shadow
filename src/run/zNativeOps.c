@@ -1077,16 +1077,16 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             zpHomePath = "/home/git";
         }
 
-        snprintf(zDBPassFilePath, 1024, "%s/.pqpass", zpHomePath);
+        snprintf(zDBPassFilePath, 1024, "%s/.pgpass", zpHomePath);
         zpPgLogin_->p_passFilePath = zDBPassFilePath;
     }
 
-    zCheck_NeZero_Exit( stat(zpPgLogin_->p_passFilePath, &zStat_) );
+    zCheck_NotZero_Exit( stat(zpPgLogin_->p_passFilePath, &zStat_) );
     if (!S_ISREG(zStat_.st_mode)) {
         zPrint_Err(0, NULL, "postgreSQL: passfile is not a regular file!");
         exit(1);
     }
-    zCheck_NeZero_Exit( chmod(zpPgLogin_->p_passFilePath, 00600) );
+    zCheck_NotZero_Exit( chmod(zpPgLogin_->p_passFilePath, 00600) );
 
     /* 生成连接 pgSQL 的元信息 */
     snprintf(zGlobPgConnInfo, 2048,

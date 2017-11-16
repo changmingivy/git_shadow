@@ -114,7 +114,7 @@ typedef enum __bool {
     }\
 } while(0)
 
-#define zCheck_NeZero_Exit(zRes) do{\
+#define zCheck_NotZero_Exit(zRes) do{\
     _i zX = (zRes);\
     if (0 != zX) {\
         zPrint_Err(errno, #zRes " < 0", "");\
