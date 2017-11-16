@@ -178,7 +178,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
             (char *) (zpPgRes_ + 1) + zTupleCnt * sizeof(zPgResTuple__)
             );
 
-    zpPgRes_->tupleRes_[0].pp_fields = zpPgRes_->fieldNames_.pp_fields + zTupleCnt;
+    zpPgRes_->tupleRes_[0].pp_fields = zpPgRes_->fieldNames_.pp_fields + zFieldCnt;
 
     zpPgRes_->tupleCnt = zTupleCnt;
     zpPgRes_->fieldCnt = zFieldCnt;

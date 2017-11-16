@@ -9,7 +9,7 @@ zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=${zGitShadowPath}
-zDeployPath=/home/git/${zPathOnHost}
+zDeployPath=/home/git${zPathOnHost}  # ${zPathOnHost} 是以 '/' 开头的
 zServBranchName="server${zProjId}"
 
 if [[ "" == $zProjId
@@ -82,19 +82,8 @@ git config user.email "git_shadow@${zProjId}"
 git add --all .
 git commit --allow-empty -m "____Dp_System_Init____"
 
-# 防止添加重复条目
-zExistMark=`cat ${zShadowPath}/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
-if [[ 0 -eq $zExistMark ]];then
-    zDirName=`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``
-    zBaseName=`basename ${zPathOnHost}`
-    printf "${zProjId} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}\n" >> ${zShadowPath}/conf/master.conf
-fi
-
 # 创建必要的目录与文件
-cd ${zDeployPath}_SHADOW
-mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
-touch ${zDeployPath}_SHADOW/log/deploy/meta
-chmod -R 0755 ${zDeployPath}_SHADOW
+cd ${zDeployPath}_SHADOW && mkdir -p info log && chmod -R 0755 .
 
 # use to get diff when no deploy log has been written
 cd ${zDeployPath}
@@ -105,6 +94,5 @@ git branch ____base.XXXXXXXX &&\
         git add --all .;\
         git commit --allow-empty -m "_";\
         git branch `git log -1 --format="%H"`;\
-        printf "`git log -1 --format="%H_%ct"`\n" > ${zDeployPath}_SHADOW/log/deploy/meta;\
         git checkout master\
     )
