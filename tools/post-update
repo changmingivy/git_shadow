@@ -21,7 +21,7 @@ export HOME="/home/git"
         zProjId=`echo $1 | grep -o '[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`;
         if [[ "" == ${zProjId} ]]; then exit 255; fi
     fi
-    zSelfIpStrAddr=`cat /home/git/.____zself_ip_addr_${zProjId}.txt`
+    zSelfIpStrAddr=`cat ${HOME}/.____zself_ip_addr_${zProjId}.txt`
     zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环

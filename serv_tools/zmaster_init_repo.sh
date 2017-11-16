@@ -9,7 +9,7 @@ zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=${zGitShadowPath}
-zDeployPath=/home/git${zPathOnHost}  # ${zPathOnHost} 是以 '/' 开头的
+zDeployPath=${HOME}${zPathOnHost}  # ${zPathOnHost} 是以 '/' 开头的
 zServBranchName="server${zProjId}"
 
 if [[ "" == $zProjId

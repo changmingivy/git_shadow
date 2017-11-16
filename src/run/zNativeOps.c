@@ -21,6 +21,8 @@ extern struct zLibGit__ zLibGit_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 
+extern char *zpGlobHomePath;
+extern _i zGlobHomePathLen;
 
 static void *
 zalloc_cache(_i zRepoId, _ui zSiz);
@@ -724,7 +726,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zpOrigPath[zStrLen - zRegRes_.resLen[0]] = '\0';
     while ('/' == zpOrigPath[0]) { zpOrigPath++; }  /* 去除多余的 '/' */
     zMem_Alloc(zpGlobRepo_[zRepoId]->p_repoPath, char, 128 + zStrLen);
-    zpGlobRepo_[zRepoId]->repoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_repoPath, "/home/git/%s/.____DpSystem/%d/%s",
+    zpGlobRepo_[zRepoId]->repoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_repoPath, "%s/%s/.____DpSystem/%d/%s",
+            zpGlobHomePath,
             zpOrigPath,
             zRepoId,
             zRegRes_.p_rets[0]);
@@ -740,7 +743,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->repoPathLen];
     sprintf(zCommonBuf, "sh ${zGitShadowPath}/serv_tools/zmaster_init_repo.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zpGlobRepo_[zRepoId]->repoId,
-            zpGlobRepo_[zRepoId]->p_repoPath + 9,
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,
             zpRepoMeta_->pp_fields[2],
             zpRepoMeta_->pp_fields[3],
             zpRepoMeta_->pp_fields[4]);
@@ -1050,7 +1053,6 @@ zparse_str(void *zpIn, void *zpOut) {
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_) {
     char zDBPassFilePath[1024];
-    char *zpHomePath = NULL;
     struct stat zStat_;
 
     zPgConnHd__ *zpPgConnHd_ = NULL;
@@ -1059,11 +1061,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 确保 pgSQL 密钥文件存在并合法 */
     if (NULL == zpPgLogin_->p_passFilePath) {
-        if (NULL == (zpHomePath = getenv("HOME"))) {
-            zpHomePath = "/home/git";
-        }
-
-        snprintf(zDBPassFilePath, 1024, "%s/.pgpass", zpHomePath);
+        snprintf(zDBPassFilePath, 1024, "%s/.pgpass", zpGlobHomePath);
         zpPgLogin_->p_passFilePath = zDBPassFilePath;
     }
 

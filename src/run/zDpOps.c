@@ -19,6 +19,12 @@ extern struct zPosixReg__ zPosixReg_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zPgSQL__ zPgSQL_;
 
+extern _i zGlobHomePathLen;
+
+extern char *zpGlobSSHPort;
+extern char *zpGlobSSHPubKeyPath;
+extern char *zpGlobSSHPrvKeyPath;
+
 static _i
 zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_);
 
@@ -161,7 +167,7 @@ zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
 /* 简化参数版函数 */
 static _i
 zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
-    return zLibSsh_.exec(zpHostIpAddr, "22", zpCmd, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL, 1, NULL, 0, zpCcurLock, zpErrBufOUT);
+    return zLibSsh_.exec(zpHostIpAddr, zpGlobSSHPort, zpCmd, "git", zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL, 1, NULL, 0, zpCcurLock, zpErrBufOUT);
 }
 
 
@@ -253,7 +259,7 @@ zgit_push_ccur(void *zp_) {
     pthread_mutex_unlock(&zGlobCommonLock);
 
     /* generate remote URL */
-    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s/%s/.git", zpDpCcur_->p_hostIpStrAddr, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9);
+    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s/%s/.git", zpDpCcur_->p_hostIpStrAddr, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
 
     /* {'+' == git push --force} push TWO branchs together */
     sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcur_->repoId);
@@ -266,7 +272,7 @@ zgit_push_ccur(void *zp_) {
                 "mkdir -p %s %s_SHADOW;"
                 "cd %s_SHADOW && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
                 "cd %s && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
-                "echo '%s' >/home/git/.____zself_ip_addr_%d.txt;"
+                "echo '%s' > /home/git/.____zself_ip_addr_%d.txt;"
 
                 "exec 777<>/dev/tcp/%s/%s;"
                 "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"
@@ -275,10 +281,10 @@ zgit_push_ccur(void *zp_) {
                 "exec 777>&-;"
                 "exec 777<&-;",
 
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + 9,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
                 zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->repoId,
 
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
@@ -816,7 +822,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
             "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
             "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . && git config user.name _ && git config user.email _;"\
             "cd %s && git init . && git config user.name _ && git config user.email _;"\
-            "echo ${____zSelfIp} >/home/git/.____zself_ip_addr_%d.txt;"\
+            "echo ${____zSelfIp} > /home/git/.____zself_ip_addr_%d.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"\
@@ -826,11 +832,11 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
             "exec 777>&-;"\
             "exec 777<&-;",\
 \
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
             zpMeta_->repoId,\
 \
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
@@ -1049,7 +1055,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath,  // 中控机上的代码库路径
             zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),  // SHA1 commit sig
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath,
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + 9,  // 目标机上的代码库路径(即：去掉最前面的 "/home/git" 合计 9 个字符)
+            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,  // 目标机上的代码库路径
             zpGlobRepo_[zpMeta_->repoId]->cacheId,
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath
             );

@@ -13,6 +13,13 @@ extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 
+char *zpGlobLoginName = NULL;
+char *zpGlobHomePath = NULL;
+char *zpGlobSSHPort = "22";
+char *zpGlobSSHPubKeyPath = NULL;
+char *zpGlobSSHPrvKeyPath = NULL;
+_i zGlobHomePathLen = 0;
+
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
 
@@ -87,6 +94,17 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
 
     /* 成为守护进程 */
     zNativeUtils_.daemonize("/");
+
+    /* 提取 $USER 及 $HOME 等 */
+    if (NULL == (zpGlobLoginName = getlogin())) { zpGlobLoginName = "git"; }
+    if (NULL == (zpGlobHomePath = getenv("HOME"))) { zpGlobHomePath = "/home/git"; }
+    zGlobHomePathLen = strlen(zpGlobHomePath);
+
+    zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));
+    sprintf(zpGlobSSHPubKeyPath, "%s/.ssh/id_rsa.pub", zpGlobHomePath);
+
+    zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
+    sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
 
     /* 线程池初始化 */
     zThreadPool_.init();

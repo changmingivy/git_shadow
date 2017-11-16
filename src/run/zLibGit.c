@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern char *zpGlobSSHPubKeyPath;
+extern char *zpGlobSSHPrvKeyPath;
+
 static git_repository *
 zgit_env_init(char *zpNativeRepoAddr);
 
@@ -63,11 +66,8 @@ zgit_cred_acquire_cb(git_cred **zppResOUT, const char *zpUrl __attribute__ ((__u
         const char * zpUsernameFromUrl __attribute__ ((__unused__)),
         unsigned int zpAllowedTypes __attribute__ ((__unused__)),
         void * zPayload __attribute__ ((__unused__))) {
-#ifdef _Z_BSD
-    if (0 != git_cred_ssh_key_new(zppResOUT, "git", "/usr/home/git/.ssh/id_rsa.pub", "/usr/home/git/.ssh/id_rsa", NULL)) {
-#else
-    if (0 != git_cred_ssh_key_new(zppResOUT, "git", "/home/git/.ssh/id_rsa.pub", "/home/git/.ssh/id_rsa", NULL)) {
-#endif
+
+    if (0 != git_cred_ssh_key_new(zppResOUT, "git", zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL)) {
         if (NULL == giterr_last()) { fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n"); }
         else { fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message); }
         exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序
@@ -250,7 +250,8 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
             return -1;
         }
 
-        if ('\0' == git_oid_tostr(zpRevSigOUT, sizeof(git_oid), &zOid)[0]) {
+        /* 取完整的 40 位 SHA1 sig */
+        if ('\0' == git_oid_tostr(zpRevSigOUT, 40, &zOid)[0]) {
             git_commit_free(zpCommit);
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
