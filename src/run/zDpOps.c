@@ -430,40 +430,40 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
  */
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
-    zRegInit__ *zpRegInit_ = NULL;
-    zRegRes__ *zpRegRes_ = NULL;
+    zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_;
     _i zErrNo = 0;
 
     zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
     zPgResHd__ *zpPgResHd_ = NULL;
 
-    zPosixReg_.compile(zpRegInit_, "(\\w|[[:punct:]])+");
-    zPosixReg_.match(zpRegRes_, zpRegInit_, zpMeta_->p_data);
-    zPosixReg_.free_meta(zpRegInit_);
+    zPosixReg_.compile(&zRegInit_, "(\\w|[[:punct:]])+");
+    zPosixReg_.match(&zRegRes_, &zRegInit_, zpMeta_->p_data);
+    zPosixReg_.free_meta(&zRegInit_);
 
-    if (5 > zpRegRes_->cnt) { return -34; }
-    char *zpStrPtr[zpRegRes_->cnt];
+    if (5 > zRegRes_.cnt) { return -34; }
+    char *zpStrPtr[zRegRes_.cnt];
     zRepoMeta_.pp_fields = zpStrPtr;
 
-    zRepoMeta_.pp_fields[0] = zpRegRes_->p_rets[0];
-    zRepoMeta_.pp_fields[1] = zpRegRes_->p_rets[1];
-    zRepoMeta_.pp_fields[2] = zpRegRes_->p_rets[2];
-    zRepoMeta_.pp_fields[3] = zpRegRes_->p_rets[3];
-    zRepoMeta_.pp_fields[4] = zpRegRes_->p_rets[4];
-    if (5 == zpRegRes_->cnt) {
+    zRepoMeta_.pp_fields[0] = zRegRes_.p_rets[0];
+    zRepoMeta_.pp_fields[1] = zRegRes_.p_rets[1];
+    zRepoMeta_.pp_fields[2] = zRegRes_.p_rets[2];
+    zRepoMeta_.pp_fields[3] = zRegRes_.p_rets[3];
+    zRepoMeta_.pp_fields[4] = zRegRes_.p_rets[4];
+    if (5 == zRegRes_.cnt) {
         zRepoMeta_.pp_fields[5]= "Y";
     } else {
-        zRepoMeta_.pp_fields[5]= zpRegRes_->p_rets[5];
+        zRepoMeta_.pp_fields[5]= zRegRes_.p_rets[5];
     }
 
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
         /* 写入本项目元数据 */
         char zCmdBuf[1024
-            + zpRegRes_->resLen[0]
-            + zpRegRes_->resLen[1]
-            + zpRegRes_->resLen[2]
-            + zpRegRes_->resLen[3]
-            + zpRegRes_->resLen[4]
+            + zRegRes_.resLen[0]
+            + zRegRes_.resLen[1]
+            + zRegRes_.resLen[2]
+            + zRegRes_.resLen[3]
+            + zRegRes_.resLen[4]
             + 4];
         sprintf(zCmdBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
@@ -487,7 +487,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     }
 
 zMarkEnd:
-    zPosixReg_.free_res(zpRegRes_);
+    zPosixReg_.free_res(&zRegRes_);
     return zErrNo;
 }
 

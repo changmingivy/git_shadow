@@ -253,8 +253,8 @@ zdistribute_task(void *zpParam) {
 \
     zpTmpNode_[0]->p_firstChild = NULL;\
     zpTmpNode_[0]->p_left = NULL;\
-    zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_->resLen[zNodeCnter]);\
-    strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_->p_rets[zNodeCnter]);\
+    zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
+    strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
 \
     zpTmpNode_[0]->opsId = 0;\
     zpTmpNode_[0]->repoId = zpMeta_->repoId;\
@@ -262,7 +262,7 @@ zdistribute_task(void *zpParam) {
     zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
     zpTmpNode_[0]->dataType = zpMeta_->dataType;\
 \
-    if (zNodeCnter == (zRegRes_->cnt - 1)) {\
+    if (zNodeCnter == (zRegRes_.cnt - 1)) {\
         zpTmpNode_[0]->fileId = zpTmpNode_[0]->lineNum;\
         zpTmpNode_[0]->p_extraData = zalloc_cache(zpMeta_->repoId, zBaseDataLen);\
         memcpy(zpTmpNode_[0]->p_extraData, zCommonBuf, zBaseDataLen);\
@@ -289,7 +289,7 @@ zdistribute_task(void *zpParam) {
     }\
 \
     zNodeCnter++;\
-    for (; zNodeCnter < zRegRes_->cnt; zNodeCnter++) {\
+    for (; zNodeCnter < zRegRes_.cnt; zNodeCnter++) {\
         zpTmpNode_[0]->p_firstChild = zalloc_cache(zpMeta_->repoId, sizeof(zMeta__));\
         zpTmpNode_[1] = zpTmpNode_[0];\
 \
@@ -303,8 +303,8 @@ zdistribute_task(void *zpParam) {
         zLineCnter++;  /* 每个节点会占用一行显示输出 */\
         zpTmpNode_[0]->offSet = zNodeCnter;  /* 纵向偏移 */\
 \
-        zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_->resLen[zNodeCnter]);\
-        strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_->p_rets[zNodeCnter]);\
+        zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
+        strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
 \
         zpTmpNode_[0]->opsId = 0;\
         zpTmpNode_[0]->repoId = zpMeta_->repoId;\
@@ -420,8 +420,8 @@ zget_file_list(void *zpParam) {
     zMeta__ zSubMeta_;
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
-    zRegInit__ zRegInit_[1];
-    zRegRes__ zRegRes_[1] = {{.alloc_fn = zalloc_cache, .repoId = zpMeta_->repoId}};  // 使用项目内存池
+    zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_ = {.alloc_fn = zalloc_cache, .repoId = zpMeta_->repoId};  // 使用项目内存池
 
     /* 在生成树节点之前分配空间，以使其不为 NULL，防止多个查询文件列的的请求导致重复生成同一缓存 */
     zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId) = zalloc_cache(zpMeta_->repoId, sizeof(zVecWrap__));
@@ -429,12 +429,12 @@ zget_file_list(void *zpParam) {
 
     zpRootNode_ = NULL;
     zLineCnter = 0;
-    zPosixReg_.compile(zRegInit_, "[^/]+");
+    zPosixReg_.compile(&zRegInit_, "[^/]+");
     if (NULL != zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         zBaseDataLen = strlen(zCommonBuf);
 
         zCommonBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
-        zPosixReg_.match(zRegRes_, zRegInit_, zCommonBuf);
+        zPosixReg_.match(&zRegRes_, &zRegInit_, zCommonBuf);
 
         zNodeCnter = 0;
         zpTmpNode_[2] = zpTmpNode_[1] = zpTmpNode_[0] = NULL;
@@ -444,13 +444,13 @@ zget_file_list(void *zpParam) {
             zBaseDataLen = strlen(zCommonBuf);
 
             zCommonBuf[zBaseDataLen - 1] = '\0';  // 去掉换行符
-            zPosixReg_.match(zRegRes_, zRegInit_, zCommonBuf);
+            zPosixReg_.match(&zRegRes_, &zRegInit_, zCommonBuf);
 
             zpTmpNode_[0] = zpRootNode_;
             zpTmpNode_[2] = zpTmpNode_[1] = NULL;
-            for (zNodeCnter = 0; zNodeCnter < zRegRes_->cnt;) {
+            for (zNodeCnter = 0; zNodeCnter < zRegRes_.cnt;) {
                 do {
-                    if (0 == strcmp(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_->p_rets[zNodeCnter])) {
+                    if (0 == strcmp(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter])) {
                         zpTmpNode_[1] = zpTmpNode_[0];
                         zpTmpNode_[0] = zpTmpNode_[0]->p_firstChild;
                         zpTmpNode_[2] = NULL;
@@ -471,7 +471,7 @@ zMarkOuter:;
             zGenerate_Tree_Node(); /* 添加树节点 */
         }
     }
-    zPosixReg_.free_meta(zRegInit_);
+    zPosixReg_.free_meta(&zRegInit_);
     pclose(zpShellRetHandler);
 
     if (NULL == zpRootNode_) {
