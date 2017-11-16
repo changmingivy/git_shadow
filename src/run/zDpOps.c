@@ -1361,7 +1361,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
                 if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
 
-                    sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0, WHERE proj_id = %d AND time_stamp = %ld",
+                    sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0 WHERE proj_id = %d AND time_stamp = %ld",
                             zpMeta_->repoId,
                             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                             );
@@ -1440,7 +1440,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             if (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
-                sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0, WHERE proj_id = %d AND time_stamp = %ld",
+                sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0 WHERE proj_id = %d AND time_stamp = %ld",
                         zpMeta_->repoId,
                         zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                         );
@@ -1503,7 +1503,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
  * 9：布署成功主机自动确认
  */
 #define zGenerate_SQL_Cmd() do {\
-    sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = %s "\
+    sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
             "WHERE proj_id = %d, host_ip = %s, cache_id = %ld, rev_sig = %s",\
             0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
             zpMeta_->cacheId == zpGlobRepo_[zpMeta_->repoId]->cacheId ? time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp : 0,\
