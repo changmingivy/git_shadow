@@ -709,8 +709,8 @@ zgenerate_cache(void *zpParam) {
  */
 static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
-    zRegInit__ *zpRegInit_ = NULL;
-    zRegRes__ *zpRegRes_ = NULL;
+    zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_;
     _i zRepoId = 0,
        zErrNo = 0,
        zStrLen = 0;
@@ -728,15 +728,15 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zpGlobRepo_[zRepoId]->selfPushMark = (NULL == zpRepoMeta_->pp_fields[5] || 'N' == zpRepoMeta_->pp_fields[5][0]) ? 0 : 1;
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
-    zPosixReg_.compile(zpRegInit_, "[^/]+[/]*$");
-    zPosixReg_.match(zpRegRes_, zpRegInit_, zpRepoMeta_->pp_fields[1]);
-    zPosixReg_.free_meta(zpRegInit_);
+    zPosixReg_.compile(&zRegInit_, "[^/]+[/]*$");
+    zPosixReg_.match(&zRegRes_, &zRegInit_, zpRepoMeta_->pp_fields[1]);
+    zPosixReg_.free_meta(&zRegInit_);
 
-    if (0 == zpRegRes_->cnt) { /* Handle ERROR ? */ }
+    if (0 == zRegRes_.cnt) { /* Handle ERROR ? */ }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
     zStrLen = strlen(zpRepoMeta_->pp_fields[1]);
-    zpRepoMeta_->pp_fields[1][zStrLen - zpRegRes_->resLen[0]] = '\0';
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = '\0';
     while ('/' == zpRepoMeta_->pp_fields[1][0]) {
         zpRepoMeta_->pp_fields[1]++;  /* 去除多余的 '/' */
     }
@@ -747,8 +747,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
             zpRepoMeta_->pp_fields[1],
             ".____DpSystem",
             zRepoId,
-            zpRegRes_->p_rets[0]);
-    zPosixReg_.free_res(zpRegRes_);
+            zRegRes_.p_rets[0]);
+    zPosixReg_.free_res(&zRegRes_);
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
