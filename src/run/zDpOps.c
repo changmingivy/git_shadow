@@ -85,14 +85,14 @@ struct zDpOps__ zDpOps_ = {
  */
 static _i
 zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
-    zRegInit__ zRegInit_[1];
-    zRegRes__ zRegRes_[1] = {{.alloc_fn = NULL}};  // 此时尚没取得 zpMeta_->repo_ 之值，不可使用项目内存池
+    zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_ = { .alloc_fn = NULL };  // 此时尚没取得 zpMeta_->repo_ 之值，不可使用项目内存池
 
-    zPosixReg_.compile(zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
-    zPosixReg_.match(zRegRes_, zRegInit_, zpJsonStr);
-    zPosixReg_.free_meta(zRegInit_);
+    zPosixReg_.compile(&zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
+    zPosixReg_.match(&zRegRes_, &zRegInit_, zpJsonStr);
+    zPosixReg_.free_meta(&zRegInit_);
 
-    zRegRes_->cnt -= zRegRes_->cnt % 2;  // 若末端有换行、空白之类字符，忽略之
+    zRegRes_.cnt -= zRegRes_.cnt % 2;  // 若末端有换行、空白之类字符，忽略之
 
     void *zpBuf[128];
     zpBuf['O'] = &(zpMeta_->opsId);
@@ -105,17 +105,17 @@ zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
     zpBuf['d'] = zpMeta_->p_data;
     zpBuf['E'] = zpMeta_->p_extraData;
 
-    for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter += 2) {
-        if (NULL == zNativeOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])]) {
+    for (_ui zCnter = 0; zCnter < zRegRes_.cnt; zCnter += 2) {
+        if (NULL == zNativeOps_.json_parser[(_i)(zRegRes_.p_rets[zCnter][0])]) {
             strcpy(zpMeta_->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
-            zPosixReg_.free_res(zRegRes_);
+            zPosixReg_.free_res(&zRegRes_);
             return -7;
         }
 
-        zNativeOps_.json_parser[(_i)(zRegRes_->p_rets[zCnter][0])](zRegRes_->p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_->p_rets[zCnter][0])]);
+        zNativeOps_.json_parser[(_i)(zRegRes_.p_rets[zCnter][0])](zRegRes_.p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_.p_rets[zCnter][0])]);
     }
 
-    zPosixReg_.free_res(zRegRes_);
+    zPosixReg_.free_res(&zRegRes_);
     return 0;
 }
 
@@ -431,7 +431,7 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
 static _i
 zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     zRegInit__ zRegInit_;
-    zRegRes__ zRegRes_;
+    zRegRes__ zRegRes_ = { .alloc_fn = NULL };
     _i zErrNo = 0;
 
     zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
@@ -845,7 +845,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
 
     zRegInit__ zRegInit_[1];
     zRegRes__ *zpRegRes_, zRegRes_[1] = {{.alloc_fn = zNativeOps_.alloc, .repoId = zpMeta_->repoId}};  // 使用项目内存池
-    zpRegRes_ = zRegRes_;
+    zpRegRes_ = zRegRes_;  /* avoid compile warning... */
 
     zPosixReg_.compile(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zPosixReg_.match(zRegRes_, zRegInit_, zpMeta_->p_data);

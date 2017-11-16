@@ -710,7 +710,7 @@ zgenerate_cache(void *zpParam) {
 static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zRegInit__ zRegInit_;
-    zRegRes__ zRegRes_;
+    zRegRes__ zRegRes_ = { .alloc_fn = NULL };
     _i zRepoId = 0,
        zErrNo = 0,
        zStrLen = 0;

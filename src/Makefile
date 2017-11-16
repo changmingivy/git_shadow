@@ -42,11 +42,12 @@ zLibUtils.a:
 
 # install
 install: git_shadow
+	-@strip git_shadow
 	mv git_shadow $(INSTALL_DIR)
 
 #clean
 clean:
-	-@rm -f zmain.o $(SUB_SRC_DIR)/zLibUtils.a
+	-rm -f zmain.o $(SUB_SRC_DIR)/zLibUtils.a
 
 
 
