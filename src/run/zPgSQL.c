@@ -190,7 +190,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
 
     /* 提取每一行各字段的值 */
     for (j = 0; j < zTupleCnt; j++) {
-        zpPgRes_->tupleRes_[j].pp_fields = zpPgRes_->tupleRes_[0].pp_fields + j * zFieldCnt * sizeof(void *);
+        zpPgRes_->tupleRes_[j].pp_fields = zpPgRes_->tupleRes_[0].pp_fields + j * zFieldCnt;
         for (i = 0; i < zFieldCnt; i++) {
             zpPgRes_->tupleRes_[j].pp_fields[i] = PQgetvalue(zpPgResHd_, j, i);
         }

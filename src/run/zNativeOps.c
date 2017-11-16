@@ -1102,18 +1102,18 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
         exit(1);
     }
 
-    /* 启动时尝试创建表，并查询已有项目信息 */
-	zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-			"CREATE TABLE IF NOT EXISTS proj_meta "
-			"("
-			"proj_id         int NOT NULL PRIMARY KEY,"
+    /* 启动时尝试创建表 */
+    zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
+            "CREATE TABLE IF NOT EXISTS proj_meta "
+            "("
+            "proj_id         int NOT NULL PRIMARY KEY,"
             "path_on_host    varchar NOT NULL,"
             "source_url      varchar NOT NULL,"
             "source_branch   varchar NOT NULL,"
             "source_vcs_type varchar NOT NULL,"
             "need_pull       bool NOT NULL"
             ");"
-
+\
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "proj_id         int NOT NULL,"
@@ -1127,12 +1127,21 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "host_timespent  smallint NOT NULL DEFAULT 0,"
             "host_errno      int NOT NULL DEFAULT 0,"
             "host_detail     varchar"
-            ") PARTITION BY LIST (proj_id);"
+            ") PARTITION BY LIST (proj_id);",
+\
+            false);
 
+    if (NULL == zpPgResHd_) {
+        zPrint_Err(0, NULL, "pgSQL exec failed");
+        exit(1);
+    }
+
+    /* 查询已有项目信息 */
+    zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
             "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
             true);
 
-	/* 已经执行完结并取回结果，立即断开连接 */
+    /* 已经执行完结并取回结果，立即断开连接 */
     zPgSQL_.conn_clear(zpPgConnHd_);
 
     if (NULL == zpPgResHd_) {
