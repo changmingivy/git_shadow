@@ -163,31 +163,36 @@ static zPgRes__ *
 zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     _i zTupleCnt = 0,
        zFieldCnt = 0,
-       t = 0,
-       f = 0;
+       i = 0,
+       j = 0;
     zPgRes__ *zpPgRes_ = NULL;
 
     if (0 == (zTupleCnt = PQntuples(zpPgResHd_))) { return NULL; }
     zFieldCnt = PQnfields(zpPgResHd_);
 
-    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) +
-            zTupleCnt * (sizeof(zPgResTuple__) + (1 + zFieldCnt) * sizeof(void *)));
+    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
+            + zFieldCnt * sizeof(void *)  /* for zpPgRes_->fieldNames_.pp_fields */
+            + zTupleCnt * (zFieldCnt * sizeof(void *)));  /* for zpPgRes_->tupleRes_[0].pp_fields */
 
-    zpPgRes_->tupleRes_[0].pp_fields = (char **) (
-            (char *) zpPgRes_ + sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
+    zpPgRes_->fieldNames_.pp_fields = (char **) (
+            (char *) (zpPgRes_ + 1) + zTupleCnt * sizeof(zPgResTuple__)
             );
+
+    zpPgRes_->tupleRes_[0].pp_fields = zpPgRes_->fieldNames_.pp_fields + zTupleCnt;
 
     zpPgRes_->tupleCnt = zTupleCnt;
     zpPgRes_->fieldCnt = zFieldCnt;
 
-    for (f = 0; f < zFieldCnt; f++) {
-        zpPgRes_->fieldNames_.pp_fields[f] = PQfname(zpPgResHd_, f);
+    /* 提取字段名称 */
+    for (i = 0; i < zFieldCnt; i++) {
+        zpPgRes_->fieldNames_.pp_fields[i] = PQfname(zpPgResHd_, i);
     }
 
-    for (t = 0; t < zTupleCnt; t++) {
-        zpPgRes_->tupleRes_[t].pp_fields = zpPgRes_->tupleRes_[0].pp_fields + t * (1 + zFieldCnt) * sizeof(void *);
-        for (f = 0; f < zFieldCnt; f++) {
-            zpPgRes_->tupleRes_[t].pp_fields[f] = PQgetvalue(zpPgResHd_, t, f);
+    /* 提取每一行各字段的值 */
+    for (j = 0; j < zTupleCnt; j++) {
+        zpPgRes_->tupleRes_[j].pp_fields = zpPgRes_->tupleRes_[0].pp_fields + j * zFieldCnt * sizeof(void *);
+        for (i = 0; i < zFieldCnt; i++) {
+            zpPgRes_->tupleRes_[j].pp_fields[i] = PQgetvalue(zpPgResHd_, j, i);
         }
     }
 
