@@ -5,16 +5,16 @@ CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 
 ROOT_DIR = ${HOME}/zgit_shadow2
 
-# third party libs, absolute path
+# 默认值，会被外部传参覆盖：third party libs, absolute path
 SSH_LIB_DIR = $(ROOT_DIR)/lib/libssh2/lib
 GIT_LIB_DIR = $(ROOT_DIR)/lib/libgit2/lib
-PG_LIB_DIR = ${HOME}/pgsql/lib
+PG_LIB_DIR = ${HOME}/.____PostgreSQL/lib
 
 # include files
 INC_DIR = $(ROOT_DIR)/inc
-SSH_INC_DIR = $(ROOT_DIR)/lib/libssh2/include
-GIT_INC_DIR = $(ROOT_DIR)/lib/libgit2/include
-PG_INC_DIR = ${HOME}/pgsql/include
+SSH_INC_DIR = `dirname $(SSH_LIB_DIR)`/include
+GIT_INC_DIR = `dirname $(GIT_LIB_DIR)`/include
+PG_INC_DIR = `dirname $(PG_LIB_DIR)`/include
 
 # all .c files except zmain.c
 SUB_SRC_DIR = $(ROOT_DIR)/src/run

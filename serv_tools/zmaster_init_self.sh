@@ -3,10 +3,11 @@
 # 预环境要求：
 #   (1) /etc/ssh/sshd_config 中的 MaxStartups 参数指定为 1024 以上
 #   (2) /etc/sysctl.conf 中的 net.core.somaxconn 参数指定为 1024 以上，之后执行 sysctl -p 使之立即生效
-#   (3) yum install openssl-devel
+#   (3) 安装 openssl 开发库：CentOS/openssl-devel、Debian/openssl-dev
 
 # 布署系统全局共用变量
 export zGitShadowPath=${HOME}/zgit_shadow2
+export zPgPath=${HOME}/.____PostgreSQL
 
 zServAddr=$1
 zServPort=$2
@@ -24,26 +25,26 @@ eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/zhost_self_deploy.sh
 kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+\w*\s*${zShadowPath}/tools/zauto_restart.sh)"`
 kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/bin/git_shadow)"`
 
-mkdir -p ${zShadowPath}/bin
 mkdir -p ${zShadowPath}/log
-mkdir -p ${zShadowPath}/conf
-touch ${zShadowPath}/conf/master.conf
+mkdir -p ${zShadowPath}/bin
 rm -rf ${zShadowPath}/bin/*
 
 # build postgreSQL
-cd ${zShadowPath}/lib
-if [[ 0 -eq `ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
-    wget https://ftp.postgresql.org/pub/source/v10.1/postgresql-10.1.tar.bz2
+if [[ 0 -eq `ls -d ${zPgPath} | wc -l` ]]; then
+    cd ${zShadowPath}/lib
+    if [[ 0 -eq `ls postgresql-10.1.tar.bz2 | wc -l` ]]; then
+        wget https://ftp.postgresql.org/pub/source/v10.1/postgresql-10.1.tar.bz2
+    fi
     tar -xf postgresql-10.1.tar.bz2
     cd postgresql-10.1
-    ./configure --prefix=${HOME}/pgsql
-    make && make install
+    ./configure --prefix=${zPgPath}
+    make -j5 && make install
 fi
 
 # start postgresql
-zPgLibPath=${HOME}/pgsql/lib
-zPgBinPath=${HOME}/pgsql/bin
-zPgDataPath=${HOME}/pgsql/data
+zPgLibPath=${zPgPath}/lib
+zPgBinPath=${zPgPath}/bin
+zPgDataPath=${zPgPath}/data
 
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
@@ -91,7 +92,7 @@ clang -Wall -Wextra -std=c99 -O2 \
     ${zShadowPath}/src/zExtraUtils/znotice.c
 strip ${zShadowPath}/tools/notice
 
-export LD_LIBRARY_PATH=${zShadowPath}/lib/libssh2/lib64:${zShadowPath}/lib/libgit2/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow -f ${zShadowPath}/conf/master.conf -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 # 后台进入退出重启机制
