@@ -588,9 +588,9 @@ zgenerate_cache(void *zpParam) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 须使用 DISTINCT 关键字去重 */
-        sprintf(zCommonBuf, "SELECT DISTINCT rev_sig, time_stamp FROM dp_log DESC ORDER BY time_stamp LIMIT %d WHERE proj_id == %d",
-                zCacheSiz,
-                zpMeta_->repoId);
+        sprintf(zCommonBuf, "SELECT DISTINCT rev_sig, time_stamp FROM dp_log WHERE proj_id == %d ORDER BY time_stamp DESC LIMIT %d",
+                zpMeta_->repoId,
+                zCacheSiz);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
@@ -875,7 +875,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     }
 
     /* 获取最近一次布署的相关信息，只取一条，不需要使用 DISTINCT 关键字去重 */
-    sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM dp_log ORDER BY time_stamp DESC LIMIT 1 WHERE proj_id == %d", zRepoId);
+    sprintf(zCommonBuf, "SELECT rev_sig, res FROM dp_log WHERE proj_id == %d ORDER BY time_stamp DESC LIMIT 1", zRepoId);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
