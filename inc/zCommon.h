@@ -53,7 +53,7 @@ typedef enum __bool {
 #define zPrint_Time() do {\
     time_t ____zMarkNow = time(NULL);  /* Mark the time when this process start */\
     struct tm *____zpCurrentTimeIf = localtime(&____zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
-    fprintf(stderr, "\033[31m====[ %d-%d-%d %d:%d:%d ]====\033[00m",\
+    fprintf(stderr, "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
             ____zpCurrentTimeIf->tm_year + 1900,\
             ____zpCurrentTimeIf->tm_mon + 1,  /* Month (0-11) */\
             ____zpCurrentTimeIf->tm_mday,\
@@ -69,12 +69,12 @@ typedef enum __bool {
 #define zPrint_Err(zErrNo, zCause, zCustomContents) do {\
     zPrint_Time();\
     fprintf(stderr,\
-    "\033[31;01m\n====[ ERROR ]====\033[00m\n"\
-    "\033[31;01mFile:\033[00m %s\n"\
-    "\033[31;01mLine:\033[00m %d\n"\
-    "\033[31;01mFunc:\033[00m %s\n"\
-    "\033[31;01mCause:\033[00m %s\n"\
-    "\033[31;01mDetail:\033[00m %s\n\n",\
+    "\033[31;01m[ ERROR ] \033[00m"\
+    "\033[31;01mfiLe:\033[00m %s; "\
+    "\033[31;01mline:\033[00m %d; "\
+    "\033[31;01mfunc:\033[00m %s; "\
+    "\033[31;01mcause:\033[00m %s; "\
+    "\033[31;01mdetail:\033[00m %s; \n",\
     __FILE__,\
     __LINE__,\
     __func__,\

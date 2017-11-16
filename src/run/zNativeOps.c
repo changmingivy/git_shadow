@@ -587,8 +587,8 @@ zgenerate_cache(void *zpParam) {
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->dpVecWrap_);
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
-        /* 执行 SQL cmd */
-        sprintf(zCommonBuf, "SELECT rev_sig, time_stamp FROM dp_log DESC ORDER BY time_stamp LIMIT %d WHERE proj_id == %d",
+        /* 须使用 DISTINCT 关键字去重 */
+        sprintf(zCommonBuf, "SELECT DISTINCT rev_sig, time_stamp FROM dp_log DESC ORDER BY time_stamp LIMIT %d WHERE proj_id == %d",
                 zCacheSiz,
                 zpMeta_->repoId);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
@@ -842,13 +842,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         exit(1);
     }
 
-    /* 每次启动时尝试创建必要的表 */
-    _i zBaseId = time(NULL) / 1000000 + 2;  /* +2 的意义: 防止恰好在临界时间添加记录导致异常*/
+    /* 每次启动时尝试创建必要的表，按天分区（1天 == 86400秒） */
+    _i zBaseId = time(NULL) / 86400 + 2;  /* +2 的意义: 防止恰好在临界时间添加记录导致异常*/
     sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d PARTITION OF dp_log FOR VALUES IN (%d) PARTITION BY RANGE (time_stamp);"
         /* 若第一条 SQL 执行失败(说明是服务器重启，而非是新建项目)，不会执行第二条，故此处可能发生的错误不会带入之后的错误检查逻辑中 */
         "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
         zRepoId, zRepoId,
-        zRepoId, zBaseId, zRepoId, zBaseId);
+        zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -860,7 +860,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     for (_i zId = 0; zId < 10; zId++) {
         sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                zRepoId, zBaseId + zId + 1, zRepoId, zBaseId + zId, zBaseId + zId + 1);
+                zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -871,7 +871,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         }
     }
 
-    /* 获取最近一次布署的相关信息 */
+    /* 获取最近一次布署的相关信息，只取一条，不需要使用 DISTINCT 关键字去重 */
     sprintf(zCommonBuf, "SELECT rev_sig, glob_res FROM dp_log ORDER BY time_stamp DESC LIMIT 1 WHERE proj_id == %d", zRepoId);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
@@ -999,6 +999,8 @@ zsys_load_monitor(void *zpParam) {
 
 /*
  * 定时扩展日志表分区
+ * 每天尝试创建之后 10 天的分区表
+ * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
 void *
 zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
@@ -1007,25 +1009,25 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
     char zCmdBuf[1024];
 
     while (1) {
-        /* 每隔 10 万秒尝试创建新日志表 */
-        sleep(10 * 10000);
+        /* 每天（24 * 60 * 60 秒）尝试创建新日志表 */
+        sleep(86400);
 
         /* 尝试连接到 pgSQL server */
         while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             zPrint_Err(0, NULL, "Connect to pgSQL failed");
-            sleep(120);
+            sleep(60);
         }
 
         /* 非紧要任务，串行执行即可 */
-        _i zBaseId = time(NULL) / 1000000,
+        _i zBaseId = time(NULL) / 86400,
            zId = 0;
         for (_i zRepoId = 0; zRepoId <= zGlobMaxRepoId; zRepoId++) {
             if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { continue; }
 
             for (zId = 0; zId < 10; zId ++) {
                 sprintf(zCmdBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                        zRepoId, zBaseId + zId + 1, zRepoId, zBaseId + zId, zBaseId + zId + 1);
+                        zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
                 if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, false))) {
                     zPgSQL_.res_clear(zpPgResHd_, NULL);
