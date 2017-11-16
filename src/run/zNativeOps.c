@@ -603,8 +603,11 @@ zgenerate_cache(void *zpParam) {
         }
 
         /* 存储的是实际的对象数量 */
-        zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
-        zpTopVecWrap_->vecSiz = zpPgRes_->tupleCnt;
+        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+            zpTopVecWrap_->vecSiz = 0;
+        } else {
+            zpTopVecWrap_->vecSiz = zpPgRes_->tupleCnt;
+        }
         zpSortedTopVecWrap_->vecSiz
             = zpTopVecWrap_->vecSiz
             = (zCacheSiz < zpTopVecWrap_->vecSiz) ? zCacheSiz : zpTopVecWrap_->vecSiz;
@@ -878,8 +881,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
     } else {
-        zPgRes__ *zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
-        if (0 == zpPgRes_->tupleCnt) {  /* empty repo... */
+        zPgRes__ *zpPgRes_ = NULL;
+        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {  /* empty repo... */
             sprintf(zCommonBuf, "refs/heads/____base.XXXXXXXX");
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zCommonBuf, 0);
             if (NULL != zpRevWalker && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
@@ -1151,8 +1154,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
     } else {
-        zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
-        if (0 == zpPgRes_->tupleCnt) {
+        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPrint_Err(0, NULL, "No valid repo found!");
             goto zMarkNotFound;
         }

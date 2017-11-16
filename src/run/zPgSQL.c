@@ -157,6 +157,7 @@ zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCn
 /*
  * 解析并输出 SQL 查询类命令返回的结果
  * 返回的数据中，第一组是字段名称
+ * 返回 NULL 表示查询结果为空
  */
 static zPgRes__ *
 zpg_parse_res(zPgResHd__ *zpPgResHd_) {
@@ -166,7 +167,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
        f = 0;
     zPgRes__ *zpPgRes_ = NULL;
 
-    zTupleCnt = PQntuples(zpPgResHd_);
+    if (0 == (zTupleCnt = PQntuples(zpPgResHd_))) { return NULL; }
     zFieldCnt = PQnfields(zpPgResHd_);
 
     zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) +
