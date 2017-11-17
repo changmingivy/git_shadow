@@ -616,9 +616,9 @@ zgenerate_cache(void *zpParam) {
             = (zCacheSiz < zpTopVecWrap_->vecSiz) ? zCacheSiz : zpTopVecWrap_->vecSiz;
 
         for (zCnter = 0; zCnter < zpTopVecWrap_->vecSiz; zCnter++) {
-            zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(44));
-            strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_->pp_fields[0]);
-            strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_->pp_fields[1]);
+            zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(41));
+            strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_[zCnter].pp_fields[0]);
+            strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_[zCnter].pp_fields[1]);
         }
 
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
