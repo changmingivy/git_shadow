@@ -82,8 +82,15 @@ main(_i zArgc, char **zppArgv) {
     _i zSd, zLen;
     char zSendBuf[4096];
 
-    if (8 != zArgc) { _exit(1); }
-    zLen = sprintf(zSendBuf, "{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"data\":%s,\"ExtraData\":%s}", zppArgv[3], zppArgv[4], zppArgv[5], zppArgv[6], zppArgv[7]);
+    if (9 != zArgc) { _exit(1); }
+    zLen = sprintf(zSendBuf, "{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"data\":%s,\"ExtraData\":%s,\"CacheId\":%s}",
+            zppArgv[3],
+            zppArgv[4],
+            zppArgv[5],
+            zppArgv[6],
+            zppArgv[7],
+            zppArgv[8]
+            );
 
     if (0 < (zSd = ztcp_connect(zppArgv[1], zppArgv[2], 0))) {
         zsendto(zSd, zSendBuf, zLen, 0, NULL);
