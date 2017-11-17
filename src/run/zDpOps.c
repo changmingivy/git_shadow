@@ -1084,8 +1084,8 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     }
 
     /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数；另复制一份供失败重试之用 */
-    strncpy(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId), zBytes(40));
-    strncpy(zpMeta_->p_extraData, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId), zBytes(40));
+    strcpy(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
+    strcpy(zpMeta_->p_extraData, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
 
     /* 重置布署相关状态 */
     for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
@@ -1379,7 +1379,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             }
 
             pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
-            if (0 !=  strncmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_extraData, 40)) {
+            if (0 !=  strcmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_extraData)) {
                 pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
                 return 0;
             }
