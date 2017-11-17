@@ -25,9 +25,6 @@ extern char *zpGlobSSHPort;
 extern char *zpGlobSSHPubKeyPath;
 extern char *zpGlobSSHPrvKeyPath;
 
-static _i
-zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_);
-
 static void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_);
 
@@ -80,50 +77,8 @@ struct zDpOps__ zDpOps_ = {
     .state_confirm = zstate_confirm,
     .lock = zlock_repo,
     .req_file = zreq_file,
-    .json_to_struct = zconvert_json_str_to_struct,
     .struct_to_json = zconvert_struct_to_json_str
 };
-
-/*
- *  接收数据时使用
- *  将json文本转换为zMeta__结构体
- *  返回：出错返回-1，正常返回0
- */
-static _i
-zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
-    zRegInit__ zRegInit_;
-    zRegRes__ zRegRes_ = { .alloc_fn = NULL };  // 此时尚没取得 zpMeta_->repo_ 之值，不可使用项目内存池
-
-    zPosixReg_.init(&zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
-    zPosixReg_.match(&zRegRes_, &zRegInit_, zpJsonStr);
-    zPosixReg_.free_meta(&zRegInit_);
-
-    zRegRes_.cnt -= zRegRes_.cnt % 2;  // 若末端有换行、空白之类字符，忽略之
-
-    void *zpBuf[128];
-    zpBuf['O'] = &(zpMeta_->opsId);
-    zpBuf['P'] = &(zpMeta_->repoId);
-    zpBuf['R'] = &(zpMeta_->commitId);
-    zpBuf['F'] = &(zpMeta_->fileId);
-    zpBuf['H'] = &(zpMeta_->hostId);
-    zpBuf['C'] = &(zpMeta_->cacheId);
-    zpBuf['D'] = &(zpMeta_->dataType);
-    zpBuf['d'] = zpMeta_->p_data;
-    zpBuf['E'] = zpMeta_->p_extraData;
-
-    for (_ui zCnter = 0; zCnter < zRegRes_.cnt; zCnter += 2) {
-        if (NULL == zNativeOps_.json_parser[(_i)(zRegRes_.p_rets[zCnter][0])]) {
-            strcpy(zpMeta_->p_data, zpJsonStr);  // 必须复制，不能调整指针，zpJsonStr 缓存区会被上层调用者复用
-            zPosixReg_.free_res(&zRegRes_);
-            return -7;
-        }
-
-        zNativeOps_.json_parser[(_i)(zRegRes_.p_rets[zCnter][0])](zRegRes_.p_rets[zCnter + 1], zpBuf[(_i)(zRegRes_.p_rets[zCnter][0])]);
-    }
-
-    zPosixReg_.free_res(&zRegRes_);
-    return 0;
-}
 
 
 /*

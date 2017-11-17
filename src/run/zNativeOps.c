@@ -56,7 +56,6 @@ struct zNativeOps__ zNativeOps_ = {
     .proj_init = zinit_one_repo_env,
     .proj_init_all = zinit_env,
 
-    .json_parser = { NULL },
     .alloc = zalloc_cache,
     .sysload_monitor = zsys_load_monitor,
 
@@ -1164,20 +1163,6 @@ zMarkNotFound:
 #ifndef _Z_BSD
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
-
-    /* json 解析时的回调函数索引 */
-    zNativeOps_.json_parser['O']  // OpsId
-        = zNativeOps_.json_parser['P']  // ProjId
-        = zNativeOps_.json_parser['R']  // RevId
-        = zNativeOps_.json_parser['F']  // FileId
-        = zNativeOps_.json_parser['H']  // HostId
-        = zNativeOps_.json_parser['C']  // CacheId
-        = zNativeOps_.json_parser['D']  // DataType
-        = zparse_digit;
-
-    zNativeOps_.json_parser['d']  // data
-        = zNativeOps_.json_parser['E']  // ExtraData
-        = zparse_str;
 
     return NULL;
 }
