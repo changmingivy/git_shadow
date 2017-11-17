@@ -1512,7 +1512,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
     sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
             "WHERE proj_id = %d AND host_ip = '%s' AND cache_id = %ld AND rev_sig = '%s'",\
             0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
-            zpMeta_->cacheId == zpGlobRepo_[zpMeta_->repoId]->cacheId ? time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp : 0,\
+            time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,\
             zErrNo,\
             zpTmp_->errMsg,\
             zpMeta_->repoId,\
