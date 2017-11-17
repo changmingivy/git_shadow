@@ -1518,7 +1518,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
             zpMeta_->repoId,\
             zIpStrAddr,\
             zpMeta_->cacheId,\
-            zSigBuf\
+            zpMeta_->p_data\
             );\
     zPg_Update_Record(zpPgConnHd_, zpPgResHd_, zCmdBuf);\
 } while (0);
@@ -1532,10 +1532,8 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
 
-    char zIpStrAddr[INET_ADDRSTRLEN], zSigBuf[44], zCmdBuf[1024];
+    char zIpStrAddr[INET_ADDRSTRLEN], zCmdBuf[1024];
     zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
-    strncpy(zSigBuf, zpMeta_->p_data, 40);
-    zSigBuf[40] = '\0';
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zpMeta_->hostId) {
@@ -1551,7 +1549,7 @@ zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
                     goto zMarkEnd;
                 }
 
-                if (0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zSigBuf)) {
+                if (0 != strcmp(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zpMeta_->p_data)) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     zErrNo = -101;
 

@@ -250,8 +250,8 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
             return -1;
         }
 
-        /* 取完整的 40 位 SHA1 sig */
-        if ('\0' == git_oid_tostr(zpRevSigOUT, 40, &zOid)[0]) {
+        /* 取完整的 40 位 SHA1 sig，第二个参数指定调用者传入的缓冲区大小 */
+        if ('\0' == git_oid_tostr(zpRevSigOUT, 41, &zOid)[0]) {
             git_commit_free(zpCommit);
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
