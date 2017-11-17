@@ -431,7 +431,7 @@ zget_file_list(void *zpParam) {
 
     zpRootNode_ = NULL;
     zLineCnter = 0;
-    zPosixReg_.compile(&zRegInit_, "[^/]+");
+    zPosixReg_.init(&zRegInit_, "[^/]+");
     if (NULL != zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         zBaseDataLen = strlen(zCommonBuf);
 
@@ -713,7 +713,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zpGlobRepo_[zRepoId]->selfPushMark = (NULL == zpRepoMeta_->pp_fields[5] || 'N' == zpRepoMeta_->pp_fields[5][0]) ? 0 : 1;
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
-    zPosixReg_.compile(&zRegInit_, "[^/]+[/]*$");
+    zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
     zPosixReg_.match(&zRegRes_, &zRegInit_, zpRepoMeta_->pp_fields[1]);
     zPosixReg_.free_meta(&zRegInit_);
 

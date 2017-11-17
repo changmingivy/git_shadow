@@ -17,7 +17,7 @@ typedef struct __zRegRes__ {
 typedef regex_t zRegInit__;
 
 struct zPosixReg__ {
-    void (* compile) (zRegInit__ *, const char *);
+    void (* init) (zRegInit__ *, const char *);
     void (* match) (zRegRes__ *, regex_t *, const char *);
 
     void (* free_meta) (zRegInit__ *);

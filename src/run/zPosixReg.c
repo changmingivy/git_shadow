@@ -8,7 +8,7 @@
 #include <errno.h>
 
 static void
-zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
+zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
 
 static void
 zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject);
@@ -21,7 +21,7 @@ zreg_free_meta(zRegInit__ *zpInit_);
 
 /* 对外公开的接口 */
 struct zPosixReg__ zPosixReg_ = {
-    .compile = zreg_compile,
+    .init = zreg_init,
     .match = zreg_match,
     .free_meta = zreg_free_meta,
     .free_res = zreg_free_res
@@ -29,7 +29,7 @@ struct zPosixReg__ zPosixReg_ = {
 
 /* 使用 posix 扩展正则 */
 static void
-zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
+zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
     if (0 != (zErrNo = regcomp(zpRegInit_Out, zpRegPattern, REG_EXTENDED))) {

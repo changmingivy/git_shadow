@@ -30,7 +30,4 @@ struct zPcreReg__ {
     void (* free_res) (zPcreRes__ *);
 };
 
-
-// extern struct zPcreReg__ zPcreReg_;
-
 #endif  // #define ZPCREREG_H

@@ -94,7 +94,7 @@ zconvert_json_str_to_struct(char *zpJsonStr, zMeta__ *zpMeta_) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };  // 此时尚没取得 zpMeta_->repo_ 之值，不可使用项目内存池
 
-    zPosixReg_.compile(&zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
+    zPosixReg_.init(&zRegInit_, "[^][}{\",:][^][}{\",]*");  // posix 的扩展正则语法中，中括号中匹配'[' 或 ']' 时需要将后一半括号放在第一个位置，而且不能转义
     zPosixReg_.match(&zRegRes_, &zRegInit_, zpJsonStr);
     zPosixReg_.free_meta(&zRegInit_);
 
@@ -443,7 +443,7 @@ zadd_repo(zMeta__ *zpMeta_, _i zSd) {
     zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
     zPgResHd__ *zpPgResHd_ = NULL;
 
-    zPosixReg_.compile(&zRegInit_, "(\\w|[[:punct:]])+");
+    zPosixReg_.init(&zRegInit_, "(\\w|[[:punct:]])+");
     zPosixReg_.match(&zRegRes_, &zRegInit_, zpMeta_->p_data);
     zPosixReg_.free_meta(&zRegInit_);
 
@@ -853,7 +853,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
     zRegRes__ *zpRegRes_, zRegRes_[1] = {{.alloc_fn = zNativeOps_.alloc, .repoId = zpMeta_->repoId}};  // 使用项目内存池
     zpRegRes_ = zRegRes_;  /* avoid compile warning... */
 
-    zPosixReg_.compile(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
+    zPosixReg_.init(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");
     zPosixReg_.match(zRegRes_, zRegInit_, zpMeta_->p_data);
     zPosixReg_.free_meta(zRegInit_);
     *zppRegRes_Out = zpRegRes_;
