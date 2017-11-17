@@ -32,40 +32,40 @@ static void
 zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_);
 
 static _i
-zshow_all_repo_meta(zMeta__ *zpMeta_ __attribute__ ((__unused__)), _i zSd);
+zshow_all_repo_meta(char *zpJson __attribute__ ((__unused__)), _i zSd);
 
 static _i
-zshow_one_repo_meta(zMeta__ *zpParam, _i zSd);
+zshow_one_repo_meta(char *zpJson, _i zSd);
 
 static _i
-zadd_repo(zMeta__ *zpMeta_, _i zSd);
+zadd_repo(char *zpJson, _i zSd);
 
 static _i
-zprint_record(zMeta__ *zpMeta_, _i zSd);
+zprint_record(char *zpJson, _i zSd);
 
 static _i
-zprint_diff_files(zMeta__ *zpMeta_, _i zSd);
+zprint_diff_files(char *zpJson, _i zSd);
 
 static _i
-zprint_diff_content(zMeta__ *zpMeta_, _i zSd);
+zprint_diff_content(char *zpJson, _i zSd);
 
 static _i
-zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out);
+zupdate_ip_db_all(char *zpJson, char *zpCommonBuf, zRegRes__ **zppRegRes_Out);
 
 static _i
-zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__)));
+zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__)));
 
 static _i
-zbatch_deploy(zMeta__ *zpMeta_, _i zSd);
+zbatch_deploy(char *zpJson, _i zSd);
 
 static _i
-zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__)));
+zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__)));
 
 static _i
-zlock_repo(zMeta__ *zpMeta_, _i zSd);
+zlock_repo(char *zpJson, _i zSd);
 
 static _i
-zreq_file(zMeta__ *zpMeta_, _i zSd);
+zreq_file(char *zpJson, _i zSd);
 
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
@@ -358,7 +358,7 @@ zgit_push_ccur(void *zp_) {
  * 0: 测试函数
  */
 // static _i
-// ztest_func(zMeta__ *zpParam, _i zSd __attribute__ ((__unused__))) { return 0; }
+// ztest_func(char *zpJson, _i zSd __attribute__ ((__unused__))) { return 0; }
 
 
 /*
@@ -366,7 +366,7 @@ zgit_push_ccur(void *zp_) {
  * 6：显示单个项目及其元信息
  */
 static _i
-zshow_all_repo_meta(zMeta__ *zpMeta_ __attribute__ ((__unused__)), _i zSd) {
+zshow_all_repo_meta(char *zpJson __attribute__ ((__unused__)), _i zSd) {
     char zSendBuf[zGlobCommonBufSiz];
 
     zNetUtils_.sendto(zSd, "[", zBytes(1), 0, NULL);  // 凑足json格式
@@ -401,8 +401,8 @@ zshow_all_repo_meta(zMeta__ *zpMeta_ __attribute__ ((__unused__)), _i zSd) {
  * 6：显示单个项目及其元信息
  */
 static _i
-zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
-    zMeta__ *zpMeta_ = (zMeta__ *) zpParam;
+zshow_one_repo_meta(char *zpJson, _i zSd) {
+    zMeta__ *zpMeta_ = (zMeta__ *) zpJson;
     char zSendBuf[zGlobCommonBufSiz];
 
     if (0 != pthread_rwlock_tryrdlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock))) {
@@ -435,7 +435,7 @@ zshow_one_repo_meta(zMeta__ *zpParam, _i zSd) {
  * 1：添加新项目（代码库）
  */
 static _i
-zadd_repo(zMeta__ *zpMeta_, _i zSd) {
+zadd_repo(char *zpJson, _i zSd) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
     _i zErrNo = 0;
@@ -503,7 +503,7 @@ zMarkEnd:
  * 需要继承下层已存在的缓存
  */
 static _i
-zrefresh_cache(zMeta__ *zpMeta_) {
+zrefresh_cache(char *zpJson) {
 //    _i zCnter[2];
 //    struct iovec zOldVec_[zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_.vecSiz];
 //    zRefData__ zOldRefData_[zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_.vecSiz];
@@ -540,7 +540,7 @@ zrefresh_cache(zMeta__ *zpMeta_) {
  * 7：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 static _i
-zprint_record(zMeta__ *zpMeta_, _i zSd) {
+zprint_record(char *zpJson, _i zSd) {
     zVecWrap__ *zpSortedTopVecWrap_;
 
     if (0 != pthread_rwlock_tryrdlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock))) {
@@ -638,7 +638,7 @@ zprint_record(zMeta__ *zpMeta_, _i zSd) {
  * 10：显示差异文件路径列表
  */
 static _i
-zprint_diff_files(zMeta__ *zpMeta_, _i zSd) {
+zprint_diff_files(char *zpJson, _i zSd) {
     zVecWrap__ *zpTopVecWrap_, zSendVecWrap_;
     _i zSplitCnt;
 
@@ -719,7 +719,7 @@ zprint_diff_files(zMeta__ *zpMeta_, _i zSd) {
  * 11：显示差异文件内容
  */
 static _i
-zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
+zprint_diff_content(char *zpJson, _i zSd) {
     zVecWrap__ *zpTopVecWrap_, zSendVecWrap_;
     _i zSplitCnt;
 
@@ -846,7 +846,7 @@ zprint_diff_content(zMeta__ *zpMeta_, _i zSd) {
 
 
 static _i
-zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out) {
+zupdate_ip_db_all(char *zpJson, char *zpCommonBuf, zRegRes__ **zppRegRes_Out) {
     zDpRes__ *zpOldDpResList_, *zpTmpDpRes_, *zpOldDpResHash_[zDpHashSiz];
 
     zRegInit__ zRegInit_[1];
@@ -987,7 +987,7 @@ zExistMark:;
  * 12：布署／撤销
  */
 static _i
-zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrRegRes_Out) {
+zdeploy(char *zpJson, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrRegRes_Out) {
     _i zErrNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
     _ui zCnter = 0;
@@ -1195,7 +1195,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
          * 对于10 台及以上的目标机集群，达到 90％ 的主机状态得到确认即返回成功，未成功的部分，在下次新的版本布署之前，持续重试布署
          * 10 台以下，则须全部确认
          */
-        zErrNo = -10000;
+        zErrNo = -100;
     } else {
 zErrMark:
         /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
@@ -1261,7 +1261,7 @@ zErrMark:
 zEndMark:
     sprintf(zppCommonBuf[0], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
             zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit,
-            0 == zErrNo ? 0 : (-10000 == zErrNo? -1 : -2),
+            0 == zErrNo ? 0 : (-100 == zErrNo? -1 : -2),
             zpMeta_->repoId,
             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
             );
@@ -1283,7 +1283,7 @@ zEndMark:
  * 13：新加入的主机请求布署自身：不拿锁、不刷系统IP列表、不刷新缓存
  */
 static _i
-zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
+zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__))) {
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpMeta_->p_extraData, zpGlobRepo_[zpMeta_->repoId]->lastDpSig, 40)) {
         zDpCcur__ *zpDpSelf_ = zNativeOps_.alloc(zpMeta_->repoId, sizeof(zDpCcur__));
@@ -1314,7 +1314,7 @@ zself_deploy(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
 } while (0);
 
 static _i
-zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
+zbatch_deploy(char *zpJson, _i zSd) {
     /* 系统高负载时，不接受布署请求，保留 20% 的性能提供查询等’读‘操作 */
     if (80 < zGlobMemLoad) {
         zpMeta_->p_data = "====当前系统负载超过 80%，请稍后重试====";
@@ -1351,7 +1351,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
     pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
     /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
-    if (-10000 != (zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpHostStrAddrRegRes_))) {
+    if (-100 != (zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpHostStrAddrRegRes_))) {
         zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
         pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
         pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
@@ -1524,7 +1524,7 @@ zbatch_deploy(zMeta__ *zpMeta_, _i zSd) {
 } while (0);
 
 static _i
-zstate_confirm(zMeta__ *zpMeta_, _i zSd __attribute__ ((__unused__))) {
+zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
     time_t zTimeSpent = 0;
     _i zErrNo = 0;
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
@@ -1629,7 +1629,7 @@ zMarkEnd:
  * 3：允许布署／撤销／更新ip数据库
  */
 static _i
-zlock_repo(zMeta__ *zpMeta_, _i zSd) {
+zlock_repo(char *zpJson, _i zSd) {
     pthread_rwlock_wrlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));
 
     if (2 == zpMeta_->opsId) {
@@ -1648,7 +1648,7 @@ zlock_repo(zMeta__ *zpMeta_, _i zSd) {
 
 /* 14: 向目标机传输指定的文件 */
 static _i
-zreq_file(zMeta__ *zpMeta_, _i zSd) {
+zreq_file(char *zpJson, _i zSd) {
     char zSendBuf[4096];
     _i zFd, zDataLen;
 

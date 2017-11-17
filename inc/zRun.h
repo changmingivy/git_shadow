@@ -6,6 +6,8 @@
 #include "zNetUtils.h"
 #include "zDpOps.h"
 
+#define zServHashSiz 16
+
 typedef struct __zSockAcceptParam__ {
     void *p_threadPoolMeta_;  // 未使用，仅占位
     _i connSd;
@@ -15,7 +17,7 @@ struct zRun__ {
     void (* run) (zNetSrv__ *, zPgLogin__ *);
     void * (* route) (void *);
 
-    _i (* ops[16]) (zMeta__*, _i);
+    _i (* ops[zServHashSiz]) (char *, _i);
 };
 
 #endif  // #ifndef ZRUN_H

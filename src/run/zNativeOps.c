@@ -669,18 +669,9 @@ zgenerate_cache(void *zpParam) {
  * INIT OPS *
  ************/
 /*
- * 参数：
- *   新建项目基本信息五个字段
- *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
- * 返回值:
- *         -33：无法创建请求的项目路径
- *         -34：请求创建的新项目信息格式错误（合法字段数量不是五个）
- *         -35：
- *         -36：请求创建的项目路径已存在，且项目ID不同
- *         -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
- *         -38：拉取远程代码库失败（git clone 失败）
- *         -39：项目元数据创建失败，如：无法打开或创建布署日志文件meta等原因
+ * 参数：项目基本信息
  */
+
 #define zFree_Source() do {\
     free(zpGlobRepo_[zRepoId]->p_repoPath);\
     free(zpGlobRepo_[zRepoId]);\

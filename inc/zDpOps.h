@@ -225,19 +225,19 @@ typedef struct __zMeta__ {
 } zMeta__;
 
 struct zDpOps__ {
-    _i (* show_meta) (zMeta__ *, _i);
-    _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);
+    _i (* show_meta) (char *, _i);
+    _i (* show_meta_all) (char * __attribute__ ((__unused__)), _i);
 
-    _i (* print_revs) (zMeta__ *, _i);
-    _i (* print_diff_files) (zMeta__ *, _i);
-    _i (* print_diff_contents) (zMeta__ *, _i);
+    _i (* print_revs) (char *, _i);
+    _i (* print_diff_files) (char *, _i);
+    _i (* print_diff_contents) (char *, _i);
 
-    _i (* creat) (zMeta__ *, _i);
-    _i (* req_dp) (zMeta__ *, _i);
-    _i (* dp) (zMeta__ *, _i);
-    _i (* state_confirm) (zMeta__ *, _i);
-    _i (* lock) (zMeta__ *, _i);
-    _i (* req_file) (zMeta__ *, _i);
+    _i (* creat) (char *, _i);
+    _i (* req_dp) (char *, _i);
+    _i (* dp) (char *, _i);
+    _i (* state_confirm) (char *, _i);
+    _i (* lock) (char *, _i);
+    _i (* req_file) (char *, _i);
 
     void * (* route) (void *);
     _i (* json_to_struct) (char *, zMeta__ *);
