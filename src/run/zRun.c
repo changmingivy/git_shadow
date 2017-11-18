@@ -34,16 +34,16 @@ char *zpErrVec[128];
 void
 zerr_vec_init(void) {
     zpErrVec[1] = "无法识别或未定义的操作请求";
-    zpErrVec[2] = "项目 ID 不存在";
+    zpErrVec[2] = "项目不存在或正在创建过程中";
     zpErrVec[3] = "";
     zpErrVec[4] = "";
-    zpErrVec[5] = "";
+    zpErrVec[5] = "正在刷新缓存，请 2 秒后重试...";
     zpErrVec[6] = "项目被锁定，请解锁后重试";
     zpErrVec[7] = "服务端接收到的数据无法解析";
     zpErrVec[8] = "已产生新的布署记录，请刷新页面";
     zpErrVec[9] = "服务端错误：接收缓冲区为空或容量不足，无法解析数据";
     zpErrVec[10] = "请求的数据类型错误：非提交记录或布署记录";
-    zpErrVec[11] = "正在布署过程中...";
+    zpErrVec[11] = "正在布署，请稍后重试...";
     zpErrVec[12] = "布署失败";
     zpErrVec[13] = "上一次布署结果是失败，请重试该次布署或执行回滚";
     zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
@@ -205,7 +205,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zRun_.ops[3] = zDpOps_.lock;  // 恢复布署／撤销功能
     zRun_.ops[4] = NULL;
-    zRun_.ops[5] = zDpOps_.show_meta_all;  // 显示所有有效项目的元信息
+    zRun_.ops[5] = NULL;
     zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
     zRun_.ops[7] = NULL;
     zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
@@ -253,7 +253,8 @@ zops_route(void *zpParam) {
         zDataLen += recv(zSd, zpDataBuf + zDataLen, zGlobCommonBufSiz * 1024 - zDataLen, 0);
     }
 
-    if (zBytes(8) > zDataLen) {
+    /* 最短的json字符串：{"a":}，6 字节 */
+    if (zBytes(6) > zDataLen) {
         zPrint_Err(errno, NULL, "recvd data too short(< 8bytes)");
         goto zMarkEnd;
     }

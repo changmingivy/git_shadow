@@ -36,7 +36,6 @@
 #define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
 
 #define zGlobCommonBufSiz 1024
 
@@ -49,7 +48,7 @@
 #define zIsCommitDataType 0
 #define zIsDpDataType 1
 
-typedef struct {
+typedef struct __zThreadPool__ {
     pthread_t selfTid;
     pthread_cond_t condVar;
 
@@ -57,7 +56,7 @@ typedef struct {
     void *p_param;
 } zThreadPool__;
 
-typedef struct {
+typedef struct __zDpCcur__ {
     zThreadPool__ *p_threadSource_;  // 必须放置在首位
     _i repoId;
     char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
@@ -226,7 +225,6 @@ typedef struct __zMeta__ {
 
 struct zDpOps__ {
     _i (* show_meta) (char *, _i);
-    _i (* show_meta_all) (char * __attribute__ ((__unused__)), _i);
 
     _i (* print_revs) (char *, _i);
     _i (* print_diff_files) (char *, _i);

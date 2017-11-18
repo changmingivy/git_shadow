@@ -9,7 +9,7 @@
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
 
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
+#define zSshSelfIpDeclareBufSiz (INET6_ADDRSTRLEN + zSizeOf("export ____zSelfIp='';"))
 
 extern struct zNetUtils__ zNetUtils_;
 
