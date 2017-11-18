@@ -168,7 +168,7 @@ zerr_vec_init(void) {
 static void
 zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     /* 检查 pgSQL 运行环境是否是线程安全的 */
-    if (false == zPgSQL_.thread_safe_check()) {
+    if (zFalse == zPgSQL_.thread_safe_check()) {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
@@ -260,7 +260,7 @@ zops_route(void *zpParam) {
     }
 
     /* 提取 value[OpsId] */
-    sscanf(zpDataBuf, "%*[^(\"OpsId\":)]\"OpsId\":%*[\"]%d", &zOpsId);
+    zNativeUtils_.json_parse(zpDataBuf, "OpsId", zI32, &zOpsId, 0);
 
     /* 检验 value[OpsId] 合法性 */
     if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {

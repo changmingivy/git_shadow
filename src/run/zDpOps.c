@@ -973,7 +973,7 @@ zdeploy(char *zpJson, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrReg
     }
 
     /* 检查 pgSQL 是否可以正常连通 */
-    if (false == zPgSQL_.conn_check(zGlobPgConnInfo)) { return -90; }
+    if (zFalse == zPgSQL_.conn_check(zGlobPgConnInfo)) { return -90; }
 
     /* 检查是否允许布署 */
     if (zDpLocked == zpGlobRepo_[zpMeta_->repoId]->dpLock) {
@@ -1078,9 +1078,9 @@ zdeploy(char *zpJson, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAddrReg
     sprintf(zParamBuf[2], "%ld", zpGlobRepo_[zpMeta_->repoId]->cacheId);
     zppParam = zpParam;  // avoid compile warning...
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, false))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, false))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -1231,9 +1231,9 @@ zEndMark:
             zpMeta_->repoId,
             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
             );
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], false))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "!!! FATAL !!!");
