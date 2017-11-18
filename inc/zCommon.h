@@ -4,10 +4,19 @@
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
-typedef enum __bool {
-    false = 0,
-    true = 1,
-} bool;
+typedef enum {
+    zFalse = 0,
+    zTrue = 1,
+} zBool__;
+
+typedef enum {
+    zStr = 0,
+    zI32 = 1,
+    zI64,
+    zF32,
+    zF64
+} zJsonValueType__;
+
 
 /*
  * =>>> Aliases For All Basic Types <<<=

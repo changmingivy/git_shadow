@@ -37,13 +37,21 @@ zthread_system(void *zpCmd);
 static _i
 zdel_linebreak(char *zpStr);
 
+static void
+zjson_parse(char *zpJson, char *zpKey, zJsonValueType__ zValueType, void *zpBufOUT, _i zBufLen);
+
 struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,
     .sleep = zsleep,
+
     .system = zthread_system,
+
     .read_line = zget_one_line,
     .read_hunk = zget_str_content,
-    .del_lb = zdel_linebreak
+
+    .del_lb = zdel_linebreak,
+
+    .json_parse = zjson_parse
 };
 
 // /*
@@ -280,4 +288,35 @@ zdel_linebreak(char *zpStr) {
     zpStrPtr[zStrLen] = '\0';
 
     return zStrLen;
+}
+
+
+/*
+ * 用途：从 json 中提取一个 value[key]
+ * 注：
+ *     字符串格式的 value 中不能含双引号 \"
+ *     若 zValueType 参数为 str，则 zBufLen 参数将被忽略
+ */
+static void
+zjson_parse(char *zpJson, char *zpKey, zJsonValueType__ zValueType, void *zpBufOUT, _i zBufLen) {
+    char zParsingBuf[1024];
+    switch ((_i)zValueType) {
+        case zStr:
+            snprintf(zParsingBuf, 1024, "%%*[^(\"%s\":)]\"%s\":\"%%%d[^\"]", zpKey, zpKey, zBufLen - 1);
+            break;
+        case zI32:
+            snprintf(zParsingBuf, 1024, "%%*[^(\"%s\":)]\"%s\":%%d", zpKey, zpKey);
+            break;
+        case zI64:
+            snprintf(zParsingBuf, 1024, "%%*[^(\"%s\":)]\"%s\":%%lld", zpKey, zpKey);
+            break;
+        case zF32:
+            snprintf(zParsingBuf, 1024, "%%*[^(\"%s\":)]\"%s\":%%f", zpKey, zpKey);
+            break;
+        case zF64:
+            snprintf(zParsingBuf, 1024, "%%*[^(\"%s\":)]\"%s\":%%lf", zpKey, zpKey);
+            break;
+    }
+
+    sscanf(zpJson, zParsingBuf, zpBufOUT);
 }

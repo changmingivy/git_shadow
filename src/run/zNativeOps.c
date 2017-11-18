@@ -593,10 +593,10 @@ zgenerate_cache(void *zpParam) {
         sprintf(zCommonBuf, "SELECT DISTINCT rev_sig, time_stamp FROM dp_log WHERE proj_id = %d ORDER BY time_stamp DESC LIMIT %d",
                 zpMeta_->repoId,
                 zCacheSiz);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
                 zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
                 zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -829,7 +829,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         zRepoId, zRepoId,
         zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
         zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
         exit(1);
@@ -841,7 +841,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                 zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
             exit(1);
@@ -852,7 +852,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     /* 获取最近一次布署的相关信息，只取一条，不需要使用 DISTINCT 关键字去重 */
     sprintf(zCommonBuf, "SELECT rev_sig, res FROM dp_log WHERE proj_id = %d AND res != -2 ORDER BY time_stamp DESC LIMIT 1", zRepoId);
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
@@ -1008,7 +1008,7 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
                 sprintf(zCmdBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                         zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
-                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, false))) {
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
                     zPgSQL_.res_clear(zpPgResHd_, NULL);
                     zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
                     continue;
@@ -1119,7 +1119,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "host_detail     varchar"
             ") PARTITION BY LIST (proj_id);",
 \
-            false);
+            zFalse);
 
     if (NULL == zpPgResHd_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
@@ -1129,7 +1129,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     /* 查询已有项目信息 */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
             "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
-            true);
+            zTrue);
 
     /* 已经执行完结并取回结果，立即断开连接 */
     zPgSQL_.conn_clear(zpPgConnHd_);

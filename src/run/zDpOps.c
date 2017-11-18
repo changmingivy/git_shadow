@@ -389,42 +389,55 @@ zshow_one_repo_meta(char *zpJson, _i zSd) {
  */
 static _i
 zadd_repo(char *zpJson, _i zSd) {
-    zRegInit__ zRegInit_;
-    zRegRes__ zRegRes_ = { .alloc_fn = NULL };
+    char zRepoId[16] = {'\0'},
+         zPathOnHost[1024] = {'\0'},
+         zSourceUrl[1024] = {'\0'},
+         zSourceBranch[256] = {'\0'},
+         zSourceVcsType[64] = {'\0'},
+         zNeedPull[2] = {'\0'};
+
+    char *zpProjInfo[6] = {
+        zRepoId,
+        zPathOnHost,
+        zSourceUrl,
+        zSourceBranch,
+        zSourceVcsType,
+        zNeedPull
+    };
+
+    zPgResTuple__ zRepoMeta_ = {
+        .p_taskCnt = NULL,
+        .pp_fields = zpProjInfo
+    };
+
+    char zSQLBuf[4096];
     _i zErrNo = 0;
 
-    zPgResTuple__ zRepoMeta_ = { .p_taskCnt = NULL };
-    zPgResHd__ *zpPgResHd_ = NULL;
+    zNativeUtils_.json_parse(zpJson, "ProjId", zStr, zRepoId, 16);
+    if ('\0' == zRepoId[0]) { return -34; }
 
-    zPosixReg_.init(&zRegInit_, "(\\w|[[:punct:]])+");
-    zPosixReg_.match(&zRegRes_, &zRegInit_, zpMeta_->p_data);
-    zPosixReg_.free_meta(&zRegInit_);
+    zNativeUtils_.json_parse(zpJson, "PathOnHost", zStr, zPathOnHost, 1024);
+    if ('\0' == zPathOnHost[0]) { return -34; }
 
-    if (5 > zRegRes_.cnt) { return -34; }
-    char *zpStrPtr[zRegRes_.cnt];
-    zRepoMeta_.pp_fields = zpStrPtr;
-
-    zRepoMeta_.pp_fields[0] = zRegRes_.p_rets[0];
-    zRepoMeta_.pp_fields[1] = zRegRes_.p_rets[1];
-    zRepoMeta_.pp_fields[2] = zRegRes_.p_rets[2];
-    zRepoMeta_.pp_fields[3] = zRegRes_.p_rets[3];
-    zRepoMeta_.pp_fields[4] = zRegRes_.p_rets[4];
-    if (5 == zRegRes_.cnt) {
-        zRepoMeta_.pp_fields[5]= "Y";
+    zNativeUtils_.json_parse(zpJson, "NeedPull", zStr, zNeedPull, 2);
+    if ('Y' == toupper(zNeedPull[0])) {
+        zNativeUtils_.json_parse(zpJson, "SourceUrl", zStr, zSourceUrl, 1024);
+        if ('\0' == zSourceUrl[0]) { return -34; }
+        zNativeUtils_.json_parse(zpJson, "SourceBranch", zStr, zSourceBranch, 256);
+        if ('\0' == zSourceBranch[0]) { return -34; }
+        zNativeUtils_.json_parse(zpJson, "SourceVcsType", zStr, zSourceVcsType, 64);
+        if ('\0' == zSourceVcsType[0]) { return -34; }
+    } else if ('N' == toupper(zNeedPull[0])) {
+        zSourceUrl[0] = '_';
+        zSourceBranch[0] = '_';
+        zSourceVcsType[0] = '_';
     } else {
-        zRepoMeta_.pp_fields[5]= zRegRes_.p_rets[5];
+        return -34;
     }
 
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
         /* 写入本项目元数据 */
-        char zCmdBuf[1024
-            + zRegRes_.resLen[0]
-            + zRegRes_.resLen[1]
-            + zRegRes_.resLen[2]
-            + zRegRes_.resLen[3]
-            + zRegRes_.resLen[4]
-        ];
-        sprintf(zCmdBuf, "INSERT INTO proj_meta "
+        sprintf(zSQLBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
                 "VALUES ('%s','%s','%s','%s','%s','%c')",
                 zRepoMeta_.pp_fields[0],
@@ -434,10 +447,12 @@ zadd_repo(char *zpJson, _i zSd) {
                 zRepoMeta_.pp_fields[4],
                 'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? 't' : 'f'  /* TRUE, FALSE */
                 );
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 0)]->p_pgConnHd_, zCmdBuf, false))) {
+
+        zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 0)]->p_pgConnHd_, zSQLBuf, zFalse);
+        if (NULL == zpPgResHd_) {
+            /* 刚刚建立的连接，此处不必尝试 reset */
             zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zErrNo = -91;
-            goto zMarkEnd;
+            return -91;
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
@@ -445,8 +460,6 @@ zadd_repo(char *zpJson, _i zSd) {
         zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
     }
 
-zMarkEnd:
-    zPosixReg_.free_res(&zRegRes_);
     return zErrNo;
 }
 
@@ -1474,9 +1487,12 @@ static _i
 zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
     time_t zTimeSpent = 0;
     _i zErrNo = 0;
+
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
 
-    char zIpStrAddr[INET_ADDRSTRLEN], zCmdBuf[zGlobCommonBufSiz];
+    char zCmdBuf[zGlobCommonBufSiz];
+    char zIpStrAddr[INET6_ADDRSTRLEN];
+
     zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历

@@ -260,7 +260,7 @@ zops_route(void *zpParam) {
     }
 
     /* 提取 value[OpsId] */
-    sscanf(zpDataBuf, "OpsId\":%*[\"]%d", &zOpsId);
+    sscanf(zpDataBuf, "%*[^(\"OpsId\":)]\"OpsId\":%*[\"]%d", &zOpsId);
 
     /* 检验 value[OpsId] 合法性 */
     if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
