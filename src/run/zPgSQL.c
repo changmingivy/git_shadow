@@ -41,6 +41,8 @@ zpg_conn_check(const char *zpConnInfo);
 static bool
 zpg_thread_safe_check();
 
+static _i
+zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_);
 
 /*
  * 外部调用接口
@@ -60,7 +62,9 @@ struct zPgSQL__ zPgSQL_ = {
     .conn_clear = zpg_conn_clear,
 
     .thread_safe_check = zpg_thread_safe_check,
-    .conn_check = zpg_conn_check
+    .conn_check = zpg_conn_check,
+
+    .exec_once = zpg_exec_once
 };
 
 
@@ -205,7 +209,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
  */
 static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
-    PQclear(zpPgResHd_);
+    if (NULL != zpPgResHd_) { PQclear(zpPgResHd_) };
     if (NULL != zpPgRes_) { free(zpPgRes_); }
 }
 
@@ -234,6 +238,34 @@ zpg_thread_safe_check() {
 static bool
 zpg_conn_check(const char *zpConnInfo) {
     return PQPING_OK == PQping(zpConnInfo) ? true : false;
+}
+
+
+/*
+ * 执行一次性 SQL cmd 的封装
+ */
+static _i
+zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_) {
+    zPgConnHd__ *zpPgConnHd_ = NULL;
+    zPgResHd__ *zpPgResHd_ = NULL;
+
+    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zpConnInfo))) {
+        zPgSQL_.conn_clear(zpPgConnHd_);
+        return -90;
+    } else {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zpCmd, NULL == zppPgRes_ ? false : true))) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            return -91;
+        }
+
+        if (NULL != zppPgRes_) {
+            *zppPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
+        }
+
+        zPgSQL_.conn_clear(zpPgConnHd_);
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
+    }
 }
 
 

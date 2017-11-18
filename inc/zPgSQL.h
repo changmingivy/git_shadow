@@ -50,6 +50,8 @@ struct zPgSQL__ {
 
     bool (* thread_safe_check) ();
     bool (* conn_check) (const char *);
+
+    _i (* exec_once) (char *, char *, zPgRes__ **);
 };
 
 #endif  // #ifndef ZPGSQL_H

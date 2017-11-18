@@ -77,18 +77,6 @@ struct zDpOps__ zDpOps_ = {
 };
 
 
-/* 非关键 SQL 命令（边缘动作/Edge），允许失败发生，不必确定最终执行结果 */\
-#define zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zpSQL) do {\
-    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {\
-        zPgSQL_.conn_clear(zpPgConnHd_);\
-    } else {\
-        zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zpSQL, false);\
-        zPgSQL_.res_clear(zpPgResHd_, NULL);\
-        zPgSQL_.conn_clear(zpPgConnHd_);\
-    }\
-} while (0);
-
-
 /* 检查 CommitId 是否合法，宏内必须解锁 */
 #define zCheck_CommitId() do {\
     if ((0 > zpMeta_->commitId)\
@@ -329,50 +317,44 @@ zgit_push_ccur(void *zp_) {
  */
 static _i
 zshow_one_repo_meta(char *zpJson, _i zSd) {
-    zPgConnHd__ *zpPgConnHd_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
     char zCmdBuf[256];
 
-    _i zRepoId = -1,
+    _i zErrNo = 0,
+       zRepoId = -1,
        zIpListSiz = 0,
        zJsonSiz = 0;
 
     sscanf(zpJson, "data\":%*[\"]%d", &zRepoId);
-    if (-1 == zRepoId) { return -1; }
+    if (-1 == zRepoId) {
+        return -1;  /* zErrNo = -1; */
+    }
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { return -2; }
+    if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { 
+        return -2;  /* zErrNo = -2; */
+    }
 
     sprintf(zCmdBuf, "SELECT DISTINCT host_ip FROM dp_log "
             "WHERE proj_id = %d AND time_stamp = (SELECT max(time_stamp) FROM dp_log WHERE proj_id = %d)",
             zRepoId,
             zRepoId);
 
-    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
-        zPgSQL_.conn_clear(zpPgConnHd_);
-        return -90;
-    } else {
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, true))) {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zPgSQL_.conn_clear(zpPgConnHd_);
-            return -91;
-        }
-
-        /* 资源用完第一时间释放 */
-        zPgSQL_.conn_clear(zpPgConnHd_);
-
-        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-            zIpListSiz = 1;
-        } else {
-            zIpListSiz = (1 + INET6_ADDRSTRLEN) * zpPgRes_->tupleCnt;
-        }
-
-        zJsonSiz = 256
-            + zpGlobRepo_[zRepoId]->repoPathLen
-            + zIpListSiz
-            + sizeof("[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]");
+    if (0 > (zErrNo = zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, &zpPgRes_))) {
+        zPgSQL_.res_clear(NULL, zpPgRes_);
+        return zErrNo;
     }
+
+    if (NULL == zpPgRes_) {
+        zIpListSiz = 1;
+    } else {
+        zIpListSiz = (1 + INET6_ADDRSTRLEN) * zpPgRes_->tupleCnt;
+    }
+
+    zJsonSiz = 256
+        + zpGlobRepo_[zRepoId]->repoPathLen
+        + zIpListSiz
+        + sizeof("[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]");
 
     char zIpsBuf[zIpListSiz];
     char zJsonBuf[zJsonSiz];
@@ -383,8 +365,7 @@ zshow_one_repo_meta(char *zpJson, _i zSd) {
         strcat(zIpsBuf, zpPgRes_->tupleRes_[i].pp_fields[0]);
     }
 
-    /* 资源用完第一时间释放 */
-    zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
+    zPgSQL_.res_clear(NULL, zpPgRes_);
 
     zJsonSiz = sprintf(zJsonBuf, "[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zRepoId,
@@ -1296,8 +1277,6 @@ zbatch_deploy(char *zpJson, _i zSd) {
     zRegRes__ *zpHostStrAddrRegRes_ = NULL;
     _i zErrNo = 0,
        zCommonBufLen = 0;
-    zPgConnHd__ *zpPgConnHd_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
@@ -1332,7 +1311,11 @@ zbatch_deploy(char *zpJson, _i zSd) {
                             zpMeta_->repoId,
                             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                             );
-                    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
+
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zppCommonBuf[0], NULL)) {
+                        zPrint_Err(0, NULL, "update dp_log record failed");
+                    }
+
                     return 0;
                 }
 
@@ -1411,7 +1394,11 @@ zbatch_deploy(char *zpJson, _i zSd) {
                         zpMeta_->repoId,
                         zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp
                         );
-                zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zppCommonBuf[0]);
+
+                if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zppCommonBuf[0], NULL)) {
+                    zPrint_Err(0, NULL, "update dp_log record failed");
+                }
+
                 return 0;
             } else {
                 /* 对失败的目标主机重试布署 */
@@ -1469,8 +1456,8 @@ zbatch_deploy(char *zpJson, _i zSd) {
  * 8：布署成功人工确认
  * 9：布署成功主机自动确认
  */
-#define zGenerate_SQL_Cmd() do {\
-    sprintf(zCmdBuf, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
+#define zGenerate_SQL_Cmd(zCmdBuf) do {\
+    snprintf(zCmdBuf, zGlobCommonBufSiz, "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
             "WHERE proj_id = %d AND host_ip = '%s' AND cache_id = %ld AND rev_sig = '%s'",\
             0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
             time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp,\
@@ -1481,7 +1468,6 @@ zbatch_deploy(char *zpJson, _i zSd) {
             zpMeta_->cacheId,\
             zpMeta_->p_data\
             );\
-    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);\
 } while (0);
 
 static _i
@@ -1490,10 +1476,7 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
     _i zErrNo = 0;
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
 
-    zPgConnHd__ *zpPgConnHd_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
-
-    char zIpStrAddr[INET_ADDRSTRLEN], zCmdBuf[1024];
+    char zIpStrAddr[INET_ADDRSTRLEN], zCmdBuf[zGlobCommonBufSiz];
     zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
@@ -1514,8 +1497,10 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     zErrNo = -101;
 
-                    zGenerate_SQL_Cmd();
-                    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+                    zGenerate_SQL_Cmd(zCmdBuf);
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                        zPrint_Err(0, NULL, "update dp_log record failed");
+                    }
 
                     goto zMarkEnd;
                 }
@@ -1533,8 +1518,10 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
                     }
                     zErrNo = 0;
 
-                    zGenerate_SQL_Cmd();
-                    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+                    zGenerate_SQL_Cmd(zCmdBuf);
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                        zPrint_Err(0, NULL, "update dp_log record failed");
+                    }
 
                     goto zMarkEnd;
                 } else if ('-' == zpMeta_->p_extraData[1]) {
@@ -1549,16 +1536,20 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
                     pthread_cond_signal(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_->p_ccurCond);
                     zErrNo = -102;
 
-                    zGenerate_SQL_Cmd();
-                    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+                    zGenerate_SQL_Cmd(zCmdBuf);
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                        zPrint_Err(0, NULL, "update dp_log record failed");
+                    }
 
                     goto zMarkEnd;
                 } else {
                     pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                     zErrNo = -103;  // 未知的返回内容
 
-                    zGenerate_SQL_Cmd();
-                    zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+                    zGenerate_SQL_Cmd(zCmdBuf);
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                        zPrint_Err(0, NULL, "update dp_log record failed");
+                    }
 
                     goto zMarkEnd;
                 }
@@ -1571,8 +1562,10 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
                 pthread_mutex_unlock(&(zpGlobRepo_[zpMeta_->repoId]->dpSyncLock));
                 zErrNo = -103;  // 未知的返回内容
 
-                zGenerate_SQL_Cmd();
-                zPg_Exec_Edge(zpPgConnHd_, zpPgResHd_, zCmdBuf);
+                zGenerate_SQL_Cmd(zCmdBuf);
+                if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                    zPrint_Err(0, NULL, "update dp_log record failed");
+                }
 
                 goto zMarkEnd;
             }
@@ -1583,6 +1576,7 @@ zMarkEnd:
     return zErrNo;
 }
 
+#undef zGenerate_SQL_Cmd;
 
 /*
  * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务
@@ -1621,7 +1615,6 @@ zreq_file(char *zpJson, _i zSd) {
     return 0;
 }
 
-#undef zPg_Exec_Edge
 #undef zCheck_CommitId
 #undef zCheck_FileId
 #undef zCheck_CacheId
