@@ -44,7 +44,7 @@ zerr_vec_init(void) {
     zpErrVec[9] = "服务端错误：接收缓冲区为空或容量不足，无法解析数据";
     zpErrVec[10] = "请求的数据类型错误：非提交记录或布署记录";
     zpErrVec[11] = "正在布署，请稍后重试...";
-    zpErrVec[12] = "布署失败";
+    zpErrVec[12] = "布署失败";  /* useless.. */
     zpErrVec[13] = "上一次布署结果是失败，请重试该次布署或执行回滚";
     zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
     zpErrVec[15] = "服务端布署前环境初始化失败";
@@ -55,7 +55,7 @@ zerr_vec_init(void) {
     zpErrVec[20] = "";
     zpErrVec[21] = "";
     zpErrVec[22] = "";
-    zpErrVec[23] = "部分或全部目标机初始化失败";
+    zpErrVec[23] = "部分或全部目标机初始化失败";  /* useless.. */
     zpErrVec[24] = "没有在 ExtraData 字段中指明目标机总数";
     zpErrVec[25] = "";
     zpErrVec[26] = "目标机列表为空";

@@ -988,9 +988,8 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
         goto zEndMark;
     }
 
-    /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数；另复制一份供失败重试之用 */
+    /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
     strcpy(zpGlobRepo_[zpMeta_->repoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
-    strcpy(zpMeta_->p_extraData, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
 
     /* 重置布署相关状态 */
     for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
@@ -1101,6 +1100,9 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
          * 10 台以下，则须全部确认
          */
         zErrNo = -100;
+
+        /* 复制一份正在布署的版本号，用于失败重试 */
+        strcpy(zpMeta_->p_extraData, zpGlobRepo_[zpMeta_->repoId]->dpingSig);
     } else {
 zErrMark:
         /* 若为部分布署失败，代码库状态置为 "损坏" 状态；若为全部布署失败，则无需此步 */
@@ -1125,7 +1127,7 @@ zErrMark:
                 zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = 0;
             }
         }
-        zpMeta_->p_extraData = zpGlobRepo_[zpMeta_->repoId]->dpingSig;
+
         zErrNo = -12;
         goto zEndMark;
     }
@@ -1235,6 +1237,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
     zMeta__ zMeta_ = { .repoId = -1 };
     zMeta__ *zpMeta_ = &zMeta_;
 
+    /* 提取 value[ProjId] */
     zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
     if (-1 == zpMeta_->repoId) { return -1; }
 
@@ -1248,8 +1251,30 @@ zbatch_deploy(char *zpJson, _i zSd) {
     _i zErrNo = 0,
        zCommonBufLen = 0;
 
-    /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
+    /* 提取其它必要 value[key] */
+    zNativeUtils_.json_parse(zpJson, "DataType", zI32, &(zpMeta_->dataType), 0);
+    if (-1 == zpMeta_->dataType) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "CacheId", zI32, &(zpMeta_->cacheId), 0);
+    if (-1 == zpMeta_->cacheId) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "RevId", zI32, &(zpMeta_->commitId), 0);
+    if (-1 == zpMeta_->commitId) { return -1; }
+
     zpMeta_->dataLen = strlen(zpJson);
+
+    char zDataBuf[zpMeta_->dataLen];
+    zpMeta_->p_data = zDataBuf;
+    zpMeta_->p_data[0] = '\0';
+    zNativeUtils_.json_parse(zpJson, "data", zStr, &(zpMeta_->p_data), zpMeta_->dataLen);
+    if ('\0' == zpMeta_->p_data[0]) { return -1; }
+
+    char zExtraDataBuf[44] = {'\0'};
+    zpMeta_->p_extraData = zExtraDataBuf;
+    zNativeUtils_.json_parse(zpJson, "ExtraData", zStr, &(zpMeta_->p_extraData), 44);
+    if ('\0' == zpMeta_->p_extraData[0]) { return -1; }
+
+    /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个 Buf */
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
     zppCommonBuf[0] = zNativeOps_.alloc(zpMeta_->repoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
@@ -1266,6 +1291,24 @@ zbatch_deploy(char *zpJson, _i zSd) {
         zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
         pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
         pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
+
+        /* 若为目标机初始化失败或部署失败，回返失败的IP列表(p_data)及版本号(p_extraData)，其余错误返回上层统一处理 */
+        if (-23 == zErrNo || -12 == zErrNo) {
+            _i zLen = 256 + zpMeta_->dataLen;
+            char zErrBuf[zLen];
+            zLen = snprintf(zErrBuf, zLen, "[{\"OpsId\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}]",
+                    zErrNo,
+                    zpMeta_->p_data,
+                    zpGlobRepo_[zpMeta_->repoId]->dpingSig
+                    );
+            zNetUtils_.sendto(zSd, zErrBuf, zLen, 0, NULL);
+
+            /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
+            zPrint_Err(0, NULL, zErrBuf);
+
+            zErrNo = 0;
+        }
+
         return zErrNo;
     } else {
         zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;

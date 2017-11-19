@@ -212,7 +212,7 @@ typedef struct __zMeta__ {
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefData__的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
     _i dataLen;  // 不能使和 _ui 类型，recv 返回 -1 时将会导致错误
     char *p_extraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
-    _ui extraDataLen;
+    _i extraDataLen;
 
     /* 以下为 Tree 专属数据 */
     struct __zMeta__ *p_father;  // Tree 父节点
