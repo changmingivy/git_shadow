@@ -256,13 +256,13 @@ zdistribute_task(void *zpParam) {
     zpTmpNode_[0]->p_left = NULL;\
     zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
     strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
-\
+\/*
     zpTmpNode_[0]->opsId = 0;\
     zpTmpNode_[0]->repoId = zpMeta_->repoId;\
     zpTmpNode_[0]->commitId = zpMeta_->commitId;\
     zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
     zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-\
+*/\
     if (zNodeCnter == (zRegRes_.cnt - 1)) {\
         zpTmpNode_[0]->fileId = zpTmpNode_[0]->lineNum;\
         zpTmpNode_[0]->p_extraData = zalloc_cache(zpMeta_->repoId, zBaseDataLen);\
@@ -306,13 +306,13 @@ zdistribute_task(void *zpParam) {
 \
         zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
         strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
-\
+\/*
         zpTmpNode_[0]->opsId = 0;\
         zpTmpNode_[0]->repoId = zpMeta_->repoId;\
         zpTmpNode_[0]->commitId = zpMeta_->commitId;\
         zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
         zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-\
+*/\
         zpTmpNode_[0]->fileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
         zpTmpNode_[0]->p_extraData = NULL;\
     }\
@@ -324,7 +324,6 @@ zdistribute_task(void *zpParam) {
 /* 差异文件数量 >128 时，调用此函数，以防生成树图损耗太多性能；此时无需检查无差的性况 */
 static void
 zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellRetHandler, char *zpCommonBuf, _i zMaxBufLen) {
-    zMeta__ zSubMeta_;
     zBaseData__ *zpTmpBaseData_[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
 
@@ -350,20 +349,17 @@ zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellR
     for (_i i = 0; i < zCnter; i++, zpTmpBaseData_[2] = zpTmpBaseData_[2]->p_next) {
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_refData_[i].p_data = zpTmpBaseData_[2]->p_data;
 
-        /* 用于转换成JsonStr */
-        zSubMeta_.opsId = 0;
-        zSubMeta_.repoId = zpMeta_->repoId;
-        zSubMeta_.commitId = zpMeta_->commitId;
-        zSubMeta_.fileId = i;
-        zSubMeta_.cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;
-        zSubMeta_.dataType = zpMeta_->dataType;
-        zSubMeta_.p_data = zpTmpBaseData_[2]->p_data;
-        zSubMeta_.p_extraData = NULL;
+        /* 转换为 JSON 文本 */
+        zVecDataLen = sprintf(zpCommonBuf,
+                ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\"}",
+                zpGlobRepo_[zpMeta_->repoId]->cacheId,
+                zpMeta_->repoId,
+                zpMeta_->commitId,
+                i,
+                zpMeta_->dataType,
+                zpTmpBaseData_[2]->p_data
+                );
 
-        /* 将zMeta__转换为JSON文本 */
-        zDpOps_.struct_to_json(zpCommonBuf, &zSubMeta_);
-
-        zVecDataLen = strlen(zpCommonBuf);
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_len = zVecDataLen;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
         memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_base, zpCommonBuf, zVecDataLen);
@@ -397,7 +393,8 @@ zget_file_list(void *zpParam) {
 
     /* 必须在shell命令中切换到正确的工作路径 */
 
-    sprintf(zCommonBuf, "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' && git diff --name-only \"%s\" \"%s\"",
+    sprintf(zCommonBuf,
+            "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' && git diff --name-only \"%s\" \"%s\"",
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath,
             zpGlobRepo_[zpMeta_->repoId]->lastDpSig,
             zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),
@@ -418,7 +415,6 @@ zget_file_list(void *zpParam) {
     }
 
     /* 差异文件数量 <=24 生成Tree图 */
-    zMeta__ zSubMeta_;
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInit__ zRegInit_;
@@ -479,20 +475,16 @@ zMarkOuter:;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_refData_ = NULL;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_ = zalloc_cache(zpMeta_->repoId, sizeof(struct iovec));
 
-        zSubMeta_.opsId = 0;
-        zSubMeta_.repoId = zpMeta_->repoId;
-        zSubMeta_.commitId = zpMeta_->commitId;
-        zSubMeta_.fileId = -1;  // 置为 -1，不允许再查询下一级内容
-        zSubMeta_.cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;
-        zSubMeta_.dataType = zpMeta_->dataType;
-        zSubMeta_.p_data = (0 == strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <=";
-        zSubMeta_.p_extraData = NULL;
+        /* 转换为 JSON 文本 */
+        zVecDataLen = sprintf(zCommonBuf,
+                "[{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":-1,\"DataType\":%d,\"data\":\"%s\"}",
+                zpGlobRepo_[zpMeta_->repoId]->cacheId,
+                zpMeta_->repoId,
+                zpMeta_->commitId,
+                zpMeta_->dataType,
+                (0 == strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <="
+                );
 
-        /* 将zMeta__转换为JSON文本 */
-        zDpOps_.struct_to_json(zCommonBuf, &zSubMeta_);
-        zCommonBuf[0] = '[';  // 逗号替换为 '['
-
-        zVecDataLen = strlen(zCommonBuf);
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_len = zVecDataLen;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
         memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_base, zCommonBuf, zVecDataLen);
@@ -512,9 +504,17 @@ zMarkOuter:;
             = zalloc_cache(zpMeta_->repoId, zLineCnter * sizeof(struct iovec));
 
         for (_ui zCnter = 0; zCnter < zLineCnter; zCnter++) {
-            zDpOps_.struct_to_json(zCommonBuf, zpRootNode_->pp_resHash[zCnter]); /* 将 zMeta__ 转换为 json 文本 */
+            /* 转换为 json 文本 */
+            zVecDataLen = sprintf(zCommonBuf,
+                    ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"FileId\":%d,\"data\":\"%s\"}",
+                    zpGlobRepo_[zpMeta_->repoId]->cacheId,
+                    zpMeta_->repoId,
+                    zpMeta_->commitId,
+                    zpMeta_->dataType,
+                    zpRootNode_->pp_resHash[zCnter]->fileId,
+                    zpRootNode_->pp_resHash[zCnter]->p_data
+                    );
 
-            zVecDataLen = strlen(zCommonBuf);
             zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_len = zVecDataLen;
             zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
             memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);
@@ -545,8 +545,7 @@ zgenerate_cache(void *zpParam) {
     char zTimeStampVec[16 * zCacheSiz];
     zVecWrap__ *zpTopVecWrap_ = NULL,
                *zpSortedTopVecWrap_ = NULL;
-    zMeta__ *zpMeta_ = (zMeta__ *)zpParam,
-            zSubMeta_;
+    zMeta__ *zpMeta_ = (zMeta__ *)zpParam;
     _i zCnter = 0,
        zVecDataLen = 0;
     time_t zTimeStamp = 0;
@@ -628,20 +627,17 @@ zgenerate_cache(void *zpParam) {
 
     if (NULL != zpRevSig[0]) {
         for (zCnter = 0; zCnter < zCacheSiz && NULL != zpRevSig[zCnter]; zCnter++) {
-            /* 用于转换成JsonStr */
-            zSubMeta_.opsId = 0;
-            zSubMeta_.repoId = zpMeta_->repoId;
-            zSubMeta_.commitId = zCnter;
-            zSubMeta_.fileId = -1;
-            zSubMeta_.cacheId =  zpGlobRepo_[zpMeta_->repoId]->cacheId;
-            zSubMeta_.dataType = zpMeta_->dataType;
-            zSubMeta_.p_data = zpRevSig[zCnter];
-            zSubMeta_.p_extraData = zTimeStampVec + 16 * zCnter;
+            /* 转换为JSON 文本 */
+            zVecDataLen = sprintf(zCommonBuf,
+                    ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+                    zpGlobRepo_[zpMeta_->repoId]->cacheId,
+                    zpMeta_->repoId,
+                    zCnter,
+                    zpMeta_->dataType,
+                    zpRevSig[zCnter],
+                    zTimeStampVec + 16 * zCnter
+                    );
 
-            /* 将zMeta__转换为JSON文本 */
-            zDpOps_.struct_to_json(zCommonBuf, &zSubMeta_);
-
-            zVecDataLen = strlen(zCommonBuf);
             zpTopVecWrap_->p_vec_[zCnter].iov_len = zVecDataLen;
             zpTopVecWrap_->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
             memcpy(zpTopVecWrap_->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);

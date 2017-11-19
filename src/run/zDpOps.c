@@ -111,26 +111,6 @@ struct zDpOps__ zDpOps_ = {
 } while(0)
 
 
-// /*
-//  * 生成缓存时使用
-//  * 将结构体数据转换成生成json文本
-//  */
-// static void
-// zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
-//     sprintf(
-//             zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-//             zpMeta_->opsId,
-//             zpMeta_->cacheId,
-//             zpMeta_->repoId,
-//             zpMeta_->commitId,
-//             zpMeta_->fileId,
-//             zpMeta_->dataType,
-//             (NULL == zpMeta_->p_data) ? "_" : zpMeta_->p_data,
-//             (NULL == zpMeta_->p_extraData) ? "_" : zpMeta_->p_extraData
-//             );
-// }
-
-
 // static void *
 // zssh_ccur(void  *zpParam) {
 //     char zErrBuf[256] = {'\0'};
