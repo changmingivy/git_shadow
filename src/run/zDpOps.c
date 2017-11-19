@@ -1457,7 +1457,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
                 }
             }
 
-            /* 超时上限延长为 2 倍 */
+            /* 超时上限倍增 */
             zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit *= 2;
 
             pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
@@ -1486,14 +1486,40 @@ zbatch_deploy(char *zpJson, _i zSd) {
 
 static _i
 zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
+    zDpRes__ *zpTmp_ = NULL;
     time_t zTimeSpent = 0;
     _i zErrNo = 0;
 
-    zDpRes__ *zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
+    char zCmdBuf[zGlobCommonBufSiz] = {'\0'},
+         zIpStrAddr[INET6_ADDRSTRLEN] = {'\0'},
+         zDataBuf[44] = {'\0'};
 
-    char zCmdBuf[zGlobCommonBufSiz];
-    char zIpStrAddr[INET6_ADDRSTRLEN];
+    /* 提取 value[key] */
+    zMeta__ zMeta_ = {
+        .repoId = -1,
+        .hostId = 0,
+        .p_data = zDataBuf,
+        .p_extraData = zDataBuf + 41
+    };
+    zMeta__ *zpMeta_ = &zMeta_;
 
+    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
+    if (-1 == zpMeta_->repoId) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "CacheId", zI32, &(zpMeta_->cacheId), 0);
+    if (-1 == zpMeta_->cacheId) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "HostId", zI32, &(zpMeta_->hostId), 0);
+    if (0 == zpMeta_->hostId) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "data", zStr, &(zpMeta_->p_data), 41);
+    if ('\0' == zpMeta_->p_data[0]) { return -1; }
+
+    zNativeUtils_.json_parse(zpJson, "ExtraData", zStr, &(zpMeta_->p_extraData), 3);
+    if ('\0' == zpMeta_->p_extraData[0]) { return -1; }
+
+    /* 正文... */
+    zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
     zNetUtils_.to_str(zpMeta_->hostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
@@ -1601,15 +1627,22 @@ zMarkEnd:
  */
 static _i
 zlock_repo(char *zpJson, _i zSd) {
-    pthread_rwlock_wrlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));
+    _i zOpsId = -1,
+       zRepoId = -1;
 
-    if (2 == zpMeta_->opsId) {
-        zpGlobRepo_[zpMeta_->repoId]->dpLock = zDpLocked;
-    } else {
-        zpGlobRepo_[zpMeta_->repoId]->dpLock = zDpUnLock;
-    }
+    /* 提取 value[key] */
+    zNativeUtils_.json_parse(zpJson, "OpsId", zI32, &zOpsId, 0);
+    if (-1 == zOpsId) { return -1; }
 
-    pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));
+    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &zRepoId, 0);
+    if (-1 == zRepoId) { return -1; }
+
+    pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
+
+    if (2 == zOpsId) { zpGlobRepo_[zRepoId]->dpLock = zDpLocked; }
+    else { zpGlobRepo_[zRepoId]->dpLock = zDpUnLock; }
+
+    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
     zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
 
@@ -1620,12 +1653,18 @@ zlock_repo(char *zpJson, _i zSd) {
 /* 14: 向目标机传输指定的文件 */
 static _i
 zreq_file(char *zpJson, _i zSd) {
-    char zSendBuf[4096];
-    _i zFd, zDataLen;
+    char zDataBuf[4096] = {'\0'};
+    _i zFd = -1,
+       zDataLen = -1;
 
-    zCheck_Negative_Return(zFd = open(zpMeta_->p_data, O_RDONLY), -80);
-    while (0 < (zDataLen = read(zFd, zSendBuf, 4096))) {
-        zNetUtils_.sendto(zSd, zSendBuf, zDataLen, 0, NULL);
+    /* 提取 value[key] */
+    zNativeUtils_.json_parse(zpJson, "data", zStr, zDataBuf, 41);
+    if ('\0' == zDataBuf[0]) { return -1; }
+
+    zCheck_Negative_Return(zFd = open(zDataBuf, O_RDONLY), -80);
+
+    while (0 < (zDataLen = read(zFd, zDataBuf, 4096))) {
+        zNetUtils_.sendto(zSd, zDataBuf, zDataLen, 0, NULL);
     }
 
     close(zFd);
