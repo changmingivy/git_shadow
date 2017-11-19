@@ -76,8 +76,6 @@ struct zDpOps__ zDpOps_ = {
             || ((zCacheSiz - 1) < zpMeta_->commitId)\
             || (NULL == zpTopVecWrap_->p_refData_[zpMeta_->commitId].p_data)) {\
         pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));\
-        zpMeta_->p_data[0] = '\0';\
-        zpMeta_->p_extraData[0] = '\0';\
         return -3;\
     }\
 } while(0)
@@ -89,8 +87,6 @@ struct zDpOps__ zDpOps_ = {
             || (NULL == zpTopVecWrap_->p_refData_[zpMeta_->commitId].p_subVecWrap_)\
             || ((zpTopVecWrap_->p_refData_[zpMeta_->commitId].p_subVecWrap_->vecSiz - 1) < zpMeta_->fileId)) {\
         pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));\
-        zpMeta_->p_data[0] = '\0';\
-        zpMeta_->p_extraData[0] = '\0';\
         return -4;\
     }\
 } while(0)
@@ -100,8 +96,6 @@ struct zDpOps__ zDpOps_ = {
 #define zCheck_CacheId(zpMeta_) do {\
     if (zpGlobRepo_[zpMeta_->repoId]->cacheId != zpMeta_->cacheId) {\
         pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));\
-        zpMeta_->p_data[0] = '\0';\
-        zpMeta_->p_extraData[0] = '\0';\
         zpMeta_->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
         return -8;\
     }\
@@ -112,31 +106,29 @@ struct zDpOps__ zDpOps_ = {
 #define zCheck_Lock_State(zpMeta_) do {\
     if (zDpLocked == zpGlobRepo_[zpMeta_->repoId]->dpLock) {\
         pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));\
-        zpMeta_->p_data[0] = '\0';\
-        zpMeta_->p_extraData[0] = '\0';\
         return -6;\
     }\
 } while(0)
 
 
-/*
- * 生成缓存时使用
- * 将结构体数据转换成生成json文本
- */
-static void
-zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
-    sprintf(
-            zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-            zpMeta_->opsId,
-            zpMeta_->cacheId,
-            zpMeta_->repoId,
-            zpMeta_->commitId,
-            zpMeta_->fileId,
-            zpMeta_->dataType,
-            (NULL == zpMeta_->p_data) ? "_" : zpMeta_->p_data,
-            (NULL == zpMeta_->p_extraData) ? "_" : zpMeta_->p_extraData
-            );
-}
+// /*
+//  * 生成缓存时使用
+//  * 将结构体数据转换成生成json文本
+//  */
+// static void
+// zconvert_struct_to_json_str(char *zpJsonStrBuf, zMeta__ *zpMeta_) {
+//     sprintf(
+//             zpJsonStrBuf, ",{\"OpsId\":%d,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
+//             zpMeta_->opsId,
+//             zpMeta_->cacheId,
+//             zpMeta_->repoId,
+//             zpMeta_->commitId,
+//             zpMeta_->fileId,
+//             zpMeta_->dataType,
+//             (NULL == zpMeta_->p_data) ? "_" : zpMeta_->p_data,
+//             (NULL == zpMeta_->p_extraData) ? "_" : zpMeta_->p_extraData
+//             );
+// }
 
 
 // static void *
@@ -820,11 +812,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
 
     for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter++) {
         /* 检测是否存在重复IP */
-        if (0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) {
-            strcpy(zpMeta_->p_data, zRegRes_->p_rets[zCnter]);
-            zpMeta_->p_extraData[0] = '\0';
-            return -19;
-        }
+        if (0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) { return -19; }
 
         /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
@@ -936,16 +924,12 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
 
     /* 检查是否允许布署 */
     if (zDpLocked == zpGlobRepo_[zpMeta_->repoId]->dpLock) {
-        zpMeta_->p_data = "====代码库被锁定，不允许布署====";
-        zpMeta_->p_extraData[0] = '\0';
         zErrNo = -6;
         goto zEndMark;
     }
 
     /* 检查缓存中的CacheId与全局CacheId是否一致 */
     if (zpGlobRepo_[zpMeta_->repoId]->cacheId != zpMeta_->cacheId) {
-        zpMeta_->p_data = "====已产生新的布署记录，请刷新页面====";
-        zpMeta_->p_extraData[0] = '\0';
         zpMeta_->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;
         zErrNo = -8;
         goto zEndMark;
@@ -954,8 +938,6 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     if ((0 > zpMeta_->commitId)
             || ((zCacheSiz - 1) < zpMeta_->commitId)
             || (NULL == zpTopVecWrap_->p_refData_[zpMeta_->commitId].p_data)) {
-        zpMeta_->p_data = "====指定的版本号无效====";
-        zpMeta_->p_extraData[0] = '\0';
         zErrNo = -3;
         goto zEndMark;
     }
@@ -1002,8 +984,6 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
 
     /* 检查部署目标主机集合是否存在 */
     if (0 == zpGlobRepo_[zpMeta_->repoId]->totalHost) {
-        zpMeta_->p_data = "====指定的目标主机 IP 列表无效====";
-        zpMeta_->p_extraData[0] = '\0';
         zErrNo = -26;
         goto zEndMark;
     }
@@ -1249,28 +1229,27 @@ zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__))) {
  */
 static _i
 zbatch_deploy(char *zpJson, _i zSd) {
-    /* 系统高负载时，不接受布署请求，保留 20% 的性能提供查询等’读‘操作 */
-    if (80 < zGlobMemLoad) {
-        zpMeta_->p_data = "====当前系统负载超过 80%，请稍后重试====";
-        return -16;
-    }
+    /* check system load */
+    if (80 < zGlobMemLoad) { return -16; }
+
+    zMeta__ zMeta_ = { .repoId = -1 };
+    zMeta__ *zpMeta_ = &zMeta_;
+
+    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
+    if (-1 == zpMeta_->repoId) { return -1; }
 
     if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) )) {
-        if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) {
-            sprintf(zpMeta_->p_data, "系统正在刷新缓存，请 2 秒后重试");
-        } else {
-            sprintf(zpMeta_->p_data, "正在布署，请 %.2f 分钟后查看布署列表中最新一条记录",
-                    (0 == zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit) ? 2.0 : zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit / 60.0);
-        }
-        return -11;
+        if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) { return -5; }
+        else { return -11; }
     }
 
     char *zppCommonBuf[2] = { NULL };
-    zRegRes__ *zpHostStrAddrRegRes_ = NULL;
+    zRegRes__ *zpIpAddrRegRes_ = NULL;
     _i zErrNo = 0,
        zCommonBufLen = 0;
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个Buf*/
+    zpMeta_->dataLen = strlen(zpJson);
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
     zppCommonBuf[0] = zNativeOps_.alloc(zpMeta_->repoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
@@ -1283,7 +1262,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
     pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
     /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
-    if (-100 != (zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpHostStrAddrRegRes_))) {
+    if (-100 != (zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpIpAddrRegRes_))) {
         zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
         pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
         pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
@@ -1338,7 +1317,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
                 if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].dpState) {
                     zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
                     zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].repoId = zpMeta_->repoId;
-                    zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpHostStrAddrRegRes_->p_rets[zCnter];
+                    zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpIpAddrRegRes_->p_rets[zCnter];
                     zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_cmd = zppCommonBuf[0];
                     zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_ccurLock = &zpGlobRepo_[zpMeta_->repoId]->dpSyncLock;
                     zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_ccurCond = &zpGlobRepo_[zpMeta_->repoId]->dpSyncCond;
@@ -1350,7 +1329,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
                     zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
                 } else {
                     zpGlobRepo_[zpMeta_->repoId]->dpTotalTask -= 1;
-                    zpHostStrAddrRegRes_->p_rets[zCnter] = NULL;  // 去掉已成功的 IP 地址，只保留失败的部分
+                    zpIpAddrRegRes_->p_rets[zCnter] = NULL;  // 去掉已成功的 IP 地址，只保留失败的部分
                 }
             }
 
@@ -1394,7 +1373,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
                 return 0;
             } else {
                 /* 对失败的目标主机重试布署 */
-                for (_ui zCnter = 0; zCnter < zpHostStrAddrRegRes_->cnt; zCnter++) {
+                for (_ui zCnter = 0; zCnter < zpIpAddrRegRes_->cnt; zCnter++) {
                     /* 检测是否有新的布署请求 */
                     if (0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) {
                         pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
@@ -1402,7 +1381,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
                     }
 
                     /* 结构体各成员参数与目标机初始化时一致，无需修改，直接复用即可 */
-                    if (NULL != zpHostStrAddrRegRes_->p_rets[zCnter]) {
+                    if (NULL != zpIpAddrRegRes_->p_rets[zCnter]) {
                         /* when memory load >= 80%，waiting ... */
                         pthread_mutex_lock(&zGlobCommonLock);
                         while (80 <= zGlobMemLoad) {
