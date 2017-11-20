@@ -780,13 +780,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     pthread_rwlock_wrlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
     /* 用于统计布署状态的互斥锁 */
-    zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->replyCntLock, NULL));
+    zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->replyCntLock), NULL) );
 
     /* 用于保证 "git pull" 原子性拉取的互斥锁 */
-    zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->pullLock, NULL));
+    zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->pullLock), NULL) );
 
     /* 布署并发流量控制 */
-    zCheck_Negative_Exit( sem_init(&(zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
+    zCheck_Negative_Exit(sem_init( & (zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
 
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
@@ -1020,7 +1020,7 @@ zfetch_remote_code(void *zpParam) {
 static void *
 zcode_sync(void *zpParam __attribute__ ((__unused__))) {
 zLoop:
-    for (_i i = 0; i <= zGlobMaxRepoId; i++) {
+    for (_i i = zGlobMaxRepoId; i > 0; i--) {
         if (NULL == zpGlobRepo_[i]  /* 项目是否存在 */
                 || 'N' == zpGlobRepo_[i]->initFinished  /* 是否已初始化完成 */
                 || 'N' == zpGlobRepo_[i]->needPull) {  /* 是否被动拉取模式（相对的是主动推送模式）*/
@@ -1215,23 +1215,3 @@ zMarkNotFound:
 
     return NULL;
 }
-
-
-/* 去除json标识符:  ][}{\",:  */
-// static void
-// zclear_json_identifier(char *zpStr, _i zStrLen) {
-//     char zDb[256] = {0};
-//     zDb['['] = 1;
-//     zDb[']'] = 1;
-//     zDb['{'] = 1;
-//     zDb['}'] = 1;
-//     zDb[','] = 1;
-//     zDb[':'] = 1;
-//     zDb['\"'] = 1;
-//
-//     for (_i zCnter = 0; zCnter < zStrLen; zCnter++) {
-//         if (1 == zDb[(_i)zpStr[zCnter]]) {
-//             zpStr[zCnter] = '=';
-//         }
-//     }
-// }
