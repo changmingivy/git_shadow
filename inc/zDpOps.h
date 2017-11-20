@@ -232,9 +232,13 @@ struct zDpOps__ {
 
     _i (* creat) (cJSON *, _i);
     _i (* req_dp) (cJSON *, _i);
+
     _i (* dp) (cJSON *, _i);
     _i (* state_confirm) (cJSON *, _i);
+
     _i (* lock) (cJSON *, _i);
+    _i (* unlock) (cJSON *zpJRoot, _i zSd);
+
     _i (* req_file) (cJSON *, _i);
 
     void * (* route) (void *);

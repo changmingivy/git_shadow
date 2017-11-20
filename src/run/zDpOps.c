@@ -53,6 +53,9 @@ static _i
 zlock_repo(cJSON *zpJRoot, _i zSd);
 
 static _i
+zunlock_repo(cJSON *zpJRoot, _i zSd);
+
+static _i
 zreq_file(cJSON *zpJRoot, _i zSd);
 
 /* 对外公开的统一接口 */
@@ -66,6 +69,7 @@ struct zDpOps__ zDpOps_ = {
     .dp = zbatch_deploy,
     .state_confirm = zstate_confirm,
     .lock = zlock_repo,
+    .unlock = zunlock_repo,
     .req_file = zreq_file
 };
 
@@ -449,6 +453,11 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zRepoId = zpJ->valueint;
 
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zDataType = zpJ->valueint;
@@ -503,6 +512,11 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->repoId = zpJ->valueint;
+
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
@@ -588,6 +602,11 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->repoId = zpJ->valueint;
+
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
@@ -1184,6 +1203,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->repoId = zpJ->valueint;
 
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
     if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) )) {
         if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) { return -5; }
         else { return -11; }
@@ -1452,6 +1476,11 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->repoId = zpJ->valueint;
 
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->cacheId = zpJ->valueint;
@@ -1577,24 +1606,50 @@ zMarkEnd:
  */
 static _i
 zlock_repo(cJSON *zpJRoot, _i zSd) {
-    _i zOpsId = -1,
-       zRepoId = -1;
+    _i zRepoId = -1;
 
     /* 提取 value[key] */
     cJSON *zpJ = NULL;
-
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "OpsId");
-    if (!cJSON_IsNumber(zpJ)) { return -1; }
-    zOpsId = zpJ->valueint;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zRepoId = zpJ->valueint;
 
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
     pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
 
-    if (2 == zOpsId) { zpGlobRepo_[zRepoId]->dpLock = zDpLocked; }
-    else { zpGlobRepo_[zRepoId]->dpLock = zDpUnLock; }
+    zpGlobRepo_[zRepoId]->dpLock = zDpLocked;
+
+    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
+
+    zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+
+    return 0;
+}
+
+static _i
+zunlock_unrepo(cJSON *zpJRoot, _i zSd) {
+    _i zRepoId = -1;
+
+    /* 提取 value[key] */
+    cJSON *zpJ = NULL;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zRepoId = zpJ->valueint;
+
+    /* 检查项目存在性 */
+    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
+    pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
+
+    zpGlobRepo_[zRepoId]->dpLock = zDpUnLock;
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 

@@ -206,7 +206,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
-    zRun_.ops[3] = zDpOps_.lock;  // 恢复布署／撤销功能
+    zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能
     zRun_.ops[4] = NULL;
     zRun_.ops[5] = NULL;
     zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
