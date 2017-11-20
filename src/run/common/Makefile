@@ -8,6 +8,6 @@ LIB_NAME = `basename ${PWD}`.a
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
 	ar -crv $(LIB_NAME) $@
+	mv $(LIB_NAME) ../
 
 $(LIB_NAME):
-	mv $(LIB_NAME) ../
