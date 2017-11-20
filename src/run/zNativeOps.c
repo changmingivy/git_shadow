@@ -737,8 +737,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
         /* keep sourceUrl */
-        zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 1 + strlen(zpRepoMeta_->pp_fields[3]));
-        strcpy(zpGlobRepo_[zRepoId]->p_pullRefs, zpRepoMeta_->pp_fields[3]);
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_sourceUrl, char, 1 + strlen(zpRepoMeta_->pp_fields[3]));
+        strcpy(zpGlobRepo_[zRepoId]->p_sourceUrl, zpRepoMeta_->pp_fields[3]);
 
         /* keep git fetch refs... */
         zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 128 + strlen(zpRepoMeta_->pp_fields[3]));

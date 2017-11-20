@@ -14,7 +14,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "../../inc/zCommon.h"
+#include "../../inc/common/zCommon.h"
 
 _i
 ztry_connect(struct sockaddr *zpAddr, socklen_t zLen, _i zSockType, _i zProto) {
