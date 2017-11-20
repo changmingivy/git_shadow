@@ -423,7 +423,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                 'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? 't' : 'f'  /* TRUE, FALSE */
                 );
 
-        zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 0)]->p_pgConnHd_, zSQLBuf, zFalse);
+        zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->p_pgConnHd_, zSQLBuf, zFalse);
         if (NULL == zpPgResHd_) {
             /* 刚刚建立的连接，此处不必尝试 reset */
             zPgSQL_.res_clear(zpPgResHd_, NULL);
