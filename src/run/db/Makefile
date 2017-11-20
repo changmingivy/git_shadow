@@ -5,9 +5,9 @@ CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 INC_ARGS =
 LIB_NAME = `basename ${PWD}`.a
 
-$(LIB_NAME):
-	mv $(LIB_NAME) ../
-
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
 	ar -crv $(LIB_NAME) $@
+
+$(LIB_NAME):
+	mv $(LIB_NAME) ../
