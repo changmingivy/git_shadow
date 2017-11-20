@@ -266,6 +266,8 @@ zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
+
+    return 0;
 }
 
 
