@@ -980,24 +980,26 @@ zfetch_remote_code(void *zpParam) {
 
     /* 若能取到锁，则继续；否则退出 */
     if (0 == pthread_mutex_trylock( & (zpRepo_->pullLock) )) {
-        /* clean rubbish... */
-        // chdir(zpRepo_->p_repoPath);
-        // unlink(".git/index.lock");
-
-        // /* git fetch */
-        // if (-1 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) {
-        //     pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
-        //     return (void *) -1;
-        // }
-
+        /* OpenSSL 默认不是多线程安全的，此处使用多进程拉取远程代码 */
         pid_t zPid = fork();
+        _i zExitStatus = 0;
+
         if (0 > zPid) {
             pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
             return (void *) -1;
         } else if (0 == zPid) {
-            zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL);
+            /* clean rubbish... */
+            // chdir(zpRepo_->p_repoPath);
+            // unlink(".git/index.lock");
+
+            if (0 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) { exit(0); }
+            else { exit(1); }
         } else {
-            waitpid(zPid, NULL, 0);
+            waitpid(zPid, &zExitStatus, 0);
+            if (0 != WEXITSTATUS(zExitStatus)) {
+                pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+                return (void *) -1;
+            }
         }
 
         /* get new revs */
@@ -1041,7 +1043,7 @@ zLoop:
         zThreadPool_.add(zfetch_remote_code, zpGlobRepo_[i]);
     }
 
-    sleep(2);
+    sleep(8);
     goto zLoop;
 
     return (void *) -1;  /* never reach here */
