@@ -31,6 +31,7 @@ if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
+        if [[ 0 -ne $? ]]; then exit 255; fi
         rm -rf ./tools
         cp -r ${zShadowPath}/tools ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update

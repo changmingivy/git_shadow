@@ -919,8 +919,9 @@ static void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
     _i zErrNo = 0;
 
-    if (0 > (zErrNo = zinit_one_repo_env((zPgResTuple__ *) zpParam))) {
+    if (0 > (zErrNo = zinit_one_repo_env(zpParam))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
+        exit(1);  /* 启动时有错，退出进程 */
     }
 
     return NULL;
@@ -979,7 +980,7 @@ zfetch_remote_code(void *zpParam) {
     zRepo__ *zpRepo_ = (zRepo__ *) zpParam;
 
     /* 若能取到锁，则继续；否则退出 */
-    if (0 == pthread_mutex_trylock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) )) {
+    if (0 == pthread_mutex_trylock( & (zpRepo_->pullLock) )) {
         char zCommonBuf[64] = {'\0'};
         zGitRevWalk__ *zpRevWalker = NULL;
 

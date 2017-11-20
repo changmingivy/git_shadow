@@ -101,6 +101,7 @@ typedef struct __zVecWrap__ {
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 typedef struct {
+    zThreadPool__ *p_threadSource_;  // 必须放置在首位
     _i repoId;  // 项目代号
     time_t  cacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     char *p_repoPath;  // 项目路径，如："/home/git/miaopai_TEST"
