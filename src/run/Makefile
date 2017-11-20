@@ -7,11 +7,13 @@ CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 INC_ARGS =
 
 $(LIB_NAME):
-	$(LIB_NAME)(*.o)\
+	$(LIB_NAME)(zRun.o)\
+	$(LIB_NAME)(zNativeOps.o)\
+	$(LIB_NAME)(zDpOps.o)\
 	$(LIB_NAME)(common/common.a)\
 	$(LIB_NAME)(net/net.a)\
 	$(LIB_NAME)(db/db.a)\
-	$(LIB_NAME)(/regex.a)\
+	$(LIB_NAME)(regex/regex.a)\
 	$(LIB_NAME)(json/json.a)
 
 .c.o:
