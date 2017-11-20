@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include <libpq-fe.h>
 
@@ -983,10 +984,20 @@ zfetch_remote_code(void *zpParam) {
         // chdir(zpRepo_->p_repoPath);
         // unlink(".git/index.lock");
 
-        /* git fetch */
-        if (-1 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) {
+        // /* git fetch */
+        // if (-1 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) {
+        //     pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+        //     return (void *) -1;
+        // }
+
+        pid_t zPid = fork();
+        if (0 > zPid) {
             pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
             return (void *) -1;
+        } else if (0 == zPid) {
+            zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL);
+        } else {
+            waitpid(zPid, NULL, 0);
         }
 
         /* get new revs */
