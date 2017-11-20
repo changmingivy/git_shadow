@@ -48,7 +48,7 @@ zmain.o:
 # archive all submodules to a[n] .a file
 # need a sub make in $(SUB_SRC_DIR)
 zLibUtils.a:
-	(cd $(SUB_SRC_DIR); make INC_ARGS=$(INC_ARGS))
+	(cd $(SUB_SRC_DIR); make INC_ARGS="$(INC_ARGS)")
 
 # install
 install: git_shadow

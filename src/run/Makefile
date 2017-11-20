@@ -20,10 +20,8 @@ $(LIB_NAME):\
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
-	cd common && $(CC) $(CCFLAGS) $(INC_ARGS) -c $< && mv *.o ../
-	cd ../net && $(CC) $(CCFLAGS) $(INC_ARGS) -c $< && mv *.o ../
-	cd ../db && $(CC) $(CCFLAGS) $(INC_ARGS) -c $< && mv *.o ../
-	cd ../regex && $(CC) $(CCFLAGS) $(INC_ARGS) -c $< && mv *.o ../
-	cd ../json && $(CC) $(CCFLAGS) $(INC_ARGS) -c $< && mv *.o ../
-
-
+	(cd common; make INC_ARGS="$(INC_ARGS)")
+	(cd net; make INC_ARGS="$(INC_ARGS)")
+	(cd db; make INC_ARGS="$(INC_ARGS)")
+	(cd regex; make INC_ARGS="$(INC_ARGS)")
+	(cd json; make INC_ARGS="$(INC_ARGS)")
