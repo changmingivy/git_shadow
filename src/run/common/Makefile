@@ -6,8 +6,8 @@ INC_ARGS =
 LIB_NAME = `basename ${PWD}`.a
 
 $(LIB_NAME):
-	ar -crv $(LIB_NAME) *.o
 	mv $(LIB_NAME) ../
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
+	ar -crv $(LIB_NAME) $@
