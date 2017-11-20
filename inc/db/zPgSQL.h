@@ -1,7 +1,7 @@
 #ifndef ZPGSQL_H
 #define ZPGSQL_H
 
-#include <libpq-fe.h>
+#include "libpq-fe.h"
 #include "zCommon.h"
 
 typedef struct __zPgLogin__ {

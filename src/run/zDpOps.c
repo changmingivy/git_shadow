@@ -1599,7 +1599,7 @@ zMarkEnd:
     return zErrNo;
 }
 
-#undef zGenerate_SQL_Cmd;
+#undef zGenerate_SQL_Cmd
 
 /*
  * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务
