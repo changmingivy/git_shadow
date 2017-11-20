@@ -5,9 +5,7 @@ CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 INC_ARGS =
 LIB_NAME = `basename \`pwd\``.a
 
-.c.o:
-	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
-
 $(LIB_NAME):
+	$(CC) -c $(CCFLAGS) $(INC_ARGS) *.c
 	ar -crv $(LIB_NAME) `find . -name "*.o"`
 	mv $(LIB_NAME) ../
