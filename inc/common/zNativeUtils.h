@@ -13,8 +13,6 @@ struct zNativeUtils__ {
     _i (* read_hunk) (char *, size_t, FILE *);
 
     _i (* del_lb) (char *);
-
-    void (* json_parse) (char *, char *, zJsonValueType__, void *, _i);
 };
 
 #endif  // #ifndef ZLOCALUTILS_H

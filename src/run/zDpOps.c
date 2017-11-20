@@ -26,34 +26,34 @@ extern char *zpGlobSSHPubKeyPath;
 extern char *zpGlobSSHPrvKeyPath;
 
 static _i
-zshow_one_repo_meta(char *zpJson, _i zSd);
+zshow_one_repo_meta(cJSON *zpJRoot, _i zSd);
 
 static _i
-zadd_repo(char *zpJson, _i zSd);
+zadd_repo(cJSON *zpJRoot, _i zSd);
 
 static _i
-zprint_record(char *zpJson, _i zSd);
+zprint_record(cJSON *zpJRoot, _i zSd);
 
 static _i
-zprint_diff_files(char *zpJson, _i zSd);
+zprint_diff_files(cJSON *zpJRoot, _i zSd);
 
 static _i
-zprint_diff_content(char *zpJson, _i zSd);
+zprint_diff_content(cJSON *zpJRoot, _i zSd);
 
 static _i
-zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__)));
+zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
 
 static _i
-zbatch_deploy(char *zpJson, _i zSd);
+zbatch_deploy(cJSON *zpJRoot, _i zSd);
 
 static _i
-zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__)));
+zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
 
 static _i
-zlock_repo(char *zpJson, _i zSd);
+zlock_repo(cJSON *zpJRoot, _i zSd);
 
 static _i
-zreq_file(char *zpJson, _i zSd);
+zreq_file(cJSON *zpJRoot, _i zSd);
 
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
@@ -274,14 +274,14 @@ zgit_push_ccur(void *zp_) {
  * 0: 测试函数
  */
 // static _i
-// ztest_func(char *zpJson, _i zSd __attribute__ ((__unused__))) { return 0; }
+// ztest_func(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) { return 0; }
 
 
 /*
  * 6：显示单个项目元信息
  */
 static _i
-zshow_one_repo_meta(char *zpJson, _i zSd) {
+zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     zPgRes__ *zpPgRes_ = NULL;
     char zCmdBuf[256];
 
@@ -290,10 +290,11 @@ zshow_one_repo_meta(char *zpJson, _i zSd) {
        zIpListSiz = 0,
        zJsonSiz = 0;
 
-    sscanf(zpJson, "data\":%*[\"]%d", &zRepoId);
-    if (-1 == zRepoId) {
-        return -1;  /* zErrNo = -1; */
-    }
+    cJSON *zpJ = NULL;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1;  /* zErrNo = -1; */ }
+    zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
     if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
@@ -353,22 +354,16 @@ zshow_one_repo_meta(char *zpJson, _i zSd) {
  * 1：添加新项目（代码库）
  */
 static _i
-zadd_repo(char *zpJson, _i zSd) {
-    char zRepoId[16] = {'\0'},
-         zPathOnHost[1024] = {'\0'},
-         zSourceUrl[1024] = {'\0'},
-         zSourceBranch[256] = {'\0'},
-         zSourceVcsType[64] = {'\0'},
-         zNeedPull[2] = {'\0'};
-
-    char *zpProjInfo[6] = {
-        zRepoId,
-        zPathOnHost,
-        zSourceUrl,
-        zSourceBranch,
-        zSourceVcsType,
-        zNeedPull
-    };
+zadd_repo(cJSON *zpJRoot, _i zSd) {
+    /*
+     * [0] zRepoId
+     * [1] zPathOnHost
+     * [2] zSourceUrl
+     * [3] zSourceBranch
+     * [4] zSourceVcsType
+     * [5] zNeedPull
+     */
+    char *zpProjInfo[6] = { NULL };
 
     zPgResTuple__ zRepoMeta_ = {
         .p_taskCnt = NULL,
@@ -377,25 +372,36 @@ zadd_repo(char *zpJson, _i zSd) {
 
     char zSQLBuf[4096];
     _i zErrNo = 0;
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zStr, zRepoId, 16);
-    if ('\0' == zRepoId[0]) { return -34; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    zpProjInfo[0] = zpJ->string;
 
-    zNativeUtils_.json_parse(zpJson, "PathOnHost", zStr, zPathOnHost, 1024);
-    if ('\0' == zPathOnHost[0]) { return -34; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "PathOnHost");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    zpProjInfo[1] = zpJ->string;
 
-    zNativeUtils_.json_parse(zpJson, "NeedPull", zStr, zNeedPull, 2);
-    if ('Y' == toupper(zNeedPull[0])) {
-        zNativeUtils_.json_parse(zpJson, "SourceUrl", zStr, zSourceUrl, 1024);
-        if ('\0' == zSourceUrl[0]) { return -34; }
-        zNativeUtils_.json_parse(zpJson, "SourceBranch", zStr, zSourceBranch, 256);
-        if ('\0' == zSourceBranch[0]) { return -34; }
-        zNativeUtils_.json_parse(zpJson, "SourceVcsType", zStr, zSourceVcsType, 64);
-        if ('\0' == zSourceVcsType[0]) { return -34; }
-    } else if ('N' == toupper(zNeedPull[0])) {
-        zSourceUrl[0] = '_';
-        zSourceBranch[0] = '_';
-        zSourceVcsType[0] = '_';
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "NeedPull");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    zpProjInfo[5] = zpJ->string;
+
+    if ('Y' == toupper(zpProjInfo[5][0])) {
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceUrl");
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+        zpProjInfo[2] = zpJ->string;
+
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceBranch");
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+        zpProjInfo[3] = zpJ->string;
+
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceVcsType");
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+        zpProjInfo[4] = zpJ->string;
+    } else if ('N' == toupper(zpProjInfo[5][0])) {
+        zpProjInfo[2] = "_";
+        zpProjInfo[3] = "_";
+        zpProjInfo[4] = "_";
     } else {
         return -34;
     }
@@ -433,16 +439,19 @@ zadd_repo(char *zpJson, _i zSd) {
  * 7：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 static _i
-zprint_record(char *zpJson, _i zSd) {
+zprint_record(cJSON *zpJRoot, _i zSd) {
     zVecWrap__ *zpSortedTopVecWrap_ = NULL;
     _i zRepoId = -1,
        zDataType = -1;
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &zRepoId, 0);
-    if (-1 == zRepoId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zRepoId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "DataType", zI32, &zDataType, 0);
-    if (-1 == zDataType) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zDataType = zpJ->valueint;
 
     if (0 != pthread_rwlock_tryrdlock(&(zpGlobRepo_[zRepoId]->rwLock))) {
         if (0 == zpGlobRepo_[zRepoId]->whoGetWrLock) { return -5; }
@@ -477,7 +486,7 @@ zprint_record(char *zpJson, _i zSd) {
  * 10：显示差异文件路径列表
  */
 static _i
-zprint_diff_files(char *zpJson, _i zSd) {
+zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zVecWrap__ zSendVecWrap_;
 
@@ -489,15 +498,19 @@ zprint_diff_files(char *zpJson, _i zSd) {
     zMeta__ *zpMeta_ = &zMeta_;
 
     _i zSplitCnt = -1;
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
-    if (-1 == zpMeta_->repoId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->repoId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "DataType", zI32, &(zMeta_.dataType), 0);
-    if (-1 == zMeta_.dataType) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->dataType = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "RevId", zI32, &(zMeta_.commitId), 0);
-    if (-1 == zMeta_.commitId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->commitId = zpJ->valueint;
 
     /* 若上一次布署是部分失败的，返回 -13 错误 */
     if (zRepoDamaged == zpGlobRepo_[zpMeta_->repoId]->repoState) { return -13; }
@@ -557,7 +570,7 @@ zprint_diff_files(char *zpJson, _i zSd) {
  * 11：显示差异文件内容
  */
 static _i
-zprint_diff_content(char *zpJson, _i zSd) {
+zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zVecWrap__ zSendVecWrap_;
 
@@ -570,18 +583,23 @@ zprint_diff_content(char *zpJson, _i zSd) {
     zMeta__ *zpMeta_ = &zMeta_;
 
     _i zSplitCnt = -1;
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
-    if (-1 == zpMeta_->repoId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->repoId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "DataType", zI32, &(zMeta_.dataType), 0);
-    if (-1 == zMeta_.dataType) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->dataType = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "RevId", zI32, &(zMeta_.commitId), 0);
-    if (-1 == zMeta_.commitId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->commitId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "FileId", zI32, &(zMeta_.fileId), 0);
-    if (-1 == zMeta_.fileId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "FileId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->fileId = zpJ->valueint;
 
     if (zIsCommitDataType == zpMeta_->dataType) { zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_); }
     else if (zIsDpDataType == zpMeta_->dataType) { zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->repoId]->dpVecWrap_); }
@@ -1110,25 +1128,27 @@ zEndMark:
  * 13：新加入的主机请求布署自身：不拿锁、不刷系统IP列表、不刷新缓存
  */
 static _i
-zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__))) {
-    char zIpBuf[INET6_ADDRSTRLEN] = {'\0'},
-         zHostSigBuf[41] = {'\0'};
-
+zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zMeta__ zMeta_ = {
         .repoId = -1,
-        .p_data = zIpBuf,
-        .p_extraData = zHostSigBuf
+        .p_data = NULL,
+        .p_extraData =NULL
     };
     zMeta__ *zpMeta_ = &zMeta_;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
-    if (-1 == zpMeta_->repoId) { return -1; }
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "data", zStr, &(zpMeta_->p_data), INET6_ADDRSTRLEN);
-    if ('\0' == zpMeta_->p_data[0]) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->repoId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "ExtraData", zStr, &(zpMeta_->p_extraData), 41);
-    if ('\0' == zpMeta_->p_extraData[0]) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_data = zpJ->string;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->string;
 
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpMeta_->p_extraData, zpGlobRepo_[zpMeta_->repoId]->lastDpSig, 40)) {
@@ -1150,16 +1170,19 @@ zself_deploy(char *zpJson, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 static _i
-zbatch_deploy(char *zpJson, _i zSd) {
+zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* check system load */
     if (80 < zGlobMemLoad) { return -16; }
 
     zMeta__ zMeta_ = { .repoId = -1 };
     zMeta__ *zpMeta_ = &zMeta_;
 
+    cJSON *zpJ = NULL;
+
     /* 提取 value[ProjId] */
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
-    if (-1 == zpMeta_->repoId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->repoId = zpJ->valueint;
 
     if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) )) {
         if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) { return -5; }
@@ -1172,27 +1195,27 @@ zbatch_deploy(char *zpJson, _i zSd) {
        zCommonBufLen = 0;
 
     /* 提取其它必要 value[key] */
-    zNativeUtils_.json_parse(zpJson, "DataType", zI32, &(zpMeta_->dataType), 0);
-    if (-1 == zpMeta_->dataType) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->dataType = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "CacheId", zI32, &(zpMeta_->cacheId), 0);
-    if (-1 == zpMeta_->cacheId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->cacheId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "RevId", zI32, &(zpMeta_->commitId), 0);
-    if (-1 == zpMeta_->commitId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->commitId = zpJ->valueint;
 
-    zpMeta_->dataLen = strlen(zpJson);
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_data = zpJ->string;
+    zpMeta_->dataLen = strlen(zpMeta_->p_data);
 
-    char zDataBuf[zpMeta_->dataLen];
-    zpMeta_->p_data = zDataBuf;
-    zpMeta_->p_data[0] = '\0';
-    zNativeUtils_.json_parse(zpJson, "data", zStr, &(zpMeta_->p_data), zpMeta_->dataLen);
-    if ('\0' == zpMeta_->p_data[0]) { return -1; }
-
-    char zExtraDataBuf[44] = {'\0'};
-    zpMeta_->p_extraData = zExtraDataBuf;
-    zNativeUtils_.json_parse(zpJson, "ExtraData", zStr, &(zpMeta_->p_extraData), 44);
-    if ('\0' == zpMeta_->p_extraData[0]) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->string;
+    zpMeta_->extraDataLen = strlen(zpMeta_->p_extraData);
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个 Buf */
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
@@ -1405,7 +1428,7 @@ zbatch_deploy(char *zpJson, _i zSd) {
 } while (0);
 
 static _i
-zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
+zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = NULL;
     time_t zTimeSpent = 0;
     _i zErrNo = 0;
@@ -1423,20 +1446,27 @@ zstate_confirm(char *zpJson, _i zSd __attribute__ ((__unused__))) {
     };
     zMeta__ *zpMeta_ = &zMeta_;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &(zpMeta_->repoId), 0);
-    if (-1 == zpMeta_->repoId) { return -1; }
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "CacheId", zI32, &(zpMeta_->cacheId), 0);
-    if (-1 == zpMeta_->cacheId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->repoId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "HostId", zI32, &(zpMeta_->hostId), 0);
-    if (0 == zpMeta_->hostId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->cacheId = zpJ->valueint;
 
-    zNativeUtils_.json_parse(zpJson, "data", zStr, &(zpMeta_->p_data), 41);
-    if ('\0' == zpMeta_->p_data[0]) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->hostId = (_ui)zpJ->valuedouble;
 
-    zNativeUtils_.json_parse(zpJson, "ExtraData", zStr, &(zpMeta_->p_extraData), 3);
-    if ('\0' == zpMeta_->p_extraData[0]) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_data = zpJ->string;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->string;
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
@@ -1546,16 +1576,20 @@ zMarkEnd:
  * 3：允许布署／撤销／更新ip数据库
  */
 static _i
-zlock_repo(char *zpJson, _i zSd) {
+zlock_repo(cJSON *zpJRoot, _i zSd) {
     _i zOpsId = -1,
        zRepoId = -1;
 
     /* 提取 value[key] */
-    zNativeUtils_.json_parse(zpJson, "OpsId", zI32, &zOpsId, 0);
-    if (-1 == zOpsId) { return -1; }
+    cJSON *zpJ = NULL;
 
-    zNativeUtils_.json_parse(zpJson, "ProjId", zI32, &zRepoId, 0);
-    if (-1 == zRepoId) { return -1; }
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "OpsId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zOpsId = zpJ->valueint;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zRepoId = zpJ->valueint;
 
     pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
 
@@ -1572,16 +1606,18 @@ zlock_repo(char *zpJson, _i zSd) {
 
 /* 14: 向目标机传输指定的文件 */
 static _i
-zreq_file(char *zpJson, _i zSd) {
+zreq_file(cJSON *zpJRoot, _i zSd) {
     char zDataBuf[4096] = {'\0'};
     _i zFd = -1,
        zDataLen = -1;
 
     /* 提取 value[key] */
-    zNativeUtils_.json_parse(zpJson, "data", zStr, zDataBuf, 41);
-    if ('\0' == zDataBuf[0]) { return -1; }
+    cJSON *zpJ = NULL;
 
-    zCheck_Negative_Return(zFd = open(zDataBuf, O_RDONLY), -80);
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+
+    zCheck_Negative_Return( zFd = open(zpJ->string, O_RDONLY), -80 );
 
     while (0 < (zDataLen = read(zFd, zDataBuf, 4096))) {
         zNetUtils_.sendto(zSd, zDataBuf, zDataLen, 0, NULL);

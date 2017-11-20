@@ -28,6 +28,7 @@
 #include "zPosixReg.h"
 #include "zPgSQL.h"
 #include "zThreadPool.h"
+#include "cJSON.h"
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
 #define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
@@ -223,18 +224,18 @@ typedef struct __zMeta__ {
 } zMeta__;
 
 struct zDpOps__ {
-    _i (* show_meta) (char *, _i);
+    _i (* show_meta) (cJSON *, _i);
 
-    _i (* print_revs) (char *, _i);
-    _i (* print_diff_files) (char *, _i);
-    _i (* print_diff_contents) (char *, _i);
+    _i (* print_revs) (cJSON *, _i);
+    _i (* print_diff_files) (cJSON *, _i);
+    _i (* print_diff_contents) (cJSON *, _i);
 
-    _i (* creat) (char *, _i);
-    _i (* req_dp) (char *, _i);
-    _i (* dp) (char *, _i);
-    _i (* state_confirm) (char *, _i);
-    _i (* lock) (char *, _i);
-    _i (* req_file) (char *, _i);
+    _i (* creat) (cJSON *, _i);
+    _i (* req_dp) (cJSON *, _i);
+    _i (* dp) (cJSON *, _i);
+    _i (* state_confirm) (cJSON *, _i);
+    _i (* lock) (cJSON *, _i);
+    _i (* req_file) (cJSON *, _i);
 
     void * (* route) (void *);
 };

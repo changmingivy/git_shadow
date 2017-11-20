@@ -2,9 +2,8 @@
 #define ZRUN_H
 
 #include "zCommon.h"
-#include "zThreadPool.h"
-#include "zNetUtils.h"
 #include "zDpOps.h"
+#include "cJSON.h"
 
 #define zServHashSiz 16
 
@@ -17,7 +16,7 @@ struct zRun__ {
     void (* run) (zNetSrv__ *, zPgLogin__ *);
     void * (* route) (void *);
 
-    _i (* ops[zServHashSiz]) (char *, _i);
+    _i (* ops[zServHashSiz]) (cJSON *, _i);
 };
 
 #endif  // #ifndef ZRUN_H

@@ -6,6 +6,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "zNetUtils.h"
+#include "zThreadPool.h"
+
 extern struct zThreadPool__ zThreadPool_;
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
@@ -260,14 +263,18 @@ zops_route(void *zpParam) {
     }
 
     /* 提取 value[OpsId] */
-    zNativeUtils_.json_parse(zpDataBuf, "OpsId", zI32, &zOpsId, 0);
+    cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
+    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "OpsId");
+    if (cJSON_IsNumber(zpOpsId)) {
+        zOpsId = zpOpsId->valueint;
 
-    /* 检验 value[OpsId] 合法性 */
-    if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
-        zErrNo = -1;
+        /* 检验 value[OpsId] 合法性 */
+        if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) { zErrNo = -1; }
+        else { zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd); }
     } else {
-        zErrNo = zRun_.ops[zOpsId](zpDataBuf, zSd);
+        zErrNo = -1;
     }
+    cJSON_Delete(zpJRoot);
 
     /* 成功状态在下层函数中回复，错误状态统一返回至上层处理 */
     if (0 > zErrNo) {
