@@ -979,19 +979,20 @@ zfetch_remote_code(void *zpParam) {
 
     /* 若能取到锁，则继续；否则退出 */
     if (0 == pthread_mutex_trylock( & (zpRepo_->pullLock) )) {
-        char zCommonBuf[64] = {'\0'};
-        zGitRevWalk__ *zpRevWalker = NULL;
-
         /* clean rubbish... */
-        chdir(zpRepo_->p_repoPath);
-        unlink(".git/index.lock");
+        // chdir(zpRepo_->p_repoPath);
+        // unlink(".git/index.lock");
 
         /* git fetch */
-        zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL);
+        if (-1 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) {
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            return (void *) -1;
+        }
 
         /* get new revs */
+        char zCommonBuf[64] = {'\0'};
         sprintf(zCommonBuf, "refs/heads/server%d", zpRepo_->repoId);
-        zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
         if (NULL == zpRevWalker) {
             pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
             return (void *) -1;
