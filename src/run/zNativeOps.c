@@ -547,7 +547,7 @@ zgenerate_cache(void *zpParam) {
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_);
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedCommitVecWrap_);
 
-        sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);
+        sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);  /* use: refs/remotes/origin/master??? */
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zCommonBuf, 0))) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  // 出现严重错误，退出程序
@@ -675,7 +675,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
          zKeepValue = 0;
     zPgResHd__ *zpPgResHd_ = NULL;
 
-    /* 提取项目ID，调整 zGlobMaxRepoId */
+    /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
 
     if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) { return -32; }
@@ -684,7 +684,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zpGlobRepo_[zRepoId], zRepo__, 1);
     zpGlobRepo_[zRepoId]->repoId = zRepoId;
-    zpGlobRepo_[zRepoId]->selfPushMark = (NULL == zpRepoMeta_->pp_fields[5] || 'N' == zpRepoMeta_->pp_fields[5][0]) ? 0 : 1;
+    zpGlobRepo_[zRepoId]->needPull = zpRepoMeta_->pp_fields[5][0];
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
@@ -735,25 +735,20 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         return -38;
     }
 
-    /* 检测并生成项目代码定期更新命令 */
     if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zCommonBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
-                zpGlobRepo_[zRepoId]->p_repoPath,
-                zpRepoMeta_->pp_fields[2],
+        /* keep sourceUrl */
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 1 + strlen(zpRepoMeta_->pp_fields[3]));
+        strcpy(zpGlobRepo_[zRepoId]->p_pullRefs, zpRepoMeta_->pp_fields[3]);
+
+        /* keep git fetch refs... */
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 128 + strlen(zpRepoMeta_->pp_fields[3]));
+        sprintf(zpGlobRepo_[zRepoId]->p_pullRefs, "+refs/heads/%s:refs/heads/server%d",  /*refs/remotes/cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d", zpRepoMeta_->pp_fields[2],*/
                 zpRepoMeta_->pp_fields[3],
-                zRepoId);
-    } else if (0 == strcmp("svn", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zCommonBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
-                " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
-                zpGlobRepo_[zRepoId]->p_repoPath,
                 zRepoId);
     } else {
         zFree_Source();
         return -37;
     }
-
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullCmd, char, 1 + zStrLen);
-    strcpy(zpGlobRepo_[zRepoId]->p_pullCmd, zCommonBuf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -899,7 +894,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
     /* 标记初始化动作已全部完成 */
-    zpGlobRepo_[zRepoId]->initRepoFinMark = 1;
+    zpGlobRepo_[zRepoId]->initFinished = 'Y';
 
     /* 全局实际项目 ID 最大值调整，并通知上层调用者本项目初始化任务完成 */
     pthread_mutex_lock(&zGlobCommonLock);
@@ -961,6 +956,88 @@ zsys_load_monitor(void *zpParam) {
 
 
 /*
+ * 全量刷新：仅刷新新提交版本号列表，不刷新布署列表
+ */
+static _i
+zrefresh_commit_cache(_i zRepoId) {
+    zMeta__ zMeta_ = {
+        .repoId = zRepoId,
+        .dataType = zIsCommitDataType
+    };
+
+    zgenerate_cache(&zMeta_);
+
+    return 0;
+}
+
+
+/*
+ * 定时同步远程代码
+ */
+static void *
+zfetch_remote_code(void *zpParam) {
+    zRepo__ *zpRepo_ = (zRepo__ *) zpParam;
+
+    /* 若能取到锁，则继续；否则退出 */
+    if (0 == pthread_mutex_trylock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) )) {
+        char zCommonBuf[64] = {'\0'};
+        zGitRevWalk__ *zpRevWalker = NULL;
+
+        /* clean rubbish... */
+        chdir(zpRepo_->p_repoPath);
+        unlink(".git/index.lock");
+
+        /* git fetch */
+        zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL);
+
+        /* get new revs */
+        sprintf(zCommonBuf, "refs/heads/server%d", zpRepo_->repoId);
+        zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
+        if (NULL == zpRevWalker) {
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            return (void *) -1;
+        } else {
+            zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zpRevWalker);
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        }
+
+        if ((NULL == zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data)
+                || (0 != strncmp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data, 40))) {
+
+            /* 若能取到锁，则更新缓存；否则退出 */
+            if (0 == pthread_rwlock_trywrlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock))) {
+                zrefresh_commit_cache(zpRepo_->repoId);
+                pthread_rwlock_unlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock));
+            };
+        }
+    }
+
+    return NULL;
+}
+
+
+static void *
+zcode_sync(void *zpParam __attribute__ ((__unused__))) {
+zLoop:
+    for (_i i = 0; i <= zGlobMaxRepoId; i++) {
+        if (NULL == zpGlobRepo_[i]  /* 项目是否存在 */
+                || 'N' == zpGlobRepo_[i]->initFinished  /* 是否已初始化完成 */
+                || 'N' == zpGlobRepo_[i]->needPull) {  /* 是否被动拉取模式（相对的是主动推送模式）*/
+            continue;
+        }
+
+        zThreadPool_.add(zfetch_remote_code, zpGlobRepo_[i]);
+    }
+
+    sleep(2);
+    goto zLoop;
+
+    return (void *) -1;  /* never reach here */
+}
+
+
+/*
  * 定时扩展日志表分区
  * 每天尝试创建之后 10 天的分区表
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
@@ -986,7 +1063,7 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
         _i zBaseId = time(NULL) / 86400,
            zId = 0;
         for (_i zRepoId = 0; zRepoId <= zGlobMaxRepoId; zRepoId++) {
-            if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { continue; }
+            if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) { continue; }
 
             for (zId = 0; zId < 10; zId ++) {
                 sprintf(zCmdBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
@@ -1133,6 +1210,8 @@ zMarkNotFound:
 #ifndef _Z_BSD
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
+
+    zThreadPool_.add(zcode_sync, NULL);
 
     return NULL;
 }

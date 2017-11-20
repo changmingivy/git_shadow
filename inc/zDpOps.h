@@ -106,13 +106,12 @@ typedef struct {
     _i repoPathLen;  // 项目路径长度，避免后续的使用者重复计算
     _i maxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
 
-    _i selfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
-    char *p_pullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
-    time_t lastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
+    char *p_sourceUrl;
+    char *p_pullRefs;  // 例如：refs/remotes/origin/master:refs/heads/server99
     pthread_mutex_t pullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
+    char needPull;  // 置为 'N' 表示该项目会主动推送代码到中控机，不需要拉取远程代码
 
-    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
-    char initRepoFinMark;
+    char initFinished;  /* 仓库是否已经初始化完成：N 代表动作尚未完成，Y 代表已完成 */
 
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
     _i whoGetWrLock;

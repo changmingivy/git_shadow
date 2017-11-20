@@ -296,7 +296,7 @@ zshow_one_repo_meta(char *zpJson, _i zSd) {
     }
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { 
+    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -430,23 +430,6 @@ zadd_repo(char *zpJson, _i zSd) {
 
 
 /*
- * 全量刷新：只刷新版本号列表
- * 需要继承下层已存在的缓存
- */
-static _i
-zrefresh_commit_cache(_i zRepoId) {
-    zMeta__ zMeta_ = {
-        .repoId = zRepoId,
-        .dataType = zIsCommitDataType
-    };
-
-    zNativeOps_.get_revs(&zMeta_);
-
-    return 0;
-}
-
-
-/*
  * 7：列出版本号列表，要根据DataType字段判定请求的是提交记录还是布署记录
  */
 static _i
@@ -468,49 +451,6 @@ zprint_record(char *zpJson, _i zSd) {
 
     if (zIsCommitDataType == zDataType) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedCommitVecWrap_);
-        /*
-         * 如果该项目被标记为被动拉取模式（相对的是主动推送模式），则：
-         *     若距离最近一次 “git pull“ 的时间间隔超过 10 秒，尝试拉取远程代码
-         *     放在取得读写锁之后执行，防止与布署过程中的同类运作冲突
-         *     取到锁，则拉取；否则跳过此步，直接打印列表
-         *     打印布署记录时不需要执行
-         */
-        if (10 < (time(NULL) - zpGlobRepo_[zRepoId]->lastPullTime)) {
-            if ((0 == zpGlobRepo_[zRepoId]->selfPushMark)
-                    && (0 == pthread_mutex_trylock( &(zpGlobRepo_[zRepoId]->pullLock) ))) {
-
-                system(zpGlobRepo_[zRepoId]->p_pullCmd);  /* 不能多线程，因为多个 git pull 会产生文件锁竞争 */
-                zpGlobRepo_[zRepoId]->lastPullTime = time(NULL); /* 以取完远程代码的时间重新赋值 */
-
-                zGitRevWalk__ *zpRevWalker;
-                char zCommonBuf[64] = {'\0'};
-                sprintf(zCommonBuf, "refs/heads/server%d", zRepoId);
-                if (NULL != (zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zCommonBuf, 0))) {
-                    zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpRevWalker);
-                    zLibGit_.destroy_revwalker(zpRevWalker);
-                }
-                pthread_mutex_unlock( &(zpGlobRepo_[zRepoId]->pullLock) );
-
-                if ((NULL == zpGlobRepo_[zRepoId]->commitRefData_[0].p_data)
-                        || (0 != strncmp(zCommonBuf, zpGlobRepo_[zRepoId]->commitRefData_[0].p_data, 40))) {
-
-                    /* 此处进行换锁：读锁与写锁进行两次互换 */
-                    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
-                    if (0 != pthread_rwlock_trywrlock(&(zpGlobRepo_[zRepoId]->rwLock))) {
-                        if (0 == zpGlobRepo_[zRepoId]->whoGetWrLock) { return -5; }
-                        else { return -11; }
-                    };
-
-                    zrefresh_commit_cache(zRepoId);
-
-                    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
-                    if (0 != pthread_rwlock_tryrdlock(&(zpGlobRepo_[zRepoId]->rwLock))) {
-                        if (0 == zpGlobRepo_[zRepoId]->whoGetWrLock) { return -5; }
-                        else { return -11; }
-                    };
-                }
-            }
-        }
     } else if (zIsDpDataType == zDataType) {
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedDpVecWrap_);
     } else {
@@ -1266,12 +1206,13 @@ zbatch_deploy(char *zpJson, _i zSd) {
 
     pthread_mutex_lock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
-    /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
-    if (-100 != (zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpIpAddrRegRes_))) {
-        zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
-        pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
-        pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
+    zErrNo = zdeploy(zpMeta_, zSd, zppCommonBuf, &zpIpAddrRegRes_);
+    zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
+    pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
+    pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
 
+    /* 确认全部成功或确认布署失败这两种情况，直接返回，否则进入不间断重试模式，直到新的布署请求到来 */
+    if (-100 != zErrNo) {
         /* 若为目标机初始化失败或部署失败，回返失败的IP列表(p_data)及版本号(p_extraData)，其余错误返回上层统一处理 */
         if (-23 == zErrNo || -12 == zErrNo) {
             _i zLen = 256 + zpMeta_->dataLen;
@@ -1291,15 +1232,12 @@ zbatch_deploy(char *zpJson, _i zSd) {
 
         return zErrNo;
     } else {
-        zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock = 0;
-        pthread_rwlock_unlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) );
-        pthread_mutex_unlock( &(zpGlobRepo_[zpMeta_->repoId]->dpRetryLock) );
-
         /* 在没有新的布署动作之前，持续尝试布署失败的目标机 */
         while(1) {
             /* 等待剩余的所有主机状态都得到确认，不必在锁内执行 */
             for (_l zTimeCnter = 0; zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit > zTimeCnter; zTimeCnter++) {
-                if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {  /* 检测是否有新的布署请求或已全部布署成功 */
+                if ((0 != zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)  /* 检测是否有新的布署请求或已全部布署成功 */
+                        || ( (zpGlobRepo_[zpMeta_->repoId]->totalHost == zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt) && (-1 != zpGlobRepo_[zpMeta_->repoId]->resType[1]))) {
 
                     sprintf(zppCommonBuf[0], "UPDATE dp_log SET res = 0 WHERE proj_id = %d AND time_stamp = %ld",
                             zpMeta_->repoId,
@@ -1358,7 +1296,8 @@ zbatch_deploy(char *zpJson, _i zSd) {
 
             /* 等待所有 SSH 任务完成，此处不再检查执行结果 */
             pthread_mutex_lock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
-            while ((0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) && (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
+            while ((0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)
+                    && (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
                 pthread_cond_wait(&zpGlobRepo_[zpMeta_->repoId]->dpSyncCond, &zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
             }
             pthread_mutex_unlock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
@@ -1418,7 +1357,8 @@ zbatch_deploy(char *zpJson, _i zSd) {
 
                 /* 等待所有 git push 任务完成；重试时不必设置超时 */
                 pthread_mutex_lock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
-                while ((0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) && (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
+                while ((0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock)
+                        && (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
                     pthread_cond_wait(&zpGlobRepo_[zpMeta_->repoId]->dpSyncCond, &zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
                 }
                 pthread_mutex_unlock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);

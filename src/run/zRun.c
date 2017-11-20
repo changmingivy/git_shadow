@@ -37,7 +37,7 @@ zerr_vec_init(void) {
     zpErrVec[2] = "项目不存在或正在创建过程中";
     zpErrVec[3] = "";
     zpErrVec[4] = "";
-    zpErrVec[5] = "正在刷新缓存，请 2 秒后重试...";
+    zpErrVec[5] = "系统忙，请 2 秒后重试...";
     zpErrVec[6] = "项目被锁定，请解锁后重试";
     zpErrVec[7] = "服务端接收到的数据无法解析";
     zpErrVec[8] = "已产生新的布署记录，请刷新页面";
@@ -69,7 +69,7 @@ zerr_vec_init(void) {
     zpErrVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
     zpErrVec[35] = "项目 ID 已存在";
     zpErrVec[36] = "项目路径已存在，且项目 ID 不同";
-    zpErrVec[37] = "未指定远程源代码版本控制系统类型：git 或 svn";
+    zpErrVec[37] = "未指定远程源代码版本控制系统类型：git";
     zpErrVec[38] = "拉取远程代码失败";
     zpErrVec[39] = "";
     zpErrVec[40] = "";
@@ -105,7 +105,7 @@ zerr_vec_init(void) {
     zpErrVec[70] = "服务端版本号列表缓存错误";
     zpErrVec[71] = "服务端差异文件列表缓存错误";
     zpErrVec[72] = "服务端单个文件的差异内容缓存错误";
-    zpErrVec[73] = "";
+    zpErrVec[73] = "服务端 Git 仓库异常!";
     zpErrVec[74] = "";
     zpErrVec[75] = "";
     zpErrVec[76] = "";
