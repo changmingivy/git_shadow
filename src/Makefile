@@ -57,6 +57,5 @@ install: git_shadow
 
 #clean
 clean:
-	-rm -f zmain.o $(SUB_SRC_DIR)/utils.a
-
+	-find . -type f -name "*.a" -o -name "*.o" | xargs rm -f
 
