@@ -526,6 +526,10 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->commitId = zpJ->valueint;
 
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->cacheId = zpJ->valueint;
+
     /* 若上一次布署是部分失败的，返回 -13 错误 */
     if (zRepoDamaged == zpGlobRepo_[zpMeta_->repoId]->repoState) { return -13; }
 
@@ -619,6 +623,10 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "FileId");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->fileId = zpJ->valueint;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");
+    if (!cJSON_IsNumber(zpJ)) { return -1; }
+    zpMeta_->cacheId = zpJ->valueint;
 
     if (zIsCommitDataType == zpMeta_->dataType) { zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_); }
     else if (zIsDpDataType == zpMeta_->dataType) { zpTopVecWrap_= &(zpGlobRepo_[zpMeta_->repoId]->dpVecWrap_); }
