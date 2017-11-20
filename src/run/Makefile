@@ -1,4 +1,4 @@
-LIB_NAME = zLibUtils.a
+LIB_NAME = utils.a
 
 CC = clang
 CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
@@ -6,15 +6,12 @@ CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 # 如下四项，依赖上层 Makefile 传入
 INC_ARGS =
 
-$(LIB_NAME):\
-	$(LIB_NAME)(zRun.o)\
-	$(LIB_NAME)(zDpOps.o)\
-	$(LIB_NAME)(zNativeOps.o)\
-	$(LIB_NAME)(common.o)\
-	$(LIB_NAME)(net.o)\
-	$(LIB_NAME)(db.o)\
-	$(LIB_NAME)(regex.o)\
-	$(LIB_NAME)(json.o)
+$(LIB_NAME): $(LIB_NAME)(*.o)\
+	$(LIB_NAME)(common.a)\
+	$(LIB_NAME)(net.a)\
+	$(LIB_NAME)(db.a)\
+	$(LIB_NAME)(regex.a)\
+	$(LIB_NAME)(json.a)
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<

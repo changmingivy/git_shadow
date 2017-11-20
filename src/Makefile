@@ -33,13 +33,13 @@ SUB_SRC_DIR = $(ROOT_DIR)/src/run
 INSTALL_DIR = $(ROOT_DIR)/bin
 
 # build final binary
-git_shadow: zmain.o zLibUtils.a
+git_shadow: zmain.o utils.a
 	$(CC) -o git_shadow\
 		-L$(SSH_LIB_DIR) -lssh2\
 		-L$(GIT_LIB_DIR) -lgit2\
 		-L$(PG_LIB_DIR) -lpq\
 		-lpthread\
-		zmain.o $(SUB_SRC_DIR)/zLibUtils.a
+		zmain.o $(SUB_SRC_DIR)/utils.a
 
 # main() func...
 zmain.o:
@@ -47,7 +47,7 @@ zmain.o:
 
 # archive all submodules to a[n] .a file
 # need a sub make in $(SUB_SRC_DIR)
-zLibUtils.a:
+utils.a:
 	(cd $(SUB_SRC_DIR); make INC_ARGS="$(INC_ARGS)")
 
 # install
@@ -57,6 +57,6 @@ install: git_shadow
 
 #clean
 clean:
-	-rm -f zmain.o $(SUB_SRC_DIR)/zLibUtils.a
+	-rm -f zmain.o $(SUB_SRC_DIR)/utils.a
 
 
