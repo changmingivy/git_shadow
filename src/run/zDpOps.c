@@ -1632,7 +1632,7 @@ zlock_repo(cJSON *zpJRoot, _i zSd) {
 }
 
 static _i
-zunlock_unrepo(cJSON *zpJRoot, _i zSd) {
+zunlock_repo(cJSON *zpJRoot, _i zSd) {
     _i zRepoId = -1;
 
     /* 提取 value[key] */
