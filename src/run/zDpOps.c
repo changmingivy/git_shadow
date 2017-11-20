@@ -379,39 +379,39 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
     char zT0[1 + strlen(zpJ->valuestring)];
     strcpy(zT0, zpJ->valuestring);
     zpProjInfo[0] = zT0;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "PathOnHost");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
     char zT1[1 + strlen(zpJ->valuestring)];
     strcpy(zT1, zpJ->valuestring);
     zpProjInfo[1] = zT1;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "NeedPull");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
     char zT5[1 + strlen(zpJ->valuestring)];
     strcpy(zT5, zpJ->valuestring);
     zpProjInfo[5] = zT5;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceUrl");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
         char zT2[1 + strlen(zpJ->valuestring)];
         strcpy(zT2, zpJ->valuestring);
         zpProjInfo[2] = zT2;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceBranch");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
         char zT3[1 + strlen(zpJ->valuestring)];
         strcpy(zT3, zpJ->valuestring);
         zpProjInfo[3] = zT3;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceVcsType");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-        zpProjInfo[4] = zpJ->string;  /* 最后一个 sting 不必 copy */
+        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
+        zpProjInfo[4] = zpJ->valuestring;  /* 最后一个 sting 不必 copy */
     } else if ('N' == toupper(zpProjInfo[5][0])) {
         zpProjInfo[2] = "_";
         zpProjInfo[3] = "_";
@@ -1172,12 +1172,12 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpMeta_->repoId = zpJ->valueint;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_data = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_data = zpJ->valuestring;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_extraData = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->valuestring;
 
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpMeta_->p_extraData, zpGlobRepo_[zpMeta_->repoId]->lastDpSig, 40)) {
@@ -1242,13 +1242,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpMeta_->commitId = zpJ->valueint;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_data = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_data = zpJ->valuestring;
     zpMeta_->dataLen = strlen(zpMeta_->p_data);
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_extraData = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->valuestring;
     zpMeta_->extraDataLen = strlen(zpMeta_->p_extraData);
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个 Buf */
@@ -1500,12 +1500,12 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpMeta_->hostId = (_ui)zpJ->valuedouble;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_data = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_data = zpJ->valuestring;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ExtraData");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
-    zpMeta_->p_extraData = zpJ->string;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zpMeta_->p_extraData = zpJ->valuestring;
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[zpMeta_->hostId % zDpHashSiz];
@@ -1680,9 +1680,9 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -1; }
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
 
-    zCheck_Negative_Return( zFd = open(zpJ->string, O_RDONLY), -80 );
+    zCheck_Negative_Return( zFd = open(zpJ->valuestring, O_RDONLY), -80 );
 
     while (0 < (zDataLen = read(zFd, zDataBuf, 4096))) {
         zNetUtils_.sendto(zSd, zDataBuf, zDataLen, 0, NULL);
