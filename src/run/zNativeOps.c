@@ -737,14 +737,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
         /* keep sourceUrl */
-        zMem_Alloc(zpGlobRepo_[zRepoId]->p_sourceUrl, char, 1 + strlen(zpRepoMeta_->pp_fields[3]));
-        strcpy(zpGlobRepo_[zRepoId]->p_sourceUrl, zpRepoMeta_->pp_fields[3]);
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_sourceUrl, char, 1 + strlen(zpRepoMeta_->pp_fields[2]));
+        strcpy(zpGlobRepo_[zRepoId]->p_sourceUrl, zpRepoMeta_->pp_fields[2]);
 
         /* keep git fetch refs... */
         zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 128 + strlen(zpRepoMeta_->pp_fields[3]));
-        sprintf(zpGlobRepo_[zRepoId]->p_pullRefs, "+refs/heads/%s:refs/heads/server%d",  /*refs/remotes/cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d", zpRepoMeta_->pp_fields[2],*/
-                zpRepoMeta_->pp_fields[3],
-                zRepoId);
+        sprintf(zpGlobRepo_[zRepoId]->p_pullRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
     } else {
         zFree_Source();
         return -37;
