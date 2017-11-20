@@ -11,10 +11,19 @@ GIT_LIB_DIR = $(ROOT_DIR)/lib/libgit2/lib
 PG_LIB_DIR = ${HOME}/.____PostgreSQL/lib
 
 # include files
-INC_DIR = $(ROOT_DIR)/inc
 SSH_INC_DIR = `dirname $(SSH_LIB_DIR)`/include
 GIT_INC_DIR = `dirname $(GIT_LIB_DIR)`/include
 PG_INC_DIR = `dirname $(PG_LIB_DIR)`/include
+
+$(INC_ARGS) =\
+	-I$(ROOT_DIR)/inc/common\
+	-I$(ROOT_DIR)/inc/net\
+	-I$(ROOT_DIR)/inc/db\
+	-I$(ROOT_DIR)/inc/regex\
+	-I$(ROOT_DIR)/inc/json\
+	-I$(SSH_INC_DIR)\
+	-I$(GIT_INC_DIR)\
+	-I$(PG_INC_DIR)
 
 # all .c files except zmain.c
 SUB_SRC_DIR = $(ROOT_DIR)/src/run
@@ -33,12 +42,12 @@ git_shadow: zmain.o zLibUtils.a
 
 # main() func...
 zmain.o:
-	$(CC) -c -I$(INC_DIR) -I$(SSH_INC_DIR) -I$(GIT_INC_DIR) -I$(PG_INC_DIR) $(CCFLAGS) zmain.c
+	$(CC) -c $(CCFLAGS) $(INC_ARGS) zmain.c
 
 # archive all submodules to a[n] .a file
 # need a sub make in $(SUB_SRC_DIR)
 zLibUtils.a:
-	(cd $(SUB_SRC_DIR); make INC_DIR=$(INC_DIR) SSH_INC_DIR=$(SSH_INC_DIR) GIT_INC_DIR=$(GIT_INC_DIR) PG_INC_DIR=$(PG_INC_DIR))
+	(cd $(SUB_SRC_DIR); make INC_ARGS=$(INC_ARGS))
 
 # install
 install: git_shadow
@@ -48,6 +57,5 @@ install: git_shadow
 #clean
 clean:
 	-rm -f zmain.o $(SUB_SRC_DIR)/zLibUtils.a
-
 
 
