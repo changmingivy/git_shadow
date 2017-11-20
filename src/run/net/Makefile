@@ -6,5 +6,5 @@ INC_ARGS =
 OBJ_NAME = `basename ${PWD}`
 
 $(OBJ_NAME).o:
-	$(CC) $(CCFLAGS) $(INC_ARGS) -c *.c -o $(OBJ_NAME).o
+	$(CC) *.c -c $(CCFLAGS) $(INC_ARGS) -o $(OBJ_NAME).o
 	mv *.o ../
