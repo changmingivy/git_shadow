@@ -209,7 +209,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
  */
 static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
-    if (NULL != zpPgResHd_) { PQclear(zpPgResHd_) };
+    if (NULL != zpPgResHd_) { PQclear(zpPgResHd_); };
     if (NULL != zpPgRes_) { free(zpPgRes_); }
 }
 

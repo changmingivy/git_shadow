@@ -256,13 +256,7 @@ zdistribute_task(void *zpParam) {
     zpTmpNode_[0]->p_left = NULL;\
     zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
     strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
-\/*
-    zpTmpNode_[0]->opsId = 0;\
-    zpTmpNode_[0]->repoId = zpMeta_->repoId;\
-    zpTmpNode_[0]->commitId = zpMeta_->commitId;\
-    zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
-    zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-*/\
+\
     if (zNodeCnter == (zRegRes_.cnt - 1)) {\
         zpTmpNode_[0]->fileId = zpTmpNode_[0]->lineNum;\
         zpTmpNode_[0]->p_extraData = zalloc_cache(zpMeta_->repoId, zBaseDataLen);\
@@ -306,13 +300,7 @@ zdistribute_task(void *zpParam) {
 \
         zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
         strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
-\/*
-        zpTmpNode_[0]->opsId = 0;\
-        zpTmpNode_[0]->repoId = zpMeta_->repoId;\
-        zpTmpNode_[0]->commitId = zpMeta_->commitId;\
-        zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
-        zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-*/\
+\
         zpTmpNode_[0]->fileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
         zpTmpNode_[0]->p_extraData = NULL;\
     }\
@@ -1018,20 +1006,6 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
     }
 
     return NULL;
-}
-
-
-/*
- * json 解析回调：数字与字符串
- */
-static void
-zparse_digit(void *zpIn, void *zpOut) {
-    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
-}
-
-static void
-zparse_str(void *zpIn, void *zpOut) {
-    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
 }
 
 
