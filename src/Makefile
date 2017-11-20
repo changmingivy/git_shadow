@@ -15,7 +15,7 @@ SSH_INC_DIR = `dirname $(SSH_LIB_DIR)`/include
 GIT_INC_DIR = `dirname $(GIT_LIB_DIR)`/include
 PG_INC_DIR = `dirname $(PG_LIB_DIR)`/include
 
-$(INC_ARGS) =\
+INC_ARGS =\
 	-I$(ROOT_DIR)/inc/common\
 	-I$(ROOT_DIR)/inc/net\
 	-I$(ROOT_DIR)/inc/db\
