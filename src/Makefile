@@ -52,10 +52,10 @@ utils.a:
 
 # install
 install: git_shadow
-	-@strip git_shadow
+	strip git_shadow
 	mv git_shadow $(INSTALL_DIR)
 
 #clean
 clean:
-	-find . -type f -name "*.a" -o -name "*.o" | xargs rm -f
+	-@find . -type f -name "*.a" -o -name "*.o" | xargs rm -f
 
