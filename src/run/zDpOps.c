@@ -374,34 +374,44 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         .pp_fields = zpProjInfo
     };
 
-    char zSQLBuf[4096];
+    char zSQLBuf[4096] = {'\0'};
     _i zErrNo = 0;
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-    zpProjInfo[0] = zpJ->string;
+    char zT0[1 + strlen(zpJ->valuestring)];
+    strcpy(zT0, zpJ->valuestring);
+    zpProjInfo[0] = zT0;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "PathOnHost");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-    zpProjInfo[1] = zpJ->string;
+    char zT1[1 + strlen(zpJ->valuestring)];
+    strcpy(zT1, zpJ->valuestring);
+    zpProjInfo[1] = zT1;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "NeedPull");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-    zpProjInfo[5] = zpJ->string;
+    char zT5[1 + strlen(zpJ->valuestring)];
+    strcpy(zT5, zpJ->valuestring);
+    zpProjInfo[5] = zT5;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceUrl");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-        zpProjInfo[2] = zpJ->string;
+        char zT2[1 + strlen(zpJ->valuestring)];
+        strcpy(zT2, zpJ->valuestring);
+        zpProjInfo[2] = zT2;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceBranch");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-        zpProjInfo[3] = zpJ->string;
+        char zT3[1 + strlen(zpJ->valuestring)];
+        strcpy(zT3, zpJ->valuestring);
+        zpProjInfo[3] = zT3;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceVcsType");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->string[0]) { return -34; }
-        zpProjInfo[4] = zpJ->string;
+        zpProjInfo[4] = zpJ->string;  /* 最后一个 sting 不必 copy */
     } else if ('N' == toupper(zpProjInfo[5][0])) {
         zpProjInfo[2] = "_";
         zpProjInfo[3] = "_";
