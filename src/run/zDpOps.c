@@ -1201,6 +1201,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* check system load */
     if (80 < zGlobMemLoad) { return -16; }
 
+    char *zppCommonBuf[2] = { NULL };
+    zRegRes__ *zpIpAddrRegRes_ = NULL;
+    _i zErrNo = 0,
+       zCommonBufLen = 0;
+
     zMeta__ zMeta_ = { .repoId = -1 };
     zMeta__ *zpMeta_ = &zMeta_;
 
@@ -1216,17 +1221,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         return -2;  /* zErrNo = -2; */
     }
 
-    if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) )) {
-        if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) { return -5; }
-        else { return -11; }
-    }
-
-    char *zppCommonBuf[2] = { NULL };
-    zRegRes__ *zpIpAddrRegRes_ = NULL;
-    _i zErrNo = 0,
-       zCommonBufLen = 0;
-
-    /* 提取其它必要 value[key] */
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zpMeta_->dataType = zpJ->valueint;
@@ -1248,6 +1242,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zpMeta_->p_extraData = zpJ->valuestring;
     zpMeta_->extraDataLen = strlen(zpMeta_->p_extraData);
+
+    if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zpMeta_->repoId]->rwLock) )) {
+        if (0 == zpGlobRepo_[zpMeta_->repoId]->whoGetWrLock) { return -5; }
+        else { return -11; }
+    }
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个 Buf */
     zCommonBufLen = 2048 + 10 * zpGlobRepo_[zpMeta_->repoId]->repoPathLen + 2 * zpMeta_->dataLen;
