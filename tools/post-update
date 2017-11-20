@@ -45,7 +45,7 @@ export HOME="/home/git"
     # 'B': 布署结果返回；'C': KeepAlive
     zTcpReply() {
         exec 777<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":${1},\"ExtraData\":${2},\"CacheId\":${3}}">&777
+        printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"data\":\"${1}\",\"ExtraData\":\"${2}\",\"CacheId\":${3}}">&777
         exec 777>&-
         exec 777<&-
     }
