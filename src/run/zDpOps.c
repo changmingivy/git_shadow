@@ -380,38 +380,28 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-    char zT0[1 + strlen(zpJ->valuestring)];
-    strcpy(zT0, zpJ->valuestring);
-    zpProjInfo[0] = zT0;
+    zpProjInfo[0] = zpJ->valuestring;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "PathOnHost");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-    char zT1[1 + strlen(zpJ->valuestring)];
-    strcpy(zT1, zpJ->valuestring);
-    zpProjInfo[1] = zT1;
+    zpProjInfo[1] = zpJ->valuestring;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "NeedPull");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-    char zT5[1 + strlen(zpJ->valuestring)];
-    strcpy(zT5, zpJ->valuestring);
-    zpProjInfo[5] = zT5;
+    zpProjInfo[5] = zpJ->valuestring;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceUrl");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-        char zT2[1 + strlen(zpJ->valuestring)];
-        strcpy(zT2, zpJ->valuestring);
-        zpProjInfo[2] = zT2;
+        zpProjInfo[2] = zpJ->valuestring;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceBranch");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-        char zT3[1 + strlen(zpJ->valuestring)];
-        strcpy(zT3, zpJ->valuestring);
-        zpProjInfo[3] = zT3;
+        zpProjInfo[3] = zpJ->valuestring;
 
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceVcsType");
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
-        zpProjInfo[4] = zpJ->valuestring;  /* 最后一个 sting 不必 copy */
+        zpProjInfo[4] = zpJ->valuestring;
     } else if ('N' == toupper(zpProjInfo[5][0])) {
         zpProjInfo[2] = "_";
         zpProjInfo[3] = "_";
