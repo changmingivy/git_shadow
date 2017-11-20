@@ -10,13 +10,11 @@ $(LIB_NAME):\
 	$(LIB_NAME)(zRun.o)\
 	$(LIB_NAME)(zDpOps.o)\
 	$(LIB_NAME)(zNativeOps.o)\
-	$(LIB_NAME)(zLibSsh.o)\
-	$(LIB_NAME)(zLibGit.o)\
-	$(LIB_NAME)(zNativeUtils.o)\
-	$(LIB_NAME)(zNetUtils.o)\
-	$(LIB_NAME)(zPosixReg.o)\
-	$(LIB_NAME)(zPgSQL.o)\
-	$(LIB_NAME)(zThreadPool.o)
+	$(LIB_NAME)(common.o)\
+	$(LIB_NAME)(net.o)\
+	$(LIB_NAME)(db.o)\
+	$(LIB_NAME)(regex.o)\
+	$(LIB_NAME)(json.o)
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) $<
