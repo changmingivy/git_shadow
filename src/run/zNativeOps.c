@@ -1034,13 +1034,9 @@ static void *
 zcode_sync(void *zpParam __attribute__ ((__unused__))) {
 zLoop:
     for (_i i = zGlobMaxRepoId; i > 0; i--) {
-        if (NULL == zpGlobRepo_[i]  /* 项目是否存在 */
-                || 'N' == zpGlobRepo_[i]->initFinished  /* 是否已初始化完成 */
-                || 'N' == zpGlobRepo_[i]->needPull) {  /* 是否被动拉取模式（相对的是主动推送模式）*/
-            continue;
+        if (NULL != zpGlobRepo_[i] && 'Y' == zpGlobRepo_[i]->initFinished && 'Y' == zpGlobRepo_[i]->needPull) {
+            zThreadPool_.add(zfetch_remote_code, zpGlobRepo_[i]);
         }
-
-        zThreadPool_.add(zfetch_remote_code, zpGlobRepo_[i]);
     }
 
     sleep(8);
