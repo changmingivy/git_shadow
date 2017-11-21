@@ -888,23 +888,25 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         pthread_cond_signal(&zGlobCommonCond);
     }
 
-    /*
-     * 启动独立的进程负责定时拉取远程代码
-     * 注：OpenSSL 默认不是多线程安全的，此处使用进程
-     */
-    pid_t zPid = 0;
-    zCheck_Negative_Exit( zPid = fork() );
-    if (0 == zPid) {
-        chdir(zpGlobRepo_[zRepoId]->p_repoPath);
+    if ('Y' == zpGlobRepo_[zRepoId]->needPull) {
+        /*
+         * 启动独立的进程负责定时拉取远程代码
+         * 注：OpenSSL 默认不是多线程安全的，此处使用进程
+         */
+        pid_t zPid = 0;
+        zCheck_Negative_Exit( zPid = fork() );
+        if (0 == zPid) {
+            chdir(zpGlobRepo_[zRepoId]->p_repoPath);
 
-        while (1) {
-            unlink(".git/index.lock");  /* clean rubbish... */
+            while (1) {
+                unlink(".git/index.lock");  /* clean rubbish... */
 
-            if (0 > zLibGit_.remote_fetch( zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpGlobRepo_[zRepoId]->p_sourceUrl, &(zpGlobRepo_[zRepoId]->p_pullRefs), 1, NULL)) {
-                zPrint_Err(0, NULL, "!!! code sync failed !!!");
+                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpGlobRepo_[zRepoId]->p_sourceUrl, &(zpGlobRepo_[zRepoId]->p_pullRefs), 1, NULL)) {
+                    zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
+                }
+
+                sleep(2);
             }
-
-            sleep(2);
         }
     }
 
