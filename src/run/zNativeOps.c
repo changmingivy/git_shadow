@@ -763,9 +763,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 用于统计布署状态的互斥锁 */
     zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->replyCntLock), NULL) );
 
-    /* 用于保证 "git pull" 原子性拉取的互斥锁 */
-    zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->pullLock), NULL) );
-
     /* 布署并发流量控制 */
     zCheck_Negative_Exit(sem_init( & (zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
 
@@ -891,6 +888,26 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         pthread_cond_signal(&zGlobCommonCond);
     }
 
+    /*
+     * 启动独立的进程负责定时拉取远程代码
+     * 注：OpenSSL 默认不是多线程安全的，此处使用进程
+     */
+    pid_t zPid = 0;
+    zCheck_Negative_Exit( zPid = fork() );
+    if (0 == zPid) {
+        chdir(zpGlobRepo_[zRepoId]->p_repoPath);
+
+        while (1) {
+            unlink(".git/index.lock");  /* clean rubbish... */
+
+            if (0 > zLibGit_.remote_fetch( zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpGlobRepo_[zRepoId]->p_sourceUrl, &(zpGlobRepo_[zRepoId]->p_pullRefs), 1, NULL)) {
+                zPrint_Err(0, NULL, "!!! code sync failed !!!");
+            }
+
+            sleep(2);
+        }
+    }
+
     return 0;
 }
 #undef zFree_Source
@@ -961,52 +978,25 @@ static void *
 zfetch_remote_code(void *zpParam) {
     zRepo__ *zpRepo_ = (zRepo__ *) zpParam;
 
-    /* 若能取到锁，则继续；否则退出 */
-    if (0 == pthread_mutex_trylock( & (zpRepo_->pullLock) )) {
-        /* OpenSSL 默认不是多线程安全的，此处使用多进程拉取远程代码 */
-        pid_t zPid = fork();
-        _i zExitStatus = 0;
+    /* get new revs */
+    char zCommonBuf[64] = {'\0'};
+    sprintf(zCommonBuf, "refs/heads/server%d", zpRepo_->repoId);
+    zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
+    if (NULL == zpRevWalker) {
+        return (void *) -1;
+    } else {
+        zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zpRevWalker);
+        zLibGit_.destroy_revwalker(zpRevWalker);
+    }
 
-        if (0 > zPid) {
-            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
-            return (void *) -1;
-        } else if (0 == zPid) {
-            /* clean rubbish... */
-            // chdir(zpRepo_->p_repoPath);
-            // unlink(".git/index.lock");
+    if ((NULL == zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data)
+            || (0 != strncmp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data, 40))) {
 
-            if (0 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) { exit(0); }
-            else { exit(1); }
-        } else {
-            waitpid(zPid, &zExitStatus, 0);
-            if (0 != WEXITSTATUS(zExitStatus)) {
-                pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
-                return (void *) -1;
-            }
-        }
-
-        /* get new revs */
-        char zCommonBuf[64] = {'\0'};
-        sprintf(zCommonBuf, "refs/heads/server%d", zpRepo_->repoId);
-        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
-        if (NULL == zpRevWalker) {
-            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
-            return (void *) -1;
-        } else {
-            zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zpRevWalker);
-            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
-            zLibGit_.destroy_revwalker(zpRevWalker);
-        }
-
-        if ((NULL == zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data)
-                || (0 != strncmp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data, 40))) {
-
-            /* 若能取到锁，则更新缓存；否则退出 */
-            if (0 == pthread_rwlock_trywrlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock))) {
-                zrefresh_commit_cache(zpRepo_->repoId);
-                pthread_rwlock_unlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock));
-            };
-        }
+        /* 若能取到锁，则更新缓存；否则退出 */
+        if (0 == pthread_rwlock_trywrlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock))) {
+            zrefresh_commit_cache(zpRepo_->repoId);
+            pthread_rwlock_unlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock));
+        };
     }
 
     return NULL;
@@ -1022,7 +1012,7 @@ zLoop:
         }
     }
 
-    sleep(8);
+    sleep(2);
     goto zLoop;
 
     return (void *) -1;  /* never reach here */

@@ -110,7 +110,6 @@ typedef struct {
 
     char *p_sourceUrl;
     char *p_pullRefs;  // 例如：refs/remotes/origin/master:refs/heads/server99
-    pthread_mutex_t pullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
     char needPull;  // 置为 'N' 表示该项目会主动推送代码到中控机，不需要拉取远程代码
 
     char initFinished;  /* 仓库是否已经初始化完成：N 代表动作尚未完成，Y 代表已完成 */
