@@ -993,12 +993,12 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     sprintf(zParamBuf[0], "%d", zpMeta_->repoId);
     sprintf(zParamBuf[1], "%ld", zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp);
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, zFalse))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 3, zppParam, zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 4, zppParam, zFalse))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zppCommonBuf[0], 3, zppParam, zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
-            zPrint_Err(0, NULL, "!!! FATAL !!!");
+            zPrint_Err(0, NULL, "!!!==== FATAL ====!!!");
             exit(1);
         }
     }
