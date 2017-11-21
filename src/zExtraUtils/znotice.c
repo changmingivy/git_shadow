@@ -83,7 +83,7 @@ main(_i zArgc, char **zppArgv) {
     char zSendBuf[4096];
 
     if (9 != zArgc) { _exit(1); }
-    zLen = sprintf(zSendBuf, "{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"RevSig\":\"%s\",\"TimeStamp\":\"%s\",\"ReplyType\":%s}",
+    zLen = sprintf(zSendBuf, "{\"OpsId\":%s,\"ProjId\":%s,\"HostId\":%s,\"RevSig\":\"%s\",\"TimeStamp\":%s,\"ReplyType\":\"%s\"}",
             zppArgv[3],
             zppArgv[4],
             zppArgv[5],

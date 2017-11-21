@@ -17,7 +17,7 @@ exec 776<&-
 exec 776<>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
-printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"RevSig\":\"${zMasterSig}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${zReplyType}\"}">&777
+printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"RevSig\":\"${zMasterSig}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${zReplyType}\"}">&776
 
 # 关闭读写端
 exec 776<&-

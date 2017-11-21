@@ -258,7 +258,7 @@ zops_route(void *zpParam) {
 
     /* 最短的json字符串：{"a":}，6 字节 */
     if (zBytes(6) > zDataLen) {
-        zPrint_Err(errno, NULL, "recvd data too short(< 8bytes)");
+        zPrint_Err(errno, NULL, "recvd data too short(< 6bytes)");
         goto zMarkEnd;
     }
 
