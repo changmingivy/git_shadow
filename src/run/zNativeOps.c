@@ -679,8 +679,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
     zpOrigPath = zpRepoMeta_->pp_fields[1];
     zStrLen = strlen(zpOrigPath);
-    zKeepValue = zpOrigPath[zStrLen - zRegRes_.resLen[0]];
-    zpOrigPath[zStrLen - zRegRes_.resLen[0]] = '\0';
+    zKeepValue = zpOrigPath[zStrLen - zRegRes_.resLen[0] - 1];
+    zpOrigPath[zStrLen - zRegRes_.resLen[0] - 1] = '\0';
     while ('/' == zpOrigPath[0]) { zpOrigPath++; }  /* 去除多余的 '/' */
     zMem_Alloc(zpGlobRepo_[zRepoId]->p_repoPath, char, 128 + zStrLen);
     zpGlobRepo_[zRepoId]->repoPathLen = sprintf(zpGlobRepo_[zRepoId]->p_repoPath, "%s/%s/.____DpSystem/%d/%s",
@@ -691,7 +691,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zPosixReg_.free_res(&zRegRes_);
 
     /* 恢复原始字符串，上层调用者需要使用 */
-    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0]] = zKeepValue;
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.resLen[0] - 1] = zKeepValue;
 
     /* 取出本项目所在路径的最大路径长度（用于度量 git 输出的差异文件相对路径长度） */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
