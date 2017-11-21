@@ -247,11 +247,13 @@ zops_route(void *zpParam) {
 
     _i zErrNo = 0,
        zOpsId = -1,
-       zDataLen = -1;
+       zDataLen = -1,
+       zDataBufSiz = zGlobCommonBufSiz;
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
     if (zGlobCommonBufSiz == (zDataLen = recv(zSd, zpDataBuf, zGlobCommonBufSiz, 0))) {
-        zMem_C_Alloc(zpDataBuf, char, zGlobCommonBufSiz * 1024);  // 用清零的空间，保障正则匹配不出现混乱
+        zDataBufSiz *= 1024;
+        zMem_C_Alloc(zpDataBuf, char, zDataBufSiz);  // 用清零的空间，保障正则匹配不出现混乱
         strcpy(zpDataBuf, zDataBuf);
         zDataLen += recv(zSd, zpDataBuf + zDataLen, zGlobCommonBufSiz * 1024 - zDataLen, 0);
     }
@@ -282,7 +284,7 @@ zops_route(void *zpParam) {
             fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
         }
 
-        zDataLen = snprintf(zpDataBuf, zDataLen, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+        zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
         zNetUtils_.sendto(zSd, zpDataBuf, zDataLen, 0, NULL);
 
         /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */

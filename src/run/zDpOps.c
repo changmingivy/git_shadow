@@ -457,7 +457,7 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zRepoId] || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -524,7 +524,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     zpMeta_->repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'Y' != zpGlobRepo_[zpMeta_->repoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -620,7 +620,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     zpMeta_->repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'Y' != zpGlobRepo_[zpMeta_->repoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -1241,7 +1241,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpMeta_->repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'N' == zpGlobRepo_[zpMeta_->repoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zpMeta_->repoId] || 'Y' != zpGlobRepo_[zpMeta_->repoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -1508,7 +1508,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zRepoId] || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -1650,7 +1650,7 @@ zlock_repo(cJSON *zpJRoot, _i zSd) {
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zRepoId] || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -1677,7 +1677,7 @@ zunlock_repo(cJSON *zpJRoot, _i zSd) {
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zRepoId] || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
