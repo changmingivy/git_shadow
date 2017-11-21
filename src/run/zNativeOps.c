@@ -40,7 +40,7 @@ static void *
 zgenerate_cache(void *zpParam);
 
 static _i
-zinit_one_repo_env(zPgResTuple__ *zpRepoMeta);
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
 
 static void *
 zsys_load_monitor(void *zpParam);
@@ -650,7 +650,7 @@ zgenerate_cache(void *zpParam) {
  * pp_field: [0 repoId] [1 pathOnHost] [2 sourceUrl] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 static _i
-zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
@@ -897,6 +897,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         pid_t zPid = -1;
         zCheck_Negative_Exit( zPid = fork() );
         if (0 == zPid) {
+            /*
+             * 创建新项目时需要在子进程中也执行 close
+             * 否则此 socket 无法释放
+             */
+            if (0 < zSdToClose) { close(zSdToClose); }
+
             /* keep sourceUrl */
             char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
             strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
@@ -930,7 +936,7 @@ static void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
     _i zErrNo = 0;
 
-    if (0 > (zErrNo = zinit_one_repo_env(zpParam))) {
+    if (0 > (zErrNo = zinit_one_repo_env(zpParam, -1))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
         exit(1);  /* 启动时有错，退出进程 */
     }

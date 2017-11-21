@@ -413,7 +413,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         return -34;
     }
 
-    if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_))) {
+    if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_, zSd))) {
         /* 写入本项目元数据 */
         sprintf(zSQLBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "

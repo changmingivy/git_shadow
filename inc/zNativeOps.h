@@ -56,7 +56,7 @@ struct zNativeOps__ {
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 
-    _i (* proj_init) (zPgResTuple__ *);
+    _i (* proj_init) (zPgResTuple__ *, _i);
     void * (* proj_init_all) (zPgLogin__ *);
 
     void * (* alloc) (_i, _ui);
