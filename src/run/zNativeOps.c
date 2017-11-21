@@ -769,7 +769,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
-    zpGlobRepo_[zRepoId]->jsonPrefixLen = sprintf(zpGlobRepo_[zRepoId]->jsonPrefix, "{\"ErrNo\":0,\"CacheId\":%ld,\"data\":", zpGlobRepo_[zRepoId]->cacheId);
 
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
