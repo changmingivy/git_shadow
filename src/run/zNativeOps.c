@@ -584,14 +584,16 @@ zgenerate_cache(void *zpParam) {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zpTopVecWrap_->vecSiz = 0;
         } else {
-            zpTopVecWrap_->vecSiz = zpPgRes_->tupleCnt;
+            zpTopVecWrap_->vecSiz = (zCacheSiz < zpPgRes_->tupleCnt) ? zCacheSiz : zpPgRes_->tupleCnt;
         }
-        zpSortedTopVecWrap_->vecSiz
-            = zpTopVecWrap_->vecSiz
-            = (zCacheSiz < zpTopVecWrap_->vecSiz) ? zCacheSiz : zpTopVecWrap_->vecSiz;
+        zpSortedTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
 
         for (zCnter = 0; zCnter < zpTopVecWrap_->vecSiz; zCnter++) {
             zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(41));
+            /*
+             * 存储 RevSig 的 SQL 数据类型是 char(40)，只会存数据正文，不存 '\0'
+             * 使用 libpq 取出来的值是41位，最后又会追加一个 '\0'
+             */
             strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_[zCnter].pp_fields[0]);
             strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_[zCnter].pp_fields[1]);
         }
@@ -881,7 +883,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zpGlobRepo_[zRepoId]->repoState = zRepoDamaged;
             }
 
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
         } else {
             sprintf(zCommonBuf, "pgSQL data err, ProjId %d", zRepoId);
             zPrint_Err(0, NULL, zCommonBuf);
@@ -951,9 +953,10 @@ zinit_one_repo_env_thread_wraper(void *zpParam) {
 #ifndef _Z_BSD
 /* 定时获取系统全局负载信息 */
 static void *
-zsys_load_monitor(void *zpParam) {
-    _ul zTotalMem, zAvalMem;
-    FILE *zpHandler;
+zsys_load_monitor(void *zpParam __attribute__ ((__unused__))) {
+    FILE *zpHandler = NULL;
+    _ul zTotalMem = 0,
+        zAvalMem = 0;
 
     zCheck_Null_Exit( zpHandler = fopen("/proc/meminfo", "r") );
 
@@ -971,7 +974,8 @@ zsys_load_monitor(void *zpParam) {
 
         zNativeUtils_.sleep(0.1);
     }
-    return zpParam;  // 消除编译警告信息
+
+    return NULL;
 }
 #endif
 
@@ -1145,11 +1149,11 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "proj_id         int NOT NULL,"
-            "rev_sig         char(41) NOT NULL,"
+            "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "time_stamp      bigint NOT NULL,"
             "time_limit      smallint NOT NULL DEFAULT 0,"
             "res             smallint NOT NULL DEFAULT -1,"
-            "host_ip         char(46) NOT NULL,"
+            "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
             "host_res        smallint NOT NULL DEFAULT -1,"
             "host_timespent  smallint NOT NULL DEFAULT 0,"
             "host_errno      smallint NOT NULL DEFAULT 0,"
