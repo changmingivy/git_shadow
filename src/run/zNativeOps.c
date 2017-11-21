@@ -755,12 +755,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             char *zpFetchRefs = zFetchRefs;
             sprintf(zFetchRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
 
-            git_repository *zpGitRepoHandler = zpGlobRepo_[zRepoId]->p_gitRepoHandler;
+            git_repository *zpGitRepoHandler = zpGlobRepo_[zRepoId]->p_gitRepoHandler;  /* 1、留存 git 句柄 */
+            chdir(zpGlobRepo_[zRepoId]->p_repoPath);  /* 2、切换至项目路径下 */
+            zFree_Source();  /* 3、之后，释放掉子进程不再需要的资源 */
 
-            /* 释放子进程不需要的资源 */
-            zFree_Source();
-
-            chdir(zpGlobRepo_[zRepoId]->p_repoPath);
             while (1) {
                 if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
                     zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
