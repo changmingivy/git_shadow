@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+
 #include <sys/mman.h>
 #include <sys/wait.h>
 
@@ -651,9 +653,12 @@ static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
+
     _i zRepoId = 0,
        zErrNo = 0,
        zStrLen = 0;
+    _c zNeedPull = -1;
+
     char *zpOrigPath = NULL,
          zKeepValue = 0;
     zPgResHd__ *zpPgResHd_ = NULL;
@@ -667,7 +672,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zpGlobRepo_[zRepoId], zRepo__, 1);
     zpGlobRepo_[zRepoId]->repoId = zRepoId;
-    zpGlobRepo_[zRepoId]->needPull = zpRepoMeta_->pp_fields[5][0];
+    zNeedPull = toupper(zpRepoMeta_->pp_fields[5][0]);
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
@@ -718,15 +723,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         return -38;
     }
 
-    if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
-        /* keep sourceUrl */
-        zMem_Alloc(zpGlobRepo_[zRepoId]->p_sourceUrl, char, 1 + strlen(zpRepoMeta_->pp_fields[2]));
-        strcpy(zpGlobRepo_[zRepoId]->p_sourceUrl, zpRepoMeta_->pp_fields[2]);
-
-        /* keep git fetch refs... */
-        zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 128 + strlen(zpRepoMeta_->pp_fields[3]));
-        sprintf(zpGlobRepo_[zRepoId]->p_pullRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
-    } else {
+    /*
+     * PostgreSQL 中以 char(1) 类型存储
+     * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
+     */
+    if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
         zFree_Source();
         return -37;
     }
@@ -888,7 +889,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         pthread_cond_signal(&zGlobCommonCond);
     }
 
-    if ('Y' == zpGlobRepo_[zRepoId]->needPull) {
+    if ('Y' == zNeedPull) {
         /*
          * 启动独立的进程负责定时拉取远程代码
          * 注：OpenSSL 默认不是多线程安全的，此处使用进程
@@ -896,12 +897,21 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         pid_t zPid = -1;
         zCheck_Negative_Exit( zPid = fork() );
         if (0 == zPid) {
+            /* keep sourceUrl */
+            char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
+            strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
+
+            /* keep git fetch refs... */
+            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + strlen(zpRepoMeta_->pp_fields[3]) + 16];
+            char *zpFetchRefs = zFetchRefs;
+            sprintf(zFetchRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
+
             chdir(zpGlobRepo_[zRepoId]->p_repoPath);
 
             while (1) {
                 unlink(".git/index.lock");  /* clean rubbish... */
 
-                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpGlobRepo_[zRepoId]->p_sourceUrl, &(zpGlobRepo_[zRepoId]->p_pullRefs), 1, NULL)) {
+                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
                     zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
                 }
 
@@ -1119,7 +1129,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "path_on_host    varchar NOT NULL,"
             "source_url      varchar NOT NULL,"
             "source_branch   varchar NOT NULL,"
-            "source_vcs_type char(12) NOT NULL,"
+            "source_vcs_type char(1) NOT NULL,"  /* 'G': git, 'S': svn */
             "need_pull       char(1) NOT NULL"
             ");"
 \

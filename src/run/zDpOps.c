@@ -406,9 +406,9 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -34; }
         zpProjInfo[4] = zpJ->valuestring;
     } else if ('N' == toupper(zpProjInfo[5][0])) {
-        zpProjInfo[2] = "_";
-        zpProjInfo[3] = "_";
-        zpProjInfo[4] = "_";
+        zpProjInfo[2] = "";
+        zpProjInfo[3] = "";
+        zpProjInfo[4] = "Git";
     } else {
         return -34;
     }
@@ -417,12 +417,12 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         /* 写入本项目元数据 */
         sprintf(zSQLBuf, "INSERT INTO proj_meta "
                 "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES ('%s','%s','%s','%s','%s','%c')",
+                "VALUES ('%s','%s','%s','%s','%c','%c')",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
                 zRepoMeta_.pp_fields[3],
-                zRepoMeta_.pp_fields[4],
+                toupper(zRepoMeta_.pp_fields[4][0]),
                 toupper(zRepoMeta_.pp_fields[5][0])
                 );
 
