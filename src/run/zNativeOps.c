@@ -725,6 +725,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         return -38;
     }
 
+    /* 全局 libgit2 Handler 初始化 */
+    zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );
+
     /**********************************************************************************/
     /*
      * 启动独立的进程负责定时拉取远程代码
@@ -811,9 +814,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
-
-    /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
 
     /* 本项目全局 pgSQL 连接 Handler */
     if (NULL == (zpGlobRepo_[zRepoId]->p_pgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
