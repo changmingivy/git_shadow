@@ -1124,9 +1124,10 @@ zErrMark:
         zMeta__ zSubMeta_;
         zSubMeta_.repoId = zpMeta_->repoId;
 
-        zSubMeta_.dataType = zIsCommitDataType;
+        zSubMeta_.dataType = zIsCommitDataType;  /* 提交列表 */
         zNativeOps_.get_revs(&zSubMeta_);
-        zSubMeta_.dataType = zIsDpDataType;
+
+        zSubMeta_.dataType = zIsDpDataType;  /* 布署列表 */
         zNativeOps_.get_revs(&zSubMeta_);
     }
 
