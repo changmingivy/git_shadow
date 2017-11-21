@@ -86,7 +86,9 @@ zLibGitPath=${zShadowPath}/lib/libgit2/lib64
 if [[ 0 -eq  `\ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/lib/libgit2/lib; fi
 
 # 主程序编译
-cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install
+cd ${zShadowPath}/src &&
+    make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install &&
+    make clean
 # strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生

@@ -52,7 +52,6 @@ utils.a:
 
 # install
 install: git_shadow
-	strip git_shadow
 	mv git_shadow $(INSTALL_DIR)
 
 #clean
