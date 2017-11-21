@@ -278,8 +278,12 @@ zops_route(void *zpParam) {
 
     /* 成功状态在下层函数中回复，错误状态统一返回至上层处理 */
     if (0 > zErrNo) {
-        zDataLen = snprintf(zDataBuf, zGlobCommonBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-        zNetUtils_.sendto(zSd, zDataBuf, zDataLen, 0, NULL);
+        if (-1 == zErrNo) {
+            fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
+        }
+
+        zDataLen = snprintf(zpDataBuf, zDataLen, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+        zNetUtils_.sendto(zSd, zpDataBuf, zDataLen, 0, NULL);
 
         /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
         zPrint_Err(0, NULL, zpDataBuf);
