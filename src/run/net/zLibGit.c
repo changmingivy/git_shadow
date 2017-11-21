@@ -16,6 +16,9 @@ zgit_env_clean(git_repository *zpRepoCredHandler);
 static _i
 zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
 
+static _i
+zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
+
 static zGitRevWalk__ *
 zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType);
 
@@ -28,7 +31,9 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
 struct zLibGit__ zLibGit_ = {
     .env_init = zgit_env_init,
     .env_clean = zgit_env_clean,
+
     .remote_push = zgit_remote_push,
+    .remote_fetch = zgit_remote_fetch,
 
     .generate_revwalker = zgit_generate_revwalker,
     .destroy_revwalker = zgit_destroy_revwalker,
@@ -76,53 +81,71 @@ zgit_cred_acquire_cb(git_cred **zppResOUT, const char *zpUrl __attribute__ ((__u
     return 0;
 }
 
-// /*
-//  * TO DO...
-//  * [ git fetch && git merge refs/remotes/origin/master ]
-//  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
-//  */
-// _i
-// zgit_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt) {
-//     /* get the remote */
-//     git_remote* zRemote = NULL;
-//     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
-//     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
-//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-//         return -1;
-//     };
-//
-//     /* connect to remote */
-//     git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
-//     git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
-//     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
-//
-//     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
-//         git_remote_free(zRemote);
-//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-//         return -1;
-//     }
-//
-//     /* add [a] fetch refspec[s] */
-//     git_strarray zGitRefsArray;
-//     zGitRefsArray.strings = zppRefs;
-//     zGitRefsArray.count = zRefsCnt;
-//
-//     git_fetch_options zFetchOpts;
-//     git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
-//
-//     /* do the fetch */
-//     //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
-//     if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
-//         git_remote_disconnect(zRemote);
-//         git_remote_free(zRemote);
-//         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-//         return -1;
-//     }
-//
-//     git_remote_disconnect(zRemote);
-//     git_remote_free(zRemote);
-//     return 0;
-// }
+/*
+ * 用于拉取远程仓库代码，效果相当于 git fetch origin，但不执行 git merge origin/xxxBranch：
+ *     仅更新到 refs/remotes/origin/master，不合并到本地分支
+ * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
+ */
+_i
+zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
+    /* get the remote */
+    git_remote* zRemote = NULL;
+    //git_remote_lookup( &zRemote, zpRepo, "origin" );  // 使用已命名分支时，调用此函数
+    if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
+
+        return -1;
+    };
+
+    /* connect to remote */
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
+
+    if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
+        git_remote_free(zRemote);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
+
+        return -1;
+    }
+
+    /* add [a] fetch refspec[s] */
+    git_strarray zGitRefsArray;
+    zGitRefsArray.strings = zppRefs;
+    zGitRefsArray.count = zRefsCnt;
+
+    git_fetch_options zFetchOpts;
+    git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
+
+    /* do the fetch */
+    //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
+    if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
+        git_remote_disconnect(zRemote);
+        git_remote_free(zRemote);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+        } else {
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            zpErrBufOUT[255] = '\0';
+        }
+
+        return -1;
+    }
+
+    git_remote_disconnect(zRemote);
+    git_remote_free(zRemote);
+    return 0;
+}
 
 /*
  * [ git push ]
@@ -140,6 +163,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
+
         return -1;
     };
 
@@ -156,6 +180,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
+
         return -1;
     }
 
@@ -178,6 +203,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
+
         return -1;
     }
 

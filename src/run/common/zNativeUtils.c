@@ -40,10 +40,13 @@ zdel_linebreak(char *zpStr);
 struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,
     .sleep = zsleep,
+
     .system = zthread_system,
+
     .read_line = zget_one_line,
     .read_hunk = zget_str_content,
-    .del_lb = zdel_linebreak
+
+    .del_lb = zdel_linebreak,
 };
 
 // /*

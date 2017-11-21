@@ -5,7 +5,7 @@ zProjId=$1  # 项目ID
 zPathOnHost=$(printf $2 | sed -n 's%/\+%/%p')  # 生产机上的绝对路径
 zPullAddr=$3  # 拉取代码所用的完整地址
 zRemoteMasterBranchName=$4  # 源代码服务器上用于对接生产环境的分支名称
-zRemoteVcsType=$5  # svn 或 git
+zRemoteVcsType=$5  # 仅 git
 ###################
 
 zShadowPath=${zGitShadowPath}
@@ -25,12 +25,13 @@ fi
 ln -sT ${zDeployPath}/.git/refs/heads/server${zProjId} ${zDeployPath}/.git/refs/heads/server
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
-if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
+if [[ 0 -lt `ls -d ${zDeployPath} 2>/dev/null | wc -l` ]]; then
     cd ${zDeployPath}
     if [[ 0 -ne $? ]]; then exit 255; fi
     if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
+        if [[ 0 -ne $? ]]; then exit 255; fi
         rm -rf ./tools
         cp -r ${zShadowPath}/tools ./
         eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
@@ -45,11 +46,7 @@ mkdir -p $zDeployPath
 if [[ $? -ne 0 ]]; then exit 254; fi
 
 # 拉取远程代码
-if [[ "svn" == $zRemoteVcsType ]]; then
-    svn co $zPullAddr $zDeployPath
-else
-    git clone $zPullAddr $zDeployPath
-fi
+git clone $zPullAddr $zDeployPath
 
 if [[ $? -ne 0 ]]; then
     rm -rf $zDeployPath
@@ -58,10 +55,9 @@ fi
 
 # 代码库：环境初始化
 cd $zDeployPath
-git init .  # FOR svn
+git init .
 git config user.name "$zProjId"
 git config user.email "${zProjId}@${zPathOnHost}"
-printf ".svn/\n" > .gitignore  # 忽略<.svn>目录
 git add --all .
 git commit -m "____Dp_System_Init____"
 git branch -f CURRENT

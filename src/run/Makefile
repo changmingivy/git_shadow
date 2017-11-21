@@ -1,27 +1,14 @@
-LIB_NAME = zLibUtils.a
-
 CC = clang
 CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 
-# 如下四项，依赖上层 Makefile 传入
-INC_DIR =
-SSH_INC_DIR =
-GIT_INC_DIR =
-PG_INC_DIR =
+# 依赖上层 Makefile 传入
+INC_ARGS =
 
-$(LIB_NAME):\
-	$(LIB_NAME)(zRun.o)\
-	$(LIB_NAME)(zDpOps.o)\
-	$(LIB_NAME)(zNativeOps.o)\
-	$(LIB_NAME)(zLibSsh.o)\
-	$(LIB_NAME)(zLibGit.o)\
-	$(LIB_NAME)(zNativeUtils.o)\
-	$(LIB_NAME)(zNetUtils.o)\
-	$(LIB_NAME)(zPosixReg.o)\
-	$(LIB_NAME)(zPgSQL.o)\
-	$(LIB_NAME)(zThreadPool.o)
-
-.c.o:
-	$(CC) -c -I$(INC_DIR) -I$(SSH_INC_DIR) -I$(GIT_INC_DIR) -I$(PG_INC_DIR) $(CCFLAGS) $<
-
-
+utils.a: 
+	$(CC) -c $(CCFLAGS) $(INC_ARGS) *.c
+	(cd common; make INC_ARGS="$(INC_ARGS)")
+	(cd net; make INC_ARGS="$(INC_ARGS)")
+	(cd db; make INC_ARGS="$(INC_ARGS)")
+	(cd regex; make INC_ARGS="$(INC_ARGS)")
+	(cd json; make INC_ARGS="$(INC_ARGS)")
+	ar -crv $@ `find . -type f -name "*.o"`

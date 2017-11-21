@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 
 #include <libpq-fe.h>
 
@@ -56,7 +57,6 @@ struct zNativeOps__ zNativeOps_ = {
     .proj_init = zinit_one_repo_env,
     .proj_init_all = zinit_env,
 
-    .json_parser = { NULL },
     .alloc = zalloc_cache,
     .sysload_monitor = zsys_load_monitor,
 
@@ -258,12 +258,6 @@ zdistribute_task(void *zpParam) {
     zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
     strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
 \
-    zpTmpNode_[0]->opsId = 0;\
-    zpTmpNode_[0]->repoId = zpMeta_->repoId;\
-    zpTmpNode_[0]->commitId = zpMeta_->commitId;\
-    zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
-    zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-\
     if (zNodeCnter == (zRegRes_.cnt - 1)) {\
         zpTmpNode_[0]->fileId = zpTmpNode_[0]->lineNum;\
         zpTmpNode_[0]->p_extraData = zalloc_cache(zpMeta_->repoId, zBaseDataLen);\
@@ -308,12 +302,6 @@ zdistribute_task(void *zpParam) {
         zpTmpNode_[0]->p_data = zalloc_cache(zpMeta_->repoId, 6 * zpTmpNode_[0]->offSet + 10 + 1 + zRegRes_.resLen[zNodeCnter]);\
         strcpy(zpTmpNode_[0]->p_data + 6 * zpTmpNode_[0]->offSet + 10, zRegRes_.p_rets[zNodeCnter]);\
 \
-        zpTmpNode_[0]->opsId = 0;\
-        zpTmpNode_[0]->repoId = zpMeta_->repoId;\
-        zpTmpNode_[0]->commitId = zpMeta_->commitId;\
-        zpTmpNode_[0]->cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;\
-        zpTmpNode_[0]->dataType = zpMeta_->dataType;\
-\
         zpTmpNode_[0]->fileId = -1;  /* 中间的点节仅用作显示，不关联元数据 */\
         zpTmpNode_[0]->p_extraData = NULL;\
     }\
@@ -325,7 +313,6 @@ zdistribute_task(void *zpParam) {
 /* 差异文件数量 >128 时，调用此函数，以防生成树图损耗太多性能；此时无需检查无差的性况 */
 static void
 zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellRetHandler, char *zpCommonBuf, _i zMaxBufLen) {
-    zMeta__ zSubMeta_;
     zBaseData__ *zpTmpBaseData_[3];
     _i zVecDataLen, zBaseDataLen, zCnter;
 
@@ -351,20 +338,12 @@ zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellR
     for (_i i = 0; i < zCnter; i++, zpTmpBaseData_[2] = zpTmpBaseData_[2]->p_next) {
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_refData_[i].p_data = zpTmpBaseData_[2]->p_data;
 
-        /* 用于转换成JsonStr */
-        zSubMeta_.opsId = 0;
-        zSubMeta_.repoId = zpMeta_->repoId;
-        zSubMeta_.commitId = zpMeta_->commitId;
-        zSubMeta_.fileId = i;
-        zSubMeta_.cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;
-        zSubMeta_.dataType = zpMeta_->dataType;
-        zSubMeta_.p_data = zpTmpBaseData_[2]->p_data;
-        zSubMeta_.p_extraData = NULL;
+        /* 转换为 JSON 文本 */
+        zVecDataLen = sprintf(zpCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
+                i,
+                zpTmpBaseData_[2]->p_data
+                );
 
-        /* 将zMeta__转换为JSON文本 */
-        zDpOps_.struct_to_json(zpCommonBuf, &zSubMeta_);
-
-        zVecDataLen = strlen(zpCommonBuf);
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_len = zVecDataLen;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
         memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[i].iov_base, zpCommonBuf, zVecDataLen);
@@ -398,7 +377,8 @@ zget_file_list(void *zpParam) {
 
     /* 必须在shell命令中切换到正确的工作路径 */
 
-    sprintf(zCommonBuf, "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' && git diff --name-only \"%s\" \"%s\"",
+    sprintf(zCommonBuf,
+            "cd \"%s\" && git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' && git diff --name-only \"%s\" \"%s\"",
             zpGlobRepo_[zpMeta_->repoId]->p_repoPath,
             zpGlobRepo_[zpMeta_->repoId]->lastDpSig,
             zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),
@@ -419,7 +399,6 @@ zget_file_list(void *zpParam) {
     }
 
     /* 差异文件数量 <=24 生成Tree图 */
-    zMeta__ zSubMeta_;
     _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInit__ zRegInit_;
@@ -480,20 +459,12 @@ zMarkOuter:;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_refData_ = NULL;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_ = zalloc_cache(zpMeta_->repoId, sizeof(struct iovec));
 
-        zSubMeta_.opsId = 0;
-        zSubMeta_.repoId = zpMeta_->repoId;
-        zSubMeta_.commitId = zpMeta_->commitId;
-        zSubMeta_.fileId = -1;  // 置为 -1，不允许再查询下一级内容
-        zSubMeta_.cacheId = zpGlobRepo_[zpMeta_->repoId]->cacheId;
-        zSubMeta_.dataType = zpMeta_->dataType;
-        zSubMeta_.p_data = (0 == strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <=";
-        zSubMeta_.p_extraData = NULL;
+        /* 转换为 JSON 文本 */
+        zVecDataLen = sprintf(zCommonBuf,
+                "[{\"FileId\":-1,\"FilePath\":\"%s\"}",
+                (0 == strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <="
+                );
 
-        /* 将zMeta__转换为JSON文本 */
-        zDpOps_.struct_to_json(zCommonBuf, &zSubMeta_);
-        zCommonBuf[0] = '[';  // 逗号替换为 '['
-
-        zVecDataLen = strlen(zCommonBuf);
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_len = zVecDataLen;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
         memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[0].iov_base, zCommonBuf, zVecDataLen);
@@ -513,9 +484,12 @@ zMarkOuter:;
             = zalloc_cache(zpMeta_->repoId, zLineCnter * sizeof(struct iovec));
 
         for (_ui zCnter = 0; zCnter < zLineCnter; zCnter++) {
-            zDpOps_.struct_to_json(zCommonBuf, zpRootNode_->pp_resHash[zCnter]); /* 将 zMeta__ 转换为 json 文本 */
+            /* 转换为 json 文本 */
+            zVecDataLen = sprintf(zCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
+                    zpRootNode_->pp_resHash[zCnter]->fileId,
+                    zpRootNode_->pp_resHash[zCnter]->p_data
+                    );
 
-            zVecDataLen = strlen(zCommonBuf);
             zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_len = zVecDataLen;
             zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
             memcpy(zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);
@@ -546,8 +520,7 @@ zgenerate_cache(void *zpParam) {
     char zTimeStampVec[16 * zCacheSiz];
     zVecWrap__ *zpTopVecWrap_ = NULL,
                *zpSortedTopVecWrap_ = NULL;
-    zMeta__ *zpMeta_ = (zMeta__ *)zpParam,
-            zSubMeta_;
+    zMeta__ *zpMeta_ = (zMeta__ *)zpParam;
     _i zCnter = 0,
        zVecDataLen = 0;
     time_t zTimeStamp = 0;
@@ -561,7 +534,7 @@ zgenerate_cache(void *zpParam) {
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_);
         zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedCommitVecWrap_);
 
-        sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);
+        sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);  /* use: refs/remotes/origin/master??? */
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zCommonBuf, 0))) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  // 出现严重错误，退出程序
@@ -594,10 +567,10 @@ zgenerate_cache(void *zpParam) {
         sprintf(zCommonBuf, "SELECT DISTINCT rev_sig, time_stamp FROM dp_log WHERE proj_id = %d ORDER BY time_stamp DESC LIMIT %d",
                 zpMeta_->repoId,
                 zCacheSiz);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, true))) {
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
                 zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
                 zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -629,20 +602,13 @@ zgenerate_cache(void *zpParam) {
 
     if (NULL != zpRevSig[0]) {
         for (zCnter = 0; zCnter < zCacheSiz && NULL != zpRevSig[zCnter]; zCnter++) {
-            /* 用于转换成JsonStr */
-            zSubMeta_.opsId = 0;
-            zSubMeta_.repoId = zpMeta_->repoId;
-            zSubMeta_.commitId = zCnter;
-            zSubMeta_.fileId = -1;
-            zSubMeta_.cacheId =  zpGlobRepo_[zpMeta_->repoId]->cacheId;
-            zSubMeta_.dataType = zpMeta_->dataType;
-            zSubMeta_.p_data = zpRevSig[zCnter];
-            zSubMeta_.p_extraData = zTimeStampVec + 16 * zCnter;
+            /* 转换为JSON 文本 */
+            zVecDataLen = sprintf(zCommonBuf, ",{\"RevId\":%d,\"RevSig\":\"%s\",\"RevTimeStamp\":\"%s\"}",
+                    zCnter,
+                    zpRevSig[zCnter],
+                    zTimeStampVec + 16 * zCnter
+                    );
 
-            /* 将zMeta__转换为JSON文本 */
-            zDpOps_.struct_to_json(zCommonBuf, &zSubMeta_);
-
-            zVecDataLen = strlen(zCommonBuf);
             zpTopVecWrap_->p_vec_[zCnter].iov_len = zVecDataLen;
             zpTopVecWrap_->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
             memcpy(zpTopVecWrap_->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);
@@ -669,18 +635,9 @@ zgenerate_cache(void *zpParam) {
  * INIT OPS *
  ************/
 /*
- * 参数：
- *   新建项目基本信息五个字段
- *   初次启动标记(zInitMark: 1 表示为初始化时调用，0 表示动态更新时调用)
- * 返回值:
- *         -33：无法创建请求的项目路径
- *         -34：请求创建的新项目信息格式错误（合法字段数量不是五个）
- *         -35：
- *         -36：请求创建的项目路径已存在，且项目ID不同
- *         -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
- *         -38：拉取远程代码库失败（git clone 失败）
- *         -39：项目元数据创建失败，如：无法打开或创建布署日志文件meta等原因
+ * 参数：项目基本信息
  */
+
 #define zFree_Source() do {\
     free(zpGlobRepo_[zRepoId]->p_repoPath);\
     free(zpGlobRepo_[zRepoId]);\
@@ -701,7 +658,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
          zKeepValue = 0;
     zPgResHd__ *zpPgResHd_ = NULL;
 
-    /* 提取项目ID，调整 zGlobMaxRepoId */
+    /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
 
     if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) { return -32; }
@@ -710,7 +667,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zpGlobRepo_[zRepoId], zRepo__, 1);
     zpGlobRepo_[zRepoId]->repoId = zRepoId;
-    zpGlobRepo_[zRepoId]->selfPushMark = (NULL == zpRepoMeta_->pp_fields[5] || 'N' == zpRepoMeta_->pp_fields[5][0]) ? 0 : 1;
+    zpGlobRepo_[zRepoId]->needPull = zpRepoMeta_->pp_fields[5][0];
 
     /* 提取项目绝对路径，结果格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)` */
     zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
@@ -761,25 +718,18 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         return -38;
     }
 
-    /* 检测并生成项目代码定期更新命令 */
     if (0 == strcmp("git", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zCommonBuf, "cd %s && rm -f .git/index.lock; git pull --force \"%s\" \"%s\":server%d",
-                zpGlobRepo_[zRepoId]->p_repoPath,
-                zpRepoMeta_->pp_fields[2],
-                zpRepoMeta_->pp_fields[3],
-                zRepoId);
-    } else if (0 == strcmp("svn", zpRepoMeta_->pp_fields[4])) {
-        zStrLen = sprintf(zCommonBuf, "cd %s && \\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf; git stash; rm -f .git/index.lock;"
-                " svn up && git add --all . && git commit -m \"_\" && git push --force ../.git master:server%d",
-                zpGlobRepo_[zRepoId]->p_repoPath,
-                zRepoId);
+        /* keep sourceUrl */
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_sourceUrl, char, 1 + strlen(zpRepoMeta_->pp_fields[2]));
+        strcpy(zpGlobRepo_[zRepoId]->p_sourceUrl, zpRepoMeta_->pp_fields[2]);
+
+        /* keep git fetch refs... */
+        zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullRefs, char, 128 + strlen(zpRepoMeta_->pp_fields[3]));
+        sprintf(zpGlobRepo_[zRepoId]->p_pullRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
     } else {
         zFree_Source();
         return -37;
     }
-
-    zMem_Alloc(zpGlobRepo_[zRepoId]->p_pullCmd, char, 1 + zStrLen);
-    strcpy(zpGlobRepo_[zRepoId]->p_pullCmd, zCommonBuf);
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -811,16 +761,17 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     pthread_rwlock_wrlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
     /* 用于统计布署状态的互斥锁 */
-    zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->replyCntLock, NULL));
+    zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->replyCntLock), NULL) );
 
     /* 用于保证 "git pull" 原子性拉取的互斥锁 */
-    zCheck_Pthread_Func_Exit(pthread_mutex_init(&zpGlobRepo_[zRepoId]->pullLock, NULL));
+    zCheck_Pthread_Func_Exit(pthread_mutex_init( & (zpGlobRepo_[zRepoId]->pullLock), NULL) );
 
     /* 布署并发流量控制 */
-    zCheck_Negative_Exit( sem_init(&(zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
+    zCheck_Negative_Exit(sem_init( & (zpGlobRepo_[zRepoId]->dpTraficControl), 0, zDpTraficLimit) );
 
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
+    zpGlobRepo_[zRepoId]->jsonPrefixLen = sprintf(zpGlobRepo_[zRepoId]->jsonPrefix, "{\"ErrNo\":0,\"CacheId\":%ld,\"data\":", zpGlobRepo_[zRepoId]->cacheId);
 
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
@@ -839,7 +790,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         zRepoId, zRepoId,
         zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
         zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
         exit(1);
@@ -851,7 +802,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
         sprintf(zCommonBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                 zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, false))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
             exit(1);
@@ -861,8 +812,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     }
 
     /* 获取最近一次布署的相关信息，只取一条，不需要使用 DISTINCT 关键字去重 */
-    sprintf(zCommonBuf, "SELECT rev_sig, res FROM dp_log WHERE proj_id = %d AND res != -2 ORDER BY time_stamp DESC LIMIT 1", zRepoId);
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, true))) {
+    sprintf(zCommonBuf, "SELECT rev_sig, res FROM dp_log WHERE proj_id = %d AND res = 0 ORDER BY time_stamp DESC LIMIT 1", zRepoId);
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
@@ -925,7 +876,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
     /* 标记初始化动作已全部完成 */
-    zpGlobRepo_[zRepoId]->initRepoFinMark = 1;
+    zpGlobRepo_[zRepoId]->initFinished = 'Y';
 
     /* 全局实际项目 ID 最大值调整，并通知上层调用者本项目初始化任务完成 */
     pthread_mutex_lock(&zGlobCommonLock);
@@ -950,8 +901,9 @@ static void *
 zinit_one_repo_env_thread_wraper(void *zpParam) {
     _i zErrNo = 0;
 
-    if (0 > (zErrNo = zinit_one_repo_env((zPgResTuple__ *) zpParam))) {
+    if (0 > (zErrNo = zinit_one_repo_env(zpParam))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
+        exit(1);  /* 启动时有错，退出进程 */
     }
 
     return NULL;
@@ -987,6 +939,97 @@ zsys_load_monitor(void *zpParam) {
 
 
 /*
+ * 全量刷新：仅刷新新提交版本号列表，不刷新布署列表
+ */
+static _i
+zrefresh_commit_cache(_i zRepoId) {
+    zMeta__ zMeta_ = {
+        .repoId = zRepoId,
+        .dataType = zIsCommitDataType
+    };
+
+    zgenerate_cache(&zMeta_);
+
+    return 0;
+}
+
+
+/*
+ * 定时同步远程代码
+ */
+static void *
+zfetch_remote_code(void *zpParam) {
+    zRepo__ *zpRepo_ = (zRepo__ *) zpParam;
+
+    /* 若能取到锁，则继续；否则退出 */
+    if (0 == pthread_mutex_trylock( & (zpRepo_->pullLock) )) {
+        /* OpenSSL 默认不是多线程安全的，此处使用多进程拉取远程代码 */
+        pid_t zPid = fork();
+        _i zExitStatus = 0;
+
+        if (0 > zPid) {
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            return (void *) -1;
+        } else if (0 == zPid) {
+            /* clean rubbish... */
+            // chdir(zpRepo_->p_repoPath);
+            // unlink(".git/index.lock");
+
+            if (0 == zLibGit_.remote_fetch(zpRepo_->p_gitRepoHandler, zpRepo_->p_sourceUrl, &(zpRepo_->p_pullRefs), 1, NULL)) { exit(0); }
+            else { exit(1); }
+        } else {
+            waitpid(zPid, &zExitStatus, 0);
+            if (0 != WEXITSTATUS(zExitStatus)) {
+                pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+                return (void *) -1;
+            }
+        }
+
+        /* get new revs */
+        char zCommonBuf[64] = {'\0'};
+        sprintf(zCommonBuf, "refs/heads/server%d", zpRepo_->repoId);
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zCommonBuf, 0);
+        if (NULL == zpRevWalker) {
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            return (void *) -1;
+        } else {
+            zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->p_gitRepoHandler, zpRevWalker);
+            pthread_mutex_unlock( &(zpGlobRepo_[zpRepo_->repoId]->pullLock) );
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        }
+
+        if ((NULL == zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data)
+                || (0 != strncmp(zCommonBuf, zpGlobRepo_[zpRepo_->repoId]->commitRefData_[0].p_data, 40))) {
+
+            /* 若能取到锁，则更新缓存；否则退出 */
+            if (0 == pthread_rwlock_trywrlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock))) {
+                zrefresh_commit_cache(zpRepo_->repoId);
+                pthread_rwlock_unlock(&(zpGlobRepo_[zpRepo_->repoId]->rwLock));
+            };
+        }
+    }
+
+    return NULL;
+}
+
+
+static void *
+zcode_sync(void *zpParam __attribute__ ((__unused__))) {
+zLoop:
+    for (_i i = zGlobMaxRepoId; i > 0; i--) {
+        if (NULL != zpGlobRepo_[i] && 'Y' == zpGlobRepo_[i]->initFinished && 'Y' == zpGlobRepo_[i]->needPull) {
+            zThreadPool_.add(zfetch_remote_code, zpGlobRepo_[i]);
+        }
+    }
+
+    sleep(8);
+    goto zLoop;
+
+    return (void *) -1;  /* never reach here */
+}
+
+
+/*
  * 定时扩展日志表分区
  * 每天尝试创建之后 10 天的分区表
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
@@ -1012,13 +1055,13 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
         _i zBaseId = time(NULL) / 86400,
            zId = 0;
         for (_i zRepoId = 0; zRepoId <= zGlobMaxRepoId; zRepoId++) {
-            if (NULL == zpGlobRepo_[zRepoId] || 0 == zpGlobRepo_[zRepoId]->initRepoFinMark) { continue; }
+            if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) { continue; }
 
             for (zId = 0; zId < 10; zId ++) {
                 sprintf(zCmdBuf, "CREATE TABLE IF NOT EXISTS dp_log_%d_%d PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                         zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
-                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, false))) {
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
                     zPgSQL_.res_clear(zpPgResHd_, NULL);
                     zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
                     continue;
@@ -1032,20 +1075,6 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
     }
 
     return NULL;
-}
-
-
-/*
- * json 解析回调：数字与字符串
- */
-static void
-zparse_digit(void *zpIn, void *zpOut) {
-    *((_i *)zpOut) = strtol(zpIn, NULL, 10);
-}
-
-static void
-zparse_str(void *zpIn, void *zpOut) {
-    strcpy(zpOut, zpIn);  // 正则匹配出的结果，不会为 NULL，因此不必检查 zpIn
 }
 
 
@@ -1129,7 +1158,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "host_detail     varchar"
             ") PARTITION BY LIST (proj_id);",
 \
-            false);
+            zFalse);
 
     if (NULL == zpPgResHd_) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
@@ -1139,7 +1168,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     /* 查询已有项目信息 */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
             "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
-            true);
+            zTrue);
 
     /* 已经执行完结并取回结果，立即断开连接 */
     zPgSQL_.conn_clear(zpPgConnHd_);
@@ -1174,39 +1203,7 @@ zMarkNotFound:
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
 
-    /* json 解析时的回调函数索引 */
-    zNativeOps_.json_parser['O']  // OpsId
-        = zNativeOps_.json_parser['P']  // ProjId
-        = zNativeOps_.json_parser['R']  // RevId
-        = zNativeOps_.json_parser['F']  // FileId
-        = zNativeOps_.json_parser['H']  // HostId
-        = zNativeOps_.json_parser['C']  // CacheId
-        = zNativeOps_.json_parser['D']  // DataType
-        = zparse_digit;
-
-    zNativeOps_.json_parser['d']  // data
-        = zNativeOps_.json_parser['E']  // ExtraData
-        = zparse_str;
+    zThreadPool_.add(zcode_sync, NULL);
 
     return NULL;
 }
-
-
-/* 去除json标识符:  ][}{\",:  */
-// static void
-// zclear_json_identifier(char *zpStr, _i zStrLen) {
-//     char zDb[256] = {0};
-//     zDb['['] = 1;
-//     zDb[']'] = 1;
-//     zDb['{'] = 1;
-//     zDb['}'] = 1;
-//     zDb[','] = 1;
-//     zDb[':'] = 1;
-//     zDb['\"'] = 1;
-//
-//     for (_i zCnter = 0; zCnter < zStrLen; zCnter++) {
-//         if (1 == zDb[(_i)zpStr[zCnter]]) {
-//             zpStr[zCnter] = '=';
-//         }
-//     }
-// }

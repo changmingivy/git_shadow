@@ -28,6 +28,7 @@
 #include "zPosixReg.h"
 #include "zPgSQL.h"
 #include "zThreadPool.h"
+#include "cJSON.h"
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
 #define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
@@ -36,7 +37,6 @@
 #define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
 #define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
 #define zForecastedHostNum 200  // 预测的目标主机数量上限
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")  // 传递给目标机的 SSH 命令之前留出的空间，用于声明一个SHELL变量告诉目标机自身的通信IP
 
 #define zGlobCommonBufSiz 1024
 
@@ -49,7 +49,7 @@
 #define zIsCommitDataType 0
 #define zIsDpDataType 1
 
-typedef struct {
+typedef struct __zThreadPool__ {
     pthread_t selfTid;
     pthread_cond_t condVar;
 
@@ -57,7 +57,7 @@ typedef struct {
     void *p_param;
 } zThreadPool__;
 
-typedef struct {
+typedef struct __zDpCcur__ {
     zThreadPool__ *p_threadSource_;  // 必须放置在首位
     _i repoId;
     char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
@@ -101,19 +101,19 @@ typedef struct __zVecWrap__ {
 
 /* 用于存放每个项目的元信息，同步锁不要紧挨着定义，在X86平台上可能会带来伪共享问题降低并发性能 */
 typedef struct {
+    zThreadPool__ *p_threadSource_;  // 必须放置在首位
     _i repoId;  // 项目代号
     time_t  cacheId;  // 即：最新一次布署的时间戳(初始化为1000000000)
     char *p_repoPath;  // 项目路径，如："/home/git/miaopai_TEST"
     _i repoPathLen;  // 项目路径长度，避免后续的使用者重复计算
     _i maxPathLen;  // 项目最大路径长度：相对于项目根目录的值（由底层文件系统决定），用于度量git输出的差异文件相对路径长度
 
-    _i selfPushMark;  // 置为 1 表示该项目会主动推送代码到中控机，不需要拉取远程代码
-    char *p_pullCmd;  // 拉取代码时执行的Shell命令：svn与git有所不同
-    time_t lastPullTime;  // 最近一次拉取的时间，若与之的时间间隔较短，则不重复拉取
+    char *p_sourceUrl;
+    char *p_pullRefs;  // 例如：refs/remotes/origin/master:refs/heads/server99
     pthread_mutex_t pullLock;  // 保证同一时间同一个项目只有一个git pull进程在运行
+    char needPull;  // 置为 'N' 表示该项目会主动推送代码到中控机，不需要拉取远程代码
 
-    /* FinMark 类标志：0 代表动作尚未完成，1 代表已完成 */
-    char initRepoFinMark;
+    char initFinished;  /* 仓库是否已经初始化完成：N 代表动作尚未完成，Y 代表已完成 */
 
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
     _i whoGetWrLock;
@@ -150,6 +150,8 @@ typedef struct {
 
     char lastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char dpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
+    char jsonPrefix[256];  // 网络交互时用到的 json 格式前驱信息
+    _s jsonPrefixLen;  // 实际的 json 前驱数据长度
 
     pthread_mutex_t replyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
@@ -203,7 +205,7 @@ extern zNetSrv__ zNetSrv_;
 extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
 typedef struct __zMeta__ {
-    _i opsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）；当用于生成缓存时，-1代表commit记录，-2代表deploy记录
+    _i opsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）
     _i repoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i commitId;  // 版本号（对应于svn或git的单次提交标识）
     _i fileId;  // 单个文件在差异文件列表中index
@@ -213,7 +215,7 @@ typedef struct __zMeta__ {
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefData__的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
     _i dataLen;  // 不能使和 _ui 类型，recv 返回 -1 时将会导致错误
     char *p_extraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
-    _ui extraDataLen;
+    _i extraDataLen;
 
     /* 以下为 Tree 专属数据 */
     struct __zMeta__ *p_father;  // Tree 父节点
@@ -225,23 +227,24 @@ typedef struct __zMeta__ {
 } zMeta__;
 
 struct zDpOps__ {
-    _i (* show_meta) (zMeta__ *, _i);
-    _i (* show_meta_all) (zMeta__ * __attribute__ ((__unused__)), _i);
+    _i (* show_meta) (cJSON *, _i);
 
-    _i (* print_revs) (zMeta__ *, _i);
-    _i (* print_diff_files) (zMeta__ *, _i);
-    _i (* print_diff_contents) (zMeta__ *, _i);
+    _i (* print_revs) (cJSON *, _i);
+    _i (* print_diff_files) (cJSON *, _i);
+    _i (* print_diff_contents) (cJSON *, _i);
 
-    _i (* creat) (zMeta__ *, _i);
-    _i (* req_dp) (zMeta__ *, _i);
-    _i (* dp) (zMeta__ *, _i);
-    _i (* state_confirm) (zMeta__ *, _i);
-    _i (* lock) (zMeta__ *, _i);
-    _i (* req_file) (zMeta__ *, _i);
+    _i (* creat) (cJSON *, _i);
+    _i (* req_dp) (cJSON *, _i);
+
+    _i (* dp) (cJSON *, _i);
+    _i (* state_confirm) (cJSON *, _i);
+
+    _i (* lock) (cJSON *, _i);
+    _i (* unlock) (cJSON *zpJRoot, _i zSd);
+
+    _i (* req_file) (cJSON *, _i);
 
     void * (* route) (void *);
-    _i (* json_to_struct) (char *, zMeta__ *);
-    void (* struct_to_json) (char *, zMeta__ *);
 };
 
 #endif  //  #ifndef ZDPOPS_H

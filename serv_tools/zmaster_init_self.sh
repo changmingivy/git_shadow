@@ -91,7 +91,7 @@ cd ${zShadowPath}/src && make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPa
 
 # 编译 notice 程序，用于通知主程序有新的提交记录诞生
 clang -Wall -Wextra -std=c99 -O2 \
-    -I${zShadowPath}/inc \
+    -I${zShadowPath}/inc/common \
     -o ${zShadowPath}/tools/notice \
     ${zShadowPath}/src/zExtraUtils/znotice.c
 strip ${zShadowPath}/tools/notice

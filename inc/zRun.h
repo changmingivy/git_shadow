@@ -2,9 +2,10 @@
 #define ZRUN_H
 
 #include "zCommon.h"
-#include "zThreadPool.h"
-#include "zNetUtils.h"
 #include "zDpOps.h"
+#include "cJSON.h"
+
+#define zServHashSiz 16
 
 typedef struct __zSockAcceptParam__ {
     void *p_threadPoolMeta_;  // 未使用，仅占位
@@ -15,7 +16,7 @@ struct zRun__ {
     void (* run) (zNetSrv__ *, zPgLogin__ *);
     void * (* route) (void *);
 
-    _i (* ops[16]) (zMeta__*, _i);
+    _i (* ops[zServHashSiz]) (cJSON *, _i);
 };
 
 #endif  // #ifndef ZRUN_H

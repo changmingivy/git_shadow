@@ -59,8 +59,6 @@ struct zNativeOps__ {
     _i (* proj_init) (zPgResTuple__ *);
     void * (* proj_init_all) (zPgLogin__ *);
 
-    /* 以 ANSI 字符集中的前 128 位成员作为索引 */
-    void (* json_parser[128]) (void *, void *);
     void * (* alloc) (_i, _ui);
     void * (* sysload_monitor) (void *);
 
