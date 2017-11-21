@@ -980,7 +980,7 @@ static void *
 zcode_sync(void *zpParam __attribute__ ((__unused__))) {
 zLoop:
     for (_i i = zGlobMaxRepoId; i > 0; i--) {
-        if (NULL != zpGlobRepo_[i] && 'Y' == zpGlobRepo_[i]->initFinished && 'Y' == zpGlobRepo_[i]->needPull) {
+        if (NULL != zpGlobRepo_[i] && 'Y' == zpGlobRepo_[i]->initFinished) {
             /* get new revs */
             char zCommonBuf[64] = {'\0'};
             sprintf(zCommonBuf, "refs/heads/server%d", i);
