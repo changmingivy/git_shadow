@@ -725,6 +725,46 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         return -38;
     }
 
+    /**********************************************************************************/
+    /*
+     * 启动独立的进程负责定时拉取远程代码
+     * OpenSSL 默认不是多线程安全的，此处使用进程
+     * 在尽可能靠前的位置启动子进程，以减少资源带入
+     */
+    if ('Y' == zNeedPull) {
+        pid_t zPid = -1;
+        zCheck_Negative_Exit( zPid = fork() );
+        if (0 == zPid) {
+            /*
+             * 创建新项目时需要在子进程中也执行 close
+             * 否则此 socket 无法释放
+             */
+            if (0 < zSdToClose) { close(zSdToClose); }
+
+            /* keep sourceUrl */
+            char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
+            strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
+
+            /* keep git fetch refs... */
+            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + strlen(zpRepoMeta_->pp_fields[3]) + 16];
+            char *zpFetchRefs = zFetchRefs;
+            sprintf(zFetchRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
+
+            chdir(zpGlobRepo_[zRepoId]->p_repoPath);
+
+            while (1) {
+                unlink(".git/index.lock");  /* clean rubbish... */
+
+                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
+                    zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
+                }
+
+                sleep(2);
+            }
+        }
+    }
+    /**********************************************************************************/
+
     /*
      * PostgreSQL 中以 char(1) 类型存储
      * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
@@ -887,43 +927,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         (* (zpRepoMeta_->p_taskCnt)) ++;
         pthread_mutex_unlock(&zGlobCommonLock);
         pthread_cond_signal(&zGlobCommonCond);
-    }
-
-    if ('Y' == zNeedPull) {
-        /*
-         * 启动独立的进程负责定时拉取远程代码
-         * 注：OpenSSL 默认不是多线程安全的，此处使用进程
-         */
-        pid_t zPid = -1;
-        zCheck_Negative_Exit( zPid = fork() );
-        if (0 == zPid) {
-            /*
-             * 创建新项目时需要在子进程中也执行 close
-             * 否则此 socket 无法释放
-             */
-            if (0 < zSdToClose) { close(zSdToClose); }
-
-            /* keep sourceUrl */
-            char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
-            strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
-
-            /* keep git fetch refs... */
-            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + strlen(zpRepoMeta_->pp_fields[3]) + 16];
-            char *zpFetchRefs = zFetchRefs;
-            sprintf(zFetchRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
-
-            chdir(zpGlobRepo_[zRepoId]->p_repoPath);
-
-            while (1) {
-                unlink(".git/index.lock");  /* clean rubbish... */
-
-                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
-                    zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
-                }
-
-                sleep(2);
-            }
-        }
     }
 
     return 0;
