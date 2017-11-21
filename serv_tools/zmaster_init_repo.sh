@@ -25,7 +25,7 @@ fi
 ln -sT ${zDeployPath}/.git/refs/heads/server${zProjId} ${zDeployPath}/.git/refs/heads/server
 
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
-if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
+if [[ 0 -lt `ls -d ${zDeployPath} 2>/dev/null | wc -l` ]]; then
     cd ${zDeployPath}
     if [[ 0 -ne $? ]]; then exit 255; fi
     if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then

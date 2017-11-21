@@ -707,7 +707,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             "echo ${____zSelfIp} > /home/git/.____zself_ip_addr_%d.txt;"\
 \
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":%s_SHADOW/tools/post-update}\" >&777;"\
+            "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":\"%s_SHADOW/tools/post-update\"}\" >&777;"\
             "rm -f .git/hooks/post-update;"\
             "cat <&777 >.git/hooks/post-update;"\
             "chmod 0755 .git/hooks/post-update;"\
