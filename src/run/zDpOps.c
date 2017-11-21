@@ -340,7 +340,7 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
 
     zPgSQL_.res_clear(NULL, zpPgRes_);
 
-    zJsonSiz = sprintf(zJsonBuf, "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: %d\nLastHostIPs: %s\"}",
+    zJsonSiz = sprintf(zJsonBuf, "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: %d\nLastHostIPs:%s\"}",
             zRepoId,
             zpGlobRepo_[zRepoId]->p_repoPath,
             zDpLocked == zpGlobRepo_[zRepoId]->dpLock ? "No" : "Yes",

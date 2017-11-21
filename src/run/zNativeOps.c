@@ -755,13 +755,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             char *zpFetchRefs = zFetchRefs;
             sprintf(zFetchRefs, "+refs/heads/%s:refs/heads/server%d", zpRepoMeta_->pp_fields[3], zRepoId);
 
+            git_repository *zpGitRepoHandler = zpGlobRepo_[zRepoId]->p_gitRepoHandler;
+
+            /* 释放子进程不需要的资源 */
+            zFree_Source();
+
             chdir(zpGlobRepo_[zRepoId]->p_repoPath);
-
             while (1) {
-                unlink(".git/index.lock");  /* clean rubbish... */
-
-                if (0 > zLibGit_.remote_fetch(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
+                if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
                     zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
+                    unlink(".git/index.lock");  /* try clean rubbish... */
                 }
 
                 sleep(2);
