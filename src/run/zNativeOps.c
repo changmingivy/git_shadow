@@ -1126,15 +1126,15 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "proj_id         int NOT NULL,"
-            "rev_sig         varchar NOT NULL,"
+            "rev_sig         char(41) NOT NULL,"
             "cache_id        bigint NOT NULL,"
             "time_stamp      bigint NOT NULL,"
             "time_limit      smallint NOT NULL DEFAULT 0,"
             "res             smallint NOT NULL DEFAULT -1,"
-            "host_ip         varchar NOT NULL,"
+            "host_ip         char(46) NOT NULL,"
             "host_res        smallint NOT NULL DEFAULT -1,"
             "host_timespent  smallint NOT NULL DEFAULT 0,"
-            "host_errno      int NOT NULL DEFAULT 0,"
+            "host_errno      smallint NOT NULL DEFAULT 0,"
             "host_detail     varchar"
             ") PARTITION BY LIST (proj_id);",
 \
