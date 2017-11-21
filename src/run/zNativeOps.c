@@ -1127,7 +1127,6 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "("
             "proj_id         int NOT NULL,"
             "rev_sig         char(41) NOT NULL,"
-            "cache_id        bigint NOT NULL,"
             "time_stamp      bigint NOT NULL,"
             "time_limit      smallint NOT NULL DEFAULT 0,"
             "res             smallint NOT NULL DEFAULT -1,"
