@@ -8,7 +8,7 @@
 #include <errno.h>
 
 static void
-zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
+zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
 
 static void
 zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject);
@@ -21,7 +21,7 @@ zreg_free_meta(zRegInit__ *zpInit_);
 
 /* 对外公开的接口 */
 struct zPosixReg__ zPosixReg_ = {
-    .compile = zreg_compile,
+    .init = zreg_init,
     .match = zreg_match,
     .free_meta = zreg_free_meta,
     .free_res = zreg_free_res
@@ -29,7 +29,7 @@ struct zPosixReg__ zPosixReg_ = {
 
 /* 使用 posix 扩展正则 */
 static void
-zreg_compile(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
+zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
     if (0 != (zErrNo = regcomp(zpRegInit_Out, zpRegPattern, REG_EXTENDED))) {
@@ -55,7 +55,7 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
     if (NULL == zpRegRes_Out->alloc_fn) {
         zMem_Alloc(zpRegRes_Out->p_rets[0], char, 2 * zDynSubjectlen);
     } else {
-        zpRegRes_Out->p_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->RepoId, zBytes(2 * zDynSubjectlen));
+        zpRegRes_Out->p_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->repoId, zBytes(2 * zDynSubjectlen));
     }
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
@@ -73,7 +73,7 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
         zResStrLen = zMatchRes_.rm_eo - zMatchRes_.rm_so;
         if (0 == zResStrLen) { break; }
 
-        zpRegRes_Out->ResLen[zpRegRes_Out->cnt] = zResStrLen;
+        zpRegRes_Out->resLen[zpRegRes_Out->cnt] = zResStrLen;
         zpRegRes_Out->cnt++;
 
         zpRegRes_Out->p_rets[zCnter] = zpRegRes_Out->p_rets[0] + zOffSet;
@@ -86,11 +86,13 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
     }
 }
 
+
 /* 内存是全量分配给成员 [0] 的，只需释放一次 */
 static void
 zreg_free_res(zRegRes__ *zpRes_) {
-    free((zpRes_)->p_rets[0]);
+    if (NULL == zpRes_->alloc_fn) { free((zpRes_)->p_rets[0]); };
 }
+
 
 static void
 zreg_free_meta(zRegInit__ *zpInit_) {

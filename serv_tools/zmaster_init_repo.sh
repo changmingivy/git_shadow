@@ -9,7 +9,7 @@ zRemoteVcsType=$5  # svn 或 git
 ###################
 
 zShadowPath=${zGitShadowPath}
-zDeployPath=/home/git/${zPathOnHost}
+zDeployPath=${HOME}${zPathOnHost}  # ${zPathOnHost} 是以 '/' 开头的
 zServBranchName="server${zProjId}"
 
 if [[ "" == $zProjId
@@ -27,7 +27,7 @@ ln -sT ${zDeployPath}/.git/refs/heads/server${zProjId} ${zDeployPath}/.git/refs/
 # 已存在相同路径的情况：若项目路径相同，但ID不同，返回失败
 if [[ 0 -lt `ls -d ${zDeployPath} | wc -l` ]]; then
     cd ${zDeployPath}
-	if [[ 0 -ne $? ]]; then exit 255; fi
+    if [[ 0 -ne $? ]]; then exit 255; fi
     if [[ ${zProjId} -eq `git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$'` ]]; then
         git branch ${zServBranchName}  # 兼容已有的代码库，否则没有 server${zProjId} 分支
         cd ${zDeployPath}_SHADOW
@@ -82,19 +82,8 @@ git config user.email "git_shadow@${zProjId}"
 git add --all .
 git commit --allow-empty -m "____Dp_System_Init____"
 
-# 防止添加重复条目
-zExistMark=`cat ${zShadowPath}/conf/master.conf | grep -cE "^[[:blank:]]*${zProjId}[[:blank:]]+"`
-if [[ 0 -eq $zExistMark ]];then
-    zDirName=`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``
-    zBaseName=`basename ${zPathOnHost}`
-    printf "${zProjId} ${zDirName}/${zBaseName}  ${zPullAddr} ${zRemoteMasterBranchName} ${zRemoteVcsType}\n" >> ${zShadowPath}/conf/master.conf
-fi
-
 # 创建必要的目录与文件
-cd ${zDeployPath}_SHADOW
-mkdir -p ${zDeployPath}_SHADOW/{info,log/deploy}
-touch ${zDeployPath}_SHADOW/log/deploy/meta
-chmod -R 0755 ${zDeployPath}_SHADOW
+cd ${zDeployPath}_SHADOW && mkdir -p info log && chmod -R 0755 .
 
 # use to get diff when no deploy log has been written
 cd ${zDeployPath}
@@ -105,6 +94,5 @@ git branch ____base.XXXXXXXX &&\
         git add --all .;\
         git commit --allow-empty -m "_";\
         git branch `git log -1 --format="%H"`;\
-        printf "`git log -1 --format="%H_%ct"`\n" > ${zDeployPath}_SHADOW/log/deploy/meta;\
         git checkout master\
     )
