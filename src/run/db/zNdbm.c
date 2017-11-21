@@ -1,5 +1,5 @@
-#include <fcntl.h>
-#include <gdbm/ndbm.h>
+// #include <fcntl.h>
+// #include <gdbm/ndbm.h>
 
 // DBM *
 // dbm_open(const char *base,	int flags, mode_t mode);
