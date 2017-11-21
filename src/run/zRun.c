@@ -279,7 +279,7 @@ zops_route(void *zpParam) {
     /* 成功状态在下层函数中回复，错误状态统一返回至上层处理 */
     if (0 > zErrNo) {
         if (-1 == zErrNo) {
-            fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\224\224\342 ", zpDataBuf);
+            fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200 ", zpDataBuf);
         }
 
         zDataLen = snprintf(zpDataBuf, zDataLen, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
