@@ -324,7 +324,7 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     zJsonSiz = 256
         + zpGlobRepo_[zRepoId]->repoPathLen
         + zIpListSiz
-        + sizeof("[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]");
+        + sizeof("[{\"ErrNo\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]");
 
     char zIpsBuf[zIpListSiz];
     char zJsonBuf[zJsonSiz];
@@ -337,7 +337,7 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
 
     zPgSQL_.res_clear(NULL, zpPgRes_);
 
-    zJsonSiz = sprintf(zJsonBuf, "[{\"OpsId\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]",
+    zJsonSiz = sprintf(zJsonBuf, "[{\"ErrNo\":0,\"data\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}]",
             zRepoId,
             zpGlobRepo_[zRepoId]->p_repoPath,
             zDpLocked == zpGlobRepo_[zRepoId]->dpLock ? "No" : "Yes",
@@ -432,7 +432,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
 
-        zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+        zNetUtils_.sendto(zSd, "[{\"ErrNo\":0}]", sizeof("[{\"ErrNo\":0}]") - 1, 0, NULL);
     }
 
     return zErrNo;
@@ -1026,7 +1026,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
 
     /* 耗时预测超过 90 秒的情况，通知前端不必阻塞等待，可异步于布署列表中查询布署结果 */
     if (90 < zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit) {
-        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"OpsId\":-14,\"data\":\"本次布署时间最长可达 %zd 秒，请稍后查看布署结果\"}]", zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit);
+        _i zSendLen = sprintf(zppCommonBuf[0], "[{\"ErrNo\":-14,\"data\":\"本次布署时间最长可达 %zd 秒，请稍后查看布署结果\"}]", zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit);
         zNetUtils_.sendto(zSd, zppCommonBuf[0], zSendLen, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
@@ -1099,7 +1099,7 @@ zErrMark:
 
     /* 若先前测算的布署耗时 <= 90s ，此处向前端返回布署成功消息 */
     if (90 >= zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit) {
-        zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+        zNetUtils_.sendto(zSd, "[{\"ErrNo\":0}]", sizeof("[{\"ErrNo\":0}]") - 1, 0, NULL);
         shutdown(zSd, SHUT_WR);  // shutdown write peer: avoid frontend from long time waiting ...
     }
     zpGlobRepo_[zpMeta_->repoId]->repoState = zRepoGood;
@@ -1272,7 +1272,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         if (-23 == zErrNo || -12 == zErrNo) {
             _i zLen = 256 + zpMeta_->dataLen;
             char zErrBuf[zLen];
-            zLen = snprintf(zErrBuf, zLen, "[{\"OpsId\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}]",
+            zLen = snprintf(zErrBuf, zLen, "[{\"ErrNo\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}]",
                     zErrNo,
                     zpMeta_->p_data,
                     zpGlobRepo_[zpMeta_->repoId]->dpingSig
@@ -1634,7 +1634,7 @@ zlock_repo(cJSON *zpJRoot, _i zSd) {
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
-    zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+    zNetUtils_.sendto(zSd, "[{\"ErrNo\":0}]", sizeof("[{\"ErrNo\":0}]") - 1, 0, NULL);
 
     return 0;
 }
@@ -1661,7 +1661,7 @@ zunlock_repo(cJSON *zpJRoot, _i zSd) {
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
 
-    zNetUtils_.sendto(zSd, "[{\"OpsId\":0}]", sizeof("[{\"OpsId\":0}]") - 1, 0, NULL);
+    zNetUtils_.sendto(zSd, "[{\"ErrNo\":0}]", sizeof("[{\"ErrNo\":0}]") - 1, 0, NULL);
 
     return 0;
 }
