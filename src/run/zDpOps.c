@@ -478,12 +478,12 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
 
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
     if (0 < zpSortedTopVecWrap_->vecSiz) {
-        if (0 < zNetUtils_.sendmsg(zSd, zpSortedTopVecWrap_->p_vec_, zpSortedTopVecWrap_->vecSiz, 0, NULL)) {
-            zNetUtils_.sendto(zSd, "]", zBytes(1), 0, NULL);  // 二维json结束符
-        } else {
-            pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
-            return -70;
-        }
+        zNetUtils_.sendto(zSd, zpGlobRepo_[zRepoId]->jsonPrefix, zpGlobRepo_[zRepoId]->jsonPrefixLen, 0, NULL);  /* json 前缀 */
+        zNetUtils_.sendmsg(zSd, zpSortedTopVecWrap_->p_vec_, zpSortedTopVecWrap_->vecSiz, 0, NULL);  /* 正文 */
+        zNetUtils_.sendto(zSd, "]}", sizeof("]}") - 1, 0, NULL);  /* json 后缀 */
+    } else {
+        pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
+        return -70;
     }
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
@@ -567,7 +567,9 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     zSendVecWrap_.vecSiz = 0;
     zSendVecWrap_.p_vec_ = zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_;
     zSplitCnt = (zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->vecSiz - 1) / zSendUnitSiz  + 1;
-    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
+
+    zNetUtils_.sendto(zSd, zpGlobRepo_[zpMeta_->repoId]->jsonPrefix, zpGlobRepo_[zpMeta_->repoId]->jsonPrefixLen, 0, NULL);  /* json 前缀 */
+    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {  /* 正文 */
         if (1 == zCnter) {
             zSendVecWrap_.vecSiz = (zpTopVecWrap_->p_refData_[zpMeta_->commitId].p_subVecWrap_->vecSiz - 1) % zSendUnitSiz + 1;
         } else {
@@ -577,7 +579,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.sendmsg(zSd, zSendVecWrap_.p_vec_, zSendVecWrap_.vecSiz, 0, NULL);
         zSendVecWrap_.p_vec_ += zSendVecWrap_.vecSiz;
     }
-    zNetUtils_.sendto(zSd, "]", zBytes(1), 0, NULL);  // 前端 PHP 需要的二级json结束符
+    zNetUtils_.sendto(zSd, "]}", sizeof("]}") - 1, 0, NULL);  /* json 后缀 */
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));
     return 0;
@@ -677,7 +679,10 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     zSendVecWrap_.vecSiz = 0;
     zSendVecWrap_.p_vec_ = zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId)->p_vec_;
     zSplitCnt = (zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId)->vecSiz - 1) / zSendUnitSiz  + 1;
-    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {
+
+    zNetUtils_.sendto(zSd, zpGlobRepo_[zpMeta_->repoId]->jsonPrefix, zpGlobRepo_[zpMeta_->repoId]->jsonPrefixLen, 0, NULL);  /* json 前缀 */
+    zNetUtils_.sendto(zSd, "\"", sizeof("\"") - 1, 0, NULL);  /* 差异内容的 data 是纯文本，没有 json 结构，此处需要追加一个引号 */
+    for (_i zCnter = zSplitCnt; zCnter > 0; zCnter--) {  /* 正文 */
         if (1 == zCnter) {
             zSendVecWrap_.vecSiz = (zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId)->vecSiz - 1) % zSendUnitSiz + 1;
         } else {
@@ -688,6 +693,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.sendmsg(zSd, zSendVecWrap_.p_vec_, zSendVecWrap_.vecSiz, 0, NULL);
         zSendVecWrap_.p_vec_ += zSendVecWrap_.vecSiz;
     }
+    zNetUtils_.sendto(zSd, "\"]}", sizeof("\"]}") - 1, 0, NULL);  /* json 后缀，此处需要添加一个引号 */
 
     pthread_rwlock_unlock(&(zpGlobRepo_[zpMeta_->repoId]->rwLock));
     return 0;

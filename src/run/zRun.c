@@ -105,9 +105,9 @@ zerr_vec_init(void) {
     zpErrVec[67] = "";
     zpErrVec[68] = "";
     zpErrVec[69] = "";
-    zpErrVec[70] = "服务端版本号列表缓存错误";
-    zpErrVec[71] = "服务端差异文件列表缓存错误";
-    zpErrVec[72] = "服务端单个文件的差异内容缓存错误";
+    zpErrVec[70] = "无内容 或 服务端版本号列表缓存错误";
+    zpErrVec[71] = "无内容 或 服务端差异文件列表缓存错误";
+    zpErrVec[72] = "无内容 或 服务端单个文件的差异内容缓存错误";
     zpErrVec[73] = "服务端 Git 仓库异常!";
     zpErrVec[74] = "";
     zpErrVec[75] = "";

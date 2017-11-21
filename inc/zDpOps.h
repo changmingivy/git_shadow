@@ -150,6 +150,8 @@ typedef struct {
 
     char lastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char dpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
+    char jsonPrefix[256];  // 网络交互时用到的 json 格式前驱信息
+    _s jsonPrefixLen;  // 实际的 json 前驱数据长度
 
     pthread_mutex_t replyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 

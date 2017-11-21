@@ -339,13 +339,8 @@ zget_file_list_large(zMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpShellR
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_refData_[i].p_data = zpTmpBaseData_[2]->p_data;
 
         /* 转换为 JSON 文本 */
-        zVecDataLen = sprintf(zpCommonBuf,
-                ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":%d,\"DataType\":%d,\"data\":\"%s\"}",
-                zpGlobRepo_[zpMeta_->repoId]->cacheId,
-                zpMeta_->repoId,
-                zpMeta_->commitId,
+        zVecDataLen = sprintf(zpCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
                 i,
-                zpMeta_->dataType,
                 zpTmpBaseData_[2]->p_data
                 );
 
@@ -466,11 +461,7 @@ zMarkOuter:;
 
         /* 转换为 JSON 文本 */
         zVecDataLen = sprintf(zCommonBuf,
-                "[{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"FileId\":-1,\"DataType\":%d,\"data\":\"%s\"}",
-                zpGlobRepo_[zpMeta_->repoId]->cacheId,
-                zpMeta_->repoId,
-                zpMeta_->commitId,
-                zpMeta_->dataType,
+                "[{\"FileId\":-1,\"FilePath\":\"%s\"}",
                 (0 == strcmp(zpGlobRepo_[zpMeta_->repoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ? "===> 最新的已布署版本 <===" : "=> 无差异 <="
                 );
 
@@ -494,12 +485,7 @@ zMarkOuter:;
 
         for (_ui zCnter = 0; zCnter < zLineCnter; zCnter++) {
             /* 转换为 json 文本 */
-            zVecDataLen = sprintf(zCommonBuf,
-                    ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"FileId\":%d,\"data\":\"%s\"}",
-                    zpGlobRepo_[zpMeta_->repoId]->cacheId,
-                    zpMeta_->repoId,
-                    zpMeta_->commitId,
-                    zpMeta_->dataType,
+            zVecDataLen = sprintf(zCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
                     zpRootNode_->pp_resHash[zCnter]->fileId,
                     zpRootNode_->pp_resHash[zCnter]->p_data
                     );
@@ -617,12 +603,8 @@ zgenerate_cache(void *zpParam) {
     if (NULL != zpRevSig[0]) {
         for (zCnter = 0; zCnter < zCacheSiz && NULL != zpRevSig[zCnter]; zCnter++) {
             /* 转换为JSON 文本 */
-            zVecDataLen = sprintf(zCommonBuf,
-                    ",{\"OpsId\":0,\"CacheId\":%ld,\"ProjId\":%d,\"RevId\":%d,\"DataType\":%d,\"data\":\"%s\",\"ExtraData\":\"%s\"}",
-                    zpGlobRepo_[zpMeta_->repoId]->cacheId,
-                    zpMeta_->repoId,
+            zVecDataLen = sprintf(zCommonBuf, ",{\"RevId\":%d,\"RevSig\":\"%s\",\"RevTimeStamp\":\"%s\"}",
                     zCnter,
-                    zpMeta_->dataType,
                     zpRevSig[zCnter],
                     zTimeStampVec + 16 * zCnter
                     );
@@ -789,6 +771,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_) {
 
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
+    zpGlobRepo_[zRepoId]->jsonPrefixLen = sprintf(zpGlobRepo_[zRepoId]->jsonPrefix, "{\"ErrNo\":0,\"CacheId\":%ld,\"data\":", zpGlobRepo_[zRepoId]->cacheId);
 
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );  // 目标库
