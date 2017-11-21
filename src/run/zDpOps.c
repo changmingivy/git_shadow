@@ -423,7 +423,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                 zRepoMeta_.pp_fields[2],
                 zRepoMeta_.pp_fields[3],
                 zRepoMeta_.pp_fields[4],
-                'Y' == toupper(zRepoMeta_.pp_fields[5][0]) ? 't' : 'f'  /* TRUE, FALSE */
+                toupper(zRepoMeta_.pp_fields[5][0])
                 );
 
         zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->p_pgConnHd_, zSQLBuf, zFalse);

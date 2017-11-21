@@ -1119,8 +1119,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "path_on_host    varchar NOT NULL,"
             "source_url      varchar NOT NULL,"
             "source_branch   varchar NOT NULL,"
-            "source_vcs_type varchar NOT NULL,"
-            "need_pull       bool NOT NULL"
+            "source_vcs_type char(12) NOT NULL,"
+            "need_pull       char(1) NOT NULL"
             ");"
 \
             "CREATE TABLE IF NOT EXISTS dp_log "
