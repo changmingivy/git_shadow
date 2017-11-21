@@ -661,7 +661,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     char *zpOrigPath = NULL,
          zKeepValue = 0;
+
     zPgResHd__ *zpPgResHd_ = NULL;
+    zPgRes__ *zpPgRes_ = NULL;
 
     /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
@@ -815,7 +817,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPrint_Err(0, NULL, "pgSQL exec failed");
         exit(1);
     } else {
-        zPgRes__ *zpPgRes_ = NULL;
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {  /* empty repo... */
             sprintf(zCommonBuf, "refs/heads/____base.XXXXXXXX");
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zCommonBuf, 0);

@@ -987,7 +987,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     zpGlobRepo_[zpMeta_->repoId]->dpTimeWaitLimit = 0;
 
     /* 预置本次布署日志 */
-    _i zOffSet = sprintf(zppCommonBuf[0], "INSERT INTO dp_log (proj_id,rev_sig,time_stamp,host_ip) VALUES ");
+    _i zOffSet = sprintf(zppCommonBuf[0], "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) VALUES ");
     for (zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
         zOffSet += sprintf(zppCommonBuf[0] + zOffSet, "($1,$2,$3,'%s'),", zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr);
     }
@@ -996,8 +996,8 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
     char zParamBuf[2][16] = {{'\0'}};
     const char *zpParam[3] = {
         zParamBuf[0],
-        zpGlobRepo_[zpMeta_->repoId]->dpingSig,
-        zParamBuf[1]
+        zParamBuf[1],
+        zpGlobRepo_[zpMeta_->repoId]->dpingSig
     };
     const char **zppParam = zpParam;  // avoid compile warning...
 
