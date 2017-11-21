@@ -292,7 +292,8 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     _i zErrNo = 0,
        zRepoId = -1,
        zIpListSiz = 0,
-       zJsonSiz = 0;
+       zJsonSiz = 0,
+       zHostCnt = 0;
 
     cJSON *zpJ = NULL;
 
@@ -301,7 +302,7 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
+    if (NULL == zpGlobRepo_[zRepoId] || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
         return -2;  /* zErrNo = -2; */
     }
 
@@ -316,8 +317,10 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     }
 
     if (NULL == zpPgRes_) {
+        zHostCnt = 0;
         zIpListSiz = 1;
     } else {
+        zHostCnt = zpPgRes_->tupleCnt;
         zIpListSiz = (1 + INET6_ADDRSTRLEN) * zpPgRes_->tupleCnt;
     }
 
@@ -330,20 +333,20 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
     char zJsonBuf[zJsonSiz];
 
     zIpsBuf[0] = '\0';
-    for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
+    for (_i i = 0; i < zHostCnt; i++) {
         strcat(zIpsBuf, " ");
         strcat(zIpsBuf, zpPgRes_->tupleRes_[i].pp_fields[0]);
     }
 
     zPgSQL_.res_clear(NULL, zpPgRes_);
 
-    zJsonSiz = sprintf(zJsonBuf, "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}",
+    zJsonSiz = sprintf(zJsonBuf, "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: %d\nLastHostIPs: %s\"}",
             zRepoId,
             zpGlobRepo_[zRepoId]->p_repoPath,
             zDpLocked == zpGlobRepo_[zRepoId]->dpLock ? "No" : "Yes",
             '\0' == zpGlobRepo_[zRepoId]->lastDpSig[0] ? "_" : zpGlobRepo_[zRepoId]->lastDpSig,
             zRepoDamaged == zpGlobRepo_[zRepoId]->repoState ? "fail" : "success",
-            zpGlobRepo_[zRepoId]->totalHost,
+            zHostCnt,
             zIpsBuf
             );
 
