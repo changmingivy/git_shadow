@@ -259,7 +259,7 @@ zgit_push_ccur(void *zp_) {
     /* {'+' == git push --force} push TWO branchs together */
     sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcur_->repoId);
     sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcur_->repoId);
-    if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, zErrBuf)) {
+    if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
         sprintf(zCmdBuf,
@@ -1346,17 +1346,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (-100 != zErrNo) {
         /* 若为目标机初始化失败或部署失败，回返失败的IP列表(p_data)及版本号(p_extraData)，其余错误返回上层统一处理 */
         if (-23 == zErrNo || -12 == zErrNo) {
-            _i zLen = 256 + zIpListStrLen;
-            char zErrBuf[zLen];
-            zLen = snprintf(zErrBuf, zLen, "{\"ErrNo\":%d,\"FailedIpList\":\"%s\",\"FailedRevSig\":\"%s\"}",
+            /* 目标机初始化与布署错误信息，都放在了 zppCommonBuf 的空间里，此时可使用全部的空间，即：2 * zCommonBufLen */
+            _i zLen = snprintf(zppCommonBuf[0], 2 * zCommonBufLen, "{\"ErrNo\":%d,\"FailedIpList\":\"%s\",\"FailedRevSig\":\"%s\"}",
                     zErrNo,
                     zpIpList,
                     zpGlobRepo_[zRepoId]->dpingSig
                     );
-            zNetUtils_.send_nosignal(zSd, zErrBuf, zLen);
+            zNetUtils_.send_nosignal(zSd, zppCommonBuf[0], zLen);
 
             /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
-            zPrint_Err(0, NULL, zErrBuf);
+            zPrint_Err(0, NULL, zppCommonBuf[0]);
 
             zErrNo = 0;
         }
