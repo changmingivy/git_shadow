@@ -163,10 +163,19 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     char zErrBuf[256] = {'\0'};
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
-    _ui zHostId = zNetUtils_.to_bin(zpDpCcur_->p_hostIpStrAddr);
-    zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId % zDpHashSiz];
+    _ui zHostId[4] = {0};
+    if ('.' == zpDpCcur_->p_hostIpStrAddr[1] || '.' == zpDpCcur_->p_hostIpStrAddr[2] || '.' == zpDpCcur_->p_hostIpStrAddr[3]) {
+        zNetUtils_.to_numaddr(zpDpCcur_->p_hostIpStrAddr, zIpTypeV4, zHostId);
+    } else {
+        zNetUtils_.to_numaddr(zpDpCcur_->p_hostIpStrAddr, zIpTypeV6, zHostId);
+    }
+
+    zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
     for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
-        if (zHostId == zpTmp_->clientAddr) {
+        if (zHostId[0] == zpTmp_->clientAddr[0]
+                && zHostId[1] == zpTmp_->clientAddr[1]
+                && zHostId[2] == zpTmp_->clientAddr[2]
+                && zHostId[3] == zpTmp_->clientAddr[3]) {
             if (0 == zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock, zErrBuf)) {
                 zpTmp_->initState = 1;
             } else {
@@ -189,7 +198,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 
 
 #define zNative_Fail_Confirm() do {\
-    _ui ____zHostId = zNetUtils_.to_bin(zpDpCcur_->p_hostIpStrAddr);\
+    _ui ____zHostId = zNetUtils_.to_numaddr(zpDpCcur_->p_hostIpStrAddr);\
     zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId % zDpHashSiz];\
     for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
         if (____zHostId == ____zpTmp_->clientAddr) {\
@@ -809,7 +818,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
-        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = zNetUtils_.to_bin(zRegRes_->p_rets[zCnter]);
+        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = zNetUtils_.to_numaddr(zRegRes_->p_rets[zCnter]);
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].p_next = NULL;
 
@@ -859,7 +868,7 @@ zExistMark:;
         _i zOffSet = sprintf(zpMeta_->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState) {
-                zNetUtils_.to_str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
+                zNetUtils_.to_straddr(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
@@ -1104,7 +1113,7 @@ zErrMark:
         _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].dpState) {
-                zNetUtils_.to_str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
+                zNetUtils_.to_straddr(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
@@ -1532,7 +1541,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId % zDpHashSiz];
-    zNetUtils_.to_str(zHostId, zIpStrAddr);
+    zNetUtils_.to_straddr(zHostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zpTmp_->clientAddr == zHostId) {

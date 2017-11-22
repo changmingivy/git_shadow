@@ -60,7 +60,7 @@ typedef struct __zThreadPool__ {
 typedef struct __zDpCcur__ {
     zThreadPool__ *p_threadSource_;  // 必须放置在首位
     _i repoId;
-    char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1"
+    char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1" "::1"
     char *p_hostServPort;  // 字符串形式的端口号，如："22"
     char *p_cmd;  // 需要执行的指令集合
 
@@ -79,7 +79,7 @@ typedef struct __zDpCcur__ {
 } zDpCcur__;
 
 typedef struct __zDpRes__ {
-    _ui clientAddr;  // 无符号整型格式的IPV4地址：0xffffffff
+    _ui clientAddr[4];  // 无符号整型数据，IPv4 地址只使用第一个成员，IPv6 使用部4个成员
     _i dpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i initState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
     char errMsg[256];  // 存放目标主机返回的错误信息
