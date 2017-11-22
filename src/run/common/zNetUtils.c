@@ -98,6 +98,17 @@ zset_nonblocking(_i zSd) {
     zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
 }
 
+/*
+ *  将指定的套接字属性设置为阻塞
+ */
+static void
+zset_blocking(_i zSd) {
+    _i zOpts;
+    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zOpts &= ~O_NONBLOCK;
+    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+}
+
 /* Used by client */
 static _i
 ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
@@ -110,6 +121,7 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
     zset_nonblocking(zSd);
 
     if (0 == connect(zSd, zpAddr_, (AF_INET6 == zIpFamily) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))) {
+        zset_blocking(zSd);  /* 连接成功后，属性恢复为阻塞 */
         return zSd;
     } else {  /* 多线程环境检查 errno == EINPROGRESS 也无意义 */
         struct pollfd zWd_ = {zSd, POLLIN | POLLOUT, -1};
@@ -118,7 +130,10 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
          * 在超时之前成功建立连接，则返回可用连接数量
          * connect 8 秒超时
          */
-        if (0 < poll(&zWd_, 1, 8 * 1000)) { return zSd; }
+        if (0 < poll(&zWd_, 1, 8 * 1000)) {
+            zset_blocking(zSd);  /* 连接成功后，属性恢复为阻塞 */
+            return zSd;
+        }
     }
 
     /* 已超时或出错 */
@@ -162,7 +177,7 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, z
 
 static _i
 zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
-    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, 0);
+    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, zIpTypeNone);
 }
 
 static _i
