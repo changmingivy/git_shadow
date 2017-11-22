@@ -117,19 +117,19 @@ struct zDpOps__ zDpOps_ = {
 
 #define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
 
-#define zConvert_IpStr_To_Num(zpIpStr, zpNumVec) do {\
+#define zConvert_IpStr_To_Num(zpIpStr, zpNumVec, zErrNo) do {\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
-        zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
+        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
     } else {\
-        zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
+        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
     } \
 } while (0)
 
-#define zConvert_IpNum_To_Str(zpNumVec, zpIpStr) do {\
+#define zConvert_IpNum_To_Str(zpNumVec, zpIpStr, zErrNo) do {\
     if (0xff == zpNumVec[1] /* IPv4 */) {\
-        zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
+        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
     } else {\
-        zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
+        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
     } \
 } while (0)
 
@@ -182,8 +182,13 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     char zErrBuf[256] = {'\0'};
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
+    _i zErrNo = 0;
     _ull zHostId[2] = {0};
-    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId);
+    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId, zErrNo);
+    if (0 > zErrNo) {
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");
+        return NULL;
+    }
 
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
     for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
@@ -210,21 +215,26 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 
 
 #define zNative_Fail_Confirm() do {\
+    _i ____zErrNo = 0;\
     _ull ____zHostId[2] = {0};\
-    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId);\
-    zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
-    for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
-        if (zIpVecCmp(____zHostId, ____zpTmp_->clientAddr)) {\
-            pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
-            ____zpTmp_->dpState = -1;\
-            zpGlobRepo_[zpDpCcur_->repoId]->resType[1] = -1;\
-            strcpy(____zpTmp_->errMsg, zErrBuf);\
+    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId, ____zErrNo);\
+    if (0 == ____zErrNo) {\
+        zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
+        for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
+            if (zIpVecCmp(____zHostId, ____zpTmp_->clientAddr)) {\
+                pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
+                ____zpTmp_->dpState = -1;\
+                zpGlobRepo_[zpDpCcur_->repoId]->resType[1] = -1;\
+                strcpy(____zpTmp_->errMsg, zErrBuf);\
 \
-            zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt = zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
-            pthread_cond_signal(zpGlobRepo_[zpDpCcur_->repoId]->p_dpCcur_->p_ccurCond);\
-            pthread_mutex_unlock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
-            break;\
+                zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt = zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
+                pthread_cond_signal(zpGlobRepo_[zpDpCcur_->repoId]->p_dpCcur_->p_ccurCond);\
+                pthread_mutex_unlock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
+                break;\
+            }\
         }\
+    } else {\
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     }\
 } while(0)
 
@@ -756,62 +766,65 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             "exec 777>&-;"\
             "exec 777<&-;",\
 \
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zpMeta_->repoId]->p_repoPath + zGlobHomePathLen,\
-            zpMeta_->repoId,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen, zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
+            zRepoId,\
 \
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zpMeta_->repoId, zpGlobRepo_[zpMeta_->repoId]->p_repoPath\
+            zRepoId, zpGlobRepo_[zRepoId]->p_repoPath\
             );\
 } while(0)
 
 
 static _i
-zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out) {
-    zDpRes__ *zpOldDpResList_, *zpTmpDpRes_, *zpOldDpResHash_[zDpHashSiz];
+zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt, char *zpCommonBuf, zRegRes__ **zppRegRes_Out) {
+    _i zErrNo = 0;
+    zDpRes__ *zpTmpDpRes_ = NULL,
+             *zpOldDpResList_ = NULL,
+             *zpOldDpResHash_[zDpHashSiz] = { NULL };
 
     zRegInit__ zRegInit_[1];
-    zRegRes__ *zpRegRes_, zRegRes_[1] = {{.alloc_fn = zNativeOps_.alloc, .repoId = zpMeta_->repoId}};  // 使用项目内存池
+    zRegRes__ *zpRegRes_, zRegRes_[1] = {{.alloc_fn = zNativeOps_.alloc, .repoId = zRepoId}};  // 使用项目内存池
     zpRegRes_ = zRegRes_;  /* avoid compile warning... */
 
-    zPosixReg_.init(zRegInit_ , "([0-9]{1,3}\\.){3}[0-9]{1,3}");  /* IPv6 ??? */
-    zPosixReg_.match(zRegRes_, zRegInit_, zpMeta_->p_data);
+    zPosixReg_.init(zRegInit_ , "[^ ]+");  /* IP 之间必须以空格分割 */
+    zPosixReg_.match(zRegRes_, zRegInit_, zIpList);
     zPosixReg_.free_meta(zRegInit_);
     *zppRegRes_Out = zpRegRes_;
 
-    if (strtol(zpMeta_->p_extraData, NULL, 10) != zRegRes_->cnt) { return -28; }
+    if (zIpCnt != zRegRes_->cnt) { return -28; }
 
     if (zForecastedHostNum < zRegRes_->cnt) {
         /* 若指定的目标主机数量大于预测的主机数量，则另行分配内存 */
         /* 加空格最长16字节，如："123.123.123.123 " */
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_ = zNativeOps_.alloc(zpMeta_->repoId, zRegRes_->cnt * sizeof(zDpCcur__));
+        zpGlobRepo_[zRepoId]->p_dpCcur_ = zNativeOps_.alloc(zRepoId, zRegRes_->cnt * sizeof(zDpCcur__));
     } else {
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_ = zpGlobRepo_[zpMeta_->repoId]->dpCcur_;
+        zpGlobRepo_[zRepoId]->p_dpCcur_ = zpGlobRepo_[zRepoId]->dpCcur_;
     }
 
     /* 暂留旧数据 */
-    zpOldDpResList_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResList_;
-    memcpy(zpOldDpResHash_, zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_, zDpHashSiz * sizeof(zDpRes__ *));
+    zpOldDpResList_ = zpGlobRepo_[zRepoId]->p_dpResList_;
+    memcpy(zpOldDpResHash_, zpGlobRepo_[zRepoId]->p_dpResHash_, zDpHashSiz * sizeof(zDpRes__ *));
 
     /*
      * 下次更新时要用到旧的 HASH 进行对比查询，因此不能在项目内存池中分配
      * 分配清零的空间，用于重置状态及检查重复 IP
      */
-    zMem_C_Alloc(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_, zDpRes__, zRegRes_->cnt);
+    zMem_C_Alloc(zpGlobRepo_[zRepoId]->p_dpResList_, zDpRes__, zRegRes_->cnt);
 
     /* 重置各项状态 */
-    zpGlobRepo_[zpMeta_->repoId]->totalHost = zRegRes_->cnt;
-    zpGlobRepo_[zpMeta_->repoId]->dpTotalTask = zpGlobRepo_[zpMeta_->repoId]->totalHost;
-    //zpGlobRepo_[zpMeta_->repoId]->dpReplyCnt = 0;
-    zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt = 0;
-    zpGlobRepo_[zpMeta_->repoId]->resType[0] = 0;
-    zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp = time(NULL);
-    memset(zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));  /* Clear hash buf before reuse it!!! */
-    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost; zCnter++) {
-        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
+    zpGlobRepo_[zRepoId]->totalHost = zRegRes_->cnt;
+    zpGlobRepo_[zRepoId]->dpTotalTask = zpGlobRepo_[zRepoId]->totalHost;
+    //zpGlobRepo_[zRepoId]->dpReplyCnt = 0;
+    zpGlobRepo_[zRepoId]->dpTaskFinCnt = 0;
+    zpGlobRepo_[zRepoId]->resType[0] = 0;
+    zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
+    memset(zpGlobRepo_[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));  /* Clear hash buf before reuse it!!! */
+    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
     }
 
     /* 生成 SSH 动作内容，缓存区使用上层调用者传入的静态内存区 */
@@ -819,50 +832,65 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
 
     for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter++) {
         /* 检测是否存在重复IP */
-        if (0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]
-                || 0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1]) {
+        if (0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1]) {
+            free(zpGlobRepo_[zRepoId]->p_dpResList_);
+
+            /* 状态回退 */
+            zpGlobRepo_[zRepoId]->p_dpResList_ = zpOldDpResList_;
+            memcpy(zpGlobRepo_[zRepoId]->p_dpResHash_, zpOldDpResHash_, zDpHashSiz * sizeof(zDpRes__ *));
+
             return -19;
         }
 
         /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].repoId = zpMeta_->repoId;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zRegRes_->p_rets[zCnter];
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_cmd = zpCommonBuf;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_ccurLock = &zpGlobRepo_[zpMeta_->repoId]->dpSyncLock;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_ccurCond = &zpGlobRepo_[zpMeta_->repoId]->dpSyncCond;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].repoId = zRepoId;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zRegRes_->p_rets[zCnter];
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_cmd = zpCommonBuf;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_ccurLock = &zpGlobRepo_[zRepoId]->dpSyncLock;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_ccurCond = &zpGlobRepo_[zRepoId]->dpSyncCond;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zRepoId]->dpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
-        zConvert_IpStr_To_Num(zRegRes_->p_rets[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr);
-        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
-        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].p_next = NULL;
+        zConvert_IpStr_To_Num(zRegRes_->p_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zErrNo);
+        if (0 != zErrNo) {
+            free(zpGlobRepo_[zRepoId]->p_dpResList_);
 
-        /* 更新HASH */
-        zpTmpDpRes_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz];
-        if (NULL == zpTmpDpRes_) {  /* 若顶层为空，直接指向数组中对应的位置 */
-            zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz]
-                = &(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter]);
-        } else {
-            while (NULL != zpTmpDpRes_->p_next) { zpTmpDpRes_ = zpTmpDpRes_->p_next; }
-            zpTmpDpRes_->p_next = &(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter]);
+            /* 状态回退 */
+            zpGlobRepo_[zRepoId]->p_dpResList_ = zpOldDpResList_;
+            memcpy(zpGlobRepo_[zRepoId]->p_dpResHash_, zpOldDpResHash_, zDpHashSiz * sizeof(zDpRes__ *));
+
+            return -18;
         }
 
-        zpTmpDpRes_ = zpOldDpResHash_[zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] % zDpHashSiz];
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].p_next = NULL;
+
+        /* 更新HASH */
+        zpTmpDpRes_ = zpGlobRepo_[zRepoId]->p_dpResHash_[(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz];
+        if (NULL == zpTmpDpRes_) {  /* 若顶层为空，直接指向数组中对应的位置 */
+            zpGlobRepo_[zRepoId]->p_dpResHash_[(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz]
+                = &(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter]);
+        } else {
+            while (NULL != zpTmpDpRes_->p_next) { zpTmpDpRes_ = zpTmpDpRes_->p_next; }
+            zpTmpDpRes_->p_next = &(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter]);
+        }
+
+        zpTmpDpRes_ = zpOldDpResHash_[zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] % zDpHashSiz];
         while (NULL != zpTmpDpRes_) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
-            if (zIpVecCmp(zpTmpDpRes_->clientAddr, zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr)) {
+            if (zIpVecCmp(zpTmpDpRes_->clientAddr, zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
                 /* 先前已被初始化过的主机，状态置 1，防止后续收集结果时误报失败 */
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 1;
+                zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 1;
                 /* 从总任务数中去除已经初始化的主机数 */
-                zpGlobRepo_[zpMeta_->repoId]->dpTotalTask--;
+                zpGlobRepo_[zRepoId]->dpTotalTask--;
                 goto zExistMark;
             }
             zpTmpDpRes_ = zpTmpDpRes_->p_next;
         }
 
         /* 对新加入的目标机执行初始化动作 */
-        zThreadPool_.add(zssh_ccur_simple_init_host, &(zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter]));
+        zThreadPool_.add(zssh_ccur_simple_init_host, &(zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter]));
 zExistMark:;
     }
 
@@ -870,35 +898,41 @@ zExistMark:;
     if (NULL != zpOldDpResList_) { free(zpOldDpResList_); }
 
     /* 等待所有 SSH 任务完成 */
-    pthread_mutex_lock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
-    while (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask) {
-        pthread_cond_wait(&zpGlobRepo_[zpMeta_->repoId]->dpSyncCond, &zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
+    pthread_mutex_lock(&zpGlobRepo_[zRepoId]->dpSyncLock);
+    while (zpGlobRepo_[zRepoId]->dpTaskFinCnt < zpGlobRepo_[zRepoId]->dpTotalTask) {
+        pthread_cond_wait(&zpGlobRepo_[zRepoId]->dpSyncCond, &zpGlobRepo_[zRepoId]->dpSyncLock);
     }
-    pthread_mutex_unlock(&zpGlobRepo_[zpMeta_->repoId]->dpSyncLock);
+    pthread_mutex_unlock(&zpGlobRepo_[zRepoId]->dpSyncLock);
 
     /* 检测执行结果，并返回失败列表 */
-    if ((-1 == zpGlobRepo_[zpMeta_->repoId]->resType[0])
-            || (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
+    if ((-1 == zpGlobRepo_[zRepoId]->resType[0])
+            || (zpGlobRepo_[zRepoId]->dpTaskFinCnt < zpGlobRepo_[zRepoId]->dpTotalTask)) {
         char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _ui zFailedHostCnt = 0;
-        _i zOffSet = sprintf(zpMeta_->p_data, "无法连接的主机:");
-        for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
-            if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState) {
-                zConvert_IpNum_To_Str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
-                zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
-                        zIpStrAddrBuf,
-                        '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
-                        );
-                zFailedHostCnt++;
+        _i zOffSet = sprintf(zIpList, "无法连接的主机:"),
+           zBufLen = strlen(zIpList);
+        for (_ui zCnter = 0; (zOffSet < zBufLen) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
+            if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState) {
+                zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
+                if (0 != zErrNo) {
+                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+                    zErrNo = 0;
+                } else {
+                    zOffSet += sprintf(zIpList + zOffSet, "([%s]%s)",
+                            zIpStrAddrBuf,
+                            '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg
+                            );
+                    zFailedHostCnt++;
 
-                /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+                    /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+                }
             }
         }
 
         /* 主机数超过 10 台，且失败率低于 10% 返回成功，否则返回失败 */
-        if ((10 < zpGlobRepo_[zpMeta_->repoId]->totalHost) && ( zFailedHostCnt < zpGlobRepo_[zpMeta_->repoId]->totalHost / 10)) { return 0; }
+        if ((10 < zpGlobRepo_[zRepoId]->totalHost) && ( zFailedHostCnt < zpGlobRepo_[zRepoId]->totalHost / 10)) { return 0; }
         else { return -23; }
     }
 
@@ -987,7 +1021,7 @@ zdeploy(zMeta__ *zpMeta_, _i zSd, char **zppCommonBuf, zRegRes__ **zppHostStrAdd
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if ('_' != zpMeta_->p_data[0]) {
-        if (0 > (zErrNo = zupdate_ip_db_all(zpMeta_, zppCommonBuf[0], zppHostStrAddrRegRes_Out))) {
+        if (0 > (zErrNo = zupdate_ip_db_all(zpMeta_->repoId, zpMeta_->p_data, strtol(zpMeta_->p_extraData, NULL, 10), zppCommonBuf[0], zppHostStrAddrRegRes_Out))) {
             goto zEndMark;
         }
         zRemoteHostInitTimeSpent = time(NULL) - zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp;
@@ -1130,16 +1164,21 @@ zErrMark:
         _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].dpState) {
-                zConvert_IpNum_To_Str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
-                zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
-                        zIpStrAddrBuf,
-                        '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
-                        );
+                zConvert_IpNum_To_Str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
+                if (0 != zErrNo) {
+                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+                    zErrNo = 0;
+                } else {
+                    zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
+                            zIpStrAddrBuf,
+                            '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
+                            );
 
-                /* 未返回成功状态的主机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-                zFailedHostCnt++;
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+                    /* 未返回成功状态的主机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+                    zFailedHostCnt++;
+                    zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+                    zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+                }
             }
         }
 
@@ -1367,6 +1406,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             /* 重置时间戳，并生成 SSH 指令 */
             zpGlobRepo_[zpMeta_->repoId]->dpBaseTimeStamp = time(NULL);
+            _i zRepoId = zpMeta_->repoId;  /* !!!!临时!!!! */
             zConfig_Dp_Host_Ssh_Cmd(zppCommonBuf[0]);
 
             /* 预置值，对失败的目标机重新初始化 */
@@ -1544,8 +1584,9 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zTimeStamp = (time_t)zpJ->valuedouble;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostId");
-    if (!cJSON_IsNumber(zpJ)) { return -1; }
-    zHostId = (_ui)zpJ->valuedouble;
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
+    zConvert_IpStr_To_Num(zpJ->valuestring, zHostId, zErrNo);
+    if (0 != zErrNo) { return -18; }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevSig");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
@@ -1559,7 +1600,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-    zConvert_IpNum_To_Str(zHostId, zIpStrAddr);
+    zConvert_IpNum_To_Str(zHostId, zIpStrAddr, zErrNo);
+    if (0 != zErrNo) { return -17; }
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {

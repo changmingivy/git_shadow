@@ -52,8 +52,8 @@ zerr_vec_init(void) {
     zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
     zpErrVec[15] = "服务端布署前环境初始化失败";
     zpErrVec[16] = "系统当前负载太高，请稍稍后重试";
-    zpErrVec[17] = "";
-    zpErrVec[18] = "";
+    zpErrVec[17] = "IPnum ====> IPstr 失败";
+    zpErrVec[18] = "IPstr ====> IPnum 失败";
     zpErrVec[19] = "指定的目标机列表中存在重复 IP";
     zpErrVec[20] = "";
     zpErrVec[21] = "";
