@@ -254,9 +254,13 @@ zgit_push_ccur(void *zp_) {
     }
     pthread_mutex_unlock(&zGlobCommonLock);
 
-    /* generate remote URL */
-    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git",
+    /*
+     * generate remote URL
+     * 注：此处不能使用 git@...:.../.git 格式，会造成 IPv6 地址解析错误
+     */
+    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s%s%s/.git",
             zpDpCcur_->p_hostIpStrAddr,
+            '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen
             );
 
