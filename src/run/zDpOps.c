@@ -209,7 +209,9 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     _i ____zErrNo = 0;\
     _ull ____zHostId[2] = {0};\
     zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId, ____zErrNo);\
-    if (0 == ____zErrNo) {\
+    if (0 != ____zErrNo) {\
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
+    } else {\
         zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
         for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
             if (zIpVecCmp(____zHostId, ____zpTmp_->clientAddr)) {\
@@ -224,8 +226,6 @@ zssh_ccur_simple_init_host(void  *zpParam) {
                 break;\
             }\
         }\
-    } else {\
-        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     }\
 } while(0)
 
@@ -251,7 +251,10 @@ zgit_push_ccur(void *zp_) {
     pthread_mutex_unlock(&zGlobCommonLock);
 
     /* generate remote URL */
-    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s/%s/.git", zpDpCcur_->p_hostIpStrAddr, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
+    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git",
+            zpDpCcur_->p_hostIpStrAddr,
+            zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen
+            );
 
     /* {'+' == git push --force} push TWO branchs together */
     sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcur_->repoId);
