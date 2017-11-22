@@ -1216,7 +1216,8 @@ zErrMark:
     }
 
 zEndMark:
-    sprintf(zppCommonBuf[0], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
+    /* 此处要使用 zppCommonBuf[1]；zppCommonBuf[0] 用于存放错误信息 */
+    sprintf(zppCommonBuf[1], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
             zpGlobRepo_[zRepoId]->dpTimeWaitLimit,
             0 == zErrNo ? 0 : (-100 == zErrNo? -1 : -2),
             zRepoId,
