@@ -21,6 +21,9 @@ static _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType);
 
 static _i
+zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
+
+static _i
 zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType);
 
 static _i
@@ -36,6 +39,7 @@ struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,
     .tcp_conn = ztcp_connect,
     .sendto = zsendto,
+    .send_nosignal = zsend_nosignal,
     .sendmsg = zsendmsg,
     .recv_all = zrecv_all,
     .to_numaddr = zconvert_ip_str_to_bin,
@@ -154,6 +158,11 @@ zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, z
             (NULL == zpAddr_) ? 0: ((zIpTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
             );
     return zSentSiz;
+}
+
+static _i
+zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
+    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, 0);
 }
 
 static _i

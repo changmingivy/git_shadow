@@ -18,6 +18,7 @@ struct zNetUtils__ {
     _i (* tcp_conn) (char *, char *, _i);
 
     _i (* sendto) (_i, void *, size_t, _i, struct sockaddr *, zIpType__);
+    _i (* send_nosignal) (_i, void *, size_t);
     _i (* sendmsg) (_i, struct iovec *, size_t, _i, struct sockaddr *, zIpType__);
     _i (* recv_all) (_i, void *, size_t, _i, struct sockaddr *);
 
