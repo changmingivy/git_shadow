@@ -285,7 +285,7 @@ zops_route(void *zpParam) {
         }
 
         zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-        zNetUtils_.sendto(zSd, zpDataBuf, zDataLen, 0, NULL);
+        zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
 
         /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
         zPrint_Err(0, NULL, zpDataBuf);
