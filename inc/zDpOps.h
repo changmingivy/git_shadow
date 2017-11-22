@@ -206,8 +206,9 @@ typedef struct __zCacheMeta__ {
     _ui hostId;  // 32位IPv4地址转换而成的无符号整型格式
     _l cacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i dataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
-    char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefData__的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
-    char *p_extraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
+
+    char *p_filePath;  // git diff --name-only 获得的文件路径
+    char *p_treeData;  // 经过处理的 Tree 图显示内容
 
     /* 以下为 Tree 专属数据 */
     struct __zCacheMeta__ *p_father;  // Tree 父节点
