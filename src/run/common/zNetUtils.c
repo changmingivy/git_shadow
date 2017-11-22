@@ -223,7 +223,7 @@ zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ull *zpResOUT/
 
         if (1 == inet_pton(AF_INET, zpStrAddr, &zIpAddr_)) {
             zpResOUT[0] = zIpAddr_.s_addr;
-            zpResOUT[1] = 0;
+            zpResOUT[1] = 0xff;  /* 置为 "FF00::"，IPV6 组播地址*/
 
             zErrNo = 0;
         }

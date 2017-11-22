@@ -125,6 +125,14 @@ struct zDpOps__ zDpOps_ = {
     } \
 } while (0)
 
+#define zConvert_IpNum_To_Str(zpNumVec, zpIpStr) do {\
+    if (0xff == zpNumVec[1] /* IPv4 */) {\
+        zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
+    } else {\
+        zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
+    } \
+} while (0)
+
 
 // static void *
 // zssh_ccur(void  *zpParam) {
@@ -826,7 +834,7 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
-		zConvert_IpStr_To_Num(zRegRes_->p_rets[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr);
+        zConvert_IpStr_To_Num(zRegRes_->p_rets[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr);
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].p_next = NULL;
 
@@ -871,12 +879,12 @@ zExistMark:;
     /* 检测执行结果，并返回失败列表 */
     if ((-1 == zpGlobRepo_[zpMeta_->repoId]->resType[0])
             || (zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt < zpGlobRepo_[zpMeta_->repoId]->dpTotalTask)) {
-        char zIpStrAddrBuf[INET_ADDRSTRLEN];
+        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _ui zFailedHostCnt = 0;
         _i zOffSet = sprintf(zpMeta_->p_data, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState) {
-                zNetUtils_.to_straddr(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
+                zConvert_IpNum_To_Str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
@@ -1118,11 +1126,11 @@ zErrMark:
         }
 
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-        char zIpStrAddrBuf[INET_ADDRSTRLEN];
+        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < zpMeta_->dataLen) && (zCnter < zpGlobRepo_[zpMeta_->repoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].dpState) {
-                zNetUtils_.to_straddr(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
+                zConvert_IpNum_To_Str(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf);
                 zOffSet += sprintf(zpMeta_->p_data + zOffSet, "([%s]%s)",
                         zIpStrAddrBuf,
                         '\0' == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].errMsg
@@ -1551,7 +1559,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-    zNetUtils_.to_straddr(zHostId, zIpStrAddr);
+    zConvert_IpNum_To_Str(zHostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
