@@ -1252,7 +1252,7 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zDpSelf_.p_hostIpStrAddr  = zpJ->valuestring;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostRevSig");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevSig");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
 
     /* 若目标机上已是最新代码，则无需布署 */
@@ -1568,7 +1568,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zTimeStamp = (time_t)zpJ->valuedouble;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "IpAddr");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostAddr");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zConvert_IpStr_To_Num(zpJ->valuestring, zHostId, zErrNo);
     if (0 != zErrNo) { return -18; }
