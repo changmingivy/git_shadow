@@ -26,11 +26,11 @@ zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockadd
 static _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_);
 
-static _ui
-zconvert_ip_str_to_bin(const char *zpStrAddr);
+static _i
+zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ui *zpResOUT/* _ui[4] */);
 
-static void
-zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT);
+static _i
+zconvert_ip_bin_to_str(_ui *zpIpNumeric/* _ui[4] */, zIpType__ zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
 
 struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,
@@ -38,8 +38,8 @@ struct zNetUtils__ zNetUtils_ = {
     .sendto = zsendto,
     .sendmsg = zsendmsg,
     .recv_all = zrecv_all,
-    .to_bin = zconvert_ip_str_to_bin,
-    .to_str = zconvert_ip_bin_to_str
+    .to_numaddr = zconvert_ip_str_to_bin,
+    .to_straddr = zconvert_ip_bin_to_str
 };
 
 /* Generate a socket fd used by server to do 'accept' */
@@ -195,36 +195,75 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_)
 // }
 
 /*
- * 将文本格式的ip地址转换成二进制无符号整型(按网络字节序，即大端字节序)，以及反向转换
+ * 将文本格式的ip地址转换成二进制无符号整型数组(按网络字节序，即大端字节序)，以及反向转换
+ * inet_pton: 返回 1 表示成功，返回 0 表示指定的地址无效，返回 -1 表示指定的ip类型错误
  */
-static _ui
-zconvert_ip_str_to_bin(const char *zpStrAddr) {
-    struct in_addr zIpAddr_;
-    zCheck_Negative_Exit( inet_pton(AF_INET, zpStrAddr, &zIpAddr_) );
-    return zIpAddr_.s_addr;
+static _i
+zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ui *zpResOUT/* _ui[4] */) {
+    _i zErrNo = -1;
+
+    if (zIpTypeV6 == zIpType) {
+        struct in6_addr zIp6Addr_ = {{{0}}};
+        _ui *zp = (_ui *) (zIp6Addr_.__in6_u.__u6_addr8);
+
+        if (1 == inet_pton(AF_INET6, zpStrAddr, &zIp6Addr_)) {
+            zpResOUT[0] = * (zp + 3);
+            zpResOUT[1] = * (zp + 2);
+            zpResOUT[2] = * (zp + 1);
+            zpResOUT[3] = * (zp + 0);
+
+            zErrNo = 0;
+        }
+    } else {
+        struct in_addr zIpAddr_ = {0};
+
+        if (1 == inet_pton(AF_INET, zpStrAddr, &zIpAddr_)) {
+            zpResOUT[0] = zIpAddr_.s_addr;
+            zpResOUT[1] = 0;
+            zpResOUT[2] = 0;
+            zpResOUT[3] = 0;
+
+            zErrNo = 0;
+        }
+    }
+
+    return zErrNo;
 }
 
-static void
-zconvert_ip_bin_to_str(_ui zIpBinAddr, char *zpBufOUT) {
-    struct in_addr zIpAddr_;
-    zIpAddr_.s_addr = zIpBinAddr;
-    inet_ntop(AF_INET, &zIpAddr_, zpBufOUT, INET_ADDRSTRLEN);
-}
+static _i
+zconvert_ip_bin_to_str(_ui *zpIpNumeric/* _ui[4] */, zIpType__ zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */) {
+    _i zErrNo = -1;
 
-// /*
-//  * zget_one_line() 函数取出的行内容是包括 '\n' 的，此函数不会取到换行符
-//  */
-// static _ui
-// zconvert_ip_str_to_bin_1(char *zpStrAddr) {
-//     char zBuf[INET_ADDRSTRLEN];
-//     _uc zRes[4];
-//     _i zOffSet = 0, zLen;
-//
-//     if ((zLen = strlen(zpStrAddr)) > INET_ADDRSTRLEN) { return -1; }
-//
-//     for (_i i = 0; i < 4 && ((1 + zLen) >= zget_str_field(zBuf, zpStrAddr, zLen, '.', &zOffSet)); i++) {
-//         zRes[i] = (char)strtol(zBuf, NULL, 10);
-//     }
-//
-//     return *((_ui *)zRes);
-// }
+    if (zIpType == zIpTypeV6) {
+        struct in6_addr zIpAddr_ = {{{0}}};
+        _uc *zp = (_uc *) zpIpNumeric;
+
+        zIpAddr_.__in6_u.__u6_addr8[0] = * (zp + 12);
+        zIpAddr_.__in6_u.__u6_addr8[1] = * (zp + 13);
+        zIpAddr_.__in6_u.__u6_addr8[2] = * (zp + 14);
+        zIpAddr_.__in6_u.__u6_addr8[3] = * (zp + 15);
+
+        zIpAddr_.__in6_u.__u6_addr8[4] = * (zp + 8);
+        zIpAddr_.__in6_u.__u6_addr8[5] = * (zp + 9);
+        zIpAddr_.__in6_u.__u6_addr8[6] = * (zp + 10);
+        zIpAddr_.__in6_u.__u6_addr8[7] = * (zp + 11);
+
+        zIpAddr_.__in6_u.__u6_addr8[8] = * (zp + 4);
+        zIpAddr_.__in6_u.__u6_addr8[9] = * (zp + 5);
+        zIpAddr_.__in6_u.__u6_addr8[10] = * (zp + 6);
+        zIpAddr_.__in6_u.__u6_addr8[11] = * (zp + 7);
+
+        zIpAddr_.__in6_u.__u6_addr8[12] = * (zp + 0);
+        zIpAddr_.__in6_u.__u6_addr8[13] = * (zp + 1);
+        zIpAddr_.__in6_u.__u6_addr8[14] = * (zp + 2);
+        zIpAddr_.__in6_u.__u6_addr8[15] = * (zp + 3);
+
+        if (NULL != inet_ntop(AF_INET, &zIpAddr_, zpResOUT, INET6_ADDRSTRLEN)) { zErrNo = 0; }
+    } else {
+        struct in_addr zIpAddr_ = {0};
+        zIpAddr_.s_addr = zpIpNumeric[0];
+        if (NULL != inet_ntop(AF_INET, &zIpAddr_, zpResOUT, INET_ADDRSTRLEN)) { zErrNo = 0; }
+    }
+
+    return zErrNo;
+}

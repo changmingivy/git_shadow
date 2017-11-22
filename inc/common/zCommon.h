@@ -5,6 +5,11 @@
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
 typedef enum {
+    zIpTypeV4 = 4,
+    zIpTypeV6 = 6
+} zIpType__;
+
+typedef enum {
     zFalse = 0,
     zTrue = 1,
 } zBool__;
