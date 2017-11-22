@@ -198,7 +198,7 @@ extern zNetSrv__ zNetSrv_;
 /* 全局 META HASH */
 extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
 
-typedef struct __zMeta__ {
+typedef struct __zCacheMeta__ {
     _i opsId;  // 网络交互时，代表操作指令（从0开始的连续排列的非负整数）
     _i repoId;  // 项目代号（从0开始的连续排列的非负整数）
     _i commitId;  // 版本号（对应于svn或git的单次提交标识）
@@ -210,13 +210,13 @@ typedef struct __zMeta__ {
     char *p_extraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
 
     /* 以下为 Tree 专属数据 */
-    struct __zMeta__ *p_father;  // Tree 父节点
-    struct __zMeta__ *p_left;  // Tree 左节点
-    struct __zMeta__ *p_firstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
-    struct __zMeta__ **pp_resHash;  // Tree 按行号对应的散列
+    struct __zCacheMeta__ *p_father;  // Tree 父节点
+    struct __zCacheMeta__ *p_left;  // Tree 左节点
+    struct __zCacheMeta__ *p_firstChild;  // Tree 首子节点：父节点唯一直接相连的子节点
+    struct __zCacheMeta__ **pp_resHash;  // Tree 按行号对应的散列
     _i lineNum;  // 行号
     _i offSet;  // 纵向偏移
-} zMeta__;
+} zCacheMeta__;
 
 struct zDpOps__ {
     _i (* show_meta) (cJSON *, _i);
