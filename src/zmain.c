@@ -16,9 +16,6 @@
 #include "zCommon.h"
 #include "zRun.h"
 
-#define UDP 0
-#define TCP 1
-
 extern struct zRun__ zRun_;
 
 zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
@@ -26,13 +23,13 @@ zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
 _i
 main(_i zArgc, char **zppArgv) {
     zPgLogin__ zPgLogin_ = { NULL, NULL, NULL, NULL, NULL, NULL };
-    zNetSrv_.servType = TCP;
+    zNetSrv_.protoType = zProtoTcp;
     _i zOpt = 0;
 
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'u':
-                zNetSrv_.servType = UDP; break;
+                zNetSrv_.protoType = zProtoUdp; break;
             case 'h':
                 zNetSrv_.p_ipAddr = optarg; break;
             case 'p':

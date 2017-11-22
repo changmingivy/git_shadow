@@ -189,7 +189,7 @@ extern char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所
 typedef struct {
     char *p_ipAddr;  // 字符串形式的ip点分格式地式
     char *p_port;  // 字符串形式的端口，如："80"
-    _i servType;  // 网络服务类型：TCP/UDP
+    zProtoType__ protoType;  // 网络服务类型：TCP/UDP
 } zNetSrv__;
 
 extern zNetSrv__ zNetSrv_;
