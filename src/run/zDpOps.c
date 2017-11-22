@@ -1223,9 +1223,9 @@ zEndMark:
             zRepoId,
             zpGlobRepo_[zRepoId]->dpBaseTimeStamp
             );
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[1], zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zRepoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[1], zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "!!! FATAL !!!");
