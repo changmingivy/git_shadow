@@ -273,7 +273,7 @@ zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zIpType__ zIpType, char *
         zIpAddr_.__in6_u.__u6_addr8[14] = * (zp + 6);
         zIpAddr_.__in6_u.__u6_addr8[15] = * (zp + 7);
 
-        if (NULL != inet_ntop(AF_INET, &zIpAddr_, zpResOUT, INET6_ADDRSTRLEN)) {
+        if (NULL != inet_ntop(AF_INET6, &zIpAddr_, zpResOUT, INET6_ADDRSTRLEN)) {
             zErrNo = 0;  /* 转换成功 */
         }
     } else {
