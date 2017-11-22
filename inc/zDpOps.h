@@ -144,7 +144,8 @@ typedef struct {
     _c resType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
 
     char lastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
-    char dpingSig[44];  // 正在布署过程中的版本号，用于布署耗时分析
+    char dpingSig[44];  // 正在布署过程中的版本号
+    char tryingSig[44];  // 正在布署过程中的版本号
 
     pthread_mutex_t replyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
@@ -206,9 +207,7 @@ typedef struct __zMeta__ {
     _l cacheId;  // 缓存版本代号（最新一次布署的时间戳）
     _i dataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
     char *p_data;  // 数据正文，发数据时可以是版本代号、文件路径等(此时指向zRefData__的p_data)等，收数据时可以是接IP地址列表(此时额外分配内存空间)等
-    _i dataLen;  // 不能使和 _ui 类型，recv 返回 -1 时将会导致错误
     char *p_extraData;  // 附加数据，如：字符串形式的UNIX时间戳、IP总数量等
-    _i extraDataLen;
 
     /* 以下为 Tree 专属数据 */
     struct __zMeta__ *p_father;  // Tree 父节点
