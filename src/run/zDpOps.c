@@ -145,8 +145,8 @@ struct zDpOps__ zDpOps_ = {
 
 /* 简化参数版函数 */
 static _i
-zssh_exec_simple(char *zpHostIpAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
-    return zLibSsh_.exec(zpHostIpAddr, zpGlobSSHPort, zpCmd, "git", zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL, 1, NULL, 0, zpCcurLock, zpErrBufOUT);
+zssh_exec_simple(char *zpHostAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
+    return zLibSsh_.exec(zpHostAddr, zpGlobSSHPort, zpCmd, "git", zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL, 1, NULL, 0, zpCcurLock, zpErrBufOUT);
 }
 
 
@@ -1247,7 +1247,7 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zRepoId = zpJ->valueint;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostIpAddr");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostAddr");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zDpSelf_.p_hostIpStrAddr  = zpJ->valuestring;
 
@@ -1308,12 +1308,12 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zCommitId = zpJ->valueint;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostIpList");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "IpList");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zpIpList = zpJ->valuestring;
     zIpListStrLen = strlen(zpIpList);
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostIpCnt");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "IpCnt");
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zIpCnt = zpJ->valueint;
 
