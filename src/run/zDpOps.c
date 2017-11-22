@@ -115,7 +115,7 @@ struct zDpOps__ zDpOps_ = {
 } while(0)
 
 
-#define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1] && (zVec0)[2] == (zVec1)[2] && (zVec0)[3] == (zVec1)[3])
+#define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
 
 #define zConvert_IpStr_To_Num(zpIpStr, zpNumVec) do {\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
@@ -174,7 +174,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     char zErrBuf[256] = {'\0'};
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
-    _ui zHostId[4] = {0};
+    _ull zHostId[2] = {0};
     zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId);
 
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
@@ -202,7 +202,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 
 
 #define zNative_Fail_Confirm() do {\
-    _ui ____zHostId[4] = {0};\
+    _ull ____zHostId[2] = {0};\
     zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId);\
     zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
     for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
@@ -811,7 +811,10 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
 
     for (_ui zCnter = 0; zCnter < zRegRes_->cnt; zCnter++) {
         /* 检测是否存在重复IP */
-        if (0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) { return -19; }
+        if (0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]
+                || 0 != zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1]) {
+            return -19;
+        }
 
         /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
@@ -822,25 +825,25 @@ zupdate_ip_db_all(zMeta__ *zpMeta_, char *zpCommonBuf, zRegRes__ **zppRegRes_Out
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_ccurCond = &zpGlobRepo_[zpMeta_->repoId]->dpSyncCond;
         zpGlobRepo_[zpMeta_->repoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zpMeta_->repoId]->dpTaskFinCnt;
 
-        /* 线性链表斌值；转换字符串点分格式 IPv4 为 _ui 型 */
-        zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = zNetUtils_.to_numaddr(zRegRes_->p_rets[zCnter]);
+        /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
+		zConvert_IpStr_To_Num(zRegRes_->p_rets[zCnter], zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr);
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 0;
         zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].p_next = NULL;
 
         /* 更新HASH */
-        zpTmpDpRes_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) % zDpHashSiz];
+        zpTmpDpRes_ = zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz];
         if (NULL == zpTmpDpRes_) {  /* 若顶层为空，直接指向数组中对应的位置 */
-            zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) % zDpHashSiz]
+            zpGlobRepo_[zpMeta_->repoId]->p_dpResHash_[(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0]) % zDpHashSiz]
                 = &(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter]);
         } else {
             while (NULL != zpTmpDpRes_->p_next) { zpTmpDpRes_ = zpTmpDpRes_->p_next; }
             zpTmpDpRes_->p_next = &(zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter]);
         }
 
-        zpTmpDpRes_ = zpOldDpResHash_[zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr % zDpHashSiz];
+        zpTmpDpRes_ = zpOldDpResHash_[zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] % zDpHashSiz];
         while (NULL != zpTmpDpRes_) {
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
-            if (zpTmpDpRes_->clientAddr == zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr) {
+            if (zIpVecCmp(zpTmpDpRes_->clientAddr, zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr)) {
                 /* 先前已被初始化过的主机，状态置 1，防止后续收集结果时误报失败 */
                 zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].initState = 1;
                 /* 从总任务数中去除已经初始化的主机数 */
@@ -881,7 +884,8 @@ zExistMark:;
                 zFailedHostCnt++;
 
                 /* 未返回成功状态的主机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = 0;
+                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
             }
         }
 
@@ -1126,7 +1130,8 @@ zErrMark:
 
                 /* 未返回成功状态的主机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
                 zFailedHostCnt++;
-                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr = 0;
+                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+                zpGlobRepo_[zpMeta_->repoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
             }
         }
 
@@ -1504,7 +1509,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = NULL;
     _i zErrNo = 0,
        zRepoId = 0;
-    _ui zHostId = 0;
+    _ull zHostId[2] = {0};
     time_t zTimeSpent = 0,
            zTimeStamp = 0;
 
@@ -1545,11 +1550,11 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpReplyType = zpJ->valuestring;
 
     /* 正文... */
-    zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId % zDpHashSiz];
+    zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
     zNetUtils_.to_straddr(zHostId, zIpStrAddr);
 
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
-        if (zpTmp_->clientAddr == zHostId) {
+        if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
             pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
 
             zpTmp_->errMsg[0] = '\0';

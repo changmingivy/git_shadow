@@ -22,8 +22,8 @@ struct zNetUtils__ {
     _i (* sendmsg) (_i, struct iovec *, size_t, _i, struct sockaddr *, zIpType__);
     _i (* recv_all) (_i, void *, size_t, _i, struct sockaddr *);
 
-    _i (* to_numaddr) (const char *, zIpType__, _ui *);
-    _i (* to_straddr) (_ui *, zIpType__, char *);
+    _i (* to_numaddr) (const char *, zIpType__, _ull *);
+    _i (* to_straddr) (_ull *, zIpType__, char *);
 };
 
 #endif  // #ifndef ZNETUTILS_H

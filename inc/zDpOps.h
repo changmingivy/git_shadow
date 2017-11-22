@@ -79,7 +79,7 @@ typedef struct __zDpCcur__ {
 } zDpCcur__;
 
 typedef struct __zDpRes__ {
-    _ui clientAddr[4];  // 无符号整型数据，IPv4 地址只使用第一个成员，IPv6 使用部4个成员
+    _ull clientAddr[2];  // unsigned long long int 型数据，IPv4 地址只使用第一个成员
     _i dpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
     _i initState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
     char errMsg[256];  // 存放目标主机返回的错误信息
