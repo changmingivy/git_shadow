@@ -771,7 +771,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 
 
 static _i
-zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt, char *zpCommonBuf, zRegRes__ **zppRegRes_Out) {
+zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt, char *zpCommonBuf, _i zBufLen, zRegRes__ **zppRegRes_Out) {
     _i zErrNo = 0;
     zDpRes__ *zpTmpDpRes_ = NULL,
              *zpOldDpResList_ = NULL,
@@ -900,8 +900,7 @@ zExistMark:;
             || (zpGlobRepo_[zRepoId]->dpTaskFinCnt < zpGlobRepo_[zRepoId]->dpTotalTask)) {
         char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _ui zFailedHostCnt = 0;
-        _i zOffSet = sprintf(zIpList, "无法连接的主机:"),
-           zBufLen = strlen(zIpList);
+        _i zOffSet = sprintf(zpCommonBuf, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < zBufLen) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState) {
                 zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
@@ -909,7 +908,7 @@ zExistMark:;
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                     zErrNo = 0;
                 } else {
-                    zOffSet += sprintf(zIpList + zOffSet, "([%s]%s)",
+                    zOffSet += snprintf(zpCommonBuf+ zOffSet, zBufLen - zOffSet, "([%s]%s)",
                             zIpStrAddrBuf,
                             '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg
                             );
@@ -936,7 +935,7 @@ zExistMark:;
  * 12：布署／撤销
  */
 static _i
-zdeploy(_i zSd, _i zRepoId, _i zCacheId, _i zCommitId, _i zDataType, char *zpIpList, _i zIpCnt, char **zppCommonBuf, zRegRes__ **zppIpAddrRegRes_OUT) {
+zdeploy(_i zSd, _i zRepoId, _i zCacheId, _i zCommitId, _i zDataType, char *zpIpList, _i zIpCnt, char **zppCommonBuf, _i zBufLen, zRegRes__ **zppIpAddrRegRes_OUT) {
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
 
@@ -1011,7 +1010,7 @@ zdeploy(_i zSd, _i zRepoId, _i zCacheId, _i zCommitId, _i zDataType, char *zpIpL
     }
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
-    if (0 > (zErrNo = zupdate_ip_db_all(zRepoId, zpIpList, zIpCnt, zppCommonBuf[0], zppIpAddrRegRes_OUT))) {
+    if (0 > (zErrNo = zupdate_ip_db_all(zRepoId, zpIpList, zIpCnt, zppCommonBuf[0], zBufLen, zppIpAddrRegRes_OUT))) {
         goto zEndMark;
     }
     zRemoteHostInitTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
@@ -1150,8 +1149,7 @@ zErrMark:
 
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
         char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-        _i zOffSet = 0,
-           zBufLen = strlen(zpIpList);
+        _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < zBufLen) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
                 zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
@@ -1159,7 +1157,7 @@ zErrMark:
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                     zErrNo = 0;
                 } else {
-                    zOffSet += sprintf(zpIpList + zOffSet, "([%s]%s)",
+                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zOffSet, "([%s]%s)",
                             zIpStrAddrBuf,
                             '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg
                             );
@@ -1335,7 +1333,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_lock( &(zpGlobRepo_[zRepoId]->dpRetryLock) );
 
     /* 执行布署 */
-    zErrNo = zdeploy(zSd, zRepoId, zCacheId, zCommitId, zDataType, zpIpList, zIpCnt, zppCommonBuf, &zpIpAddrRegRes_);
+    zErrNo = zdeploy(zSd, zRepoId, zCacheId, zCommitId, zDataType, zpIpList, zIpCnt, zppCommonBuf, zCommonBufLen, &zpIpAddrRegRes_);
 
     zpGlobRepo_[zRepoId]->whoGetWrLock = 0;
     pthread_rwlock_unlock( &(zpGlobRepo_[zRepoId]->rwLock) );
@@ -1568,7 +1566,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsNumber(zpJ)) { return -1; }
     zTimeStamp = (time_t)zpJ->valuedouble;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostId");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "IpAddr");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zConvert_IpStr_To_Num(zpJ->valuestring, zHostId, zErrNo);
     if (0 != zErrNo) { return -18; }
