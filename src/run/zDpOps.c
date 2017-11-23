@@ -824,7 +824,6 @@ zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt, char *zpCommonBuf, _i z
     //zpGlobRepo_[zRepoId]->dpReplyCnt = 0;
     zpGlobRepo_[zRepoId]->dpTaskFinCnt = 0;
     zpGlobRepo_[zRepoId]->resType[0] = 0;
-    zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
     memset(zpGlobRepo_[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));  /* Clear hash buf before reuse it!!! */
     for (_ui zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
         zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
