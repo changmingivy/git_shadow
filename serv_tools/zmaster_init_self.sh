@@ -91,13 +91,6 @@ cd ${zShadowPath}/src &&
     make clean
 # strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
-# 编译 notice 程序，用于通知主程序有新的提交记录诞生
-clang -Wall -Wextra -std=c99 -O2 \
-    -I${zShadowPath}/inc/common \
-    -o ${zShadowPath}/tools/notice \
-    ${zShadowPath}/src/zExtraUtils/znotice.c
-strip ${zShadowPath}/tools/notice
-
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
