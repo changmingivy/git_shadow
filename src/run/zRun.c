@@ -255,11 +255,11 @@ zops_route(void *zpParam) {
        zDataBufSiz = zGlobCommonBufSiz;
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zGlobCommonBufSiz == (zDataLen = recv(zSd, zpDataBuf, zGlobCommonBufSiz, 0))) {
+    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
         zDataBufSiz *= 1024;
         zMem_C_Alloc(zpDataBuf, char, zDataBufSiz);  // 用清零的空间，保障正则匹配不出现混乱
         strcpy(zpDataBuf, zDataBuf);
-        zDataLen += recv(zSd, zpDataBuf + zDataLen, zGlobCommonBufSiz * 1024 - zDataLen, 0);
+        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
 
     /* 最短的json字符串：{"a":}，6 字节 */
