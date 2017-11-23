@@ -30,6 +30,10 @@ export HOME="/home/git"
     # 清理同一项目下可能存在的 post-update 进程
     kill -9 `cat /home/git/.${zProjId}_pid_post-update`
 
+    # 清除可能存在的由于 git 崩溃残留的锁文件
+    rm -f ${zPathOnHost}/.git/index.lock
+    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+
     # 运行期间将自身 Pid 存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
     echo "$$" > /home/git/.${zProjId}_pid_post-update
 
@@ -106,10 +110,6 @@ export HOME="/home/git"
         exit 255
     fi
     rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
-
-    # 清除可能存在的由于 git 崩溃残留的锁文件
-    rm -f ${zPathOnHost}/.git/index.lock
-    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     zTcpReply "${zServSig}" "${zTimeStamp}" "C" "" &  # KeepAlive
     git reset -q --hard ${zServBranchName}
