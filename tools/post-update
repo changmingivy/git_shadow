@@ -96,8 +96,6 @@ export HOME="/home/git"
     export GIT_DIR="${zPathOnHost}/.git"
     git checkout master
 
-    zServSig=`git log ${zServBranchName} -1 --format=%H`
-
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
     chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW

@@ -1400,8 +1400,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 return 0;
             }
 
-            /* 重置时间戳，并生成 SSH 指令 */
-            zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
+            /* 生成 SSH 指令 */
             zConfig_Dp_Host_Ssh_Cmd(zppCommonBuf[0]);
 
             /* 预置值，对失败的目标机重新初始化 */
@@ -1457,7 +1456,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             /* 预置值，对失败的目标机重新布署，任务总量与初始化目标机一致，此处无须再计算 */
             zpGlobRepo_[zRepoId]->dpTaskFinCnt = 0;
-            zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
 
             /* 在执行动作之前再检查一次布署结果，防止重新初始化的时间里已全部返回成功状态，从而造成无用的布署重试 */
             if (zpGlobRepo_[zRepoId]->totalHost == zpGlobRepo_[zRepoId]->dpReplyCnt) {
