@@ -4,6 +4,9 @@
 # 通知中控机已收到代码
 #
 
+# [ DEBUG ]
+printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
@@ -45,8 +48,6 @@ export HOME="/home/git"
         exec 777<&-
     }
 
-    printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
-
     ########################################
     # 进入项目代码库，获取最新接收的版本号 #
     ########################################
@@ -71,6 +72,7 @@ export HOME="/home/git"
         git stash
         git stash clear
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
@@ -79,6 +81,7 @@ export HOME="/home/git"
     fi
 
     git reset --hard 2>${zPathOnHost}_SHADOW/errlog
+    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
         zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
@@ -103,6 +106,7 @@ export HOME="/home/git"
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
     chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
+    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
         zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
@@ -118,6 +122,7 @@ export HOME="/home/git"
         git stash
         git stash clear
         git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
