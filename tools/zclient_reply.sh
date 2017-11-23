@@ -8,7 +8,8 @@ zHostAddr=$6
 zTimeStamp=$7
 
 # 首先使用 notice 工具回复，之后使用 BASH 回复
-./tools/notice "$zMasterAddr" "$zMasterPort" "8" "${zProjId}" "${zHostAddr}" "${zMasterSig}" "${zTimeStamp}" "${zReplyType}"
+# 暂停使用，将使用 rust 重写。。。
+# ./tools/notice "$zMasterAddr" "$zMasterPort" "8" "${zProjId}" "${zHostAddr}" "${zMasterSig}" "${zTimeStamp}" "${zReplyType}"
 
 # 关闭套接字读写端，防止先前已打开相同描述符
 exec 776>&-
