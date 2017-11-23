@@ -322,8 +322,8 @@ zget_file_list_large(zCacheMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpS
         zBaseDataLen = strlen(zpCommonBuf);
         zpTmpBaseData_[0] = zalloc_cache(zpMeta_->repoId, sizeof(zBaseData__) + zBaseDataLen);
         if (0 == zCnter) {
-			zpTmpBaseData_[2] = zpTmpBaseData_[1] = zpTmpBaseData_[0];
-		}
+            zpTmpBaseData_[2] = zpTmpBaseData_[1] = zpTmpBaseData_[0];
+        }
         zpTmpBaseData_[0]->dataLen = zBaseDataLen;
         memcpy(zpTmpBaseData_[0]->p_data, zpCommonBuf, zBaseDataLen);
         zpTmpBaseData_[0]->p_data[zBaseDataLen - 1] = '\0';
@@ -698,8 +698,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zPosixReg_.free_meta(&zRegInit_);
 
     if (0 == zRegRes_.cnt) {
-		/* Handle ERROR ? */
-	}
+        /* Handle ERROR ? */
+    }
 
     /* 去掉 basename 部分，之后拼接出最终的字符串 */
     zpOrigPath = zpRepoMeta_->pp_fields[1];
@@ -766,8 +766,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
              * 否则此 socket 无法释放
              */
             if (0 < zSdToClose) {
-				close(zSdToClose);
-			}
+                close(zSdToClose);
+            }
 
             /* keep sourceUrl */
             char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
@@ -1012,8 +1012,8 @@ zsys_load_monitor(void *zpParam __attribute__ ((__unused__))) {
          * 工作线程等待在 80% 的水平线上，此处降到 70% 才通知
          */
         if (70 > zGlobMemLoad) {
-			pthread_cond_signal(&zGlobCommonCond);
-		}
+            pthread_cond_signal(&zGlobCommonCond);
+        }
 
         zNativeUtils_.sleep(0.1);
     }
@@ -1053,8 +1053,8 @@ zLoop:
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[i]->p_gitRepoHandler, zCommonBuf, 0);
 
             if (NULL == zpRevWalker) {
-				continue;
-			} else {
+                continue;
+            } else {
                 zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zpGlobRepo_[i]->p_gitRepoHandler, zpRevWalker);
                 zLibGit_.destroy_revwalker(zpRevWalker);
             }
@@ -1104,8 +1104,8 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
            zId = 0;
         for (_i zRepoId = 0; zRepoId <= zGlobMaxRepoId; zRepoId++) {
             if (NULL == zpGlobRepo_[zRepoId] || 'N' == zpGlobRepo_[zRepoId]->initFinished) {
-				continue;
-			}
+                continue;
+            }
 
             for (zId = 0; zId < 10; zId ++) {
                 sprintf(zCmdBuf,

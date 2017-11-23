@@ -184,11 +184,11 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
 
     /* 提取 $USER 及 $HOME 等 */
     if (NULL == (zpGlobLoginName = getlogin())) {
-		zpGlobLoginName = "git";
-	}
+        zpGlobLoginName = "git";
+    }
     if (NULL == (zpGlobHomePath = getenv("HOME"))) {
-		zpGlobHomePath = "/home/git";
-	}
+        zpGlobHomePath = "/home/git";
+    }
     zGlobHomePathLen = strlen(zpGlobHomePath);
 
     zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));
@@ -276,10 +276,10 @@ zops_route(void *zpParam) {
 
         /* 检验 value[OpsId] 合法性 */
         if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
-			zErrNo = -1;
-		} else {
-			zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);
-		}
+            zErrNo = -1;
+        } else {
+            zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);
+        }
     } else {
         zErrNo = -1;
     }
@@ -301,7 +301,7 @@ zops_route(void *zpParam) {
 zMarkEnd:
     close(zSd);
     if (zpDataBuf != &(zDataBuf[0])) {
-		free(zpDataBuf);
-	}
+        free(zpDataBuf);
+    }
     return NULL;
 }

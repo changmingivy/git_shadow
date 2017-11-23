@@ -62,7 +62,7 @@ main(_i zArgc, char **zppArgv) {
                         "[-F postgreSQL_passfile]  /* PQdb pass file, default '$HOME/.pgpass' */\n"
                         "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'dpDB' */\n",
                         optopt,
-						zppArgv[0]);
+                        zppArgv[0]);
                 exit(1);
            }
     }

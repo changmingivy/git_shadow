@@ -1014,8 +1014,8 @@ zExistMark:;
 
     /* 释放资源 */
     if (NULL != zpOldDpResList_) {
-		free(zpOldDpResList_);
-	}
+        free(zpOldDpResList_);
+    }
 
     /* 等待所有 SSH 任务完成 */
     pthread_mutex_lock(&zpGlobRepo_[zRepoId]->dpSyncLock);
@@ -1244,8 +1244,8 @@ zdeploy(_i zSd,
 
     /* 最长 10 分钟 */
     if (600 < zpGlobRepo_[zRepoId]->dpTimeWaitLimit) {
-		zpGlobRepo_[zRepoId]->dpTimeWaitLimit = 600;
-	}
+        zpGlobRepo_[zRepoId]->dpTimeWaitLimit = 600;
+    }
 
     /* DEBUG */
     fprintf(stderr, "\n\033[31;01m[ DEBUG ] 布署时间测算结果：%zd 秒\033[00m\n\n", zpGlobRepo_[zRepoId]->dpTimeWaitLimit);
@@ -1289,8 +1289,8 @@ zdeploy(_i zSd,
 
     /* 若收到错误，则可确认此次布署一定会失败，进入错误处理环节 */
     if (-1 == zpGlobRepo_[zRepoId]->resType[1]) {
-		goto zErrMark;
-	}
+        goto zErrMark;
+    }
 
     if (zpGlobRepo_[zRepoId]->totalHost == zpGlobRepo_[zRepoId]->dpReplyCnt) {
         zErrNo = 0;
@@ -1364,8 +1364,8 @@ zErrMark:
 
         /* 若已确认全部成功，重置内存池状态 */
         if (0 == zErrNo) {
-			zReset_Mem_Pool_State(zRepoId);
-		}
+            zReset_Mem_Pool_State(zRepoId);
+        }
 
         /* 如下部分：更新全局缓存 */
         zpGlobRepo_[zRepoId]->cacheId = time(NULL);

@@ -74,10 +74,10 @@ zgit_cred_acquire_cb(git_cred **zppResOUT, const char *zpUrl __attribute__ ((__u
 
     if (0 != git_cred_ssh_key_new(zppResOUT, "git", zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL)) {
         if (NULL == giterr_last()) {
-			fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n");
-		} else {
-			fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message);
-		}
+            fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n");
+        } else {
+            fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message);
+        }
         exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序
     }
 
@@ -240,10 +240,10 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
 
     /* zSortType 显示順序：[0] git 默认排序，新记录在上、[1]逆序，旧记录在上 */
     if (0 == zSortType) {
-		zSortType = GIT_SORT_TIME;
-	} else {
-		zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE;
-	}
+        zSortType = GIT_SORT_TIME;
+    } else {
+        zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE;
+    }
 
     git_revwalk_sorting(zpRevWalker, zSortType);
 

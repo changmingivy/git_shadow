@@ -40,8 +40,8 @@ zpcre_init(zPcreInit__ *zpPcreInit_Out, const char *zpPcrePattern) {
 
     zpPcreInit_Out->p_pd = pcre2_compile((PCRE2_SPTR)zpPcrePattern, PCRE2_ZERO_TERMINATED, 0, &zErrNo, &zErrOffset, NULL);
     if (NULL == zpPcreInit_Out->p_pd) {
-		zpcre_get_err(zErrNo);
-	}
+        zpcre_get_err(zErrNo);
+    }
 
     zpPcreInit_Out->p_matchData = pcre2_match_data_create_from_pattern(zpPcreInit_Out->p_pd, NULL);
 }
@@ -63,24 +63,24 @@ zpcre_match(zPcreRes__ *zpPcreRes_Out, const zPcreInit__ *zpPcreInit_, const cha
     size_t zOffSet = 0;
     zpPcreRes_Out->cnt = 0;
     if (zMatchMax < zMatchLimit) {
-		zMatchLimit = zMatchMax;
-	}
+        zMatchLimit = zMatchMax;
+    }
     while (zpPcreRes_Out->cnt < zMatchLimit) {
         //zErrNo == 0 means space is not enough, you need check it
         //when use pcre2_match_data_create instead of the one whih suffix '_pattern'
         if (0 > (zErrNo = pcre2_match(zpPcreInit_->p_pd, zpSubject, zDynSubjectLen, 0, 0, zpPcreInit_->p_matchData, NULL))) {
             if (zErrNo == PCRE2_ERROR_NOMATCH) {
-				break;
-			} else {
-				zpcre_get_err(zErrNo);
-				exit(1);
-			}
+                break;
+            } else {
+                zpcre_get_err(zErrNo);
+                exit(1);
+            }
         }
 
         zpResVector = pcre2_get_ovector_pointer(zpPcreInit_->p_matchData);
         //if (zpResVector[0] >= zpResVector[1]) {
-		//    break;
-		//}
+        //    break;
+        //}
 
         zpPcreRes_Out->resLen[zpPcreRes_Out->cnt] = zpResVector[1] - zpResVector[0];
 

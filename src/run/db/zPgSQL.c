@@ -172,8 +172,8 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     zPgRes__ *zpPgRes_ = NULL;
 
     if (0 == (zTupleCnt = PQntuples(zpPgResHd_))) {
-		return NULL;
-	}
+        return NULL;
+    }
     zFieldCnt = PQnfields(zpPgResHd_);
 
     zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
@@ -212,12 +212,12 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
 static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
     if (NULL != zpPgResHd_) {
-		PQclear(zpPgResHd_);
-	};
+        PQclear(zpPgResHd_);
+    };
 
     if (NULL != zpPgRes_) {
-		free(zpPgRes_);
-	}
+        free(zpPgRes_);
+    }
 }
 
 

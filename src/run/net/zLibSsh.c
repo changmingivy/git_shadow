@@ -39,12 +39,12 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
     zDirection = libssh2_session_block_directions(zSession);
 
     if(zDirection & LIBSSH2_SESSION_BLOCK_INBOUND) {
-		zReadFd = &zFd;
-	}
+        zReadFd = &zFd;
+    }
 
     if(zDirection & LIBSSH2_SESSION_BLOCK_OUTBOUND) {
-		zWriteFd = &zFd;
-	}
+        zWriteFd = &zFd;
+    }
 
     return select(zSd + 1, zReadFd, zWriteFd, NULL, &zTimeOut);
 }
@@ -112,8 +112,8 @@ zssh_exec(
     zBaseTimeStamp = time(NULL);
     while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd))) {
         if (10 < (time(NULL) - zBaseTimeStamp)) {
-			goto z0;
-		}
+            goto z0;
+        }
     }
 
     if (0 != zRet) {
@@ -133,14 +133,14 @@ z0: libssh2_session_free(zSession);
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd))) {
             if (10 < (time(NULL) - zBaseTimeStamp)) {
-				goto z1;
-			}
+                goto z1;
+            }
         }
     } else {  /* public key */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd))) {
             if (10 < (time(NULL) - zBaseTimeStamp)) {
-				goto z1;
-			}
+                goto z1;
+            }
         }
     }
 
@@ -161,8 +161,8 @@ z1: libssh2_session_free(zSession);
     zBaseTimeStamp = time(NULL);
     while(NULL == (zChannel= libssh2_channel_open_session(zSession))) {  // 会带来段错误：&& (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))
         if (10 < (time(NULL) - zBaseTimeStamp)) {
-			goto z2;
-		}
+            goto z2;
+        }
         zwait_socket(zSd, zSession);
     }
 
@@ -187,8 +187,8 @@ z2: libssh2_session_disconnect(zSession, "");
     zBaseTimeStamp = time(NULL);
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
         if (10 < (time(NULL) - zBaseTimeStamp)) {
-			goto z3;
-		}
+            goto z3;
+        }
         zwait_socket(zSd, zSession);
     }
 
@@ -248,8 +248,8 @@ z3: libssh2_session_disconnect(zSession, "");
         libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
     if (NULL != zpExitSingal) {
-		zErrNo = -1;
-	}
+        zErrNo = -1;
+    }
 
     libssh2_channel_free(zChannel);
     zChannel= NULL;

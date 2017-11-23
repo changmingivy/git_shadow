@@ -108,8 +108,8 @@ zclose_fds(pid_t zPid) {
     while (NULL != (zpDir_ = readdir(zpDir))) {
         zFD = strtol(zpDir_->d_name, NULL, 10);
         if (2 != zFD) {
-			close(zFD);
-		}
+            close(zFD);
+        }
     }
     closedir(zpDir);
 }
@@ -130,16 +130,16 @@ zdaemonize(const char *zpWorkDir) {
     zCheck_Negative_Return(zPid,);
 
     if (zPid > 0) {
-		exit(0);
-	}
+        exit(0);
+    }
 
     setsid();
     zPid = fork();
     zCheck_Negative_Return(zPid,);
 
     if (zPid > 0) {
-		exit(0);
-	}
+        exit(0);
+    }
 
     zclose_fds(getpid());
 
@@ -232,8 +232,8 @@ zsleep(_d zSecs) {
 static void *
 zthread_system(void *zpCmd) {
     if (NULL != zpCmd) {
-		system((char *) zpCmd);
-	}
+        system((char *) zpCmd);
+    }
 
     return NULL;
 }
