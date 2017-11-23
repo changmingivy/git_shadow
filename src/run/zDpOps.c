@@ -1539,7 +1539,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zpTmp_->errMsg,\
 \
             zRepoId,\
-            zIpStrAddr,\
+            zpHostAddr,\
             zTimeStamp,\
             zpRevSig\
             );\
@@ -1555,10 +1555,9 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
            zTimeStamp = 0;
 
     char zCmdBuf[zGlobCommonBufSiz] = {'\0'},
-         zIpStrAddr[INET6_ADDRSTRLEN] = {'\0'},
+         * zpHostAddr = NULL,
          * zpRevSig = NULL,
-         * zpReplyType = NULL,
-         * zpContent = "";
+         * zpReplyType = NULL;
 
     /* 提取 value[key] */
     cJSON *zpJ = NULL;
@@ -1585,17 +1584,12 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zpRevSig = zpJ->valuestring;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");  /* 可以为空，不检查结查 */
-
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ReplyType");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
     zpReplyType = zpJ->valuestring;
 
     /* 正文... */
     zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-    zConvert_IpNum_To_Str(zHostId, zIpStrAddr, zErrNo);
-    if (0 != zErrNo) { return -17; }
-
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
             pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
@@ -1648,7 +1642,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                     zpGlobRepo_[zRepoId]->resType[1] = -1;
                     zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
 
-                    snprintf(zpTmp_->errMsg, 256, "%s", zpContent);  // 所有的状态回复前40个字节均是 git SHA1sig
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");  /* 可以为空，不检查结查 */
+                    snprintf(zpTmp_->errMsg, 256, "%s", zpJ->valuestring);
 
                     pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
                     pthread_cond_signal(zpGlobRepo_[zRepoId]->p_dpCcur_->p_ccurCond);
