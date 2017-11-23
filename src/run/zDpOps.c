@@ -1576,7 +1576,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "HostAddr");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) { return -1; }
-    zConvert_IpStr_To_Num(zpJ->valuestring, zHostId, zErrNo);
+    zpHostAddr = zpJ->valuestring;
+    zConvert_IpStr_To_Num(zpHostAddr, zHostId, zErrNo);
     if (0 != zErrNo) { return -18; }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "RevSig");
