@@ -41,7 +41,10 @@ zclient(char *zpParam) {
     //char zStrBuf[] = "{\"OpsId\":11,\"ProjId\":11,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}";
 
     // 布署/撤销
-    char zStrBuf[8192]; sprintf(zStrBuf, "{\"OpsId\":12,\"ProjId\":11,\"RevId\":%s,\"CacheId\":1000000000,\"DataType\":0,\"data\":\"::1 0::1\":\"2\"}", zpParam);
+    char zStrBuf[8192];
+    sprintf(zStrBuf,
+            "{\"OpsId\":12,\"ProjId\":11,\"RevId\":%s,\"CacheId\":1000000000,\"DataType\":0,\"IpList\":\"::1 0::1\",\"IpCnt\":\"2\"}",
+            zpParam);
 
     zsend_nosignal(zSd, zStrBuf, strlen(zStrBuf));
 
