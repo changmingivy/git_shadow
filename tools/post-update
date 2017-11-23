@@ -43,7 +43,21 @@ export HOME="/home/git"
 
     printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
-    # 元数据布署，代码量可控，不必 KeepAlive
+    ########################################
+    # 进入项目代码库，获取最新接收的版本号 #
+    ########################################
+    cd $zPathOnHost
+    if [[ 0 -ne $? ]]; then
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+    fi
+    export GIT_DIR="${zPathOnHost}/.git"
+
+    zServSig=`git log ${zServBranchName} -1 --format=%H`
+
+    ############################################
+    # 进入元数据库: 代码量可控，不必 KeepAlive #
+    ############################################
     cd ${zPathOnHost}_SHADOW
     export GIT_DIR="${zPathOnHost}_SHADOW/.git"
     git checkout master
@@ -71,7 +85,9 @@ export HOME="/home/git"
     zTimeStamp=`cat timestamp`
     if [[ 0 -ne $? ]];then zTimeStamp=-1; fi
 
-    # 进入项目代码库
+    ############################
+    # 进入项目代码库，执行布署 #
+    ############################
     cd $zPathOnHost
     if [[ 0 -ne $? ]]; then
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
