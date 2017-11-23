@@ -61,7 +61,8 @@ main(_i zArgc, char **zppArgv) {
                         "[-U postgreSQL_username]  /* PQdb login name, default 'git' */\n"
                         "[-F postgreSQL_passfile]  /* PQdb pass file, default '$HOME/.pgpass' */\n"
                         "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'dpDB' */\n",
-                        optopt, zppArgv[0]);
+                        optopt,
+						zppArgv[0]);
                 exit(1);
            }
     }

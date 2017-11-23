@@ -112,8 +112,13 @@ zset_blocking(_i zSd) {
 /* Used by client */
 static _i
 ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
-    if (zSockType == 0) { zSockType = SOCK_STREAM; }
-    if (zProto == 0) { zProto = IPPROTO_TCP; }
+    if (zSockType == 0) {
+		zSockType = SOCK_STREAM;
+	}
+
+    if (zProto == 0) {
+		zProto = IPPROTO_TCP;
+	}
 
     _i zSd = socket(zIpFamily, zSockType, zProto);
     zCheck_Negative_Return(zSd, -1);
@@ -182,7 +187,9 @@ zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
 
 static _i
 zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType) {
-    if (NULL == zpVec_) { return -1; }
+    if (NULL == zpVec_) {
+		return -1;
+	}
 
     struct msghdr zMsg_ = {
         .msg_name = zpAddr_,

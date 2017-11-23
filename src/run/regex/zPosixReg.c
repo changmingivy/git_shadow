@@ -60,8 +60,9 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
 
     for (_i zCnter = 0; (zCnter < zMatchLimit) && (zDynSubjectlen > 0); zCnter++) {
         if (0 != (zErrNo = regexec(zpRegInit_, zpRegSubject, 1, &zMatchRes_, 0))) {
-            if (REG_NOMATCH == zErrNo) { break; }
-            else {
+            if (REG_NOMATCH == zErrNo) {
+				break;
+			} else {
                 zPrint_Time();
                 regerror(zErrNo, zpRegInit_, zErrBuf, zBytes(256));
                 zPrint_Err(0, NULL, zErrBuf);
@@ -71,7 +72,9 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
         }
 
         zResStrLen = zMatchRes_.rm_eo - zMatchRes_.rm_so;
-        if (0 == zResStrLen) { break; }
+        if (0 == zResStrLen) {
+			break;
+		}
 
         zpRegRes_Out->resLen[zpRegRes_Out->cnt] = zResStrLen;
         zpRegRes_Out->cnt++;
@@ -90,7 +93,9 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
 /* 内存是全量分配给成员 [0] 的，只需释放一次 */
 static void
 zreg_free_res(zRegRes__ *zpRes_) {
-    if (NULL == zpRes_->alloc_fn) { free((zpRes_)->p_rets[0]); };
+    if (NULL == zpRes_->alloc_fn) {
+		free((zpRes_)->p_rets[0]);
+	};
 }
 
 
