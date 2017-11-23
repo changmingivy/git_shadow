@@ -1,3 +1,4 @@
+#ifndef ZTHREADPOOL_H
 #define ZTHREADPOOL_H
 
 #ifndef _Z_BSD
@@ -8,13 +9,11 @@
     #endif
 #endif
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
 
 struct zThreadPool__ {
     void (* init) (void);
     void (* add) (void * (*) (void *), void *);
 };
 
-// extern struct zThreadPool__ zThreadPool_;
+#endif  // #ifndef ZTHREADPOOL_H

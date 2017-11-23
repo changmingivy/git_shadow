@@ -6,13 +6,24 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "zNetUtils.h"
+#include "zThreadPool.h"
+
 extern struct zThreadPool__ zThreadPool_;
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
+extern struct zPgSQL__ zPgSQL_;
 
-static void zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath);
+char *zpGlobLoginName = NULL;
+char *zpGlobHomePath = NULL;
+char *zpGlobSSHPort = "22";
+char *zpGlobSSHPubKeyPath = NULL;
+char *zpGlobSSHPrvKeyPath = NULL;
+_i zGlobHomePathLen = 0;
+
+static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
 
 struct zRun__ zRun_ = {
@@ -21,72 +32,187 @@ struct zRun__ zRun_ = {
     .ops = { NULL }
 };
 
+char *zpErrVec[128];
+
+void
+zerr_vec_init(void) {
+    zpErrVec[1] = "无法识别或未定义的操作请求";
+    zpErrVec[2] = "项目不存在或正在创建过程中";
+    zpErrVec[3] = "";
+    zpErrVec[4] = "";
+    zpErrVec[5] = "系统忙，请 2 秒后重试...";
+    zpErrVec[6] = "项目被锁定，请解锁后重试";
+    zpErrVec[7] = "服务端接收到的数据无法解析";
+    zpErrVec[8] = "已产生新的布署记录，请刷新页面";
+    zpErrVec[9] = "服务端错误：接收缓冲区为空或容量不足，无法解析数据";
+    zpErrVec[10] = "请求的数据类型错误：非提交记录或布署记录";
+    zpErrVec[11] = "正在布署，请稍后重试...";
+    zpErrVec[12] = "布署失败";  /* useless.. */
+    zpErrVec[13] = "上一次布署结果是失败，请重试该次布署或执行回滚";
+    zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
+    zpErrVec[15] = "服务端布署前环境初始化失败";
+    zpErrVec[16] = "系统当前负载太高，请稍稍后重试";
+    zpErrVec[17] = "IPnum ====> IPstr 失败";
+    zpErrVec[18] = "IPstr ====> IPnum 失败";
+    zpErrVec[19] = "指定的目标机列表中存在重复 IP";
+    zpErrVec[20] = "";
+    zpErrVec[21] = "";
+    zpErrVec[22] = "";
+    zpErrVec[23] = "部分或全部目标机初始化失败";  /* useless.. */
+    zpErrVec[24] = "没有在 ExtraData 字段中指明目标机总数";
+    zpErrVec[25] = "";
+    zpErrVec[26] = "目标机列表为空";
+    zpErrVec[27] = "";
+    zpErrVec[28] = "指定的目标机数量与实际解析出的数量不一致";
+    zpErrVec[29] = "";
+    zpErrVec[30] = "";
+    zpErrVec[31] = "";
+    zpErrVec[32] = "项目 ID 超出系统允许的范围";
+    zpErrVec[33] = "无法创建项目路径";
+    zpErrVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
+    zpErrVec[35] = "项目 ID 已存在";
+    zpErrVec[36] = "项目路径已存在，且项目 ID 不同";
+    zpErrVec[37] = "未指定远程源代码版本控制系统类型：git";
+    zpErrVec[38] = "拉取远程代码失败";
+    zpErrVec[39] = "";
+    zpErrVec[40] = "";
+    zpErrVec[41] = "";
+    zpErrVec[42] = "";
+    zpErrVec[43] = "";
+    zpErrVec[44] = "";
+    zpErrVec[45] = "";
+    zpErrVec[46] = "";
+    zpErrVec[47] = "";
+    zpErrVec[48] = "";
+    zpErrVec[49] = "";
+    zpErrVec[50] = "";
+    zpErrVec[51] = "";
+    zpErrVec[52] = "";
+    zpErrVec[53] = "";
+    zpErrVec[54] = "";
+    zpErrVec[55] = "";
+    zpErrVec[56] = "";
+    zpErrVec[57] = "";
+    zpErrVec[58] = "";
+    zpErrVec[59] = "";
+    zpErrVec[60] = "";
+    zpErrVec[61] = "";
+    zpErrVec[62] = "";
+    zpErrVec[63] = "";
+    zpErrVec[64] = "";
+    zpErrVec[65] = "";
+    zpErrVec[66] = "";
+    zpErrVec[67] = "";
+    zpErrVec[68] = "";
+    zpErrVec[69] = "";
+    zpErrVec[70] = "无内容 或 服务端版本号列表缓存错误";
+    zpErrVec[71] = "无内容 或 服务端差异文件列表缓存错误";
+    zpErrVec[72] = "无内容 或 服务端单个文件的差异内容缓存错误";
+    zpErrVec[73] = "服务端 Git 仓库异常!";
+    zpErrVec[74] = "";
+    zpErrVec[75] = "";
+    zpErrVec[76] = "";
+    zpErrVec[77] = "";
+    zpErrVec[78] = "";
+    zpErrVec[79] = "";
+    zpErrVec[80] = "目标机请求下载的文件路径不存在或无权访问";
+    zpErrVec[81] = "同一目标机的同一次布署动作，收到重复的状态确认";
+    zpErrVec[82] = "";
+    zpErrVec[83] = "";
+    zpErrVec[84] = "";
+    zpErrVec[85] = "";
+    zpErrVec[86] = "";
+    zpErrVec[87] = "";
+    zpErrVec[88] = "";
+    zpErrVec[89] = "";
+    zpErrVec[90] = "数据库连接失败";
+    zpErrVec[91] = "SQL 命令执行失败";
+    zpErrVec[92] = "";
+    zpErrVec[93] = "";
+    zpErrVec[94] = "";
+    zpErrVec[95] = "";
+    zpErrVec[96] = "";
+    zpErrVec[97] = "";
+    zpErrVec[98] = "";
+    zpErrVec[99] = "";
+    zpErrVec[100] = "fake success";
+    zpErrVec[101] = "目标机返回的版本号与正在布署的不一致";
+    zpErrVec[102] = "目标机 post-update 出错返回";
+    zpErrVec[103] = "目标机返回的信息类型无法识别";
+    zpErrVec[104] = "";
+    zpErrVec[105] = "";
+    zpErrVec[106] = "";
+    zpErrVec[107] = "";
+    zpErrVec[108] = "";
+    zpErrVec[109] = "";
+    zpErrVec[110] = "";
+    zpErrVec[111] = "";
+    zpErrVec[112] = "";
+    zpErrVec[113] = "";
+    zpErrVec[114] = "";
+    zpErrVec[115] = "";
+    zpErrVec[116] = "";
+    zpErrVec[117] = "";
+    zpErrVec[118] = "";
+    zpErrVec[119] = "";
+    zpErrVec[120] = "";
+    zpErrVec[121] = "";
+    zpErrVec[122] = "";
+    zpErrVec[123] = "";
+    zpErrVec[124] = "";
+    zpErrVec[125] = "";
+    zpErrVec[126] = "";
+    zpErrVec[127] = "";
+}
 
 /************
  * 网络服务 *
  ************/
-/*  执行结果状态码对应表
- *  -1：操作指令不存在（未知／未定义）
- *  -2：项目ID不存在
- *  -3：代码版本ID不存在或与其相关联的内容为空（空提交记录）
- *  -4：差异文件ID不存在
- *  -5：指定的主机 IP 不存在
- *  -6：项目布署／撤销／更新ip数据库的权限被锁定
- *  -7：后端接收到的数据无法解析，要求前端重发
- *  -8：后端缓存版本已更新（场景：在前端查询与要求执行动作之间，有了新的布署记录）
- *  -9：服务端错误：接收缓冲区为空或容量不足，无法解析数据
- *  -10：前端请求的数据类型错误
- *  -11：正在布署／撤销过程中（请稍后重试？）
- *  -12：布署失败（超时？未全部返回成功状态）
- *  -13：上一次布署／撤销最终结果是失败，当前查询到的内容可能不准确
- *  -14：系统测算的布署耗时超过 90 秒，通知前端不必阻塞等待，可异步于布署列表中查询布署结果
- *  -15：布署前环境初始化失败（中控机）
- *  -16：系统负载太高(CPU 或 内存占用超过 80%)，不允许布署，提示稍后重试
- *
- *  -19：更新目标机IP列表时，存在重复IP
- *  -23：更新目标机IP列表时：部分或全部目标初始化失败
- *  -24：更新目标机IP列表时，没有在 ExtraData 字段指明IP总数量
- *  -26：目标机IP列表为空
- *  -28：前端指定的IP数量与实际解析出的数量不一致
- *  -29：一台或多台目标机环境初化失败(SSH 连接至目标机建立接收项目文件的元信息——git 仓库)
- *
- *  -32：请求创建的项目ID超出系统允许的最大或最小值（创建或载入项目代码库时出错）
- *  -33：无法创建请求的项目路径
- *  -34：请求创建的新项目信息格式错误（合法字段数量少于 5 个或大于 6 个，第6个字段用于标记是被动拉取代码还是主动推送代码）
- *  -35：请求创建的项目ID已存在（创建或载入项目代码库时出错）
- *  -36：请求创建的项目路径已存在，且项目ID不同
- *  -37：请求创建项目时指定的源版本控制系统错误(!git && !svn)
- *  -38：拉取远程代码库失败（git clone 失败）
- *  -39：项目元数据创建失败，如：无法打开或创建布署日志文件meta等原因
- *
- *  -70：服务器版本号列表缓存存在错误
- *  -71：服务器差异文件列表缓存存在错误
- *  -72：服务器单个文件的差异内容缓存存在错误
- *
- *  -80：目标机请求的文件路径不存在或无权访问
- *
- *  -101：目标机返回的版本号与正在布署的不一致
- *  -102：目标机返回的错误信息
- *  -103：目标机返回的状态信息Type无法识别
- *
- *  -10000: fake success
- */
-
 static void
-zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath) {
+zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
+    /* 检查 pgSQL 运行环境是否是线程安全的 */
+    if (zFalse == zPgSQL_.thread_safe_check()) {
+        zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
 
-    zNativeUtils_.daemonize("/");  /* 成为守护进程 */
+    /* 成为守护进程 */
+    zNativeUtils_.daemonize("/");
 
-    zThreadPool_.init();  /* 线程池初始化 */
+    /* 初始化错误信息影射表 */
+    zerr_vec_init();
 
-    zNativeOps_.proj_init_all(zpConfFilePath);  /* 扫描所有项目库并初始化之 */
+    /* 提取 $USER 及 $HOME 等 */
+    if (NULL == (zpGlobLoginName = getlogin())) {
+        zpGlobLoginName = "git";
+    }
+    if (NULL == (zpGlobHomePath = getenv("HOME"))) {
+        zpGlobHomePath = "/home/git";
+    }
+    zGlobHomePathLen = strlen(zpGlobHomePath);
 
+    zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));
+    sprintf(zpGlobSSHPubKeyPath, "%s/.ssh/id_rsa.pub", zpGlobHomePath);
+
+    zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
+    sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
+
+    /* 线程池初始化 */
+    zThreadPool_.init();
+
+    /* 扫描所有项目库并初始化之 */
+    zNativeOps_.proj_init_all(zpPgLogin_);
+
+    /* 定时扩展 pgSQL 日志数据表的分区 */
+    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+
+    /* 索引范围：0 至 zServHashSiz - 1 */
     zRun_.ops[0] = NULL;
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
-    zRun_.ops[3] = zDpOps_.lock;  // 恢复布署／撤销功能
+    zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能
     zRun_.ops[4] = NULL;
-    zRun_.ops[5] = zDpOps_.show_meta_all;  // 显示所有有效项目的元信息
+    zRun_.ops[5] = NULL;
     zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
     zRun_.ops[7] = NULL;
     zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
@@ -99,12 +225,12 @@ zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath) {
     zRun_.ops[15] = NULL;
 
     /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_IpAddr, zpNetSrv_->p_port, zpNetSrv_->zServType);
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zpNetSrv_->protoType);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
     for (_ui zCnter = 0;; zCnter++) {
-        if (-1 == (zSockAcceptParam_[zCnter % 64].ConnSd = accept(zMajorSd, NULL, 0))) {
+        if (-1 == (zSockAcceptParam_[zCnter % 64].connSd = accept(zMajorSd, NULL, 0))) {
             zPrint_Err(errno, "-1 == accept(...)", NULL);
         } else {
             zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
@@ -118,67 +244,64 @@ zstart_server(zNetSrv__ *zpNetSrv_, char *zpConfFilePath) {
  */
 static void *
 zops_route(void *zpParam) {
-    _i zSd = ((zSockAcceptParam__ *) zpParam)->ConnSd;
-    _i zErrNo;
-    char zJsonBuf[zGlobCommonBufSiz] = {'\0'};
-    char *zpJsonBuf = zJsonBuf;
+    _i zSd = ((zSockAcceptParam__ *) zpParam)->connSd;
 
-    /* 必须清零，以防脏栈数据导致问题 */
-    zMeta__ zMeta_;
-    memset(&zMeta_, 0, sizeof(zMeta__));
+    char zDataBuf[zGlobCommonBufSiz] = {'\0'};
+    char *zpDataBuf = zDataBuf;
+
+    _i zErrNo = 0,
+       zOpsId = -1,
+       zDataLen = -1,
+       zDataBufSiz = zGlobCommonBufSiz;
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zGlobCommonBufSiz == (zMeta_.DataLen = recv(zSd, zpJsonBuf, zGlobCommonBufSiz, 0))) {
-        zMem_C_Alloc(zpJsonBuf, char, zGlobCommonBufSiz * 1024);  // 用清零的空间，保障正则匹配不出现混乱
-        strcpy(zpJsonBuf, zJsonBuf);
-        zMeta_.DataLen += recv(zSd, zpJsonBuf + zMeta_.DataLen, zGlobCommonBufSiz * 1024 - zMeta_.DataLen, 0);
+    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
+        zDataBufSiz *= 1024;
+        zMem_C_Alloc(zpDataBuf, char, zDataBufSiz);  // 用清零的空间，保障正则匹配不出现混乱
+        strcpy(zpDataBuf, zDataBuf);
+        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
 
-    if (zBytes(6) > zMeta_.DataLen) {
-        close(zSd);
-        zPrint_Err(errno, "zBytes(6) > recv(...)", NULL);
-        return NULL;
+    /* 最短的json字符串：{"a":}，6 字节 */
+    if (zBytes(6) > zDataLen) {
+        zPrint_Err(errno, NULL, "recvd data too short(< 6bytes)");
+        goto zMarkEnd;
     }
 
-    /* .p_data 与 .p_ExtraData 成员空间 */
-    zMeta_.DataLen += (zMeta_.DataLen > zGlobCommonBufSiz) ? zMeta_.DataLen : zGlobCommonBufSiz;
-    zMeta_.ExtraDataLen = zGlobCommonBufSiz;
-    char zDataBuf[zMeta_.DataLen], zExtraDataBuf[zMeta_.ExtraDataLen];
-    memset(zDataBuf, 0, zMeta_.DataLen);
-    memset(zExtraDataBuf, 0, zMeta_.ExtraDataLen);
-    zMeta_.p_data = zDataBuf;
-    zMeta_.p_ExtraData = zExtraDataBuf;
+    /* 提取 value[OpsId] */
+    cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
+    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "OpsId");
+    if (cJSON_IsNumber(zpOpsId)) {
+        zOpsId = zpOpsId->valueint;
 
-    if (0 > (zErrNo = zDpOps_.json_to_struct(zpJsonBuf, &zMeta_))) {
-        zMeta_.OpsId = zErrNo;
-        goto zMarkCommonAction;
+        /* 检验 value[OpsId] 合法性 */
+        if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
+            zErrNo = -1;
+        } else {
+            zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);
+        }
+    } else {
+        zErrNo = -1;
+    }
+    cJSON_Delete(zpJRoot);
+
+    /* 成功状态在下层函数中回复，错误状态统一返回至上层处理 */
+    if (0 > zErrNo) {
+        if (-1 == zErrNo) {
+            fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
+        }
+
+        zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+        zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
+
+        /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
+        zPrint_Err(0, NULL, zpDataBuf);
     }
 
-    if (0 > zMeta_.OpsId || 16 <= zMeta_.OpsId || NULL == zRun_.ops[zMeta_.OpsId]) {
-        zMeta_.OpsId = -1;  // 此时代表错误码
-        goto zMarkCommonAction;
-    }
-
-    if ((1 != zMeta_.OpsId) && (5 != zMeta_.OpsId)
-            && ((zGlobMaxRepoId < zMeta_.RepoId) || (0 >= zMeta_.RepoId) || (NULL == zpGlobRepo_[zMeta_.RepoId]))) {
-        zMeta_.OpsId = -2;  // 此时代表错误码
-        goto zMarkCommonAction;
-    }
-
-    if (0 > (zErrNo = zRun_.ops[zMeta_.OpsId](&zMeta_, zSd))) {
-        zMeta_.OpsId = zErrNo;  // 此时代表错误码
-zMarkCommonAction:
-        zDpOps_.struct_to_json(zpJsonBuf, &zMeta_);
-        zpJsonBuf[0] = '[';
-        zNetUtils_.sendto(zSd, zpJsonBuf, strlen(zpJsonBuf), 0, NULL);
-        zNetUtils_.sendto(zSd, "]", zBytes(1), 0, NULL);
-
-        fprintf(stderr, "\n\033[31;01m[ DEBUG ] \033[00m%s", zpJsonBuf);  // 错误信息，打印出一份，防止客户端socket已关闭时，信息丢失
-    }
-
+zMarkEnd:
     close(zSd);
-    if (zpJsonBuf != &(zJsonBuf[0])) { free(zpJsonBuf); }
+    if (zpDataBuf != &(zDataBuf[0])) {
+        free(zpDataBuf);
+    }
     return NULL;
 }
-
-

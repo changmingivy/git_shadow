@@ -1,32 +1,22 @@
+#ifndef ZRUN_H
 #define ZRUN_H
 
-#ifndef ZCOMMON_H
 #include "zCommon.h"
-#endif
-
-#ifndef ZTHREADPOOL_H
-#include "zThreadPool.h"
-#endif
-
-#ifndef ZNETUTILS_H
-#include "zNetUtils.h"
-#endif
-
-#ifndef ZDPOPS_H
 #include "zDpOps.h"
-#endif
+#include "cJSON.h"
 
-typedef struct {
-    void *p_ThreadPoolMeta_;  // 未使用，仅占位
-    _i ConnSd;
+#define zServHashSiz 16
+
+typedef struct __zSockAcceptParam__ {
+    void *p_threadPoolMeta_;  // 未使用，仅占位
+    _i connSd;
 } zSockAcceptParam__;
 
 struct zRun__ {
-    void (* run) (zNetSrv__ *, char *);
+    void (* run) (zNetSrv__ *, zPgLogin__ *);
     void * (* route) (void *);
 
-    _i (* ops[16]) (zMeta__*, _i);
+    _i (* ops[zServHashSiz]) (cJSON *, _i);
 };
 
-
-// extern struct zRun__ zRun_;
+#endif  // #ifndef ZRUN_H

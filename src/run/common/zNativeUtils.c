@@ -40,10 +40,13 @@ zdel_linebreak(char *zpStr);
 struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,
     .sleep = zsleep,
+
     .system = zthread_system,
+
     .read_line = zget_one_line,
     .read_hunk = zget_str_content,
-    .del_lb = zdel_linebreak
+
+    .del_lb = zdel_linebreak,
 };
 
 // /*
@@ -104,7 +107,9 @@ zclose_fds(pid_t zPid) {
     DIR *zpDir = opendir(zPath);
     while (NULL != (zpDir_ = readdir(zpDir))) {
         zFD = strtol(zpDir_->d_name, NULL, 10);
-        if (2 != zFD) { close(zFD); }
+        if (2 != zFD) {
+            close(zFD);
+        }
     }
     closedir(zpDir);
 }
@@ -124,13 +129,17 @@ zdaemonize(const char *zpWorkDir) {
     pid_t zPid = fork();
     zCheck_Negative_Return(zPid,);
 
-    if (zPid > 0) { exit(0); }
+    if (zPid > 0) {
+        exit(0);
+    }
 
     setsid();
     zPid = fork();
     zCheck_Negative_Return(zPid,);
 
-    if (zPid > 0) { exit(0); }
+    if (zPid > 0) {
+        exit(0);
+    }
 
     zclose_fds(getpid());
 
@@ -222,7 +231,10 @@ zsleep(_d zSecs) {
  */
 static void *
 zthread_system(void *zpCmd) {
-    if (NULL != zpCmd) { system((char *) zpCmd); }
+    if (NULL != zpCmd) {
+        system((char *) zpCmd);
+    }
+
     return NULL;
 }
 

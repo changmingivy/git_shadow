@@ -4,23 +4,21 @@
 #include <sys/select.h>
 #include <stdio.h>
 #include <time.h>
-
-#ifndef PTHREAD_H
 #include <pthread.h>
-#define PTHREAD_H
-#endif
 
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
 
-#define zSshSelfIpDeclareBufSiz zSizeOf("export ____zSelfIp='192.168.100.100';")
+#define zSshSelfIpDeclareBufSiz (INET6_ADDRSTRLEN + zSizeOf("export ____zSelfIp='';"))
 
 extern struct zNetUtils__ zNetUtils_;
 
 static _i
-zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock);
+zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
 
-struct zLibSsh__ zLibSsh_ = { .exec = zssh_exec };
+struct zLibSsh__ zLibSsh_ = {
+    .exec = zssh_exec
+};
 
 /* select events dirven */
 static _i
@@ -40,8 +38,13 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
     /* now make sure we wait in the correct direction */
     zDirection = libssh2_session_block_directions(zSession);
 
-    if(zDirection & LIBSSH2_SESSION_BLOCK_INBOUND) { zReadFd = &zFd; }
-    if(zDirection & LIBSSH2_SESSION_BLOCK_OUTBOUND) { zWriteFd = &zFd; }
+    if(zDirection & LIBSSH2_SESSION_BLOCK_INBOUND) {
+        zReadFd = &zFd;
+    }
+
+    if(zDirection & LIBSSH2_SESSION_BLOCK_OUTBOUND) {
+        zWriteFd = &zFd;
+    }
 
     return select(zSd + 1, zReadFd, zWriteFd, NULL, &zTimeOut);
 }
@@ -52,7 +55,13 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
  * 若不需要远程执行结果返回，zpRemoteOutPutBuf 置为 NULL
  */
 static _i
-zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock) {
+zssh_exec(
+        char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
+        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType,
+        char *zpRemoteOutPutBuf, _ui zSiz,
+        pthread_mutex_t *zpCcurLock,
+        char *zpErrBufOUT /* size: 256 */
+        ) {
 
     _i zSd, zRet, zErrNo;
     time_t zBaseTimeStamp;
@@ -63,12 +72,24 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
         pthread_mutex_unlock(zpCcurLock);
+        if (NULL == zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2_init(0): failed");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2_init(0): failed", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         pthread_mutex_unlock(zpCcurLock);
         libssh2_exit();
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2_session_init(): failed");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2_session_init(): failed", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
     pthread_mutex_unlock(zpCcurLock);
@@ -76,6 +97,12 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
     if (0 > (zSd = zNetUtils_.tcp_conn(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2 tcp connect: failed", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
@@ -84,24 +111,36 @@ zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserN
 
     zBaseTimeStamp = time(NULL);
     while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd))) {
-        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z0; }
+        if (10 < (time(NULL) - zBaseTimeStamp)) {
+            goto z0;
+        }
     }
 
     if (0 != zRet) {
 z0: libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2_session_handshake: timeout(> 10s)");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2_session_handshake: timeout(> 10s)", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
     zBaseTimeStamp = time(NULL);
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd))) {
-            if (10 < (time(NULL) - zBaseTimeStamp)) { goto z1; }
+            if (10 < (time(NULL) - zBaseTimeStamp)) {
+                goto z1;
+            }
         }
     } else {  /* public key */
         while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd))) {
-            if (10 < (time(NULL) - zBaseTimeStamp)) { goto z1; }
+            if (10 < (time(NULL) - zBaseTimeStamp)) {
+                goto z1;
+            }
         }
     }
 
@@ -109,13 +148,21 @@ z0: libssh2_session_free(zSession);
 z1: libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2: user auth failed(password and publickey)", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
     /* Exec non-blocking on the remove host */
     zBaseTimeStamp = time(NULL);
     while(NULL == (zChannel= libssh2_channel_open_session(zSession))) {  // 会带来段错误：&& (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))
-        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z2; }
+        if (10 < (time(NULL) - zBaseTimeStamp)) {
+            goto z2;
+        }
         zwait_socket(zSd, zSession);
     }
 
@@ -124,6 +171,12 @@ z2: libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2_channel_open_session: timeout(> 10s)");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2_channel_open_session: timeout(> 10s)", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
@@ -133,7 +186,9 @@ z2: libssh2_session_disconnect(zSession, "");
 
     zBaseTimeStamp = time(NULL);
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
-        if (10 < (time(NULL) - zBaseTimeStamp)) { goto z3; }
+        if (10 < (time(NULL) - zBaseTimeStamp)) {
+            goto z3;
+        }
         zwait_socket(zSd, zSession);
     }
 
@@ -143,6 +198,12 @@ z3: libssh2_session_disconnect(zSession, "");
         libssh2_channel_free(zChannel);
         libssh2_exit();
         close(zSd);
+        if (NULL != zpErrBufOUT) {
+            zPrint_Err(0, NULL, "libssh2_channel_exec: timeout(> 10s)");
+        } else {
+            strncpy(zpErrBufOUT, "libssh2_channel_exec: timeout(> 10s)", 255);
+            zpErrBufOUT[255] = '\0';
+        }
         return -1;
     }
 
@@ -160,6 +221,12 @@ z3: libssh2_session_disconnect(zSession, "");
                         libssh2_session_free(zSession);
                         libssh2_exit();
                         close(zSd);
+                        if (NULL != zpErrBufOUT) {
+                            zPrint_Err(0, NULL, "libssh2_channel_read: failed");
+                        } else {
+                            strncpy(zpErrBufOUT, "libssh2_channel_read: failed", 255);
+                            zpErrBufOUT[255] = '\0';
+                        }
                         return -1;
                     }
                 }
@@ -180,7 +247,9 @@ z3: libssh2_session_disconnect(zSession, "");
         zErrNo = libssh2_channel_get_exit_status(zChannel);
         libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
-    if (NULL != zpExitSingal) { zErrNo = -1; }
+    if (NULL != zpExitSingal) {
+        zErrNo = -1;
+    }
 
     libssh2_channel_free(zChannel);
     zChannel= NULL;
