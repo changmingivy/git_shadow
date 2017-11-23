@@ -5,6 +5,19 @@
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
 typedef enum {
+    zProtoTcp = 0,
+    zProtoUdp = 1,
+    zProtoSctp = 3,
+    zProtoNone
+} zProtoType__;
+
+typedef enum {
+    zIpTypeV4 = 4,
+    zIpTypeV6 = 6,
+    zIpTypeNone
+} zIpType__;
+
+typedef enum {
     zFalse = 0,
     zTrue = 1,
 } zBool__;

@@ -52,8 +52,8 @@ zerr_vec_init(void) {
     zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
     zpErrVec[15] = "服务端布署前环境初始化失败";
     zpErrVec[16] = "系统当前负载太高，请稍稍后重试";
-    zpErrVec[17] = "";
-    zpErrVec[18] = "";
+    zpErrVec[17] = "IPnum ====> IPstr 失败";
+    zpErrVec[18] = "IPstr ====> IPnum 失败";
     zpErrVec[19] = "指定的目标机列表中存在重复 IP";
     zpErrVec[20] = "";
     zpErrVec[21] = "";
@@ -116,7 +116,7 @@ zerr_vec_init(void) {
     zpErrVec[78] = "";
     zpErrVec[79] = "";
     zpErrVec[80] = "目标机请求下载的文件路径不存在或无权访问";
-    zpErrVec[81] = "";
+    zpErrVec[81] = "同一目标机的同一次布署动作，收到重复的状态确认";
     zpErrVec[82] = "";
     zpErrVec[83] = "";
     zpErrVec[84] = "";
@@ -183,8 +183,12 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zerr_vec_init();
 
     /* 提取 $USER 及 $HOME 等 */
-    if (NULL == (zpGlobLoginName = getlogin())) { zpGlobLoginName = "git"; }
-    if (NULL == (zpGlobHomePath = getenv("HOME"))) { zpGlobHomePath = "/home/git"; }
+    if (NULL == (zpGlobLoginName = getlogin())) {
+        zpGlobLoginName = "git";
+    }
+    if (NULL == (zpGlobHomePath = getenv("HOME"))) {
+        zpGlobHomePath = "/home/git";
+    }
     zGlobHomePathLen = strlen(zpGlobHomePath);
 
     zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));
@@ -221,7 +225,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[15] = NULL;
 
     /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zpNetSrv_->servType);
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zpNetSrv_->protoType);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
@@ -251,11 +255,11 @@ zops_route(void *zpParam) {
        zDataBufSiz = zGlobCommonBufSiz;
 
     /* 若收到大体量数据，直接一次性扩展为1024倍的缓冲区，以简化逻辑 */
-    if (zGlobCommonBufSiz == (zDataLen = recv(zSd, zpDataBuf, zGlobCommonBufSiz, 0))) {
+    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
         zDataBufSiz *= 1024;
         zMem_C_Alloc(zpDataBuf, char, zDataBufSiz);  // 用清零的空间，保障正则匹配不出现混乱
         strcpy(zpDataBuf, zDataBuf);
-        zDataLen += recv(zSd, zpDataBuf + zDataLen, zGlobCommonBufSiz * 1024 - zDataLen, 0);
+        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
 
     /* 最短的json字符串：{"a":}，6 字节 */
@@ -271,8 +275,11 @@ zops_route(void *zpParam) {
         zOpsId = zpOpsId->valueint;
 
         /* 检验 value[OpsId] 合法性 */
-        if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) { zErrNo = -1; }
-        else { zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd); }
+        if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
+            zErrNo = -1;
+        } else {
+            zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);
+        }
     } else {
         zErrNo = -1;
     }
@@ -285,7 +292,7 @@ zops_route(void *zpParam) {
         }
 
         zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-        zNetUtils_.sendto(zSd, zpDataBuf, zDataLen, 0, NULL);
+        zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
 
         /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
         zPrint_Err(0, NULL, zpDataBuf);
@@ -293,6 +300,8 @@ zops_route(void *zpParam) {
 
 zMarkEnd:
     close(zSd);
-    if (zpDataBuf != &(zDataBuf[0])) { free(zpDataBuf); }
+    if (zpDataBuf != &(zDataBuf[0])) {
+        free(zpDataBuf);
+    }
     return NULL;
 }

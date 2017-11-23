@@ -4,11 +4,12 @@ zMasterPort=$2
 zMasterSig=$3
 zReplyType=$4  # 'B' 用于标识布署状态回复，'A' 用于标识远程主机初始化状态回复
 zProjId=$5
-zHostId=$6
+zHostAddr=$6
 zTimeStamp=$7
 
 # 首先使用 notice 工具回复，之后使用 BASH 回复
-./tools/notice "$zMasterAddr" "$zMasterPort" "8" "${zProjId}" "${zHostId}" "${zMasterSig}" "${zTimeStamp}" "${zReplyType}"
+# 暂停使用，将使用 rust 重写。。。
+# ./tools/notice "$zMasterAddr" "$zMasterPort" "8" "${zProjId}" "${zHostAddr}" "${zMasterSig}" "${zTimeStamp}" "${zReplyType}"
 
 # 关闭套接字读写端，防止先前已打开相同描述符
 exec 776>&-
@@ -17,7 +18,7 @@ exec 776<&-
 exec 776<>/dev/tcp/${zMasterAddr}/${zMasterPort}
 
 # 发送正文
-printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"RevSig\":\"${zMasterSig}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${zReplyType}\"}">&776
+printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zHostAddr}\",\"RevSig\":\"${zMasterSig}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${zReplyType}\"}">&776
 
 # 关闭读写端
 exec 776<&-

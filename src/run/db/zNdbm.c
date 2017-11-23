@@ -2,16 +2,16 @@
 // #include <gdbm/ndbm.h>
 
 // DBM *
-// dbm_open(const char *base,	int flags, mode_t mode);
+// dbm_open(const char *base,    int flags, mode_t mode);
 //
 // void
 // dbm_close(DBM *db);
 //
 // int
-// dbm_store(DBM *db,	datum key, datum data, int flags);
+// dbm_store(DBM *db,    datum key, datum data, int flags);
 //
 // datum
-// dbm_fetch(DBM *db,	datum key);
+// dbm_fetch(DBM *db,    datum key);
 //
 // int
 // dbm_delete(DBM *db, datum key);

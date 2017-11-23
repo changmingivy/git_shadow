@@ -4,6 +4,9 @@
 # 通知中控机已收到代码
 #
 
+# [ DEBUG ]
+printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME="/home/git"
 
@@ -30,29 +33,36 @@ export HOME="/home/git"
     # 清理同一项目下可能存在的 post-update 进程
     kill -9 `cat /home/git/.${zProjId}_pid_post-update`
 
+    # 清除可能存在的由于 git 崩溃残留的锁文件
+    rm -f ${zPathOnHost}/.git/index.lock
+    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+
     # 运行期间将自身 Pid 存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
     echo "$$" > /home/git/.${zProjId}_pid_post-update
-
-    # 转换点分格格的 IP 为数字格式：$HostId
-    zHostId=0
-    zCnter=0
-    for zField in `printf ${zSelfIpStrAddr} | grep -oP '\d+'`
-    do
-        let zHostId+=$((${zField} << (8 * ${zCnter})))
-        let zCnter++
-    done
 
     # 'B': 布署结果返回；'C': KeepAlive
     zTcpReply() {
         exec 777<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostId\":${zHostId},\"RevSig\":\"${1}\",\"TimeStamp\":${2},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&777
+        printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${2},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&777
         exec 777>&-
         exec 777<&-
     }
 
-    printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
+    ########################################
+    # 进入项目代码库，获取最新接收的版本号 #
+    ########################################
+    cd $zPathOnHost
+    if [[ 0 -ne $? ]]; then
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
+        exit 255
+    fi
+    export GIT_DIR="${zPathOnHost}/.git"
 
-    # 元数据布署，代码量可控，不必 KeepAlive
+    zServSig=`git log ${zServBranchName} -1 --format=%H`
+
+    ############################################
+    # 进入元数据库: 代码量可控，不必 KeepAlive #
+    ############################################
     cd ${zPathOnHost}_SHADOW
     export GIT_DIR="${zPathOnHost}_SHADOW/.git"
     git checkout master
@@ -61,17 +71,19 @@ export HOME="/home/git"
         \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
+        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed: ${zPathOnHost}_SHADOW"
+            zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
 
-    git reset -q --hard
+    git reset --hard 2>${zPathOnHost}_SHADOW/errlog
+    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed: ${zPathOnHost}_SHADOW"
+        zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
@@ -80,7 +92,9 @@ export HOME="/home/git"
     zTimeStamp=`cat timestamp`
     if [[ 0 -ne $? ]];then zTimeStamp=-1; fi
 
-    # 进入项目代码库
+    ############################
+    # 进入项目代码库，执行布署 #
+    ############################
     cd $zPathOnHost
     if [[ 0 -ne $? ]]; then
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
@@ -89,22 +103,17 @@ export HOME="/home/git"
     export GIT_DIR="${zPathOnHost}/.git"
     git checkout master
 
-    zServSig=`git log ${zServBranchName} -1 --format=%H`
-
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-    chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+    chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
+    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`"
+        zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
         exit 255
     fi
     rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
-
-    # 清除可能存在的由于 git 崩溃残留的锁文件
-    rm -f ${zPathOnHost}/.git/index.lock
-    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     zTcpReply "${zServSig}" "${zTimeStamp}" "C" "" &  # KeepAlive
     git reset -q --hard ${zServBranchName}
@@ -112,9 +121,10 @@ export HOME="/home/git"
         # \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git reset -q --hard ${zServBranchName}
+        git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed: ${zPathOnHost}"
+            zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
@@ -165,7 +175,7 @@ export HOME="/home/git"
     ###########################################
     cd ${zPathOnHost}_SHADOW  # 务必切换路径，回复脚本内用了相对路径
     bash -x ${zPathOnHost}_SHADOW/tools/zclient_reply.sh \
-        "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zHostId}" "${zTimeStamp}">> /tmp/.____post-deploy.log 2>&1
+        "${zMasterAddr}" "${zMasterPort}" "${zMasterSig}" "B+" "${zProjId}" "${zSelfIpStrAddr}" "${zTimeStamp}">> /tmp/.____post-deploy.log 2>&1
 
     # 更新开机自布署脚本，设置为隐藏文件
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
