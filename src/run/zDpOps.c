@@ -125,6 +125,10 @@ struct zDpOps__ zDpOps_ = {
 } while (0)
 
 
+/* 目标机初化与布署失败的错误回显 */
+#define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
+#define zErrMetaSiz zSizeOf("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
+
 // static void *
 // zssh_ccur(void  *zpParam) {
 //     char zErrBuf[256] = {'\0'};
@@ -250,9 +254,13 @@ zgit_push_ccur(void *zp_) {
     }
     pthread_mutex_unlock(&zGlobCommonLock);
 
-    /* generate remote URL */
-    sprintf(zRemoteRepoAddrBuf, "git@%s:%s/.git",
+    /*
+     * generate remote URL
+     * 注：此处不能使用 git@...:.../.git 格式，会造成 IPv6 地址解析错误
+     */
+    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s%s%s/.git",
             zpDpCcur_->p_hostIpStrAddr,
+            '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen
             );
 
@@ -904,14 +912,14 @@ zExistMark:;
         char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _ui zFailedHostCnt = 0;
         _i zOffSet = sprintf(zpCommonBuf, "无法连接的主机:");
-        for (_ui zCnter = 0; (zOffSet < zBufLen) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
+        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState) {
                 zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
                 if (0 != zErrNo) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                     zErrNo = 0;
                 } else {
-                    zOffSet += snprintf(zpCommonBuf+ zOffSet, zBufLen - zOffSet, "([%s]%s)",
+                    zOffSet += snprintf(zpCommonBuf+ zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
                             zIpStrAddrBuf,
                             '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg
                             );
@@ -1153,14 +1161,14 @@ zErrMark:
         /* 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
         char zIpStrAddrBuf[INET6_ADDRSTRLEN];
         _i zOffSet = 0;
-        for (_ui zCnter = 0; (zOffSet < zBufLen) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
+        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
                 zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
                 if (0 != zErrNo) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                     zErrNo = 0;
                 } else {
-                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zOffSet, "([%s]%s)",
+                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
                             zIpStrAddrBuf,
                             '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg
                             );
@@ -1212,15 +1220,16 @@ zErrMark:
     }
 
 zEndMark:
-    sprintf(zppCommonBuf[0], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
+    /* 此处要使用 zppCommonBuf[1]；zppCommonBuf[0] 用于存放错误信息 */
+    sprintf(zppCommonBuf[1], "UPDATE dp_log SET time_limit = %ld, res = %d WHERE proj_id = %d AND time_stamp = %ld",
             zpGlobRepo_[zRepoId]->dpTimeWaitLimit,
             0 == zErrNo ? 0 : (-100 == zErrNo? -1 : -2),
             zRepoId,
             zpGlobRepo_[zRepoId]->dpBaseTimeStamp
             );
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[1], zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zRepoId]->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[0], zFalse))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zppCommonBuf[1], zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "!!! FATAL !!!");
@@ -1346,16 +1355,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (-100 != zErrNo) {
         /* 若为目标机初始化失败或部署失败，回返失败的IP列表(p_data)及版本号(p_extraData)，其余错误返回上层统一处理 */
         if (-23 == zErrNo || -12 == zErrNo) {
-            /* 目标机初始化与布署错误信息，都放在了 zppCommonBuf 的空间里，此时可使用全部的空间，即：2 * zCommonBufLen */
-            _i zLen = snprintf(zppCommonBuf[0], 2 * zCommonBufLen, "{\"ErrNo\":%d,\"FailedIpList\":\"%s\",\"FailedRevSig\":\"%s\"}",
+            /* 目标机初始化与布署收集的错误信息，都放在了 zppCommonBuf[0] 中 */
+            _i zLen = snprintf(zppCommonBuf[1], zCommonBufLen, zErrMeta,
                     zErrNo,
-                    zpIpList,
+                    zppCommonBuf[0],
                     zpGlobRepo_[zRepoId]->dpingSig
                     );
-            zNetUtils_.send_nosignal(zSd, zppCommonBuf[0], zLen);
+            zNetUtils_.send_nosignal(zSd, zppCommonBuf[1], zLen);
 
             /* 错误信息，打印出一份，防止客户端已断开的场景导致错误信息丢失 */
-            zPrint_Err(0, NULL, zppCommonBuf[0]);
+            zPrint_Err(0, NULL, zppCommonBuf[1]);
 
             zErrNo = 0;
         }
