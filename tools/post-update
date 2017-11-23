@@ -70,17 +70,17 @@ export HOME="/home/git"
         \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
+        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed: ${zPathOnHost}_SHADOW"
+            zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
 
-    git reset -q --hard
+    git reset --hard 2>${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed: ${zPathOnHost}_SHADOW"
+        zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
     fi
@@ -102,9 +102,9 @@ export HOME="/home/git"
 
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-    chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+    chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
-        zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied: ${zProjOnLinePath} or `dirname ${zPathOnHost}`"
+        zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
         exit 255
@@ -117,9 +117,9 @@ export HOME="/home/git"
         # \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git reset -q --hard ${zServBranchName}
+        git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed: ${zPathOnHost}"
+            zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
