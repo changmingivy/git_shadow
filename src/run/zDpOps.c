@@ -256,10 +256,11 @@ zgit_push_ccur(void *zp_) {
 
     /*
      * generate remote URL
-     * 注：此处不能使用 git@...:.../.git 格式，会造成 IPv6 地址解析错误
+     * 注：IPv6 地址段必须用中括号包住，否则无法解析
      */
-    sprintf(zRemoteRepoAddrBuf, "ssh://git@%s%s%s/.git",
+    sprintf(zRemoteRepoAddrBuf, "ssh://git@[%s]:%s%s%s/.git",
             zpDpCcur_->p_hostIpStrAddr,
+            zpGlobSSHPort,
             '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen
             );
