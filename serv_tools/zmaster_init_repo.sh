@@ -45,8 +45,8 @@ fi
 mkdir -p $zDeployPath
 if [[ $? -ne 0 ]]; then exit 254; fi
 
-# 拉取远程代码
-git clone $zPullAddr $zDeployPath
+# 拉取远程代码：只取最新的三次提交，加快拉取速度
+git clone --depth=3 $zPullAddr $zDeployPath
 
 if [[ $? -ne 0 ]]; then
     rm -rf $zDeployPath
