@@ -1,0 +1,3 @@
+[submodule "notice"]
+	path = src/extra/notice
+	url = git@github.com:kt10/notice.git
