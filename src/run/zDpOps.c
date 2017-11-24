@@ -291,30 +291,22 @@ zgit_push_ccur(void *zp_) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
         sprintf(zCmdBuf,
-                "rm -f %s %s_SHADOW;"  /* if symlink, delete it, or do nothing... */
-                "mkdir -p %s %s_SHADOW;"
-                "cd %s_SHADOW && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
-                "cd %s && rm -rf .git; git init . && git config user.name _ && git config user.email _;"
-                "echo '%s' > /home/git/.____zself_ip_addr_%d.txt;"
-
+                "zTmpDir=`mktemp /tmp/dp.XXXXXXXX`;"
+                "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"
                 "exec 777<>/dev/tcp/%s/%s;"
-                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/notice\"}' >&777;"
-                "cat <&777 >.git/hooks/post-update;"
-                "chmod 0755 .git/hooks/post-update;"
+                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/serv_tools/zremote_init.sh\"}' >&777;"
+                "cat <&777 >init.sh;"
                 "exec 777>&-;"
                 "exec 777<&-;"
-                "${HOME}/.____DpSystem/notice '%s' '%s' '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'",
-
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->repoId,
-
+                "bash init.sh %d '%s' '%s' '%s' '%s' '%s' '%s'",
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
-                zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath);
+                zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
+                zpDpCcur_->repoId,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
+                zNetSrv_.p_ipAddr, zNetSrv_.p_port,
+                zpDpCcur_->p_hostIpStrAddr,
+                zpGlobRepo_[zpDpCcur_->repoId]->noticeMd5);
         if (0 == zssh_exec_simple(
                     zpDpCcur_->p_hostIpStrAddr,
                     zCmdBuf,
@@ -861,35 +853,23 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
-            "rm -f %s %s_SHADOW;"\
-            "mkdir -p %s %s_SHADOW;"\
-            "rm -f %s/.git/index.lock %s_SHADOW/.git/index.lock;"\
-            "cd %s_SHADOW && rm -f .git/hooks/post-update; git init . && git config user.name _ && git config user.email _;"\
-            "cd %s && git init . && git config user.name _ && git config user.email _;"\
-            "echo ${____zSelfIp} > /home/git/.____zself_ip_addr_%d.txt;"\
-\
+            "zTmpDir=`mktemp /tmp/dp.XXXXXXXX`;"\
+            "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"\
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":\\\"%s_SHADOW/tools/post-update\\\"}\" >&777;"\
-            "rm -f .git/hooks/post-update;"\
-            "cat <&777 >.git/hooks/post-update;"\
-            "chmod 0755 .git/hooks/post-update;"\
+            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/serv_tools/zremote_init.sh\"}' >&777;"\
+            "cat <&777 >init.sh;"\
             "exec 777>&-;"\
-            "exec 777<&-;",\
-\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
-            zRepoId,\
-\
+            "exec 777<&-;"\
+            "bash init.sh %d '%s' '%s' '%s' '%s' '%s' '%s'",\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zRepoId, zpGlobRepo_[zRepoId]->p_repoPath);\
+            zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,\
+            zpDpCcur_->repoId,\
+            zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,\
+            zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
+            zpDpCcur_->p_hostIpStrAddr,\
+            zpGlobRepo_[zpDpCcur_->repoId]->noticeMd5);\
 } while(0)
-
 
 static _i
 zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt,

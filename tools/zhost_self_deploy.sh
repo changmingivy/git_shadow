@@ -19,7 +19,7 @@ do
 
     for zIpStrAddr in `echo ${zSelfIpList}`
     do
-        ${HOME}/.____DpSystem/notice\
+        ${zCurPath}/tools/notice\
             "${zMasterIpAddr}"\
             "${zMasterPort}"\
             "{\"OpsId\":13,\"ProjId\":${zProjId},\"HostAddr\":\"${zIpStrAddr}\",\"RevSig\":\"${zLocalSig}\"}"

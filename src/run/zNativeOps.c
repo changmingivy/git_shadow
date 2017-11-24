@@ -729,7 +729,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 调用外部 SHELL 执行检查和创建，便于维护 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->repoPathLen];
     sprintf(zCommonBuf,
-            "sh ${zGitShadowPath}/serv_tools/zmaster_init_repo.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+            "sh ${zGitShadowPath}/serv_tools/zmaster_init.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
             zpGlobRepo_[zRepoId]->repoId,
             zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,
             zpRepoMeta_->pp_fields[2],

@@ -93,7 +93,7 @@ cd ${zShadowPath}/src &&
 
 cd ${zShadowPath}/src/extra/notice
 cargo build --release
-cp target/release/notice ${HOME}/
+cp target/release/notice ${zShadowPath}/tools/
 
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log

@@ -24,7 +24,7 @@ export HOME="/home/git"
         zProjId=`echo $1 | grep -o '[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`;
         if [[ "" == ${zProjId} ]]; then exit 255; fi
     fi
-    zSelfIpStrAddr=`cat ${HOME}/.____zself_ip_addr_${zProjId}.txt`
+    zSelfIpStrAddr=`cat ${zPathOnHost}_SHADOW/.____zself_ip_addr_${zProjId}.txt`
     zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
@@ -42,7 +42,7 @@ export HOME="/home/git"
 
     # 'B': 布署结果返回；'C': KeepAlive
     zTcpReply() {
-        ${HOME}/.____DpSystem/notice\
+        ${zPathOnHost}_SHADOW/tools/notice\
             "${zMasterIpAddr}"\
             "${zMasterPort}"\
             "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${2},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&777
