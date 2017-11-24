@@ -75,7 +75,7 @@ zerr_vec_init(void) {
     zpErrVec[37] = "未指定远程源代码版本控制系统类型：git";
     zpErrVec[38] = "拉取远程代码失败";
     zpErrVec[39] = "";
-    zpErrVec[40] = "";
+    zpErrVec[40] = "md5sum 计算出错";
     zpErrVec[41] = "";
     zpErrVec[42] = "";
     zpErrVec[43] = "";
@@ -186,9 +186,11 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     if (NULL == (zpGlobLoginName = getlogin())) {
         zpGlobLoginName = "git";
     }
+
     if (NULL == (zpGlobHomePath = getenv("HOME"))) {
         zpGlobHomePath = "/home/git";
     }
+
     zGlobHomePathLen = strlen(zpGlobHomePath);
 
     zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));

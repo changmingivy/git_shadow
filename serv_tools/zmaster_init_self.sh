@@ -91,9 +91,9 @@ cd ${zShadowPath}/src &&
     make clean
 # strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
-cd ${zShadowPath}/src/extra_utils/notice
+cd ${zShadowPath}/src/extra/notice
 cargo build --release
-cp target/release/notice .
+cp target/release/notice ${HOME}/
 
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log

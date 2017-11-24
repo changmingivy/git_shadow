@@ -298,11 +298,12 @@ zgit_push_ccur(void *zp_) {
                 "echo '%s' > /home/git/.____zself_ip_addr_%d.txt;"
 
                 "exec 777<>/dev/tcp/%s/%s;"
-                "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"data\\\":\\\"%s_SHADOW/tools/post-update}\\\" >&777;"
+                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/notice\"}' >&777;"
                 "cat <&777 >.git/hooks/post-update;"
                 "chmod 0755 .git/hooks/post-update;"
                 "exec 777>&-;"
-                "exec 777<&-;",
+                "exec 777<&-;"
+                "${HOME}/.____DpSystem/notice '%s' '%s' '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'",
 
                 zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
                 zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
@@ -1985,7 +1986,7 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     /* 提取 value[key] */
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "data");
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Path");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         return -1;
     }

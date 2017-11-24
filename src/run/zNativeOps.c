@@ -23,6 +23,7 @@ extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
+extern struct zMd5Sum__ zMd5Sum_;
 
 extern char *zpGlobHomePath;
 extern _i zGlobHomePathLen;
@@ -746,6 +747,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     } else if (253 == zErrNo) {
         zFree_Source();
         return -38;
+    }
+
+    /* 计算 notice 工具的 md5sum */
+    sprintf(zCommonBuf, "%s/.____DpSystem/notice", zpGlobHomePath);
+    if (0 < zMd5Sum_.md5sum(zCommonBuf, zpGlobRepo_[zRepoId]->noticeMd5)) {
+        zFree_Source();
+        return -40;
     }
 
     /* 全局 libgit2 Handler 初始化 */
