@@ -1,6 +1,0 @@
-[package]
-name = "notice"
-version = "0.1.0"
-authors = ["test <test@test>"]
-
-[dependencies]
