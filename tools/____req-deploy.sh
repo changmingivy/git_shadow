@@ -7,5 +7,5 @@ zIpV6List=`ip addr | grep -oP '(?<=inet6\s)(\w|\.|:)+(?=(/|\s))' | grep -viE '(^
 for zProjMetaPath in `find /home/git/.____DpSystem -maxdepth 2 -type d | grep -E '^.+_SHADOW$'`
 do
     cd $zProjMetaPath
-    bash ./tools/zhost_self_deploy.sh "${zIpV4List} ${zIpV6List}"  # 必须串行执行，因为复用了同一个套接字
+    bash ./tools/zhost_self_deploy.sh "${zIpV4List} ${zIpV6List}" &
 done

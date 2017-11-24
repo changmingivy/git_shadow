@@ -22,6 +22,7 @@ INC_ARGS =\
 	-I$(ROOT_DIR)/inc/db\
 	-I$(ROOT_DIR)/inc/regex\
 	-I$(ROOT_DIR)/inc/json\
+	-I$(ROOT_DIR)/inc/algo\
 	-I$(SSH_INC_DIR)\
 	-I$(GIT_INC_DIR)\
 	-I$(PG_INC_DIR)
