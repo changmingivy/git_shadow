@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-zSelfIpList=`ip addr | grep -oP '(\d{1,3}\.){3}\d{1,3}(?=/\d+)' | grep -vE '^(127|169|0)\.'`
 
-for zProjMetaPath in `find /home/git/.____DpSystem -maxdepth 1 -type d | grep -E '^.+_SHADOW$'`
+zIpV4List=`ip addr | grep -oP '(?<=inet\s)(\w|\.|:)+(?=(/|\s))' | grep -vE '^(127|169|0)\.'`
+zIpV6List=`ip addr | grep -oP '(?<=inet6\s)(\w|\.|:)+(?=(/|\s))' | grep -viE '(^::1$)|(^fe80::)'`
+
+
+for zProjMetaPath in `find /home/git/.____DpSystem -maxdepth 2 -type d | grep -E '^.+_SHADOW$'`
 do
     cd $zProjMetaPath
-    bash ./tools/zhost_self_deploy.sh "$zSelfIpList"
+    bash ./tools/zhost_self_deploy.sh "${zIpV4List} ${zIpV6List}"  # 必须串行执行，因为复用了同一个套接字
 done

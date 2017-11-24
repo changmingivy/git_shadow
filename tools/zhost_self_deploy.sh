@@ -19,9 +19,9 @@ do
 
     for zIpStrAddr in `echo ${zSelfIpList}`
     do
-        exec 775>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
-        printf "[{\"OpsId\":13,\"ProjId\":${zProjId},\"data\":${zIpStrAddr},\"ExtraData\":${zLocalSig}}]">&775
-        exec 775>&-
+        # exec 775>/dev/tcp/${zMasterIpAddr}/${zMasterPort}
+        # printf "{\"OpsId\":13,\"ProjId\":${zProjId},\"HostAddr\":\"${zIpStrAddr}\",\"RevSig\":\"${zLocalSig}\"}">&775
+        # exec 775>&-
     done
     sleep 60
 done
