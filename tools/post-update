@@ -8,6 +8,7 @@
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
+export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
 # 由于 git push 会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
@@ -30,14 +31,14 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
     # 清理同一项目下可能存在的 post-update 进程
-    kill -9 `cat /home/git/.${zProjId}_pid_post-update`
+    kill -9 `cat /tmp/.${zProjId}_pid_post-update`
 
     # 清除可能存在的由于 git 崩溃残留的锁文件
     rm -f ${zPathOnHost}/.git/index.lock
     rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     # 运行期间将自身 Pid 存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
-    echo "$$" > /home/git/.${zProjId}_pid_post-update
+    echo "$$" > /tmp/.${zProjId}_pid_post-update
 
     # 'B': 布署结果返回；'C': KeepAlive
     zTcpReply() {
@@ -73,6 +74,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -82,6 +85,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     git reset --hard 2>${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
         sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+        sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+        sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
@@ -107,6 +112,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
         sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+        sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+        sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
@@ -123,6 +130,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -167,10 +176,9 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     fi
 
     rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧版布署系统的遗留文件
-    # ln -sT ${zPathOnHost}_SHADOW ${zProjOnLinePath}_SHADOW  # 用于兼容旧的 /home/git/.____req-deploy.sh 开机自启脚本
 
     # 更新开机自布署脚本，设置为隐藏文件
-    cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh /home/git/.____req-deploy.sh
+    cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
 
     # 执行用户自定义的布署后动作：____post-deploy.sh
     cd ${zProjOnLinePath}
@@ -179,6 +187,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         ${zPathOnHost}_SHADOW/____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
@@ -189,6 +199,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         ./____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\'/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i 's/\"/|/g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
@@ -203,5 +215,5 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update
 
     # 运行完毕，正常终止的进程，最后删除自身对应的 pid 文件
-    rm /home/git/.${zProjId}_pid_post-update
+    rm /tmp/.${zProjId}_pid_post-update
 ) &
