@@ -42,7 +42,7 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     # 'B': 布署结果返回；'C': KeepAlive
     zTcpReply() {
         ${zPathOnHost}_SHADOW/tools/notice\
-            "${zMasterIpAddr}"\
+            "${zMasterAddr}"\
             "${zMasterPort}"\
             "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${2},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}"
     }
