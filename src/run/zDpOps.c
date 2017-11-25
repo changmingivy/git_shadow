@@ -25,6 +25,7 @@ extern struct zNativeOps__ zNativeOps_;
 extern _i zGlobHomePathLen;
 extern char zGlobNoticeMd5[34];
 
+extern char *zpGlobLoginName;
 extern char *zpGlobSSHPort;
 extern char *zpGlobSSHPubKeyPath;
 extern char *zpGlobSSHPrvKeyPath;
@@ -158,7 +159,7 @@ zssh_exec_simple(char *zpHostAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, cha
             zpHostAddr,
             zpGlobSSHPort,
             zpCmd,
-            "git",
+            zpGlobLoginName,
             zpGlobSSHPubKeyPath,
             zpGlobSSHPrvKeyPath,
             NULL,
@@ -279,7 +280,8 @@ zgit_push_ccur(void *zp_) {
      * generate remote URL
      * 注：IPv6 地址段必须用中括号包住，否则无法解析
      */
-    sprintf(zRemoteRepoAddrBuf, "ssh://git@[%s]:%s%s%s/.git",
+    sprintf(zRemoteRepoAddrBuf, "ssh://%s@[%s]:%s%s%s/.git",
+            zpGlobLoginName,
             zpDpCcur_->p_hostIpStrAddr,
             zpGlobSSHPort,
             '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",

@@ -294,7 +294,7 @@ zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_) {
 //         "host=db.yixia.com"
 //         "port=9527"
 //         "user=admin"
-//         "passfile=/home/git/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
+//         "passfile=/$HOME/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
 //         "dbname=dpDB"
 //         "sslmode=allow"
 //         "connect_timeout=10";

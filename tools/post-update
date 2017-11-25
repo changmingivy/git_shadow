@@ -8,7 +8,6 @@
 printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
-export HOME="/home/git"
 
 # 由于 git push 会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
