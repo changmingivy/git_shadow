@@ -175,8 +175,6 @@ typedef struct {
     void *p_memPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t memLock;  // 内存池锁
     _ui memPoolOffSet;  // 动态指示下一次内存分配的起始地址
-
-    char noticeMd5[34];  // 服务端最新 notice 工具的 md5sum
 } zRepo__;
 
 

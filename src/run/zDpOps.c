@@ -23,6 +23,7 @@ extern struct zLibGit__ zLibGit_;
 extern struct zNativeOps__ zNativeOps_;
 
 extern _i zGlobHomePathLen;
+extern char zGlobNoticeMd5[34];
 
 extern char *zpGlobSSHPort;
 extern char *zpGlobSSHPubKeyPath;
@@ -306,7 +307,7 @@ zgit_push_ccur(void *zp_) {
                 zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
                 zpDpCcur_->p_hostIpStrAddr,
-                zpGlobRepo_[zpDpCcur_->repoId]->noticeMd5);
+                zGlobNoticeMd5);
         if (0 == zssh_exec_simple(
                     zpDpCcur_->p_hostIpStrAddr,
                     zCmdBuf,
@@ -868,7 +869,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
             zpDpCcur_->p_hostIpStrAddr,\
-            zpGlobRepo_[zpDpCcur_->repoId]->noticeMd5);\
+            zGlobNoticeMd5);\
 } while(0)
 
 static _i
