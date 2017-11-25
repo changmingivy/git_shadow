@@ -52,7 +52,7 @@ zPgDataPath=${zPgPath}/data
 
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
-${zPgBinPath}/createdb -O git dpDB
+${zPgBinPath}/createdb -O `whoami` dpDB
 
 # 需要 root 权限，防止 postgresql 主进程被 linux OOM_killer 杀掉
 # zPgPid=`head -1 ${zPgDataPath}/postmaster.pid`
