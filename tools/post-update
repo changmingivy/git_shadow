@@ -71,8 +71,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         git stash
         git stash clear
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
+            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -80,8 +80,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     fi
 
     git reset --hard 2>${zPathOnHost}_SHADOW/errlog
-    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
@@ -105,8 +105,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
     chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
-    sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
+        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
@@ -121,8 +121,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
         git stash
         git stash clear
         git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
+            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -174,20 +174,22 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 
     # 执行用户自定义的布署后动作：____post-deploy.sh
     cd ${zProjOnLinePath}
-    if [[ '0' < `\ls ${zPathOnHost}_SHADOW/____post-deploy.sh | wc -l` ]]; then
-        bash ${zPathOnHost}_SHADOW/____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+    if [[ 0 -ne `\ls ${zPathOnHost}_SHADOW/____post-deploy.sh | wc -l` ]]; then
+        chmod 0755 ${zPathOnHost}_SHADOW/____post-deploy.sh
+        ${zPathOnHost}_SHADOW/____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
+            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
     fi
 
-    if [[ '0' < `\ls ${zProjOnLinePath}/____post-deploy.sh | wc -l` ]]; then
-        bash ./____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+    if [[ 0 -ne `\ls ${zProjOnLinePath}/____post-deploy.sh | wc -l` ]]; then
+        chmod 0755 ____post-deploy.sh
+        ./____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
         if [[ 0 -ne $? ]]; then
-            zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog``"
+            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
+            zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
     fi
