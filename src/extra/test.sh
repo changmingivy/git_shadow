@@ -6,7 +6,7 @@ zCmd="cargo run --release"
 #zContent="{\"OpsId\":6,\"ProjId\":11}"
 
 # 创建新项目
-#zContent="{\"OpsId\":1,\"ProjId\":\"111\",\"PathOnHost\":\"/home/git/111_Y\",\"SourceUrl\":\"https://git.coding.net/kt10/FreeBSD.git\",\"SourceBranch\":\"master\",\"SourceVcsType\":\"git\",\"NeedPull\":\"Y\","SSHUserName":"git","SSHPort":"22"}"
+#zContent="{\"OpsId\":1,\"ProjId\":\"111\",\"PathOnHost\":\"/home/git/111_Y\",\"SourceUrl\":\"https://git.coding.net/kt10/FreeBSD.git\",\"SourceBranch\":\"master\",\"SourceVcsType\":\"git\",\"NeedPull\":\"Y\",\"SSHUserName\":\"git\",\"SSHPort\":\"22\"}"
 
 # 查询版本号列表
 zContent="{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}"
