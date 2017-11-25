@@ -767,8 +767,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     }
 
     /* 连接目标机所用的 ssh_user_name 与 ssh_port */
-    strcpy(zpRepoMeta_->pp_fields[6], zpGlobRepo_[zRepoId]->sshUserName);
-    strcpy(zpRepoMeta_->pp_fields[7], zpGlobRepo_[zRepoId]->sshPort);
+    strcpy(zpGlobRepo_[zRepoId]->sshUserName, zpRepoMeta_->pp_fields[6]);
+    strcpy(zpGlobRepo_[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
 
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );

@@ -518,14 +518,16 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_, zSd))) {
         /* 写入本项目元数据 */
         sprintf(zSQLBuf, "INSERT INTO proj_meta "
-                "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull) "
-                "VALUES ('%s','%s','%s','%s','%c','%c')",
+                "(proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull, ssh_user_name, ssh_port) "
+                "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
                 zRepoMeta_.pp_fields[2],
                 zRepoMeta_.pp_fields[3],
                 toupper(zRepoMeta_.pp_fields[4][0]),
-                toupper(zRepoMeta_.pp_fields[5][0]));
+                toupper(zRepoMeta_.pp_fields[5][0]),
+                zRepoMeta_.pp_fields[6],
+                zRepoMeta_.pp_fields[7]);
 
         zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(
                 zpGlobRepo_[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->p_pgConnHd_,
