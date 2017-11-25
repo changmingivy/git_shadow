@@ -60,11 +60,10 @@ zssh_exec(
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz,
         pthread_mutex_t *zpCcurLock,
-        char *zpErrBufOUT /* size: 256 */
+        char *zpErrBufOUT __attribute__ ((__unused__))/* size: 256 */
         ) {
 
     _i zSd, zRet, zErrNo;
-    time_t zBaseTimeStamp;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
@@ -72,24 +71,14 @@ zssh_exec(
     pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
         pthread_mutex_unlock(zpCcurLock);
-        if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2_init(0): failed");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2_init(0): failed", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2_init(0): failed");
         return -1;
     }
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         pthread_mutex_unlock(zpCcurLock);
         libssh2_exit();
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2_session_init(): failed");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2_session_init(): failed", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2_session_init(): failed");
         return -1;
     }
     pthread_mutex_unlock(zpCcurLock);
@@ -97,86 +86,50 @@ zssh_exec(
     if (0 > (zSd = zNetUtils_.tcp_conn(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2 tcp connect: failed", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
         return -1;
     }
 
     /* tell libssh2 we want it all done non-blocking */
     libssh2_session_set_blocking(zSession, 0);
 
-    zBaseTimeStamp = time(NULL);
-    while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd))) {
-        if (10 < (time(NULL) - zBaseTimeStamp)) {
-            goto z0;
-        }
-    }
+    while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_session_handshake(zSession, zSd)));
 
     if (0 != zRet) {
-z0: libssh2_session_free(zSession);
+        libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2_session_handshake: timeout(> 10s)");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2_session_handshake: timeout(> 10s)", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2_session_handshake failed");
         return -1;
     }
 
-    zBaseTimeStamp = time(NULL);
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
-        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd))) {
-            if (10 < (time(NULL) - zBaseTimeStamp)) {
-                goto z1;
-            }
-        }
+        while (LIBSSH2_ERROR_EAGAIN ==
+                (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd)));
     } else {  /* public key */
-        while (LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd))) {
-            if (10 < (time(NULL) - zBaseTimeStamp)) {
-                goto z1;
-            }
-        }
+        while (LIBSSH2_ERROR_EAGAIN ==
+                (zRet = libssh2_userauth_publickey_fromfile(zSession, zpUserName, zpPubKeyPath, zpPrivateKeyPath, zpPassWd)));
     }
 
     if (0 != zRet) {
-z1: libssh2_session_free(zSession);
+        libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2: user auth failed(password and publickey)", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
         return -1;
     }
 
-    /* Exec non-blocking on the remove host */
-    zBaseTimeStamp = time(NULL);
+    /* Exec non-blocking on the remote host */
     while(NULL == (zChannel= libssh2_channel_open_session(zSession))) {  // 会带来段错误：&& (LIBSSH2_ERROR_EAGAIN == libssh2_session_last_error(zSession, NULL, NULL,0))
-        if (10 < (time(NULL) - zBaseTimeStamp)) {
-            goto z2;
-        }
         zwait_socket(zSd, zSession);
     }
 
     if(NULL == zChannel) {
-z2: libssh2_session_disconnect(zSession, "");
+        libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2_channel_open_session: timeout(> 10s)");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2_channel_open_session: timeout(> 10s)", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2_channel_open_session failed");
         return -1;
     }
 
@@ -184,26 +137,18 @@ z2: libssh2_session_disconnect(zSession, "");
     char zpSelfUnionCmd[zSshSelfIpDeclareBufSiz + strlen(zpCmd)];
     sprintf(zpSelfUnionCmd, "export ____zSelfIp='%s';%s", zpHostIpAddr, zpCmd);
 
-    zBaseTimeStamp = time(NULL);
-    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
-        if (10 < (time(NULL) - zBaseTimeStamp)) {
-            goto z3;
-        }
+    while(LIBSSH2_ERROR_EAGAIN ==
+            (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
         zwait_socket(zSd, zSession);
     }
 
     if( 0 != zRet) {
-z3: libssh2_session_disconnect(zSession, "");
+        libssh2_session_disconnect(zSession, "");
         libssh2_session_free(zSession);
         libssh2_channel_free(zChannel);
         libssh2_exit();
         close(zSd);
-        if (NULL != zpErrBufOUT) {
-            zPrint_Err(0, NULL, "libssh2_channel_exec: timeout(> 10s)");
-        } else {
-            strncpy(zpErrBufOUT, "libssh2_channel_exec: timeout(> 10s)", 255);
-            zpErrBufOUT[255] = '\0';
-        }
+        zPrint_Err(0, NULL, "libssh2_channel_exec failed");
         return -1;
     }
 
@@ -221,12 +166,7 @@ z3: libssh2_session_disconnect(zSession, "");
                         libssh2_session_free(zSession);
                         libssh2_exit();
                         close(zSd);
-                        if (NULL != zpErrBufOUT) {
-                            zPrint_Err(0, NULL, "libssh2_channel_read: failed");
-                        } else {
-                            strncpy(zpErrBufOUT, "libssh2_channel_read: failed", 255);
-                            zpErrBufOUT[255] = '\0';
-                        }
+                        zPrint_Err(0, NULL, "libssh2_channel_read: failed");
                         return -1;
                     }
                 }

@@ -889,7 +889,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
             "exec 777<&-;"\
-            "bash init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s'",\
+            "bash -x init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s' >/tmp/initlog 2>&1 &",\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
             zRepoId, zpGlobRepo_[zRepoId]->p_repoPath,\
             zRepoId,\
