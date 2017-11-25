@@ -35,16 +35,16 @@ git init .
 git config user.name _
 git config user.email _
 
-echo "$zSelfIp" > ${zPathOnHost}_SHADOW/.____zself_ip_addr_%d.txt
+echo "$zSelfIp" > ${zPathOnHost}_SHADOW/.____zself_ip_addr_${zRepoId}.txt
 
 zBaseTimeStamp=`date +%s`
-while [[ "${zMd5Sum}" != "`md5sum ${zPathOnHost}_SHADOW/tools/notice | grep -oP '\w{32}'`" ]]
+while [[ "${zMd5Sum}" != `md5sum ${zPathOnHost}_SHADOW/tools/notice | grep -oP '\w{32}'` ]]
 do
     if [[ 300 < $((`date +%s` - ${zBaseTimeStamp})) ]]; then
         exit 255
     fi
 
-    exec 777<>/dev/tcp/${zSelfIp}/${zServPort}
+    exec 777<>/dev/tcp/${zServIp}/${zServPort}
     printf "{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zPathOnServ}_SHADOW/tools/notice\"}" >&777
     cat <&777 >${zPathOnHost}_SHADOW/tools/notice
     chmod 0755 ${zPathOnHost}_SHADOW/tools/notice
