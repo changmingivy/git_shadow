@@ -133,25 +133,25 @@ struct zDpOps__ zDpOps_ = {
 #define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
 #define zErrMetaSiz zSizeOf("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
 
-static void *
-zssh_ccur(void  *zpParam) {
-    char zErrBuf[256] = {'\0'};
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-
-    zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
-            zpDpCcur_->p_cmd,
-            zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
-            zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz,
-            zpDpCcur_->p_ccurLock,
-            zErrBuf);
-
-    pthread_mutex_lock(zpDpCcur_->p_ccurLock);
-    (* (zpDpCcur_->p_taskCnt))++;
-    pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
-    pthread_cond_signal(zpDpCcur_->p_ccurCond);
-
-    return NULL;
-};
+// static void *
+// zssh_ccur(void  *zpParam) {
+//     char zErrBuf[256] = {'\0'};
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+//
+//     zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+//             zpDpCcur_->p_cmd,
+//             zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
+//             zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz,
+//             zpDpCcur_->p_ccurLock,
+//             zErrBuf);
+//
+//     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
+//     (* (zpDpCcur_->p_taskCnt))++;
+//     pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
+//     pthread_cond_signal(zpDpCcur_->p_ccurCond);
+//
+//     return NULL;
+// };
 
 
 /* 简化参数版函数 */
@@ -178,26 +178,26 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 
 /* 简化参数版函数 */
-static void *
-zssh_ccur_simple(void  *zpParam) {
-    char zErrBuf[256] = {'\0'};
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-
-    zssh_exec_simple(
-            zpDpCcur_->p_userName,
-            zpDpCcur_->p_hostIpStrAddr,
-            zpDpCcur_->p_hostServPort,
-            zpDpCcur_->p_cmd,
-            zpDpCcur_->p_ccurLock,
-            zErrBuf);
-
-    pthread_mutex_lock(zpDpCcur_->p_ccurLock);
-    (* (zpDpCcur_->p_taskCnt))++;
-    pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
-    pthread_cond_signal(zpDpCcur_->p_ccurCond);
-
-    return NULL;
-};
+// static void *
+// zssh_ccur_simple(void  *zpParam) {
+//     char zErrBuf[256] = {'\0'};
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+//
+//     zssh_exec_simple(
+//             zpDpCcur_->p_userName,
+//             zpDpCcur_->p_hostIpStrAddr,
+//             zpDpCcur_->p_hostServPort,
+//             zpDpCcur_->p_cmd,
+//             zpDpCcur_->p_ccurLock,
+//             zErrBuf);
+//
+//     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
+//     (* (zpDpCcur_->p_taskCnt))++;
+//     pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
+//     pthread_cond_signal(zpDpCcur_->p_ccurCond);
+//
+//     return NULL;
+// };
 
 
 /* 远程主机初始化专用 */

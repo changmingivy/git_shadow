@@ -1204,8 +1204,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "source_url      varchar NOT NULL,"
             "source_branch   varchar NOT NULL,"
             "source_vcs_type char(1) NOT NULL,"  /* 'G': git, 'S': svn */
-            "need_pull       char(1) NOT NULL"
-            "ssh_user_name   varchar NOT NULL"
+            "need_pull       char(1) NOT NULL,"
+            "ssh_user_name   varchar NOT NULL,"
             "ssh_port        varchar NOT NULL"
             ");"
 \
