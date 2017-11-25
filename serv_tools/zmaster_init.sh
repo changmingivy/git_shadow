@@ -45,8 +45,8 @@ fi
 mkdir -p $zDeployPath
 if [[ $? -ne 0 ]]; then exit 254; fi
 
-# 拉取远程代码：只取最新的三次提交，加快拉取速度
-git clone --depth=3 $zPullAddr $zDeployPath
+# 拉取远程代码
+git clone $zPullAddr $zDeployPath
 
 if [[ $? -ne 0 ]]; then
     rm -rf $zDeployPath
@@ -66,11 +66,9 @@ git branch -f ${zServBranchName}  # 远程代码接收到 server${zProjId} 分�
 # 元数据：创建以 <项目名称>_SHADOW 命名的目录，初始化为git库
 mkdir -p ${zDeployPath}_SHADOW
 cd ${zDeployPath}_SHADOW
-
-######## will do those OPSs below before per Dp... ########
-# rm -rf ./tools
-# cp -R ${zShadowPath}/tools ./
-# eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
+if [[ 0 -ne $? ]]; then exit 255; fi
+rm -rf ./tools
+cp -r ${zShadowPath}/tools ./
 
 git init .
 git config user.name "git_shadow"
