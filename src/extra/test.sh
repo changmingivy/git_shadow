@@ -18,7 +18,7 @@ zContent="{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}"
 #zContent="{\"OpsId\":11,\"ProjId\":11,\"RevId\":0,\"FileId\":0,\"CacheId\":1000000000,\"DataType\":0}"
 
 # 布署/撤销
-#zContent="{\"OpsId\":12,\"ProjId\":11,\"RevId\":${1},\"CacheId\":0,\"DataType\":0,\"IpList\":\"::1\",\"IpCnt\":\"1\",\"SSHUserName\":\"git\",\"SSHPort\":\"22\"}"
+# zContent="{\"OpsId\":12,\"ProjId\":11,\"RevId\":${1},\"CacheId\":0,\"DataType\":0,\"IpList\":\"::1\",\"IpCnt\":1,\"SSHUserName\":\"git\",\"SSHPort\":\"22\"}"
 
 cd ./notice &&\
 	$zCmd '::1' '20000' "${zContent}"
