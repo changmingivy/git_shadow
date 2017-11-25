@@ -38,7 +38,7 @@ git config user.email _
 echo "$zSelfIp" > ${zPathOnHost}_SHADOW/.____zself_ip_addr_%d.txt
 
 zBaseTimeStamp=`date +%s`
-while [[ "${zMd5Sum}" != "`md5sum ${zPathOnHost}_SHADOW/tools/notice | grep -oP '\w{32}'`"]]
+while [[ "${zMd5Sum}" != "`md5sum ${zPathOnHost}_SHADOW/tools/notice | grep -oP '\w{32}'`" ]]
 do
     if [[ 300 < $((`date +%s` - ${zBaseTimeStamp})) ]]; then
         exit 255
