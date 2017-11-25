@@ -66,9 +66,9 @@ typedef struct __zDpCcur__ {
     char *p_cmd;  // 需要执行的指令集合
 
     _i authType;
-    const char *p_userName;
-    const char *p_pubKeyPath;  // 公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
-    const char *p_privateKeyPath;  // 私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *p_userName;  // 目标机上的用户名称
+    const char *p_pubKeyPath;  // 服务器上公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *p_privateKeyPath;  // 服务器上私钥所在路径，如："/home/git/.ssh/id_rsa"
     const char *p_passWd;  // 登陆密码或公钥加密密码
 
     char *p_remoteOutPutBuf;  // 获取远程返回信息的缓冲区
@@ -148,6 +148,9 @@ typedef struct {
     char dpingSig[44];  // 正在布署过程中的版本号
     char tryingSig[44];  // 正在布署过程中的版本号
 
+    char sshUserName[256];
+    char sshPort[6];
+
     pthread_mutex_t replyCntLock;  // 用于保证 ReplyCnt 计数的正确性
 
     zDpCcur__ dpCcur_[zForecastedHostNum];
@@ -189,9 +192,8 @@ extern char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所
 
 /* 指定服务端自身的Ip地址与端口 */
 typedef struct {
-    char *p_ipAddr;  // 字符串形式的ip点分格式地式
-    char *p_port;  // 字符串形式的端口，如："80"
-    zProtoType__ protoType;  // 网络服务类型：TCP/UDP
+    char *p_ipAddr;
+    char *p_port;
 } zNetSrv__;
 
 extern zNetSrv__ zNetSrv_;

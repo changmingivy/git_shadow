@@ -26,7 +26,6 @@ extern _i zGlobHomePathLen;
 extern char zGlobNoticeMd5[34];
 
 extern char *zpGlobLoginName;
-extern char *zpGlobSSHPort;
 extern char *zpGlobSSHPubKeyPath;
 extern char *zpGlobSSHPrvKeyPath;
 
@@ -134,32 +133,38 @@ struct zDpOps__ zDpOps_ = {
 #define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
 #define zErrMetaSiz zSizeOf("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
 
-// static void *
-// zssh_ccur(void  *zpParam) {
-//     char zErrBuf[256] = {'\0'};
-//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-//
-//     zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort, zpDpCcur_->p_cmd,
-//             zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
-//             zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz, zpDpCcur_->p_ccurLock, zErrBuf);
-//
-//     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
-//     (* (zpDpCcur_->p_taskCnt))++;
-//     pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
-//     pthread_cond_signal(zpDpCcur_->p_ccurCond);
-//
-//     return NULL;
-// };
+static void *
+zssh_ccur(void  *zpParam) {
+    char zErrBuf[256] = {'\0'};
+    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+
+    zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+            zpDpCcur_->p_cmd,
+            zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
+            zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz,
+            zpDpCcur_->p_ccurLock,
+            zErrBuf);
+
+    pthread_mutex_lock(zpDpCcur_->p_ccurLock);
+    (* (zpDpCcur_->p_taskCnt))++;
+    pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
+    pthread_cond_signal(zpDpCcur_->p_ccurCond);
+
+    return NULL;
+};
 
 
 /* 简化参数版函数 */
 static _i
-zssh_exec_simple(char *zpHostAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
+zssh_exec_simple(const char *zpSSHUserName,
+        char *zpHostAddr, char *zpSSHPort,
+        char *zpCmd,
+        pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
     return zLibSsh_.exec(
             zpHostAddr,
-            zpGlobSSHPort,
+            zpSSHPort,
             zpCmd,
-            zpGlobLoginName,
+            zpSSHUserName,
             zpGlobSSHPubKeyPath,
             zpGlobSSHPrvKeyPath,
             NULL,
@@ -173,20 +178,26 @@ zssh_exec_simple(char *zpHostAddr, char *zpCmd, pthread_mutex_t *zpCcurLock, cha
 
 
 /* 简化参数版函数 */
-// static void *
-// zssh_ccur_simple(void  *zpParam) {
-//     char zErrBuf[256] = {'\0'};
-//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
-//
-//     zssh_exec_simple(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_cmd, zpDpCcur_->p_ccurLock, zErrBuf);
-//
-//     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
-//     (* (zpDpCcur_->p_taskCnt))++;
-//     pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
-//     pthread_cond_signal(zpDpCcur_->p_ccurCond);
-//
-//     return NULL;
-// };
+static void *
+zssh_ccur_simple(void  *zpParam) {
+    char zErrBuf[256] = {'\0'};
+    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+
+    zssh_exec_simple(
+            zpDpCcur_->p_userName,
+            zpDpCcur_->p_hostIpStrAddr,
+            zpDpCcur_->p_hostServPort,
+            zpDpCcur_->p_cmd,
+            zpDpCcur_->p_ccurLock,
+            zErrBuf);
+
+    pthread_mutex_lock(zpDpCcur_->p_ccurLock);
+    (* (zpDpCcur_->p_taskCnt))++;
+    pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
+    pthread_cond_signal(zpDpCcur_->p_ccurCond);
+
+    return NULL;
+};
 
 
 /* 远程主机初始化专用 */
@@ -207,7 +218,9 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
         if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {
             if (0 == zssh_exec_simple(
+                        zpDpCcur_->p_userName,
                         zpDpCcur_->p_hostIpStrAddr,
+                        zpDpCcur_->p_hostServPort,
                         zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock,
                         zErrBuf)) {
@@ -281,9 +294,9 @@ zgit_push_ccur(void *zp_) {
      * 注：IPv6 地址段必须用中括号包住，否则无法解析
      */
     sprintf(zRemoteRepoAddrBuf, "ssh://%s@[%s]:%s%s%s/.git",
-            zpGlobLoginName,
+            zpDpCcur_->p_userName,
             zpDpCcur_->p_hostIpStrAddr,
-            zpGlobSSHPort,
+            zpDpCcur_->p_hostServPort,
             '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
 
@@ -301,17 +314,18 @@ zgit_push_ccur(void *zp_) {
                 "cat <&777 >init.sh;"
                 "exec 777>&-;"
                 "exec 777<&-;"
-                "bash init.sh %d '%s' '%s' '%s' '%s' '%s' '%s'",
+                "bash init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s'",
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
                 zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
                 zpDpCcur_->repoId,
                 zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
                 zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
-                zpDpCcur_->p_hostIpStrAddr,
                 zGlobNoticeMd5);
         if (0 == zssh_exec_simple(
+                    zpDpCcur_->p_userName,
                     zpDpCcur_->p_hostIpStrAddr,
+                    zpDpCcur_->p_hostServPort,
                     zCmdBuf,
                     &(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock),
                     zErrBuf)) {
@@ -428,15 +442,7 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
  */
 static _i
 zadd_repo(cJSON *zpJRoot, _i zSd) {
-    /*
-     * [0] zRepoId
-     * [1] zPathOnHost
-     * [2] zSourceUrl
-     * [3] zSourceBranch
-     * [4] zSourceVcsType
-     * [5] zNeedPull
-     */
-    char *zpProjInfo[6] = { NULL };
+    char *zpProjInfo[8] = { NULL };
 
     zPgResTuple__ zRepoMeta_ = {
         .p_taskCnt = NULL,
@@ -464,6 +470,24 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         return -34;
     }
     zpProjInfo[5] = zpJ->valuestring;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SSHUserName");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        return -34;
+    }
+    if (255 < strlen(zpJ->valuestring)) {
+        return -31;
+    }
+    zpProjInfo[6] = zpJ->valuestring;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SSHPort");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        return -34;
+    }
+    if (5 < strlen(zpJ->valuestring)) {
+        return -39;
+    }
+    zpProjInfo[7] = zpJ->valuestring;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
         zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SourceUrl");
@@ -863,19 +887,19 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
             "exec 777<&-;"\
-            "bash init.sh %d '%s' '%s' '%s' '%s' '%s' '%s'",\
+            "bash init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s'",\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,\
-            zpDpCcur_->repoId,\
-            zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,\
-            zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
+            zRepoId, zpGlobRepo_[zRepoId]->p_repoPath,\
+            zRepoId,\
+            zpGlobRepo_[zRepoId]->p_repoPath,\
+            zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zpDpCcur_->p_hostIpStrAddr,\
             zGlobNoticeMd5);\
 } while(0)
 
 static _i
-zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt,
+zupdate_ip_db_all(_i zRepoId,
+        char *zpSSHUserName, char *zpSSHPort, char *zIpList, _ui zIpCnt,
         char *zpCommonBuf, _i zBufLen,
         zRegRes__ **zppRegRes_Out) {
     _i zErrNo = 0;
@@ -947,7 +971,9 @@ zupdate_ip_db_all(_i zRepoId, char *zIpList, _ui zIpCnt,
         /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].repoId = zRepoId;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_userName = zpSSHUserName;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpRegRes_->p_rets[zCnter];
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostServPort = zpSSHPort;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_cmd = zpCommonBuf;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_ccurLock = &zpGlobRepo_[zRepoId]->dpSyncLock;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_ccurCond = &zpGlobRepo_[zRepoId]->dpSyncCond;
@@ -1055,7 +1081,7 @@ zExistMark:;
 static _i
 zdeploy(_i zSd,
         _i zRepoId, _i zCacheId, _i zCommitId, _i zDataType,
-        char *zpIpList, _i zIpCnt,
+        char *zpSSHUserName, char *zpSSHPort, char *zpIpList, _i zIpCnt,
         char **zppCommonBuf, _i zBufLen,
         zRegRes__ **zppIpAddrRegRes_OUT) {
     zVecWrap__ *zpTopVecWrap_ = NULL;
@@ -1134,6 +1160,7 @@ zdeploy(_i zSd,
 
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if (0 > (zErrNo = zupdate_ip_db_all(zRepoId,
+                    zpSSHUserName, zpSSHPort,
                     zpIpList, zIpCnt,
                     zppCommonBuf[0], zBufLen,
                     zppIpAddrRegRes_OUT))) {
@@ -1423,6 +1450,8 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     /* 若目标机上已是最新代码，则无需布署 */
     if (0 != strncmp(zpJ->valuestring, zpGlobRepo_[zRepoId]->lastDpSig, 40)) {
+        zDpSelf_.p_userName = zpGlobRepo_[zRepoId]->sshUserName;
+        zDpSelf_.p_hostServPort = zpGlobRepo_[zRepoId]->sshPort;
         zgit_push_ccur(&zDpSelf_);
     }
 
@@ -1442,12 +1471,18 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     char *zppCommonBuf[2] = { NULL };
-    char *zpIpList = NULL;
     zRegRes__ *zpIpAddrRegRes_ = NULL;
+
+    char *zpSSHUserName = NULL;
+    char *zpIpList = NULL;
+    _i zIpCnt = -1;
+    char *zpSSHPort = NULL;
+
+    zPgResHd__ *zpPgResHd_ = NULL;
+
     _i zErrNo = 0,
        zCommonBufLen = -1,
        zRepoId = -1,
-       zIpCnt = -1,
        zIpListStrLen = -1,
        zCacheId = -1,
        zCommitId = -1,
@@ -1498,6 +1533,20 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
     zIpCnt = zpJ->valueint;
 
+    /* 同一项目所有目标机的 ssh 用户名必须相同 */
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SSHUserName");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        return -1;
+    }
+    zpSSHUserName = zpJ->valuestring;
+
+    /* 同一项目所有目标机的 sshd 端口必须相同 */
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "SSHPort");
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        return -1;
+    }
+    zpSSHPort = zpJ->valuestring;
+
     if (0 != pthread_rwlock_trywrlock( &(zpGlobRepo_[zRepoId]->rwLock) )) {
         if (0 == zpGlobRepo_[zRepoId]->whoGetWrLock) {
             return -5;
@@ -1511,6 +1560,30 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zppCommonBuf[0] = zNativeOps_.alloc(zRepoId, 2 * zCommonBufLen);
     zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
 
+    if (0 != strcmp(zpSSHUserName, zpGlobRepo_[zRepoId]->sshUserName)
+            || 0 != strcmp(zpSSHPort, zpGlobRepo_[zRepoId]->sshPort)) {
+        sprintf(zppCommonBuf[1],
+                "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s, WHERE proj_id = %d",
+                zpSSHUserName,
+                zpSSHPort,
+                zRepoId);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                        zpGlobRepo_[zRepoId]->p_pgConnHd_,
+                        zppCommonBuf[1],
+                        zFalse))) {
+            zPgSQL_.conn_reset(zpGlobRepo_[zRepoId]->p_pgConnHd_);
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                            zpGlobRepo_[zRepoId]->p_pgConnHd_,
+                            zppCommonBuf[1],
+                            zFalse))) {
+                zPgSQL_.res_clear(zpPgResHd_, NULL);
+                zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
+                zPrint_Err(0, NULL, "!!! FATAL !!!");
+                exit(1);
+            }
+        }
+    }
+
     pthread_mutex_lock(&zpGlobRepo_[zRepoId]->dpSyncLock);
     zpGlobRepo_[zRepoId]->whoGetWrLock = 1;  // 置为 1
     pthread_mutex_unlock(&zpGlobRepo_[zRepoId]->dpSyncLock);
@@ -1521,7 +1594,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 执行布署 */
     zErrNo = zdeploy(zSd,
             zRepoId, zCacheId, zCommitId, zDataType,
-            zpIpList, zIpCnt,
+            zpSSHUserName, zpSSHPort, zpIpList, zIpCnt,
             zppCommonBuf, zCommonBufLen,
             &zpIpAddrRegRes_);
 

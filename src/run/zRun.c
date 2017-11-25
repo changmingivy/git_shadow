@@ -1,5 +1,7 @@
 #include "zRun.h"
 
+#include <sys/types.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -16,9 +18,9 @@ extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 
-char *zpGlobLoginName = NULL;
+extern char *zpGlobLoginName;
+
 char *zpGlobHomePath = NULL;
-char *zpGlobSSHPort = "22";
 char *zpGlobSSHPubKeyPath = NULL;
 char *zpGlobSSHPrvKeyPath = NULL;
 _i zGlobHomePathLen = 0;
@@ -66,7 +68,7 @@ zerr_vec_init(void) {
     zpErrVec[28] = "指定的目标机数量与实际解析出的数量不一致";
     zpErrVec[29] = "";
     zpErrVec[30] = "";
-    zpErrVec[31] = "";
+    zpErrVec[31] = "SSHUserName 字段太长（>255 个字符）";
     zpErrVec[32] = "项目 ID 超出系统允许的范围";
     zpErrVec[33] = "无法创建项目路径";
     zpErrVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
@@ -74,7 +76,7 @@ zerr_vec_init(void) {
     zpErrVec[36] = "项目路径已存在，且项目 ID 不同";
     zpErrVec[37] = "未指定远程源代码版本控制系统类型：git";
     zpErrVec[38] = "拉取远程代码失败";
-    zpErrVec[39] = "";
+    zpErrVec[39] = "SSHPort 字段太长（>5 个字符）";
     zpErrVec[40] = "md5sum 计算出错";
     zpErrVec[41] = "";
     zpErrVec[42] = "";
@@ -182,14 +184,14 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     /* 初始化错误信息影射表 */
     zerr_vec_init();
 
-    /* 提取 $USER 及 $HOME 等 */
-    if (NULL == (zpGlobLoginName = getlogin())) {
+    /* 提取 $USER */
+    if (NULL == zpGlobLoginName) {
         zpGlobLoginName = "git";
     }
 
-    if (NULL == (zpGlobHomePath = getenv("HOME"))) {
-        zpGlobHomePath = "/home/git";
-    }
+    /* 提取 $HOME */
+    struct passwd *zpPWD = getpwnam(zpGlobLoginName);
+    zCheck_Null_Exit(zpGlobHomePath = zpPWD->pw_dir);
 
     zGlobHomePathLen = strlen(zpGlobHomePath);
 
@@ -227,7 +229,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[15] = NULL;
 
     /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zpNetSrv_->protoType);
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zProtoTcp);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};

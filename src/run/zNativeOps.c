@@ -751,11 +751,24 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     }
 
     /* 计算 notice 工具的 md5sum */
-    sprintf(zCommonBuf, "%s/.____DpSystem/notice", zpGlobHomePath);
+    sprintf(zCommonBuf, "%s_SHADOW/tools/notice", zpGlobRepo_[zRepoId]->p_repoPath);
     if (0 > zMd5Sum_.md5sum(zCommonBuf, zGlobNoticeMd5)) {
         zFree_Source();
         return -40;
     }
+
+    /*
+     * PostgreSQL 中以 char(1) 类型存储
+     * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
+     */
+    if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
+        zFree_Source();
+        return -37;
+    }
+
+    /* 连接目标机所用的 ssh_user_name 与 ssh_port */
+    strcpy(zpRepoMeta_->pp_fields[6], zpGlobRepo_[zRepoId]->sshUserName);
+    strcpy(zpRepoMeta_->pp_fields[7], zpGlobRepo_[zRepoId]->sshPort);
 
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );
@@ -805,15 +818,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         }
     }
     /**********************************************************************************/
-
-    /*
-     * PostgreSQL 中以 char(1) 类型存储
-     * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
-     */
-    if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
-        zFree_Source();
-        return -37;
-    }
 
     /* 内存池初始化，开头留一个指针位置，用于当内存池容量不足时，指向下一块新开辟的内存区 */
     if (MAP_FAILED ==
@@ -1201,6 +1205,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "source_branch   varchar NOT NULL,"
             "source_vcs_type char(1) NOT NULL,"  /* 'G': git, 'S': svn */
             "need_pull       char(1) NOT NULL"
+            "ssh_user_name   varchar NOT NULL"
+            "ssh_port        varchar NOT NULL"
             ");"
 \
             "CREATE TABLE IF NOT EXISTS dp_log "
@@ -1226,7 +1232,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 查询已有项目信息 */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull FROM proj_meta",
+            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull, ssh_user_name, ssh_port, FROM proj_meta",
             zTrue);
 
     /* 已经执行完结并取回结果，立即断开连接 */

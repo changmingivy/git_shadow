@@ -16,20 +16,20 @@
 #include "zCommon.h"
 #include "zRun.h"
 
+char *zpGlobLoginName = NULL;
 extern struct zRun__ zRun_;
 
-zNetSrv__ zNetSrv_ = { NULL, NULL, 0 };
+zNetSrv__ zNetSrv_ = { NULL, NULL };
 
 _i
 main(_i zArgc, char **zppArgv) {
     zPgLogin__ zPgLogin_ = { NULL, NULL, NULL, NULL, NULL, NULL };
-    zNetSrv_.protoType = zProtoTcp;
     _i zOpt = 0;
 
-    while (-1 != (zOpt = getopt(zArgc, zppArgv, "uh:p:H:P:U:F:D:"))) {
+    while (-1 != (zOpt = getopt(zArgc, zppArgv, "u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'u':
-                zNetSrv_.protoType = zProtoUdp; break;
+                zpGlobLoginName = optarg; break;
             case 'h':
                 zNetSrv_.p_ipAddr = optarg; break;
             case 'p':
@@ -52,7 +52,7 @@ main(_i zArgc, char **zppArgv) {
                         "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
                         "Usage:\n"
                         "%s\n"
-                        "[-u]  /* UDP or TCP */\n"
+                        "[-u login_name]  /* username on server */\n"
                         "[-h host]  /* host name or domain name or host IPv4 address */\n"
                         "[-p tcp_port]  /* tcp serv port */\n"
                         "[-H postgreSQL_host]  /* PQdb host name or domain name, default 'localhost' */\n"
