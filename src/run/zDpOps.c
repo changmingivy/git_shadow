@@ -885,7 +885,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             "zTmpDir=`mktemp /tmp/dp.XXXXXXXX`;"\
             "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"\
             "exec 777<>/dev/tcp/%s/%s;"\
-            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/tools/zremote_init.sh\"}' >&777;"\
+            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
             "exec 777<&-;"\
