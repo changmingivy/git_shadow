@@ -1232,7 +1232,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
 
     /* 查询已有项目信息 */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull, ssh_user_name, ssh_port, FROM proj_meta",
+            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull, ssh_user_name, ssh_port FROM proj_meta",
             zTrue);
 
     /* 已经执行完结并取回结果，立即断开连接 */
