@@ -307,7 +307,7 @@ zgit_push_ccur(void *zp_) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
         sprintf(zCmdBuf,
-                "zTmpDir=`mktemp /tmp/dp.XXXXXXXX`;"
+                "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"
                 "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"
                 "exec 777<>/dev/tcp/%s/%s;"
                 "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/tools/zremote_init.sh\"}' >&777;"
@@ -882,7 +882,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
-            "zTmpDir=`mktemp /tmp/dp.XXXXXXXX`;"\
+            "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"\
             "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"\
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
