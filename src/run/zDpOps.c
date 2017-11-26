@@ -884,7 +884,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     sprintf(zpCmdBuf,\
             "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"\
             "cd ${zTmpDir};if [[ 0 -ne $? ]];then exit 1;fi\n"\
-            "exec 777<>/dev/tcp/%s/%s 2>/tmp/initlog;if [[ 0 -ne $? ]];then exit 1;fi"\
+            "exec 777<>/dev/tcp/%s/%s 2>/tmp/initlog;if [[ 0 -ne $? ]];then exit 1;fi\n"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
