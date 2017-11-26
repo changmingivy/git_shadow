@@ -1191,7 +1191,7 @@ zdeploy(_i zSd,
 
     /* 重置布署相关状态 */
     for (zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
-        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState = 0;
+        //zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState = 0;
     }
     zpGlobRepo_[zRepoId]->dpTotalTask = zpGlobRepo_[zRepoId]->totalHost;
     zpGlobRepo_[zRepoId]->dpReplyCnt = 0;
@@ -1340,7 +1340,8 @@ zErrMark:
         _i zOffSet = 0;
         for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz))
                 && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
-            if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
+            //if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
+            if (1/* test */) {
                 if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                 } else {
@@ -1674,7 +1675,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     return 0;
                 }
 
-                if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
+                //if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
+                if (1/* test */) {
                     zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
                     zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].repoId = zRepoId;
                     zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpIpAddrRegRes_->p_rets[zCnter];
@@ -1686,7 +1688,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     zThreadPool_.add(zssh_ccur_simple_init_host, &(zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter]));
 
                     /* 调整目标机初始化状态数据（布署状态数据不调整！）*/
-                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
+                    //zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
                 } else {
                     zpGlobRepo_[zRepoId]->dpTotalTask -= 1;
                     zpIpAddrRegRes_->p_rets[zCnter] = NULL;  // 去掉已成功的 IP 地址，只保留失败的部分

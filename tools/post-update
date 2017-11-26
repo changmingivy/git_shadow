@@ -60,7 +60,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             exit 255
         elif [[ ${zTimeStamp} -gt `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 比正在进行的版本更新，kill 之
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
-        else  # 比正在进行的版本更老，更论上不会出现
+        else  # 比正在进行的版本更老，理论上不会出现
             zTcpReply "${zServSig}" "B--" "delay deploy：${zServBranchName}"\
                 >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
