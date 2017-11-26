@@ -87,7 +87,7 @@ struct zDpOps__ zDpOps_ = {
     } else {\
         zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
     };\
-    zErrNo;\
+    zErrNo;  /* 宏返回值 */\
 })
 
 #define /*_i*/ zConvert_IpNum_To_Str(/*|_llu [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
@@ -97,7 +97,7 @@ struct zDpOps__ zDpOps_ = {
     } else {\
         zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
     } \
-    zErrNo;\
+    zErrNo;  /* 宏返回值 */\
 })
 
 
