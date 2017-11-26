@@ -109,7 +109,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-    chown git:git ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
+    chown `whoami` ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
     if [[ 0 -ne $? ]]; then
         sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
