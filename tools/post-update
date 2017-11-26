@@ -76,6 +76,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "`date +%s`" "B-" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -87,6 +88,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
         sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+        sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "`date +%s`" "B-" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         exit 255
@@ -114,6 +116,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
         sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
         sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+        sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
         zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
@@ -132,6 +135,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
             zTcpReply "${zServSig}" "${zTimeStamp}" "B-" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
@@ -189,6 +193,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
             zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
@@ -201,6 +206,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
+            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
             zTcpReply ${zMasterSig} ${zTimeStamp} "B-" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"
             exit 255
         fi
