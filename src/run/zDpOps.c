@@ -194,9 +194,8 @@ zssh_ccur_simple_init_host(void  *zpParam) {
                         zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock,
                         zErrBuf)) {
-                zpTmp_->initState = 1;
+                zSet_Bit(zpTmp_->state, 1);  /* 成功则置位 bit[0] */
             } else {
-                zpTmp_->initState = -1;
                 zpGlobRepo_[zpDpCcur_->repoId]->resType[0] = -1;
                 strcpy(zpTmp_->errMsg, zErrBuf);
             }
@@ -214,16 +213,14 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 };
 
 
-#define zNative_Fail_Confirm() {\
-    _ull zHostId[2] = {0};\
+#define zNative_Fail_Confirm() do {\
     if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {\
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     } else {\
-        zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];\
+        zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];\
         for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {\
             if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
                 pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
-                zpTmp_->dpState = -1;\
                 zpGlobRepo_[zpDpCcur_->repoId]->resType[1] = -1;\
                 strcpy(zpTmp_->errMsg, zErrBuf);\
 \
@@ -234,12 +231,14 @@ zssh_ccur_simple_init_host(void  *zpParam) {
             }\
         }\
     }\
-}
+} while(0)
 
 
 static void *
 zgit_push_ccur(void *zp_) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp_;
+    _ull zHostId[2] = {0};
+    zDpRes__ *zpTmp_ = NULL;
 
     char zErrBuf[256] = {'\0'},
          zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
@@ -278,8 +277,14 @@ zgit_push_ccur(void *zp_) {
     }
 
     /* {+refs/heads/... == git push --force}, push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/%sserver%d", zHostAddrBuf, zpDpCcur_->repoId);
-    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/%sserver%d_SHADOW", zHostAddrBuf, zpDpCcur_->repoId);
+    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/serv@%d@%s@%ld",
+            zpDpCcur_->repoId,
+            zHostAddrBuf,
+            zpDpCcur_->id);
+    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/serv_SHADOW@%d@%s@%ld",
+            zpDpCcur_->repoId,
+            zHostAddrBuf,
+            zpDpCcur_->id);
     if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
@@ -323,6 +328,18 @@ zgit_push_ccur(void *zp_) {
     /* git push 流量控制 */
     zCheck_Negative_Exit( sem_post(&(zpGlobRepo_[zpDpCcur_->repoId]->dpTraficControl)) );
 
+    /* 置位 bit[1]，昭示本地 git push 成功*/
+    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");
+    } else {
+        zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
+        for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
+            if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {
+                zSet_Bit(zpTmp_->state, 2);
+            }
+        }
+    }
+
     return NULL;
 }
 
@@ -330,10 +347,10 @@ zgit_push_ccur(void *zp_) {
 /*
  * 0: 测试函数
  */
-// static _i
-// ztest_func(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
-//     return 0;
-// }
+_i
+ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((__unused__))) {
+    return -10000;
+}
 
 
 /*
@@ -901,7 +918,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 
 static _i
 zupdate_ip_db_all(_i zRepoId,
-        char *zpSSHUserName, char *zpSSHPort, char *zIpList, _ui zIpCnt,
+        char *zpSSHUserName, char *zpSSHPort,
+        char *zIpList, _ui zIpCnt, _l zTimeStamp,
         char *zpCommonBuf, _i zBufLen,
         zRegRes__ **zppRegRes_Out) {
     zDpRes__ *zpTmpDpRes_ = NULL,
@@ -949,14 +967,11 @@ zupdate_ip_db_all(_i zRepoId,
     zpGlobRepo_[zRepoId]->resType[0] = 0;
     /* Clear hash buf before reuse it!!! */
     memset(zpGlobRepo_[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
-    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
-        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
-    }
 
     /* 生成 SSH 动作内容，缓存区使用上层调用者传入的静态内存区 */
     zConfig_Dp_Host_Ssh_Cmd(zpCommonBuf);
 
-    for (_ui zCnter = 0; zCnter < zpRegRes_->cnt; zCnter++) {
+    for (_ui zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
         /* 检测是否存在重复IP */
         if (0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0]
                 || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1]) {
@@ -972,6 +987,7 @@ zupdate_ip_db_all(_i zRepoId,
         /* 注：需要全量赋值，因为后续的布署会直接复用；否则会造成只布署新加入的主机及内存访问错误 */
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_threadSource_ = NULL;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].repoId = zRepoId;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].id = zTimeStamp;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_userName = zpSSHUserName;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpRegRes_->p_rets[zCnter];
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostServPort = zpSSHPort;
@@ -991,7 +1007,7 @@ zupdate_ip_db_all(_i zRepoId,
             return -18;
         }
 
-        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 0;
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state = 0;  /* 初始化状态位 */
         zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].p_next = NULL;
 
         /* 更新HASH */
@@ -1009,7 +1025,7 @@ zupdate_ip_db_all(_i zRepoId,
             /* 若 IPv4 address 已存在，则跳过初始化远程主机的环节 */
             if (zIpVecCmp(zpTmpDpRes_->clientAddr, zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
                 /* 先前已被初始化过的主机，状态置 1，防止后续收集结果时误报失败 */
-                zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState = 1;
+                zSet_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state, 1);  /* 将 bit[0] 置位 */
                 /* 从总任务数中去除已经初始化的主机数 */
                 zpGlobRepo_[zRepoId]->dpTotalTask--;
                 goto zExistMark;
@@ -1041,7 +1057,7 @@ zExistMark:;
         _ui zFailedHostCnt = 0;
         _i zOffSet = sprintf(zpCommonBuf, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
-            if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState) {
+            if (!zCheck_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state, 1)) {
                 if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
                 } else {
@@ -1139,7 +1155,6 @@ zdeploy(_i zSd,
             "cp -R ${zGitShadowPath}/tools ./;"\
             "chmod 0755 ./tools/post-update;"\
             "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
-            "echo %ld > timestamp;"
             "git add --all .;"\
             "git commit --allow-empty -m _;"\
             "git push --force %s/.git master:master_SHADOW",
@@ -1147,7 +1162,6 @@ zdeploy(_i zSd,
             zGet_OneCommitSig(zpTopVecWrap_, zCommitId),  // SHA1 commit sig
             zpGlobRepo_[zRepoId]->p_repoPath,
             zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,  // 目标机上的代码库路径
-            zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
             zpGlobRepo_[zRepoId]->p_repoPath);
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
@@ -1159,7 +1173,7 @@ zdeploy(_i zSd,
     /* 检查布署目标 IPv4 地址库存在性及是否需要在布署之前更新 */
     if (0 > (zErrNo = zupdate_ip_db_all(zRepoId,
                     zpSSHUserName, zpSSHPort,
-                    zpIpList, zIpCnt,
+                    zpIpList, zIpCnt, zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
                     zppCommonBuf[0], zBufLen,
                     zppIpAddrRegRes_OUT))) {
         goto zEndMark;

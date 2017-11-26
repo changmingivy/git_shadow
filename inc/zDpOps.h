@@ -60,7 +60,10 @@ typedef struct __zThreadPool__ {
 
 typedef struct __zDpCcur__ {
     zThreadPool__ *p_threadSource_;  // 必须放置在首位
+
     _i repoId;
+    _l id;  // 单次动作的身份唯一性标识，布署时为：time_stamp
+
     char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1" "::1"
     char *p_hostServPort;  // 字符串形式的端口号，如："22"
     char *p_cmd;  // 需要执行的指令集合
@@ -81,8 +84,17 @@ typedef struct __zDpCcur__ {
 
 typedef struct __zDpRes__ {
     _ull clientAddr[2];  // unsigned long long int 型数据，IPv4 地址只使用第一个成员
-    _i dpState;  // 布署状态：已返回确认信息的置为1，否则保持为 -1
-    _i initState;  // 远程主机初始化状态：已返回确认信息的置为1，否则保持为 -1
+
+    /*
+     * << 布署状态 >>
+     * bit[0]:初始化(ssh)成功
+     * bit[1]:服务端本地布署动作(git push)成功
+     * bit[2]:目标端已收到推送内容(post-update)
+     * bit[3]:目标端已确认内容无误(post-update)
+     * bit[4]:目标端已确认布署后动作执行成功
+     */
+    _uc state;
+
     char errMsg[256];  // 存放目标主机返回的错误信息
     struct __zDpRes__ *p_next;
 } zDpRes__;
