@@ -17,13 +17,15 @@
 #include "zRun.h"
 
 char *zpGlobLoginName = NULL;
-extern struct zRun__ zRun_;
-
 zNetSrv__ zNetSrv_ = { NULL, NULL };
+
+extern struct zRun__ zRun_;
 
 _i
 main(_i zArgc, char **zppArgv) {
-    zPgLogin__ zPgLogin_ = { NULL, NULL, NULL, NULL, NULL, NULL };
+    zPgLogin__ zPgLogin_;
+    memset(&zPgLogin_, 0, sizeof(zPgLogin__));
+
     _i zOpt = 0;
 
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "u:h:p:H:P:U:F:D:"))) {
@@ -66,7 +68,6 @@ main(_i zArgc, char **zppArgv) {
                 exit(1);
            }
     }
-
 
     /* 启动服务 */
     zRun_.run(&zNetSrv_, &zPgLogin_);
