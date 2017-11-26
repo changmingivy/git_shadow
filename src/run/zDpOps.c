@@ -241,7 +241,8 @@ static void *
 zgit_push_ccur(void *zp_) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp_;
 
-    char zErrBuf[256] = {'\0'};
+    char zErrBuf[256] = {'\0'},
+         zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
     char zRemoteRepoAddrBuf[64 + zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
     char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
     zpGitRefs[0] = zGitRefsBuf[0];
@@ -268,21 +269,29 @@ zgit_push_ccur(void *zp_) {
             '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
 
-    /* {'+' == git push --force} push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/server%d", zpDpCcur_->repoId);
-    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/server%d_SHADOW", zpDpCcur_->repoId);
+    /* 将目标机 IPv6 中的 ':' 替换为 '+'，之后将其附加到分支名称上去 */
+    strcpy(zHostAddrBuf, zpDpCcur_->p_hostIpStrAddr);
+    for (_i i = 0; '\0' != zHostAddrBuf[i]; i++) {
+        if (':' == zHostAddrBuf[i]) {
+            zHostAddrBuf[i] = '+';
+        }
+    }
+
+    /* {+refs/heads/... == git push --force}, push TWO branchs together */
+    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/%sserver%d", zHostAddrBuf, zpDpCcur_->repoId);
+    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/%sserver%d_SHADOW", zHostAddrBuf, zpDpCcur_->repoId);
     if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
         sprintf(zCmdBuf,
                 "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"
                 "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"
-                "exec 777<>/dev/tcp/%s/%s;"
+                "exec 777<>/dev/tcp/%s/%s;if [[ 0 -ne $? ]];then exit 1;fi"
                 "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/tools/zremote_init.sh\"}' >&777;"
                 "cat <&777 >init.sh;"
                 "exec 777>&-;"
                 "exec 777<&-;"
-                "bash init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s'",
+                "bash init.sh %d '%s' '%s' '%s' '%s' '%s'",
                 zNetSrv_.p_ipAddr, zNetSrv_.p_port,
                 zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
                 zpDpCcur_->repoId,
@@ -874,13 +883,13 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
             "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"\
-            "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"\
-            "exec 777<>/dev/tcp/%s/%s;"\
+            "cd ${zTmpDir};if [[ 0 -ne $? ]];then exit 1;fi\n"\
+            "exec 777<>/dev/tcp/%s/%s;if [[ 0 -ne $? ]];then exit 1;fi"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
             "exec 777<&-;"\
-            "bash -x init.sh %d '%s' '%s' '%s' '%s' $____zSelfIp '%s' >/tmp/initlog 2>&1 &",\
+            "bash -x init.sh %d '%s' '%s' '%s' '%s' '%s' >/tmp/initlog 2>&1 &",\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
             zRepoId, zpGlobRepo_[zRepoId]->p_repoPath,\
             zRepoId,\

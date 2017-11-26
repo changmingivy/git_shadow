@@ -9,8 +9,6 @@
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
 
-#define zSshSelfIpDeclareBufSiz (INET6_ADDRSTRLEN + zSizeOf("export ____zSelfIp='';"))
-
 extern struct zNetUtils__ zNetUtils_;
 
 static _i
@@ -134,11 +132,8 @@ zssh_exec(
     }
 
     /* 多线程环境，必须复制到自身的栈中进行处理 */
-    char zpSelfUnionCmd[zSshSelfIpDeclareBufSiz + strlen(zpCmd)];
-    sprintf(zpSelfUnionCmd, "export ____zSelfIp='%s';%s", zpHostIpAddr, zpCmd);
-
     while(LIBSSH2_ERROR_EAGAIN ==
-            (zRet = libssh2_channel_exec(zChannel, zpSelfUnionCmd))) {
+            (zRet = libssh2_channel_exec(zChannel, zpCmd))) {
         zwait_socket(zSd, zSession);
     }
 

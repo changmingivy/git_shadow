@@ -6,9 +6,8 @@ zPathOnHost=$3
 
 zServIp=$4
 zServPort=$5
-zSelfIp=$6
 
-zMd5Sum=$7
+zMd5Sum=$6
 
 # 首先清除自身，只留内存中的副本，确保本次执行即可
 rm -rf `pwd`
@@ -34,8 +33,6 @@ rm -rf .git
 git init .
 git config user.name _
 git config user.email _
-
-echo "$zSelfIp" > ${zPathOnHost}_SHADOW/.____zself_ip_addr_${zRepoId}.txt
 
 zBaseTimeStamp=`date +%s`
 while [[ "${zMd5Sum}" != `md5sum ${zPathOnHost}_SHADOW/tools/notice | grep -oP '\w{32}'` ]]

@@ -19,13 +19,13 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
     zMasterAddr="__MASTER_ADDR"
     zMasterPort="__MASTER_PORT"
     zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
-    zProjId=`echo $1 | grep -o '[0-9]\+$'`;
+    zProjId=`echo $1 | grep -oP '\d+$'`;
     if [[ "" == ${zProjId} ]]; then
-        zProjId=`echo $1 | grep -o '[0-9]\+_SHADOW$' | grep -o '[0-9]\+'`;
+        zProjId=`echo $1 | grep -oP '\d+(?=_SHADOW$)'`;
         if [[ "" == ${zProjId} ]]; then exit 255; fi
     fi
-    zSelfIpStrAddr=`cat ${zPathOnHost}_SHADOW/.____zself_ip_addr_${zProjId}.txt`
-    zServBranchName="server${zProjId}"  # 取 server${zProjId} 分支名称
+    zSelfIpStrAddr=`echo $1 | grep -oP '^.*(?=server)' | sed 's/+/:/g'`;  # 传输过程中IPv6 地址中的冒号以 '+' 进行了替换，此处需要还原
+    zServBranchName="${zSelfIpStrAddr}server${zProjId}"  # 取 server${zProjId} 分支名称
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
