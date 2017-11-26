@@ -89,7 +89,7 @@ if [[ 0 -eq  `\ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/li
 cd ${zShadowPath}/src &&
     make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install &&
     make clean
-# strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
+strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 cd ${zShadowPath}/src/extra/notice
 cargo build --release
