@@ -78,55 +78,27 @@ struct zDpOps__ zDpOps_ = {
 };
 
 
-/* 检查 CommitId 是否合法，宏内必须解锁 */
-#define zCheck_CommitId(zRepoId, zCommitId) do {\
-    if ((0 > zCommitId)\
-            || ((zCacheSiz - 1) < zCommitId)\
-            || (NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data)) {\
-        pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));\
-        return -3;\
-    }\
-} while(0)
-
-
-/* 检查 FileId 是否合法，宏内必须解锁 */
-#define zCheck_FileId(zRepoId, zCommitId, zFileId) do {\
-    if ((0 > zFileId)\
-            || (NULL == zpTopVecWrap_->p_refData_[zCommitId].p_subVecWrap_)\
-            || ((zpTopVecWrap_->p_refData_[zCommitId].p_subVecWrap_->vecSiz - 1) < zFileId)) {\
-        pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));\
-        return -4;\
-    }\
-} while(0)
-
-
-/* 检查缓存中的CacheId与全局CacheId是否一致，若不一致，返回错误，此处不执行更新缓存的动作，宏内必须解锁 */
-#define zCheck_CacheId(zRepoId, zCacheId) do {\
-    if (zpGlobRepo_[zRepoId]->cacheId != zCacheId) {\
-        pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));\
-        zCacheId = zpGlobRepo_[zRepoId]->cacheId;\
-        return -8;\
-    }\
-} while(0)
-
-
 #define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
 
-#define zConvert_IpStr_To_Num(zpIpStr, zpNumVec, zErrNo) do {\
+#define /*_i*/ zConvert_IpStr_To_Num(/*|_llu [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
+    _i zErrNo = 0;\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
         zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
     } else {\
         zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
-    } \
-} while (0)
+    };\
+    zErrNo;\
+})
 
-#define zConvert_IpNum_To_Str(zpNumVec, zpIpStr, zErrNo) do {\
+#define /*_i*/ zConvert_IpNum_To_Str(/*|_llu [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
+    _i zErrNo = 0;\
     if (0xff == zpNumVec[1] /* IPv4 */) {\
         zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
     } else {\
         zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
     } \
-} while (0)
+    zErrNo;\
+})
 
 
 /* 目标机初化与布署失败的错误回显 */
@@ -206,10 +178,8 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     char zErrBuf[256] = {'\0'};
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
-    _i zErrNo = 0;
     _ull zHostId[2] = {0};
-    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId, zErrNo);
-    if (0 > zErrNo) {
+    if (0 > zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");
         return NULL;
     }
@@ -245,10 +215,8 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 
 
 #define zNative_Fail_Confirm() do {\
-    _i ____zErrNo = 0;\
     _ull ____zHostId[2] = {0};\
-    zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId, ____zErrNo);\
-    if (0 != ____zErrNo) {\
+    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId)) {\
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     } else {\
         zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
@@ -691,9 +659,18 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         }
     }
 
-    /* 若检查不通过，宏内部会解锁，之后退出 */
-    zCheck_CacheId(zMeta_.repoId, zMeta_.cacheId);
-    zCheck_CommitId(zMeta_.repoId, zMeta_.commitId);
+    /* 若检查不通过，之后退出 */
+    if (zpGlobRepo_[zMeta_.repoId]->cacheId != zMeta_.cacheId) {
+        pthread_rwlock_unlock(&(zpGlobRepo_[zMeta_.repoId]->rwLock));
+        return -8;
+    }
+
+    if ((0 > zMeta_.commitId)\
+            || ((zCacheSiz - 1) < zMeta_.commitId)\
+            || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_data)) {
+        pthread_rwlock_unlock(&(zpGlobRepo_[zMeta_.repoId]->rwLock));
+        return -3;
+    }
 
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
@@ -806,9 +783,18 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         }
     };
 
-    /* 若检查不通过，宏内部会解锁，之后退出 */
-    zCheck_CacheId(zMeta_.repoId, zMeta_.cacheId);
-    zCheck_CommitId(zMeta_.repoId, zMeta_.commitId);
+    /* 若检查不通过，则退出 */
+    if (zpGlobRepo_[zMeta_.repoId]->cacheId != zMeta_.cacheId) {
+        pthread_rwlock_unlock(&(zpGlobRepo_[zMeta_.repoId]->rwLock));
+        return -8;
+    }
+
+    if ((0 > zMeta_.commitId)\
+            || ((zCacheSiz - 1) < zMeta_.commitId)\
+            || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_data)) {
+        pthread_rwlock_unlock(&(zpGlobRepo_[zMeta_.repoId]->rwLock));
+        return -3;
+    }
 
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
@@ -829,7 +815,12 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     }
 
     /* 若检查不通过，宏内部会解锁，之后退出 */
-    zCheck_FileId(zMeta_.repoId, zMeta_.commitId, zMeta_.fileId);
+    if ((0 > zMeta_.fileId)\
+            || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_subVecWrap_)\
+            || ((zpTopVecWrap_->p_refData_[zMeta_.commitId].p_subVecWrap_->vecSiz - 1) < zMeta_.fileId)) {\
+        pthread_rwlock_unlock(&(zpGlobRepo_[zMeta_.repoId]->rwLock));\
+        return -4;\
+    }\
 
     if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         if ((void *) -1 == zNativeOps_.get_diff_contents(&zMeta_)) {
@@ -904,7 +895,6 @@ zupdate_ip_db_all(_i zRepoId,
         char *zpSSHUserName, char *zpSSHPort, char *zIpList, _ui zIpCnt,
         char *zpCommonBuf, _i zBufLen,
         zRegRes__ **zppRegRes_Out) {
-    _i zErrNo = 0;
     zDpRes__ *zpTmpDpRes_ = NULL,
              *zpOldDpResList_ = NULL,
              *zpOldDpResHash_[zDpHashSiz] = { NULL };
@@ -982,8 +972,7 @@ zupdate_ip_db_all(_i zRepoId,
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zRepoId]->dpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
-        zConvert_IpStr_To_Num(zpRegRes_->p_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zErrNo);
-        if (0 != zErrNo) {
+        if (0 != zConvert_IpStr_To_Num(zpRegRes_->p_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
             free(zpGlobRepo_[zRepoId]->p_dpResList_);
 
             /* 状态回退 */
@@ -1044,10 +1033,8 @@ zExistMark:;
         _i zOffSet = sprintf(zpCommonBuf, "无法连接的主机:");
         for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].initState) {
-                zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
-                if (0 != zErrNo) {
+                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
-                    zErrNo = 0;
                 } else {
                     zOffSet += snprintf(zpCommonBuf+ zOffSet,
                             zBufLen - zErrMetaSiz - zOffSet,
@@ -1331,10 +1318,8 @@ zErrMark:
         for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz))
                 && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
             if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
-                zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf, zErrNo);
-                if (0 != zErrNo) {
+                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
                     zPrint_Err(0, NULL, "Convert IP num to str failed");
-                    zErrNo = 0;
                 } else {
                     zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
                             zIpStrAddrBuf,
@@ -1834,8 +1819,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         return -1;
     }
     zpHostAddr = zpJ->valuestring;
-    zConvert_IpStr_To_Num(zpHostAddr, zHostId, zErrNo);
-    if (0 != zErrNo) {
+    if (0 != zConvert_IpStr_To_Num(zpHostAddr, zHostId)) {
         return -18;
     }
 
@@ -2058,7 +2042,3 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     close(zFd);
     return 0;
 }
-
-#undef zCheck_CommitId
-#undef zCheck_FileId
-#undef zCheck_CacheId
