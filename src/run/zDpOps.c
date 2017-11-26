@@ -1853,7 +1853,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpRevSig = zpJ->valuestring;
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ReplyType");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]
+            || 3 > strlen(zpJ->valuestring)) {
         return -1;
     }
     zpReplyType = zpJ->valuestring;
@@ -1862,10 +1863,6 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
     for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
         if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
-            pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-
-            zpTmp_->errMsg[0] = '\0';
-
             /* 'B' 标识布署状态回复，'C' 目标机的 keep alive 消息 */
             if ('B' == zpReplyType[0]) {
                 if (0 != strcmp(zpGlobRepo_[zRepoId]->dpingSig, zpRevSig)
@@ -1894,26 +1891,35 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                     goto zMarkEnd;
                 }
 
-                if (0 != zpTmp_->dpState) {
-                    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+                /*
+                 * 已确定完全成功或必然失败的目标机状态，不允许进一步改变
+                 * 理论上不会出现
+                 */
+                if (zCheck_Bit(zpTmp_->state, 5)
+                        || zCheck_Bit(zpTmp_->state, 6)) {
                     zErrNo = -81;
-
                     // TO DO: insert a new record ???
                     goto zMarkEnd;
                 }
 
-                if ('+' == zpReplyType[1]) {  // 负号 '-' 表示是异常返回，正号 '+' 表示是成功返回
-                    zpGlobRepo_[zRepoId]->dpReplyCnt++;
-                    zpTmp_->dpState = 1;
+                /* 负号 '-' 表示是异常返回，正号 '+' 表示是阶段性成功返回 */
+                if ('-' == zpReplyType[1]) {
+                    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
 
-                    /* 调试功能：布署耗时统计，必须在锁内执行 */
-                    zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
+                    /* 发生严重错误，确认此台目标机布署失败，计数加一 */
+                    zSet_Bit(zpTmp_->state, 6);  /* bit[5] 标识已发生错误 */
+                    zpGlobRepo_[zRepoId]->dpReplyCnt++;
+                    zpGlobRepo_[zRepoId]->resType[1] = -1;
+
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");  /* 可以为空，不检查结果 */
+                    strncpy(zpTmp_->errMsg, zpJ->valuestring, 255);
+                    zpTmp_->errMsg[255] = '\0';
 
                     pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                    if (zpGlobRepo_[zRepoId]->dpReplyCnt == zpGlobRepo_[zRepoId]->dpTotalTask) {
-                        pthread_cond_signal(zpGlobRepo_[zRepoId]->p_dpCcur_->p_ccurCond);
-                    }
-                    zErrNo = 0;
+                    zErrNo = -102;
+
+                    /* [DEBUG]：布署耗时统计 */
+                    zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
 
                     zGenerate_SQL_Cmd(zCmdBuf);
                     if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
@@ -1921,52 +1927,49 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                     }
 
                     goto zMarkEnd;
-                } else if ('-' == zpReplyType[1]) {
-                    /* 发生错误，计数打满，用于通知结束布署等待状态 */
-                    zpGlobRepo_[zRepoId]->dpReplyCnt = zpGlobRepo_[zRepoId]->dpTotalTask;
+                } else if ('+' == zpReplyType[1]) {
+                    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
 
-                    zpTmp_->dpState = -1;
-                    zpGlobRepo_[zRepoId]->resType[1] = -1;
-                    zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
+                    switch (zpReplyType[2]) {
+                        case '3':
+                            zSet_Bit(zpTmp_->state, 3);
+                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+                            zErrNo = 0;
+                            break;
+                        case '4':
+                            zSet_Bit(zpTmp_->state, 4);
+                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+                            zErrNo = 0;
+                            break;
+                        case '5':
+                            zSet_Bit(zpTmp_->state, 5);
+                            zpGlobRepo_[zRepoId]->dpReplyCnt++;
 
-                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");  /* 可以为空，不检查结查 */
-                    snprintf(zpTmp_->errMsg, 256, "%s", zpJ->valuestring);
+                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+                            zErrNo = 0;
 
-                    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                    pthread_cond_signal(zpGlobRepo_[zRepoId]->p_dpCcur_->p_ccurCond);
-                    zErrNo = -102;
+                            /* [DEBUG]：布署耗时统计 */
+                            zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
 
-                    zGenerate_SQL_Cmd(zCmdBuf);
-                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
-                        zPrint_Err(0, zpHostAddr, "record update failed");
+                            zGenerate_SQL_Cmd(zCmdBuf);
+                            if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                                zPrint_Err(0, zpHostAddr, "record update failed");
+                            }
+
+                            break;
+                        default:
+                            zErrNo = -103;  // 无法识别的返回内容
+                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+                            break;
                     }
 
                     goto zMarkEnd;
                 } else {
-                    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                    zErrNo = -103;  // 未知的返回内容
-
-                    zGenerate_SQL_Cmd(zCmdBuf);
-                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
-                        zPrint_Err(0, zpHostAddr, "record update failed");
-                    }
-
+                    zErrNo = -103;  // 无法识别的返回内容
                     goto zMarkEnd;
                 }
-            } else if ('C' == zpReplyType[0]) {
-                zpGlobRepo_[zRepoId]->dpKeepAliveStamp = time(NULL);
-                pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                zErrNo = 0;
-                goto zMarkEnd;
             } else {
-                pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                zErrNo = -103;  // 未知的返回内容
-
-                zGenerate_SQL_Cmd(zCmdBuf);
-                if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
-                    zPrint_Err(0, zpHostAddr, "record update failed");
-                }
-
+                zErrNo = -103;  // 无法识别的返回内容
                 goto zMarkEnd;
             }
         }

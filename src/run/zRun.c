@@ -41,8 +41,8 @@ void
 zerr_vec_init(void) {
     zpErrVec[1] = "无法识别或未定义的操作请求";
     zpErrVec[2] = "项目不存在或正在创建过程中";
-    zpErrVec[3] = "请求布署的版本号不存在";
-    zpErrVec[4] = "";
+    zpErrVec[3] = "指定的版本号不存在";
+    zpErrVec[4] = "指定的文件 ID 不存在";
     zpErrVec[5] = "系统忙，请 2 秒后重试...";
     zpErrVec[6] = "项目被锁定，请解锁后重试";
     zpErrVec[7] = "服务端接收到的数据无法解析";

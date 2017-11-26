@@ -92,6 +92,7 @@ typedef struct __zDpRes__ {
      * bit[2]:目标端已收到推送内容(post-update)
      * bit[3]:目标端已确认内容无误(post-update)
      * bit[4]:目标端已确认布署后动作执行成功
+     * bit[5]:标识已发生错误
      */
     _uc state;
 
