@@ -214,18 +214,18 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 };
 
 
-#define zNative_Fail_Confirm() do {\
-    _ull ____zHostId[2] = {0};\
-    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, ____zHostId)) {\
+#define zNative_Fail_Confirm() {\
+    _ull zHostId[2] = {0};\
+    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {\
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     } else {\
-        zDpRes__ *____zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[____zHostId[0] % zDpHashSiz];\
-        for (; NULL != ____zpTmp_; ____zpTmp_ = ____zpTmp_->p_next) {\
-            if (zIpVecCmp(____zHostId, ____zpTmp_->clientAddr)) {\
+        zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];\
+        for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {\
+            if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
                 pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
-                ____zpTmp_->dpState = -1;\
+                zpTmp_->dpState = -1;\
                 zpGlobRepo_[zpDpCcur_->repoId]->resType[1] = -1;\
-                strcpy(____zpTmp_->errMsg, zErrBuf);\
+                strcpy(zpTmp_->errMsg, zErrBuf);\
 \
                 zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt = zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask;  /* 发生错误，计数打满，用于通知结束布署等待状态 */\
                 pthread_cond_signal(zpGlobRepo_[zpDpCcur_->repoId]->p_dpCcur_->p_ccurCond);\
@@ -234,7 +234,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
             }\
         }\
     }\
-} while(0)
+}
 
 
 static void *

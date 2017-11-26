@@ -192,43 +192,43 @@ zget_diff_content(void *zpParam) {
 /*
  * 功能：生成某个 Commit 版本(提交记录与布署记录通用)的文件差异列表
  */
-#define zGenerate_Graph(zpNode_) do {\
-    zCacheMeta__ *____zpTmpNode_;\
-    _i ____zOffSet;\
+#define zGenerate_Graph(zpNode_) {\
+    zCacheMeta__ *zpTmpNode_;\
+    _i zOffSet;\
 \
     zpNode_->pp_resHash[zpNode_->lineNum] = zpNode_;\
-    ____zOffSet = 6 * zpNode_->offSet + 10;\
+    zOffSet = 6 * zpNode_->offSet + 10;\
 \
-    zpNode_->p_treeData[--____zOffSet] = ' ';\
-    zpNode_->p_treeData[--____zOffSet] = '\200';\
-    zpNode_->p_treeData[--____zOffSet] = '\224';\
-    zpNode_->p_treeData[--____zOffSet] = '\342';\
-    zpNode_->p_treeData[--____zOffSet] = '\200';\
-    zpNode_->p_treeData[--____zOffSet] = '\224';\
-    zpNode_->p_treeData[--____zOffSet] = '\342';\
-    zpNode_->p_treeData[--____zOffSet] = (NULL == zpNode_->p_left) ? '\224' : '\234';\
-    zpNode_->p_treeData[--____zOffSet] = '\224';\
-    zpNode_->p_treeData[--____zOffSet] = '\342';\
+    zpNode_->p_treeData[--zOffSet] = ' ';\
+    zpNode_->p_treeData[--zOffSet] = '\200';\
+    zpNode_->p_treeData[--zOffSet] = '\224';\
+    zpNode_->p_treeData[--zOffSet] = '\342';\
+    zpNode_->p_treeData[--zOffSet] = '\200';\
+    zpNode_->p_treeData[--zOffSet] = '\224';\
+    zpNode_->p_treeData[--zOffSet] = '\342';\
+    zpNode_->p_treeData[--zOffSet] = (NULL == zpNode_->p_left) ? '\224' : '\234';\
+    zpNode_->p_treeData[--zOffSet] = '\224';\
+    zpNode_->p_treeData[--zOffSet] = '\342';\
 \
-    ____zpTmpNode_ = zpNode_;\
+    zpTmpNode_ = zpNode_;\
     for (_i i = 0; i < zpNode_->offSet; i++) {\
-        zpNode_->p_treeData[--____zOffSet] = ' ';\
-        zpNode_->p_treeData[--____zOffSet] = ' ';\
-        zpNode_->p_treeData[--____zOffSet] = ' ';\
+        zpNode_->p_treeData[--zOffSet] = ' ';\
+        zpNode_->p_treeData[--zOffSet] = ' ';\
+        zpNode_->p_treeData[--zOffSet] = ' ';\
 \
-        ____zpTmpNode_ = ____zpTmpNode_->p_father;\
-        if (NULL == ____zpTmpNode_->p_left) {\
-            zpNode_->p_treeData[--____zOffSet] = ' ';\
+        zpTmpNode_ = zpTmpNode_->p_father;\
+        if (NULL == zpTmpNode_->p_left) {\
+            zpNode_->p_treeData[--zOffSet] = ' ';\
         } else {\
-            zpNode_->p_treeData[--____zOffSet] = '\202';\
-            zpNode_->p_treeData[--____zOffSet] = '\224';\
-            zpNode_->p_treeData[--____zOffSet] = '\342';\
+            zpNode_->p_treeData[--zOffSet] = '\202';\
+            zpNode_->p_treeData[--zOffSet] = '\224';\
+            zpNode_->p_treeData[--zOffSet] = '\342';\
         }\
     }\
 \
-    zpNode_->p_treeData = zpNode_->p_treeData + ____zOffSet;\
+    zpNode_->p_treeData = zpNode_->p_treeData + zOffSet;\
 \
-} while (0)
+}
 
 static void *
 zdistribute_task(void *zpParam) {
