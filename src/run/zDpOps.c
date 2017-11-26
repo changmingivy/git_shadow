@@ -269,11 +269,11 @@ zgit_push_ccur(void *zp_) {
             '/' == zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
 
-    /* 将目标机 IPv6 中的 ':' 替换为 '+'，之后将其附加到分支名称上去 */
+    /* 将目标机 IPv6 中的 ':' 替换为 '_'，之后将其附加到分支名称上去 */
     strcpy(zHostAddrBuf, zpDpCcur_->p_hostIpStrAddr);
     for (_i i = 0; '\0' != zHostAddrBuf[i]; i++) {
         if (':' == zHostAddrBuf[i]) {
-            zHostAddrBuf[i] = '+';
+            zHostAddrBuf[i] = '_';
         }
     }
 

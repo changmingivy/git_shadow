@@ -24,7 +24,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         zProjId=`echo $1 | grep -oP '\d+(?=_SHADOW$)'`;
         if [[ "" == ${zProjId} ]]; then exit 255; fi
     fi
-    zSelfIpStrAddr=`echo $1 | grep -oP '(?<=refs/heads/).*(?=server)' | sed 's/+/:/g'`;  # 传输过程中IPv6 地址中的冒号以 '+' 进行了替换，此处需要还原
+    zSelfIpStrAddr=`echo $1 | grep -oP '(?<=refs/heads/).*(?=server)' | sed 's/_/:/g'`;  # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
     zServBranchName="`echo $1 | grep -oP '(?<=refs/heads/).*(?=server)'`server${zProjId}"  # 取 server${zProjId} 分支名称
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
