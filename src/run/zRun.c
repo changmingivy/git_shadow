@@ -210,7 +210,8 @@ zKeepAlive:
     /* 子进程|业务进程|若退出，父进程|监控进程|将重启之 */
     if (0 < zPid) {
         waitpid(zPid, NULL, 0);
-        kill(0, SIGKILL);  /* 清理同一进程组的所有进程*/
+        signal(SIGUSR1, SIG_IGN);
+        kill(0, SIGUSR1);  /* 清理同一进程组内除自身外的所有进程*/
         goto zKeepAlive;
     } else {
         /* 线程池初始化 */
