@@ -85,7 +85,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
-        return -1;
+        return -2;
     }
 
     /* tell libssh2 we want it all done non-blocking */
@@ -98,7 +98,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_session_handshake failed");
-        return -1;
+        return -2;
     }
 
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
@@ -114,7 +114,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
-        return -1;
+        return -3;
     }
 
     /* Exec non-blocking on the remote host */
@@ -123,12 +123,12 @@ zssh_exec(
     }
 
     if(NULL == zChannel) {
-        libssh2_session_disconnect(zSession, "");
+        libssh2_session_disconnect(zSession, "Bye");
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_channel_open_session failed");
-        return -1;
+        return -4;
     }
 
     /* 多线程环境，必须复制到自身的栈中进行处理 */
@@ -144,7 +144,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_channel_exec failed");
-        return -1;
+        return -4;
     }
 
     if (NULL != zpRemoteOutPutBuf) {
@@ -179,12 +179,12 @@ zssh_exec(
     zErrNo = -1;
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); }
     if(0 == zRet) {
-        zErrNo = libssh2_channel_get_exit_status(zChannel);
-        libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
+        zErrNo = -1 * libssh2_channel_get_exit_status(zChannel);
+        //libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
-    if (NULL != zpExitSingal) {
-        zErrNo = -1;
-    }
+    //if (NULL != zpExitSingal) {
+    //    zErrNo = -1;
+    //}
 
     libssh2_channel_free(zChannel);
     zChannel= NULL;

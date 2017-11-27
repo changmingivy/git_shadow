@@ -181,7 +181,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
                         zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock,
                         zErrBuf)) {
-                zSet_Bit(zpTmp_->state, 1);  /* 成功则置位 bit[0] */
+                zSet_Bit(zpTmp_->resState, 1);  /* 成功则置位 bit[0] */
             } else {
                 zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 1);  /* 出错则置位 bit[0] */
                 strcpy(zpTmp_->errMsg, zErrBuf);
@@ -374,9 +374,8 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 
 /*
 项目ID
-项目名称
-创建日期
 项目路径
+创建日期
 是否允许布署(锁定状态)
 最近一次布署的相关信息
     版本号
@@ -920,9 +919,10 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
+			"if [[ 97 -lt `df . | grep -oP '\d+(?=%)'` ]];then exit 199;fi"\
             "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"\
-            "cd ${zTmpDir};if [[ 0 -ne $? ]];then exit 1;fi\n"\
-            "exec 777<>/dev/tcp/%s/%s 2>/tmp/initlog;if [[ 0 -ne $? ]];then exit 1;fi\n"\
+            "cd ${zTmpDir};"\
+            "exec 777<>/dev/tcp/%s/%s 2>/tmp/initlog;"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
             "cat <&777 >init.sh;"\
             "exec 777>&-;"\
@@ -1193,6 +1193,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         return -2;  /* zErrNo = -2; */
     }
 
+    /* 布署耗时基准 */
+    zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
+
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "DataType");
     if (!cJSON_IsNumber(zpJ)) {
         return -1;
@@ -1320,7 +1323,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /* 预布署动作：须置于 zupdate_ip_db_all(...) 函数之前，因 post-update 会在初始化目标机时被首先传输 */
-    zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
     sprintf(zpCommonBuf,
             "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
             "git stash;"

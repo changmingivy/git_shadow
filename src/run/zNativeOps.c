@@ -1293,9 +1293,9 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "time_stamp      bigint NOT NULL,"
             "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
-            "host_res        smallint NOT NULL DEFAULT -1,"
+            "host_res        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表布署过程中的一种状态 */
+            "host_err        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
             "host_timespent  smallint NOT NULL DEFAULT 0,"
-            "host_errno      smallint NOT NULL DEFAULT 0,"
             "host_detail     varchar"
             ") PARTITION BY LIST (proj_id);",
 \

@@ -87,14 +87,29 @@ typedef struct __zDpRes__ {
 
     /*
      * << 布署状态 >>
-     * bit[0]:初始化(ssh)成功
+     * bit[0]:目标端初始化(SSH)成功
      * bit[1]:服务端本地布署动作(git push)成功
      * bit[2]:目标端已收到推送内容(post-update)
      * bit[3]:目标端已确认内容无误(post-update)
      * bit[4]:目标端已确认布署后动作执行成功
-     * bit[5]:标识已发生错误
+     * bit[5]:
+     * bit[6]:
+     * bit[7]:
      */
-    _uc state;
+    _uc resState;
+
+    /*
+     * << 错误类型 >>
+     * bit[0]:服务端错误
+     * bit[1]:网络不通
+     * bit[2]:SSH 连接认证失败
+     * bit[3]:目标端磁盘容量不足
+     * bit[4]:目标端权限不足
+     * bit[5]:目标端文件冲突
+     * bit[6]:目标端布署后动作执行失败
+     * bit[7]:未知错误
+     */
+    _uc errState;
 
     char errMsg[256];  // 存放目标主机返回的错误信息
     struct __zDpRes__ *p_next;
