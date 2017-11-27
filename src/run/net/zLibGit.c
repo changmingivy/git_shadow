@@ -28,6 +28,22 @@ zgit_destroy_revwalker(git_revwalk *zpRevWalker);
 static _i
 zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
 
+static _i
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zBool__ zForceMark);
+
+static _i
+zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
+
+static _i
+zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zBool__ zForceMark);
+
+static _i
+zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
+
+static _i
+zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
+
+
 struct zLibGit__ zLibGit_ = {
     .env_init = zgit_env_init,
     .env_clean = zgit_env_clean,
@@ -37,7 +53,13 @@ struct zLibGit__ zLibGit_ = {
 
     .generate_revwalker = zgit_generate_revwalker,
     .destroy_revwalker = zgit_destroy_revwalker,
-    .get_one_commitsig_and_timestamp = zgit_get_one_commitsig_and_timestamp
+    .get_one_commitsig_and_timestamp = zgit_get_one_commitsig_and_timestamp,
+
+    .branch_add = zgit_branch_add_local,
+    .branch_del = zgit_branch_del_local,
+    .branch_rename = zgit_branch_rename_local,
+    .branch_switch = zgit_branch_switch_local,
+    .branch_list_all = zgit_branch_list_local
 };
 
 /* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
@@ -250,8 +272,8 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
 
     if ((0 != git_revparse_single(&zpObj, zpRepo, zpRef))
             || (0 != git_revwalk_push(zpRevWalker, git_object_id(zpObj)))) {
-        zgit_destroy_revwalker(zpRevWalker);
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zgit_destroy_revwalker(zpRevWalker);
         return NULL;
     }
 
@@ -285,8 +307,8 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
 
         /* 取完整的 40 位 SHA1 sig，第二个参数指定调用者传入的缓冲区大小 */
         if ('\0' == git_oid_tostr(zpRevSigOUT, 41, &zOid)[0]) {
-            git_commit_free(zpCommit);
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            git_commit_free(zpCommit);
             return -1;
         }
 
@@ -299,6 +321,187 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
+}
+
+
+/*
+ * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
+ */
+static _i
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zBool__ zForceMark) {
+    git_reference *zpHead = NULL;
+    git_reference *zpNewBranch = NULL;
+
+    const git_oid *zpHeadOid = NULL;
+    git_commit *zpLastCommit = NULL;
+
+    /* 获取当前 HEAD 的指向 */
+    if (0 != git_repository_head(&zpHead, zpRepo)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    /* 提取其 oid 对象 */
+    if (NULL == (zpHeadOid = git_reference_target(zpHead))) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+
+        git_reference_free(zpHead);
+        return -1;
+    }
+
+    /* 获取 HEAD 的最后一次 commit  */
+    if (0 != git_commit_lookup(&zpLastCommit, zpRepo, zpHeadOid)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+
+        git_reference_free(zpHead);
+        return -1;
+    }
+
+    /* 基于 HEAD 的最后一次 commit 创建新分支 */
+    if (0 != git_branch_create(&zpNewBranch, zpRepo, zpBranchName, zpLastCommit, zForceMark)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+
+        git_reference_free(zpHead);
+        git_commit_free(zpLastCommit);
+        return -1;
+    }
+
+    git_reference_free(zpHead);
+    git_commit_free(zpLastCommit);
+    git_reference_free(zpNewBranch);
+
+    return 0;
+}
+
+
+/*
+ * 删除分支
+ */
+static _i
+zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName) {
+    git_reference *zpBranch = NULL;
+
+    if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    if (NULL == zpBranch) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpBranch);
+        return -1;
+    }
+
+    // if (git_branch_is_head(zpBranch)) {
+    //     zPrint_Err(0, NULL, "Delete HEAD will failed!");
+    //     git_reference_free(zpBranch);
+    //     return -1;
+    // }
+
+    if (0 != git_branch_delete(zpBranch)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpBranch);
+        return -1;
+    }
+
+    git_reference_free(zpBranch);
+
+    return 0;
+}
+
+
+/*
+ * 分支改名
+ */
+static _i
+zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zBool__ zForceMark) {
+    git_reference *zpOld = NULL;
+    git_reference *zpNew = NULL;
+
+    if (0 != git_branch_lookup(&zpOld, zpRepo, zpOldName, GIT_BRANCH_LOCAL)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    if (NULL == zpOld) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpOld);
+        return -1;
+    }
+
+    if (0 != git_branch_move(&zpNew, zpOld, zpNewName, zForceMark)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpOld);
+        return -1;
+    }
+
+    git_reference_free(zpOld);
+    git_reference_free(zpNew);
+
+    return 0;
+}
+
+
+/*
+ * 切换分支
+ */
+static _i
+zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName) {
+    git_reference *zpBranch = NULL;
+
+    if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    if (NULL == zpBranch) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpBranch);
+        return -1;
+    }
+
+    if (0 != git_repository_set_head(zpRepo, git_reference_name(zpBranch))) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_reference_free(zpBranch);
+        return -1;
+    }
+
+    git_reference_free(zpBranch);
+
+    return 0;
+}
+
+
+/*
+ * 将所有本地分支名称写出到传入的 zpResBufOUT 中
+ * zBufLen 指定可写出的缓冲区总大小
+ * 分支总数写入到 zpResItemCnt 所指向的整数
+ * 若缓冲区大小不足，写出的内容将会不完整，但分支数量将是完整的
+ */
+static _i
+zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt) {
+    git_branch_iterator *zpBranchIter = NULL;
+    git_reference *zpTmpBranch = NULL;
+    git_branch_t zBranchTypeOUT;
+    const char *zpBranchName = NULL;
+
+    if (0 != git_branch_iterator_new(&zpBranchIter, zpRepo, GIT_BRANCH_LOCAL)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    _i zOffSet = 0;
+    while (GIT_ITEROVER != git_branch_next(&zpTmpBranch, &zBranchTypeOUT, zpBranchIter)
+            && zOffSet < zBufLen) {
+        (* zpResItemCnt)++;
+
+        git_branch_name(&zpBranchName, zpTmpBranch);  /* 迭代出的分支信息不会出错，此处不必检查返回值 */
+        zOffSet += snprintf(zpResBufOUT + zOffSet + 1, zBufLen - zOffSet - 1, "%s", zpBranchName);
+    }
+
+    git_branch_iterator_free(zpBranchIter);
+
+    return 0;
 }
 
 // /*
