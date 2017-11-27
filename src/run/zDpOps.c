@@ -1043,15 +1043,8 @@ zExistMark:;
             }
         }
 
-        /* 目标机数超过 10 台，且失败率低于 10% 返回成功，否则返回失败 */
-        if ((10 < zpGlobRepo_[zRepoId]->totalHost)
-                && ( zFailedHostCnt < zpGlobRepo_[zRepoId]->totalHost / 10)) {
-            zErrNo = 0;
-            goto zEndMark;
-        } else {
-            zErrNo = -23;
-            goto zEndMark;
-        }
+        zErrNo = -23;
+        goto zEndMark;
     }
 
 zEndMark:
@@ -1140,8 +1133,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         return -16;
     }
 
-    char *zppCommonBuf[2] = { NULL };
-    zRegRes__ *zpIpAddrRegRes_ = NULL;
+    char *zpCommonBuf = NULL;
 
     char *zpSSHUserName = NULL;
     char *zpIpList = NULL;
@@ -1222,25 +1214,24 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /* 预算本函数用到的最大 BufSiz，此处是一次性分配两个 Buf */
-    zCommonBufLen = 2048 + 10 * zpGlobRepo_[zRepoId]->repoPathLen + 2 * zIpListStrLen;
-    zppCommonBuf[0] = zNativeOps_.alloc(zRepoId, 2 * zCommonBufLen);
-    zppCommonBuf[1] = zppCommonBuf[0] + zCommonBufLen;
+    zCommonBufLen = 2048 + 4 * zpGlobRepo_[zRepoId]->repoPathLen + 2 * zIpListStrLen;
+    zpCommonBuf = zNativeOps_.alloc(zRepoId, zCommonBufLen);
 
     if (0 != strcmp(zpSSHUserName, zpGlobRepo_[zRepoId]->sshUserName)
             || 0 != strcmp(zpSSHPort, zpGlobRepo_[zRepoId]->sshPort)) {
-        sprintf(zppCommonBuf[1],
+        sprintf(zpCommonBuf,
                 "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s, WHERE proj_id = %d",
                 zpSSHUserName,
                 zpSSHPort,
                 zRepoId);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(
                         zpGlobRepo_[zRepoId]->p_pgConnHd_,
-                        zppCommonBuf[1],
+                        zpCommonBuf,
                         zFalse))) {
             zPgSQL_.conn_reset(zpGlobRepo_[zRepoId]->p_pgConnHd_);
             if (NULL == (zpPgResHd_ = zPgSQL_.exec(
                             zpGlobRepo_[zRepoId]->p_pgConnHd_,
-                            zppCommonBuf[1],
+                            zpCommonBuf,
                             zFalse))) {
                 zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
@@ -1301,21 +1292,22 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* 预布署动作：须置于 zupdate_ip_db_all(...) 函数之前，因 post-update 会在初始化目标机时被首先传输 */
     zpGlobRepo_[zRepoId]->dpBaseTimeStamp = time(NULL);
-    sprintf(zppCommonBuf[1],
-            "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"\
-            "git stash;"\
-            "git stash clear;"\
-            "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"\
-            "git reset %s; if [[ 0 -ne $? ]]; then exit 1; fi;"\
-            \
-            "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"\
-            "rm -rf ./tools;"\
-            "cp -R ${zGitShadowPath}/tools ./;"\
-            "chmod 0755 ./tools/post-update;"\
-            "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"\
-            "git add --all .;"\
-            "git commit --allow-empty -m _;"\
+    sprintf(zpCommonBuf,
+            "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
+            "git stash;"
+            "git stash clear;"
+            "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"
+            "git reset %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
+
+            "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"
+            "rm -rf ./tools;"
+            "cp -R ${zGitShadowPath}/tools ./;"
+            "chmod 0755 ./tools/post-update;"
+            "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"
+            "git add --all .;"
+            "git commit --allow-empty -m _;"
             "git push --force %s/.git master:master_SHADOW",
+
             zpGlobRepo_[zRepoId]->p_repoPath,  // 中控机上的代码库路径
             zGet_OneCommitSig(zpTopVecWrap_, zCommitId),  // SHA1 commit sig
             zpGlobRepo_[zRepoId]->p_repoPath,
@@ -1323,7 +1315,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zpGlobRepo_[zRepoId]->p_repoPath);
 
     /* 调用 git 命令执行布署前的环境准备；同时用于测算中控机本机所有动作耗时，用作布署超时基数 */
-    if (0 != WEXITSTATUS( system(zppCommonBuf[1]) )) {
+    if (0 != WEXITSTATUS( system(zpCommonBuf) )) {
         zErrNo = -15;
         goto zEndMark;
     }
@@ -1345,7 +1337,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (0 > (zErrNo = zupdate_ip_db_all(zRepoId,
                     zpSSHUserName, zpSSHPort,
                     &zRegRes_, zIpCnt, zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
-                    zppCommonBuf[0], zCommonBufLen))) {
+                    zpCommonBuf, zCommonBufLen))) {
         goto zEndMark;
     }
 
@@ -1363,14 +1355,14 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpGlobRepo_[zRepoId]->dpReplyCnt = 0;
 
     /* 预置本次布署日志 */
-    _i zOffSet = sprintf(zppCommonBuf[0], "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) VALUES ");
+    _i zOffSet = sprintf(zpCommonBuf, "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) VALUES ");
     for (zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
-        zOffSet += sprintf(zppCommonBuf[0] + zOffSet,
+        zOffSet += sprintf(zpCommonBuf + zOffSet,
                 "($1,$2,$3,'%s'),",
                 zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr
                 );
     }
-    zppCommonBuf[0][zOffSet - 1] = '\0';  /* 去除最后一个逗号 */
+    zpCommonBuf[zOffSet - 1] = '\0';  /* 去除最后一个逗号 */
 
     char zParamBuf[2][16] = {{'\0'}};
     const char *zpParam[3] = {
@@ -1385,13 +1377,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
                     zpGlobRepo_[zRepoId]->p_pgConnHd_,
-                    zppCommonBuf[0],
+                    zpCommonBuf,
                     3, zppParam,
                     zFalse))) {
         zPgSQL_.conn_reset(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
                         zpGlobRepo_[zRepoId]->p_pgConnHd_,
-                        zppCommonBuf[0],
+                        zpCommonBuf,
                         3, zppParam,
                         zFalse))) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
