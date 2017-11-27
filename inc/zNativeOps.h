@@ -12,6 +12,7 @@
 #include "zCommon.h"
 #include "zPosixReg.h"
 #include "zNativeUtils.h"
+#include "zNetUtils.h"
 #include "zThreadPool.h"
 #include "zLibGit.h"
 #include "zPgSQL.h"

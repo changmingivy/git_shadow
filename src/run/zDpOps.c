@@ -88,29 +88,6 @@ struct zDpOps__ zDpOps_ = {
 };
 
 
-#define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
-
-#define /*_i*/ zConvert_IpStr_To_Num(/*|_llu [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
-    _i zErrNo = 0;\
-    if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
-        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
-    } else {\
-        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
-    };\
-    zErrNo;  /* 宏返回值 */\
-})
-
-#define /*_i*/ zConvert_IpNum_To_Str(/*|_llu [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
-    _i zErrNo = 0;\
-    if (0xff == zpNumVec[1] /* IPv4 */) {\
-        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
-    } else {\
-        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
-    } \
-    zErrNo;  /* 宏返回值 */\
-})
-
-
 /* 目标机初化与布署失败的错误回显 */
 #define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
 #define zErrMetaSiz zSizeOf("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
@@ -904,25 +881,13 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 static _i
 zupdate_ip_db_all(_i zRepoId,
         char *zpSSHUserName, char *zpSSHPort,
-        char *zIpList, _ui zIpCnt, _l zTimeStamp,
-        char *zpCommonBuf, _i zBufLen,
-        zRegRes__ **zppRegRes_Out) {
+        zRegRes__ *zpRegRes_, _ui zIpCnt, _l zTimeStamp,
+        char *zpCommonBuf, _i zBufLen) {
+
     _i zErrNo = 0;
     zDpRes__ *zpTmpDpRes_ = NULL,
              *zpOldDpResList_ = NULL,
              *zpOldDpResHash_[zDpHashSiz] = { NULL };
-
-    zRegInit__ zRegInit_[1];
-    zRegRes__ zRegRes_ = {
-        .alloc_fn = zNativeOps_.alloc,  // 使用项目内存池
-        .repoId = zRepoId
-    };
-    zRegRes__ *zpRegRes_ = &zRegRes_;  /* avoid compile warning... */
-
-    zPosixReg_.init(zRegInit_ , "[^ ]+");  /* IP 之间必须以空格分割 */
-    zPosixReg_.match(zpRegRes_, zRegInit_, zIpList);
-    zPosixReg_.free_meta(zRegInit_);
-    *zppRegRes_Out = zpRegRes_;
 
     if (zIpCnt != zpRegRes_->cnt) {
         zErrNo = -28;
@@ -976,7 +941,7 @@ zupdate_ip_db_all(_i zRepoId,
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].repoId = zRepoId;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].id = zTimeStamp;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_userName = zpSSHUserName;
-        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpRegRes_->p_rets[zCnter];
+        zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostIpStrAddr = zpRegRes_->pp_rets[zCnter];
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_hostServPort = zpSSHPort;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_cmd = zpCommonBuf;
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_ccurLock = &zpGlobRepo_[zRepoId]->dpSyncLock;
@@ -984,7 +949,7 @@ zupdate_ip_db_all(_i zRepoId,
         zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_taskCnt = &zpGlobRepo_[zRepoId]->dpTaskFinCnt;
 
         /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
-        if (0 != zConvert_IpStr_To_Num(zpRegRes_->p_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
+        if (0 != zConvert_IpStr_To_Num(zpRegRes_->pp_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
             free(zpGlobRepo_[zRepoId]->p_dpResList_);
 
             /* 状态回退 */
@@ -995,7 +960,7 @@ zupdate_ip_db_all(_i zRepoId,
             goto zEndMark;
         }
 
-        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state = 0;  /* 初始化目标机状态位 */
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state = 0;  /* 目标机状态复位 */
         zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].p_next = NULL;
 
         /* 更新HASH */
@@ -1363,14 +1328,24 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
+    /* 正则匹配 IP 列表 */
+    zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_ = {
+        .alloc_fn = zNativeOps_.alloc,  /* 使用项目内存池 */
+        .repoId = zRepoId
+    };
+
+    zPosixReg_.init(&zRegInit_ , "[^ ]+");  /* IP 之间必须以空格分割 */
+    zPosixReg_.match(&zRegRes_, &zRegInit_, zpIpList);
+    zPosixReg_.free_meta(&zRegInit_);
+
     /*
      * 新增目标机扫描并初始化
      */
     if (0 > (zErrNo = zupdate_ip_db_all(zRepoId,
                     zpSSHUserName, zpSSHPort,
-                    zpIpList, zIpCnt, zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
-                    zppCommonBuf[0], zCommonBufLen,
-                    &zpIpAddrRegRes_))) {
+                    &zRegRes_, zIpCnt, zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
+                    zppCommonBuf[0], zCommonBufLen))) {
         goto zEndMark;
     }
 
