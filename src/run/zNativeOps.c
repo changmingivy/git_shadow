@@ -1277,6 +1277,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "CREATE TABLE IF NOT EXISTS proj_meta "
             "("
             "proj_id         int NOT NULL PRIMARY KEY,"
+            "create_time     timestamp with time zone NOT NULL DEFAULT current_timestamp(0),"
             "path_on_host    varchar NOT NULL,"
             "source_url      varchar NOT NULL,"
             "source_branch   varchar NOT NULL,"

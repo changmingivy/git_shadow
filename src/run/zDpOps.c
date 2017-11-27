@@ -343,6 +343,65 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 
 
 /*
+ * 7：显示布署进度
+ */
+// static _i
+// zprint_dp_process(cJSON *zpJRoot, _i zSd) {
+//        /* ：：：留作实时进度接口备用
+//         * 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
+//        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
+//        _i zOffSet = 0;
+//        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz))
+//                && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
+//            //if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
+//            if (1/* test */) {
+//                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
+//                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+//                } else {
+//                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
+//                            zIpStrAddrBuf,
+//                            '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg);
+//
+//                    /* 未返回成功状态的目标机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+//                    zFailedHostCnt++;
+//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+//                }
+//            }
+//        }
+// }
+
+
+/*
+项目ID
+项目名称
+创建日期
+项目路径
+是否允许布署(锁定状态)
+最近一次布署的相关信息
+    版本号
+    总状态: success/fail/in process
+    实时进度: total: 100 success: 90 failed:3 in process:7
+    开始布署的时间:
+    耗时(秒):
+    失败的目标机及原因
+    正在布署的目标机及所处阶段
+
+最近30天布署数据分析
+    布署成功率(成功的台次/总台次) 1186/1200
+    平均布署耗时(所有布署成功的目标机总耗时/总台次)
+    错误分类及占比
+
+目标机平均负载及正态分布系数(负载均衡性)数据分析
+    CPU 负载(1h/6h/12h/7d)
+    MEM 负载(1h/6h/12h/7d)
+    网络 IO 负载(1h/6h/12h/7d)
+    磁盘 IO 负载(1h/6h/12h/7d)
+    磁盘容量负载(1h/6h/12h/7d)
+*/
+
+
+/*
  * 6：显示单个项目元信息
  */
 static _i
@@ -1090,36 +1149,6 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }
 
     return 0;
-}
-
-
-/*
- * 7：显示布署进度
- */
-static _i
-zprint_dp_process(cJSON *zpJRoot, _i zSd) {
-//        /* ：：：留作实时进度接口备用
-//         * 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-//        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-//        _i zOffSet = 0;
-//        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz))
-//                && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
-//            //if (1 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].dpState) {
-//            if (1/* test */) {
-//                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
-//                    zPrint_Err(0, NULL, "Convert IP num to str failed");
-//                } else {
-//                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
-//                            zIpStrAddrBuf,
-//                            '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg);
-//
-//                    /* 未返回成功状态的目标机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-//                    zFailedHostCnt++;
-//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
-//                }
-//            }
-//        }
 }
 
 
