@@ -1429,19 +1429,21 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             /* 布署成功，标记缓存可用 */
             zpGlobRepo_[zRepoId]->repoState = zCacheGood;
 
-            /* 更新最新一次布署版本号 */
-            strcpy(zpGlobRepo_[zRepoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
-
-            /* deploy success, create a new "CURRENT" branch */
-            sprintf(zppCommonBuf[0],
-                    "cd %s;"
-                    "git branch -f `git log CURRENT -1 --format=%%H`;"
-                    "git branch -f CURRENT",
-                    zpGlobRepo_[zRepoId]->p_repoPath
-                    );
-            if (0 != WEXITSTATUS( system(zppCommonBuf[0])) ) {
-                zPrint_Err(0, NULL, "\"CURRENT\" branch refresh failed");
+            /*
+             * deploy success
+             * create a new "CURRENT" branch,
+             * and a lastSIG branch
+             */
+            if (0 != zLibGit_.branch_add(zpGlobRepo_[zRepoId]->p_gitRepoHandler, "CURRENT", zTrue)) {
+                zPrint_Err(0, "CURRENT", "create branch failed");
             }
+
+            if (0 != zLibGit_.branch_add(zpGlobRepo_[zRepoId]->p_gitRepoHandler, zpGlobRepo_[zRepoId]->lastDpSig, zTrue)) {
+                zPrint_Err(0, zpGlobRepo_[zRepoId]->lastDpSig, "create branch failed");
+            }
+
+            /* 更新最新一次布署版本号，!!! 务必在创建新分支之后执行 !!! */
+            strcpy(zpGlobRepo_[zRepoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
 
             /* 重置内存池状态 */
             zReset_Mem_Pool_State(zRepoId);

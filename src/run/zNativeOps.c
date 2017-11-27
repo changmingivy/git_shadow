@@ -797,7 +797,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
 
             /* keep git fetch refs... */
-            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + strlen(zpRepoMeta_->pp_fields[3]) + 16];
+            _i zLen = strlen(zpRepoMeta_->pp_fields[3]);
+            _i zCnter = 0;
+
+            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + zLen + 16];
             char *zpFetchRefs = zFetchRefs;
             sprintf(zFetchRefs,
                     "+refs/heads/%s:refs/heads/server%d",
@@ -810,8 +813,15 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
             while (1) {
                 if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
+                    zCnter++;
+                    if (5 < zCnter) {  /* 连续失败超过 5 次，删除本地分支，重新拉取 */
+                        zLibGit_.branch_del(zpGitRepoHandler, /**/zpFetchRefs + zLen + sizeof("+refs/heads/:refs/heads/") - 1/**/);
+                    }
+
                     zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
                     unlink(".git/index.lock");  /* try clean rubbish... */
+                } else {
+                    zCnter = 0;
                 }
 
                 sleep(2);
