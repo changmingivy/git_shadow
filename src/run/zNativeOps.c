@@ -1214,8 +1214,6 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "proj_id         int NOT NULL,"
             "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "time_stamp      bigint NOT NULL,"
-            "time_limit      smallint NOT NULL DEFAULT 0,"
-            "res             smallint NOT NULL DEFAULT -1,"
             "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
             "host_res        smallint NOT NULL DEFAULT -1,"
             "host_timespent  smallint NOT NULL DEFAULT 0,"

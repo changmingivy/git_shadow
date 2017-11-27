@@ -43,13 +43,13 @@ zerr_vec_init(void) {
     zpErrVec[2] = "项目不存在或正在创建过程中";
     zpErrVec[3] = "指定的版本号不存在";
     zpErrVec[4] = "指定的文件 ID 不存在";
-    zpErrVec[5] = "系统忙，请 2 秒后重试...";
+    zpErrVec[5] = "";
     zpErrVec[6] = "项目被锁定，请解锁后重试";
     zpErrVec[7] = "服务端接收到的数据无法解析";
     zpErrVec[8] = "已产生新的布署记录，请刷新页面";
     zpErrVec[9] = "服务端错误：接收缓冲区为空或容量不足，无法解析数据";
     zpErrVec[10] = "请求的数据类型错误：非提交记录或布署记录";
-    zpErrVec[11] = "正在布署，请稍后重试...";
+    zpErrVec[11] = "系统忙，请稍后重试...";
     zpErrVec[12] = "布署失败";  /* useless.. */
     zpErrVec[13] = "上一次布署结果是失败，请重试该次布署或执行回滚";
     zpErrVec[14] = "系统测算的布署耗时较长，请稍后查看布署列表中的最新记录";
@@ -164,8 +164,8 @@ zerr_vec_init(void) {
     zpErrVec[123] = "";
     zpErrVec[124] = "";
     zpErrVec[125] = "";
-    zpErrVec[126] = "";
-    zpErrVec[127] = "";
+    zpErrVec[126] = "test_conn";
+    zpErrVec[127] = "被新的布署请求打断";
 }
 
 /************
@@ -231,7 +231,7 @@ zKeepAlive:
         zRun_.ops[4] = NULL;
         zRun_.ops[5] = NULL;
         zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
-        zRun_.ops[7] = NULL;
+        zRun_.ops[7] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
         zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
         zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
         zRun_.ops[10] = zDpOps_.print_diff_files;  // 显示差异文件路径列表

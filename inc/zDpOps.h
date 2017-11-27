@@ -44,8 +44,8 @@
 #define zDpUnLock 0
 #define zDpLocked 1
 
-#define zRepoGood 0
-#define zRepoDamaged 1
+#define zCacheGood 0
+#define zCacheDamaged 1
 
 #define zIsCommitDataType 0
 #define zIsDpDataType 1
@@ -125,13 +125,9 @@ typedef struct {
     char initFinished;  /* 仓库是否已经初始化完成：N 代表动作尚未完成，Y 代表已完成 */
 
     /* 用于区分是布署动作占用写锁还是生成缓存占用写锁：1 表示布署占用，0 表示生成缓存占用 */
-    _i whoGetWrLock;
+    _i dpingMark;
     /* 远程主机初始化或布署动作开始时间，用于统计每台目标机器大概的布署耗时*/
     time_t  dpBaseTimeStamp;
-    /* 布署超时上限 */
-    time_t dpTimeWaitLimit;
-    /* 目标机在重要动作执行前回发的keep alive消息 */
-    time_t dpKeepAliveStamp;
 
     /* 本项目 git 库全局 Handler */
     git_repository *p_gitRepoHandler;
@@ -152,14 +148,13 @@ typedef struct {
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
-    _c dpLock;
+    _c repoLock;
     /* 代码库状态，若上一次布署／撤销失败，此项置为 zRepoDamaged 状态，用于提示用户看到的信息可能不准确 */
     _c repoState;
-    _c resType[2];  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：[0] 远程主机初始化 [1] 布署
+    _uc resType;  // 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数：bit[0] 置位表示目标机初始化过程中发生错误，bit[1] 置位表示布署过程中发生错误
 
     char lastDpSig[44];  // 存放最近一次布署的 40 位 SHA1 sig
     char dpingSig[44];  // 正在布署过程中的版本号
-    char tryingSig[44];  // 正在布署过程中的版本号
 
     char sshUserName[256];
     char sshPort[6];
@@ -173,7 +168,7 @@ typedef struct {
 
     pthread_rwlock_t rwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
-    pthread_mutex_t dpRetryLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
+    pthread_mutex_t dpLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
 
     zVecWrap__ commitVecWrap_;  // 存放 commit 记录的原始队列信息
     struct iovec commitVec_[zCacheSiz];
@@ -237,15 +232,17 @@ typedef struct __zCacheMeta__ {
 
 struct zDpOps__ {
     _i (* show_meta) (cJSON *, _i);
+    _i (* show_dp_process) (cJSON *, _i);
 
     _i (* print_revs) (cJSON *, _i);
     _i (* print_diff_files) (cJSON *, _i);
     _i (* print_diff_contents) (cJSON *, _i);
 
     _i (* creat) (cJSON *, _i);
-    _i (* req_dp) (cJSON *, _i);
 
     _i (* dp) (cJSON *, _i);
+    _i (* req_dp) (cJSON *, _i);
+
     _i (* state_confirm) (cJSON *, _i);
 
     _i (* lock) (cJSON *, _i);
