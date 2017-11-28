@@ -859,6 +859,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 缓存版本初始化 */
     zpGlobRepo_[zRepoId]->cacheId = time(NULL);
 
+    /* SQL 临时表命名序号 */
+    zpGlobRepo_[zRepoId]->tempTableNo = 0;
+
     /* 本项目全局 pgSQL 连接 Handler */
     if (NULL == (zpGlobRepo_[zRepoId]->p_pgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
         zPrint_Err(0, NULL, "Connect to pgSQL failed");
@@ -1091,9 +1094,9 @@ zsys_load_monitor(void *zpParam __attribute__ ((__unused__))) {
         /*
          * 此处不拿锁，直接通知，否则锁竞争太甚
          * 由于是无限循环监控任务，允许存在无效的通知
-         * 工作线程等待在 80% 的水平线上，此处降到 70% 才通知
+         * 工作线程等待在 80% 的水平线上
          */
-        if (70 > zGlobMemLoad) {
+        if (80 > zGlobMemLoad) {
             pthread_cond_signal(&zGlobCommonCond);
         }
 

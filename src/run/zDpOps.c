@@ -29,9 +29,6 @@ extern char *zpGlobSSHPubKeyPath;
 extern char *zpGlobSSHPrvKeyPath;
 
 static _i
-zshow_one_repo_meta(cJSON *zpJRoot, _i zSd);
-
-static _i
 zadd_repo(cJSON *zpJRoot, _i zSd);
 
 static _i
@@ -66,7 +63,6 @@ zreq_file(cJSON *zpJRoot, _i zSd);
 
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
-    .show_meta = zshow_one_repo_meta,
     .show_dp_process = zprint_dp_process,
 
     .print_revs = zprint_record,
@@ -294,11 +290,11 @@ zgit_push_ccur(void *zp_) {
     zCheck_Negative_Exit( sem_wait(&(zpGlobRepo_[zpDpCcur_->repoId]->dpTraficControl)) );
 
     /* when memory load > 80%，waiting ... */
-    pthread_mutex_lock(&zGlobCommonLock);
-    while (80 < zGlobMemLoad) {
-        pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
-    }
-    pthread_mutex_unlock(&zGlobCommonLock);
+    // pthread_mutex_lock(&zGlobCommonLock);
+    // while (80 < zGlobMemLoad) {
+    //     pthread_cond_wait(&zGlobCommonCond, &zGlobCommonLock);
+    // }
+    // pthread_mutex_unlock(&zGlobCommonLock);
 
     /*
      * generate remote URL
@@ -490,13 +486,14 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 
 
 /*
- * 6：显示单个项目元信息
+ * 7：显示布署进度
  */
 static _i
-zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
+zprint_dp_process(cJSON *zpJRoot, _i zSd) {
+    _ui zTbNo = 0;
+
     zPgRes__ *zpPgRes_ = NULL;
     char zCmdBuf[256];
-
     _i zErrNo = 0,
        zRepoId = -1,
        zIpListSiz = 0,
@@ -516,10 +513,40 @@ zshow_one_repo_meta(cJSON *zpJRoot, _i zSd) {
         return -2;  /* zErrNo = -2; */
     }
 
-    sprintf(zCmdBuf, "SELECT DISTINCT host_ip FROM dp_log "
-            "WHERE proj_id = %d AND time_stamp = (SELECT max(time_stamp) FROM dp_log WHERE proj_id = %d)",
-            zRepoId,
-            zRepoId);
+    /* 创建临时表 */
+    pthread_mutex_lock(&zGlobCommonLock);
+    zTbNo = ++zpGlobRepo_[zRepoId]->tempTableNo;
+    pthread_mutex_unlock(&zGlobCommonLock);
+    sprintf(zCmdBuf, "CREATE TABLE tmp%u as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
+            "WHERE proj_id = %d AND time_stamp > %ld",
+            zTbNo,
+            zRepoId, time(NULL) - 3600 * 24 * 30);
+
+    /* 布署成功率 */
+    /* 布署平均耗时 */
+    /* 各类错误计数与占比 */
+
+    // 目标机总台次
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
+
+    // 布署成功的总台次
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
+
+    // 所有布署成功台次的耗时之和
+    sprintf(zCmdBuf, "SELECT sum(host_timespent) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
+
+    /* 各类错误计数 */
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[1] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[2] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[3] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[4] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[5] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[6] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[7] = '1'", zTbNo);
+    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[8] = '1'", zTbNo);
+
+    /* 删除临时表 */
+    sprintf(zCmdBuf, "DROP TABLE tmp%u", zTbNo);
 
     if (0 > (zErrNo = zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, &zpPgRes_))) {
         zPgSQL_.res_clear(NULL, zpPgRes_);

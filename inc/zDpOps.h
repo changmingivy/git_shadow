@@ -201,6 +201,8 @@ typedef struct {
     void *p_memPool;  // 线程内存池，预分配 16M 空间，后续以 8M 为步进增长
     pthread_mutex_t memLock;  // 内存池锁
     _ui memPoolOffSet;  // 动态指示下一次内存分配的起始地址
+
+    _ui tempTableNo;  // 临时 SQL 表命名序号
 } zRepo__;
 
 
@@ -246,7 +248,6 @@ typedef struct __zCacheMeta__ {
 } zCacheMeta__;
 
 struct zDpOps__ {
-    _i (* show_meta) (cJSON *, _i);
     _i (* show_dp_process) (cJSON *, _i);
 
     _i (* print_revs) (cJSON *, _i);
