@@ -161,7 +161,8 @@ zssh_exec_simple(const char *zpSSHUserName,
 /* 远程目标机初始化专用 */
 static void *
 zssh_ccur_simple_init_host(void  *zpParam) {
-    char zErrBuf[256] = {'\0'};
+    char zErrBuf[256] = {'\0'},
+         zSQLBuf[zGlobCommonBufSiz] = {'\0'};
     _i zErrNo = 0;
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
@@ -182,16 +183,34 @@ zssh_ccur_simple_init_host(void  *zpParam) {
                         zpDpCcur_->p_ccurLock,
                         zErrBuf))) {
                 zSet_Bit(zpTmp_->resState, 1);  /* 成功则置位 bit[0] */
+
+                snprintf(zSQLBuf, zGlobCommonBufSiz,
+                        "UPDATE dp_log SET host_res[1] = '1' "  /* postgreSQL 的数据下标是从 1 开始的 */
+                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                        zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,
+                        zpGlobRepo_[zpDpCcur_->repoId]->dpingSig);
             } else {
                 zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 1);  /* 出错则置位 bit[0] */
                 zSet_Bit(zpTmp_->errState, -1 * zErrNo);  /* 返回的错误码是负数，其绝对值与错误位一一对应 */
                 strcpy(zpTmp_->errMsg, zErrBuf);
+
+                snprintf(zSQLBuf, zGlobCommonBufSiz,
+                        "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "  /* postgreSQL 的数据下标是从 1 开始的 */
+                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                        -1 * zErrNo, zpTmp_->errMsg,
+                        zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,
+                        zpGlobRepo_[zpDpCcur_->repoId]->dpingSig);
             }
 
             pthread_mutex_lock(zpDpCcur_->p_ccurLock);
             (* (zpDpCcur_->p_taskCnt))++;
             pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
             pthread_cond_signal(zpDpCcur_->p_ccurCond);
+
+            /* 最后写入 DB */
+            if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zSQLBuf, NULL)) {
+                zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "record update failed");
+            }
 
             break;
         }
@@ -201,7 +220,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 };
 
 
-#define zNative_Fail_Confirm(zErrNo) do {\
+#define zNative_Fail_Confirm() do {\
     if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {\
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     } else {\
@@ -209,15 +228,25 @@ zssh_ccur_simple_init_host(void  *zpParam) {
         for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {\
             if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
                 pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
-                zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 2);  /* 出错则置位 bit[1] */\
-                zSet_Bit(zpTmp_->errState, -1 * zErrNo);  /* 错误码置位 */\
-                strcpy(zpTmp_->errMsg, zErrBuf);\
 \
                 zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt++;\
+\
                 pthread_mutex_unlock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
                 if (zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt == zpGlobRepo_[zpDpCcur_->repoId]->dpTotalTask) {\
                     pthread_cond_signal(&zpGlobRepo_[zpDpCcur_->repoId]->dpSyncCond);\
                 }\
+\
+                zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 2);  /* 出错则置位 bit[1] */\
+                zSet_Bit(zpTmp_->errState, -1 * zErrNo);  /* 错误码置位 */\
+                strcpy(zpTmp_->errMsg, zErrBuf);\
+\
+                snprintf(zSQLBuf, zGlobCommonBufSiz,\
+                        "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "  /* postgreSQL 的数据下标是从 1 开始的 */\
+                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
+                        -1 * zErrNo, zpTmp_->errMsg,\
+                        zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,\
+                        zpGlobRepo_[zpDpCcur_->repoId]->dpingSig);\
+\
                 break;\
             }\
         }\
@@ -233,6 +262,13 @@ zssh_ccur_simple_init_host(void  *zpParam) {
         for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {\
             if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
                 zSet_Bit(zpTmp_->resState, 2);  /* 置位 bit[1] */\
+\
+                snprintf(zSQLBuf, zGlobCommonBufSiz,\
+                        "UPDATE dp_log SET host_res[2] = '1' "  /* postgreSQL 的数据下标是从 1 开始的 */\
+                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
+                        zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,\
+                        zpGlobRepo_[zpDpCcur_->repoId]->dpingSig);\
+\
                 break;\
             }\
         }\
@@ -247,6 +283,7 @@ zgit_push_ccur(void *zp_) {
     zDpRes__ *zpTmp_ = NULL;
 
     char zErrBuf[256] = {'\0'},
+         zSQLBuf[zGlobCommonBufSiz] = {'\0'},
          zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
     char zRemoteRepoAddrBuf[64 + zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
     char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")], *zpGitRefs[2];
@@ -333,18 +370,23 @@ zgit_push_ccur(void *zp_) {
                             zErrBuf))) {
                     zNative_Success_Confirm();
                 } else {
-                    zNative_Fail_Confirm(zErrNo);
+                    zNative_Fail_Confirm();
                 }
             } else {
-                zNative_Fail_Confirm(zErrNo);
+                zNative_Fail_Confirm();
             }
         } else {
-            zNative_Fail_Confirm(zErrNo);
+            zNative_Fail_Confirm();
         }
     }
 
     /* git push 流量控制 */
     zCheck_Negative_Exit( sem_post(&(zpGlobRepo_[zpDpCcur_->repoId]->dpTraficControl)) );
+
+    /* 最后写入 DB */
+    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zSQLBuf, NULL)) {
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "record update failed");
+    }
 
     return NULL;
 }
@@ -397,7 +439,7 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 //        _i zOffSet = sprintf(zpCommonBuf, "无法连接的目标机:");
 //        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
 //            if (!zCheck_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].resState, 1)
-//					/* || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errState */) {
+//                    /* || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errState */) {
 //                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
 //                    zPrint_Err(0, NULL, "Convert IP num to str failed");
 //                } else {
@@ -1596,14 +1638,20 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
             /* 'B' 标识布署状态回复 */
             if ('B' == zpReplyType[0]) {
-                /* 负号 '-' 表示是异常返回，正号 '+' 表示是阶段性成功返回 */
+                /*
+                 * 正号 B'+' 表示是阶段性成功返回
+                 * 负号 B'-' 表示是异常返回，不需要记录布署时间
+                 */
                 if ('-' == zpReplyType[1]) {
+                    /* 错误信息允许为空，不需要检查提取到的内容 */
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");
+                    strncpy(zpTmp_->errMsg, zpJ->valuestring, 255);
+                    zpTmp_->errMsg[255] = '\0';
+
                     snprintf(zCmdBuf, zGlobCommonBufSiz,
-                            "UPDATE dp_log SET host_err[%d] = %d,host_detail = '%s'"
-                            ",host_timespent = %ld "  /* [DEBUG]：每台目标机的布署耗时统计 */
+                            "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "  /* postgreSQL 的数据下标是从 1 开始的 */
                             "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
-                            zRetBit, zRetBit, zpTmp_->errMsg,
-                            time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
+                            zRetBit, zpTmp_->errMsg,
                             zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
 
                     /* 设计 SQL 连接池??? */
@@ -1631,11 +1679,6 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                      */
                     zpGlobRepo_[zRepoId]->dpReplyCnt++;
 
-                    /* 错误信息允许为空，不需要检查提取到的内容 */
-                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");
-                    strncpy(zpTmp_->errMsg, zpJ->valuestring, 255);
-                    zpTmp_->errMsg[255] = '\0';
-
                     pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
 
                     if (zpGlobRepo_[zRepoId]->dpReplyCnt == zpGlobRepo_[zRepoId]->dpTotalTask) {
@@ -1646,9 +1689,9 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                     goto zMarkEnd;
                 } else if ('+' == zpReplyType[1]) {
                     snprintf(zCmdBuf, zGlobCommonBufSiz,
-                            "UPDATE dp_log SET host_res[%d] = %d "
+                            "UPDATE dp_log SET host_res[%d] = '1' "  /* postgreSQL 的数据下标是从 1 开始的 */
                             "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
-                            zRetBit, zRetBit,
+                            zRetBit,
                             zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
 
                     if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
