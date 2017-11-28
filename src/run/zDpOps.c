@@ -469,7 +469,7 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 最近一次布署的相关信息
     版本号
     总状态: success/fail/in process
-    实时进度: total: 100 success: 90 failed:3 in process:7
+    实时进度: total: 100, success: 90, failed:3, in process:7
     开始布署的时间:
     耗时(秒):
     失败的目标机及原因
@@ -1169,6 +1169,11 @@ zExistMark:;
         goto zEndMark;
     }
 
+    /* 检查是否有错误发生(bit[0] 是否置位) */
+    if (zCheck_Bit(zpGlobRepo_[zRepoId]->resType, 1)) {
+        zErrNo = -23;
+    }
+
 zEndMark:
     return zErrNo;
 }
@@ -1504,6 +1509,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         pthread_cond_wait(&zpGlobRepo_[zRepoId]->dpSyncCond, &zpGlobRepo_[zRepoId]->dpSyncLock);
     }
 
+    pthread_mutex_unlock( &zpGlobRepo_[zRepoId]->dpSyncLock );
+
     /* 若版本号与最近一次成功布署的相同，则不再刷新缓存 */
     if (1 == zpGlobRepo_[zRepoId]->dpingMark) {
         if (0 != strcmp(zGet_OneCommitSig(zpTopVecWrap_, zCommitId), zpGlobRepo_[zRepoId]->lastDpSig)) {
@@ -1555,13 +1562,14 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 pthread_cancel(zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_threadSource_->selfTid);
             }
         }
-    }
 
-    pthread_mutex_unlock( &zpGlobRepo_[zRepoId]->dpSyncLock );
+        zErrNo = -127;
+    }
 
 zEndMark:
     zpGlobRepo_[zRepoId]->dpingMark = 0;
     pthread_mutex_unlock( &(zpGlobRepo_[zRepoId]->dpLock) );
+
     return zErrNo;
 }
 
