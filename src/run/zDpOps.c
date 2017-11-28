@@ -23,7 +23,6 @@ extern struct zLibGit__ zLibGit_;
 extern struct zNativeOps__ zNativeOps_;
 
 extern _i zGlobHomePathLen;
-extern char zGlobNoticeMd5[34];
 
 extern char *zpGlobLoginName;
 extern char *zpGlobSSHPubKeyPath;
@@ -389,6 +388,36 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 //        }
 // }
 
+
+//    /* 检测执行结果，并返回失败列表 */
+//    if (zCheck_Bit(zpGlobRepo_[zRepoId]->resType, 1)  /* 检查 bit[0] 是否置位 */
+//            || (zpGlobRepo_[zRepoId]->dpTaskFinCnt < zpGlobRepo_[zRepoId]->dpTotalTask)) {
+//        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
+//        _ui zFailedHostCnt = 0;
+//        _i zOffSet = sprintf(zpCommonBuf, "无法连接的目标机:");
+//        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
+//            if (!zCheck_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].resState, 1)
+//					/* || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errState */) {
+//                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
+//                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+//                } else {
+//                    zOffSet += snprintf(zpCommonBuf+ zOffSet,
+//                            zBufLen - zErrMetaSiz - zOffSet,
+//                            "([%s]%s)",
+//                            zIpStrAddrBuf,
+//                            '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg);
+//                    zFailedHostCnt++;
+//
+//                    /* 未返回成功状态的目标机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
+//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
+//                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
+//                }
+//            }
+//        }
+//
+//        zErrNo = -23;
+//        goto zEndMark;
+//    }
 
 /*
 项目ID
@@ -961,7 +990,7 @@ static _i
 zupdate_ip_db_all(_i zRepoId,
         char *zpSSHUserName, char *zpSSHPort,
         zRegRes__ *zpRegRes_, _ui zIpCnt, _l zTimeStamp,
-        char *zpCommonBuf, _i zBufLen) {
+        char *zpCommonBuf) {
 
     _i zErrNo = 0;
     zDpRes__ *zpTmpDpRes_ = NULL,
@@ -1039,7 +1068,8 @@ zupdate_ip_db_all(_i zRepoId,
             goto zEndMark;
         }
 
-        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state = 0;  /* 目标机状态复位 */
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].resState = 0;  /* 目标机状态复位 */
+        zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errState = 0;  /* 目标机状态复位 */
         zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].p_next = NULL;
 
         /* 更新HASH */
@@ -1057,7 +1087,7 @@ zupdate_ip_db_all(_i zRepoId,
             /* 若 IPv4 address 已存在，则跳过初始化远程目标机的环节 */
             if (zIpVecCmp(zpTmpDpRes_->clientAddr, zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
                 /* 先前已被初始化过的目标机，状态置 1，防止后续收集结果时误报失败 */
-                zSet_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state, 1);  /* 将 bit[0] 置位 */
+                zSet_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].resState, 1);  /* 将 bit[0] 置位 */
                 /* 从总任务数中去除已经初始化的目标机数 */
                 zpGlobRepo_[zRepoId]->dpTotalTask--;
                 goto zExistMark;
@@ -1094,35 +1124,6 @@ zExistMark:;
         }
 
         zErrNo = -127;
-        goto zEndMark;
-    }
-
-    /* 检测执行结果，并返回失败列表 */
-    if (zCheck_Bit(zpGlobRepo_[zRepoId]->resType, 1)  /* 检查 bit[0] 是否置位 */
-            || (zpGlobRepo_[zRepoId]->dpTaskFinCnt < zpGlobRepo_[zRepoId]->dpTotalTask)) {
-        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-        _ui zFailedHostCnt = 0;
-        _i zOffSet = sprintf(zpCommonBuf, "无法连接的目标机:");
-        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zpGlobRepo_[zRepoId]->totalHost); zCnter++) {
-            if (!zCheck_Bit(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].state, 1)) {
-                if (0 != zConvert_IpNum_To_Str(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
-                    zPrint_Err(0, NULL, "Convert IP num to str failed");
-                } else {
-                    zOffSet += snprintf(zpCommonBuf+ zOffSet,
-                            zBufLen - zErrMetaSiz - zOffSet,
-                            "([%s]%s)",
-                            zIpStrAddrBuf,
-                            '\0' == zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].errMsg);
-                    zFailedHostCnt++;
-
-                    /* 未返回成功状态的目标机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-                    zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
-                }
-            }
-        }
-
-        zErrNo = -23;
         goto zEndMark;
     }
 
@@ -1345,8 +1346,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 预布署动作：须置于 zupdate_ip_db_all(...) 函数之前，因 post-update 会在初始化目标机时被首先传输 */
     sprintf(zpCommonBuf,
             "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
-            "git stash;"
-            "git stash clear;"
             "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"
             "git reset %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
 
@@ -1388,7 +1387,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (0 > (zErrNo = zupdate_ip_db_all(zRepoId,
                     zpSSHUserName, zpSSHPort,
                     &zRegRes_, zIpCnt, zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
-                    zpCommonBuf, zCommonBufLen))) {
+                    zpCommonBuf))) {
         goto zEndMark;
     }
 

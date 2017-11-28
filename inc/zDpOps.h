@@ -28,7 +28,7 @@
 #include "zPosixReg.h"
 #include "zPgSQL.h"
 #include "zThreadPool.h"
-#include "zMd5Sum.h"
+//#include "zMd5Sum.h"
 #include "cJSON.h"
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限

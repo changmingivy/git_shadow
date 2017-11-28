@@ -11,5 +11,5 @@ utils.a:
 	(cd db; make INC_ARGS="$(INC_ARGS)")
 	(cd regex; make INC_ARGS="$(INC_ARGS)")
 	(cd json; make INC_ARGS="$(INC_ARGS)")
-	(cd algo; make INC_ARGS="$(INC_ARGS)")
+	#(cd algo; make INC_ARGS="$(INC_ARGS)")
 	ar -crv $@ `find . -type f -name "*.o"`

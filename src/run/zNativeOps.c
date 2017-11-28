@@ -24,7 +24,6 @@ extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
-extern struct zMd5Sum__ zMd5Sum_;
 
 extern char *zpGlobHomePath;
 extern _i zGlobHomePathLen;
@@ -80,7 +79,6 @@ pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，�
 _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
 
 char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所有布署相关数据存放于一个数据库中
-char zGlobNoticeMd5[34];  // 服务端最新 notice 工具的 md5sum
 
 /* 专用于缓存的内存调度分配函数，适用多线程环境，不需要free */
 static void *
@@ -751,13 +749,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         return -38;
     }
 
-    /* 计算 notice 工具的 md5sum */
-    sprintf(zCommonBuf, "%s_SHADOW/tools/notice", zpGlobRepo_[zRepoId]->p_repoPath);
-    if (0 > zMd5Sum_.md5sum(zCommonBuf, zGlobNoticeMd5)) {
-        zFree_Source();
-        return -40;
-    }
-
     /*
      * PostgreSQL 中以 char(1) 类型存储
      * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
@@ -1005,7 +996,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 exit(1);
             }
 
-            zpGlobRepo_[zRepoId]->p_dpResList_[i].state = 0;  /* 目标机状态复位 */
+            zpGlobRepo_[zRepoId]->p_dpResList_[i].resState = 0;  /* 目标机状态复位 */
+            zpGlobRepo_[zRepoId]->p_dpResList_[i].errState = 0;  /* 目标机状态复位 */
             zpGlobRepo_[zRepoId]->p_dpResList_[i].p_next = NULL;
 
             /* 更新HASH */
