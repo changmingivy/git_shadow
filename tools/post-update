@@ -34,6 +34,12 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             "${zMasterAddr}"\
             "${zMasterPort}"\
             "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
+        # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
+        if [[ 0 -ne $? ]];then
+            exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
+            printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}">&555
+            exec 555>&-
+        fi
     }
 
     ##################

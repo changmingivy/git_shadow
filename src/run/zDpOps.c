@@ -277,22 +277,25 @@ zgit_push_ccur(void *zp_) {
     if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
         /* if failed, delete '.git', ReInit the remote host */
         char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
-        sprintf(zCmdBuf,
-                "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"
-                "cd ${zTmpDir}; if [[ 0 -ne $? ]];then exit 1;fi\n"
-                "exec 777<>/dev/tcp/%s/%s;if [[ 0 -ne $? ]];then exit 1;fi"
-                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s/tools/zremote_init.sh\"}' >&777;"
-                "cat <&777 >init.sh;"
-                "exec 777>&-;"
-                "exec 777<&-;"
-                "bash init.sh %d '%s' '%s' '%s' '%s' '%s'",
-                zNetSrv_.p_ipAddr, zNetSrv_.p_port,
-                zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
-                zpDpCcur_->repoId,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath,
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,
-                zNetSrv_.p_ipAddr, zNetSrv_.p_port,
-                zGlobNoticeMd5);
+        sprintf(zCmdBuf,\
+                "zPath=%s;"\
+                "for x in ${zPath} ${zPath}_SHADOW;"\
+                "do;"\
+                    "rm -f $x ${x}/.git/{index.lock,post-update}"\
+                    "mkdir -p $x;"\
+                    "cd $x;"\
+                    "if [[ 0 -ne $? ]];then exit 1;fi;"\
+                    "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 199;fi;"\
+                    "git init .;git config user.name _;git config user.email _;"\
+                "done;"\
+                "exec 777<>/dev/tcp/%s/%s;"\
+                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
+                "cat<&777 >${zPath}/.git/post-update;"\
+                "exec 777>&-;"\
+                "exec 777<&-;",\
+                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
+                zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
+                zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath);\
         if (0 == zssh_exec_simple(
                     zpDpCcur_->p_userName,
                     zpDpCcur_->p_hostIpStrAddr,
@@ -919,22 +922,24 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
  */
 #define zConfig_Dp_Host_Ssh_Cmd(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
-			"if [[ 97 -lt `df . | grep -oP '\d+(?=%)'` ]];then exit 199;fi"\
-            "zTmpDir=`mktemp -d /tmp/dp.XXXXXXXX`;"\
-            "cd ${zTmpDir};"\
-            "exec 777<>/dev/tcp/%s/%s 2>/tmp/initlog;"\
-            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/zremote_init.sh\"}' >&777;"\
-            "cat <&777 >init.sh;"\
+            "zPath=%s;"\
+            "for x in ${zPath} ${zPath}_SHADOW;"\
+            "do;"\
+                "rm -f $x ${x}/.git/{index.lock,post-update}"\
+                "mkdir -p $x;"\
+                "cd $x;"\
+                "if [[ 0 -ne $? ]];then exit 1;fi;"\
+                "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 199;fi;"\
+                "git init .;git config user.name _;git config user.email _;"\
+            "done;"\
+            "exec 777<>/dev/tcp/%s/%s;"\
+            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
+            "cat<&777 >${zPath}/.git/post-update;"\
             "exec 777>&-;"\
-            "exec 777<&-;"\
-            "bash -x init.sh %d '%s' '%s' '%s' '%s' '%s' >>/tmp/initlog 2>&1 &",\
-            zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zRepoId, zpGlobRepo_[zRepoId]->p_repoPath,\
-            zRepoId,\
-            zpGlobRepo_[zRepoId]->p_repoPath,\
+            "exec 777<&-;",\
             zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-            zGlobNoticeMd5);\
+            zRepoId, zpGlobRepo_[zRepoId]->p_repoPath);\
 } while(0)
 
 static _i
