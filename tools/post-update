@@ -13,6 +13,18 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
 #     参数格式类似：refs/heads/serv refs/heads/serv_SHADOW 的形式，
 #     分支的先后顺序与推送方的指令顺序一致，分别对应 $1 $2 ...
+
+#
+# << 错误类型 >>
+# err1 bit[0]:服务端错误
+# err2 bit[1]:网络不通
+# err3 bit[2]:SSH 连接认证失败
+# err4 bit[3]:目标端磁盘容量不足
+# err5 bit[4]:目标端权限不足
+# err6 bit[5]:目标端文件冲突
+# err7 bit[6]:目标端布署后动作执行失败
+# err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
+#
 (
     zPathOnHost="__PROJ_PATH"
     zMasterAddr="__MASTER_ADDR"
@@ -60,15 +72,13 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
     # 检测是否存在重复布署动作
     if [[ 0 -ne `\ls /tmp/.${zProjId}_pid_post-update | wc -l` ]]; then
         if [[ ${zTimeStamp} -eq `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 同一版本，返回错误
-            zTcpReply "${zServSig}" "B--" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
+            zTcpReply "${zServSig}" "B-8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
                 >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         elif [[ ${zTimeStamp} -gt `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 比正在进行的版本更新，kill 之
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
         else  # 比正在进行的版本更老，理论上不会出现
-            zTcpReply "${zServSig}" "B--" "delay deploy：${zServBranchName}"\
-                >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
@@ -105,7 +115,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply "${zServSig}" "B--" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zTcpReply "${zServSig}" "B-6" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -119,7 +129,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
         sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
         sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-        zTcpReply "${zServSig}" "B--" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
+        zTcpReply "${zServSig}" "B-6" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
             >> /tmp/.____post-deploy.log 2>&1
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -146,7 +156,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
         sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
         sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-        zTcpReply "${zServSig}" "B--" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"\
+        zTcpReply "${zServSig}" "B-5" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"\
             >> /tmp/.____post-deploy.log 2>&1
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
@@ -166,7 +176,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply "${zServSig}" "B--" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zTcpReply "${zServSig}" "B-6" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -188,13 +198,13 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
     zMasterSig=`git log master -1 --format=%H`
     if [[ "$zMasterSig" != "$zServSig" ]]; then  # 检查两个分支 git log 是否一致
-        zTcpReply "${zServSig}" "B--" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
+        zTcpReply "${zServSig}" "B-6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
             >> /tmp/.____post-deploy.log 2>&1
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
         exit 255
     elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then  # 检查是否存在文件不一致现象(忽略未被 git 管理的新文件，如：log 等)
-        zTcpReply "${zServSig}" "B--" "work area inconsistent(git status): `pwd`"\
+        zTcpReply "${zServSig}" "B-6" "work area inconsistent(git status): `pwd`"\
             >> /tmp/.____post-deploy.log 2>&1
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -204,7 +214,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
     if [[ 0 -eq `ls -d ${zProjOnLinePath} | wc -l` ]]; then # 创建项目路径软链接
         ln -sT ${zPathOnHost} ${zProjOnLinePath}
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "B--" "创建软链接错误，请检查项目路径权限: ${zProjOnLinePath}"\
+            zTcpReply "${zServSig}" "B-6" "创建软链接错误，请检查项目路径权限: ${zProjOnLinePath}"\
                 >> /tmp/.____post-deploy.log 2>&1
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -212,7 +222,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         fi
     elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) # 检测是否有废弃的残留文件，若存在，则抛出错误
         || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
-        zTcpReply "${zServSig}" "B--" "既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}"\
+        zTcpReply "${zServSig}" "B-6" "既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}"\
             >> /tmp/.____post-deploy.log 2>&1
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
         rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
@@ -238,7 +248,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply ${zMasterSig} "B--" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zTcpReply ${zMasterSig} "B-7" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
             rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
             exit 255
@@ -253,7 +263,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
             sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
             sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply ${zMasterSig} "B--" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zTcpReply ${zMasterSig} "B-7" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
             rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
             exit 255
