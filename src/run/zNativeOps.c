@@ -1290,8 +1290,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "proj_id         int NOT NULL,"
-            "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "time_stamp      bigint NOT NULL,"
+            "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
             "host_res        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表布署过程中的一种状态 */
             "host_err        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */

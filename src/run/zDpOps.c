@@ -1526,33 +1526,16 @@ zEndMark:
 
 
 /*
- * 8：布署成功人工确认
  * 9：布署成功目标机自动确认
  */
-#define zGenerate_SQL_Cmd(zCmdBuf) do {\
-    snprintf(zCmdBuf, zGlobCommonBufSiz,\
-            "UPDATE dp_log SET host_res = %d,host_err = %d,host_timespent = %ld,host_detail = '%s' "\
-            "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
-\
-            0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
-            time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp,\
-            zErrNo,\
-            zpTmp_->errMsg,\
-\
-            zRepoId,\
-            zpHostAddr,\
-            zTimeStamp,\
-            zpRevSig);\
-} while (0);
-
 static _i
 zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zDpRes__ *zpTmp_ = NULL;
     _i zErrNo = 0,
+       zRetBit = 0,
        zRepoId = 0;
     _ull zHostId[2] = {0};
-    time_t zTimeSpent = 0,
-           zTimeStamp = 0;
+    time_t zTimeStamp = 0;
 
     char zCmdBuf[zGlobCommonBufSiz] = {'\0'},
          * zpHostAddr = NULL,
@@ -1601,115 +1584,113 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }
     zpReplyType = zpJ->valuestring;
 
-    /* 正文... */
-    zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-    for (; zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {  // 遍历
+    /* 正文...遍历信息链 */
+    for (zpTmp_ = zpGlobRepo_[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
+            zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {
         if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
-            /* 'B' 标识布署状态回复，'C' 目标机的 keep alive 消息 */
+            /* 检查信息类型是否合法 */
+            zRetBit = strtol(zpReplyType + 2, NULL, 10);
+            if (0 >= zRetBit || 8 < zRetBit) {
+                zErrNo = -103;
+                goto zMarkEnd;
+            }
+
+            /* 'B' 标识布署状态回复 */
             if ('B' == zpReplyType[0]) {
-                if (0 != strcmp(zpGlobRepo_[zRepoId]->dpingSig, zpRevSig)
-                        || zTimeStamp != zpGlobRepo_[zRepoId]->dpBaseTimeStamp) {
-                    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                    zErrNo = -101;
-
-                    zGenerate_SQL_Cmd(zCmdBuf);
-                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
-                        zPrint_Err(0, zpHostAddr, "record update failed");
-
-                        /* 若更新失败，则尝试添加一条新记录 */
-                        snprintf(zCmdBuf, zGlobCommonBufSiz, "INSERT INTO dp_log "
-                                "(proj_id, time_stamp, rev_sig, host_ip, host_errno, host_detail) "
-                                "VALUES (%d,%ld,%s,%s,%d,%s)",
-                                zRepoId,
-                                zTimeStamp,
-                                zpRevSig,
-                                zpHostAddr,
-                                zErrNo,
-                                zpTmp_->errMsg);
-                        zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL);
-                        zPrint_Err(0, zpHostAddr, "record insert failed");
-                    }
-
-                    goto zMarkEnd;
-                }
-
-                /*
-                 * 已确定完全成功，不允许进一步改变
-                 * 理论上不会出现
-                 */
-                // if (zCheck_Bit(zpTmp_->resState, 5)) {
-                //     zErrNo = -81;
-                //     // TO DO: insert a new record ???
-                //     goto zMarkEnd;
-                // }
-
                 /* 负号 '-' 表示是异常返回，正号 '+' 表示是阶段性成功返回 */
                 if ('-' == zpReplyType[1]) {
+                    snprintf(zCmdBuf, zGlobCommonBufSiz,
+                            "UPDATE dp_log SET host_err[%d] = %d,host_detail = '%s'"
+                            ",host_timespent = %ld "  /* [DEBUG]：每台目标机的布署耗时统计 */
+                            "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                            zRetBit, zRetBit, zpTmp_->errMsg,
+                            time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
+                            zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
+
+                    /* 设计 SQL 连接池??? */
+                    if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                        zPrint_Err(0, zpHostAddr, "record update failed");
+                    }
+
+                    /* 判断是否是延迟到达的信息 */
+                    if (0 != strcmp(zpGlobRepo_[zRepoId]->dpingSig, zpRevSig)
+                            || zTimeStamp != zpGlobRepo_[zRepoId]->dpBaseTimeStamp) {
+                        zErrNo = -101;
+                        goto zMarkEnd;
+                    }
+
+                    zSet_Bit(zpTmp_->errState, zRetBit);
+
+                    /* 发生错误，bit[1] 置位表示目标机布署出错返回 */
+                    zSet_Bit(zpGlobRepo_[zRepoId]->resType, 2);
+
                     pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
 
-                    /* 发生严重错误，确认此台目标机布署失败，计数加一 */
-                    zSet_Bit(zpTmp_->state, 6);  /* bit[5] 标识已发生错误 */
-                    zSet_Bit(zpGlobRepo_[zRepoId]->resType, 2);  /* bit[1] 置位表示目标机布署出错返回 */
+                    /*
+                     * 确认此台目标机会布署失败
+                     * 全局计数原子性+1
+                     */
                     zpGlobRepo_[zRepoId]->dpReplyCnt++;
 
-                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");  /* 可以为空，不检查结果 */
+                    /* 错误信息允许为空，不需要检查提取到的内容 */
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "content");
                     strncpy(zpTmp_->errMsg, zpJ->valuestring, 255);
                     zpTmp_->errMsg[255] = '\0';
 
                     pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+
                     if (zpGlobRepo_[zRepoId]->dpReplyCnt == zpGlobRepo_[zRepoId]->dpTotalTask) {
                         pthread_cond_signal(&zpGlobRepo_[zRepoId]->dpSyncCond);
                     }
+
                     zErrNo = -102;
+                    goto zMarkEnd;
+                } else if ('+' == zpReplyType[1]) {
+                    snprintf(zCmdBuf, zGlobCommonBufSiz,
+                            "UPDATE dp_log SET host_res[%d] = %d "
+                            "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                            zRetBit, zRetBit,
+                            zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
 
-                    /* [DEBUG]：布署耗时统计 */
-                    zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
-
-                    zGenerate_SQL_Cmd(zCmdBuf);
                     if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
                         zPrint_Err(0, zpHostAddr, "record update failed");
                     }
 
-                    goto zMarkEnd;
-                } else if ('+' == zpReplyType[1]) {
-                    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-
-                    switch (zpReplyType[2]) {
-                        case '3':
-                            zSet_Bit(zpTmp_->resState, 3);
-                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                            zErrNo = 0;
-                            break;
-                        case '4':
-                            zSet_Bit(zpTmp_->resState, 4);
-                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                            zErrNo = 0;
-                            break;
-                        case '5':
-                            zSet_Bit(zpTmp_->resState, 5);
-                            zpGlobRepo_[zRepoId]->dpReplyCnt++;
-
-                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                            if (zpGlobRepo_[zRepoId]->dpReplyCnt == zpGlobRepo_[zRepoId]->dpTotalTask) {
-                                pthread_cond_signal(&zpGlobRepo_[zRepoId]->dpSyncCond);
-                            }
-                            zErrNo = 0;
-
-                            /* [DEBUG]：布署耗时统计 */
-                            zTimeSpent = time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
-
-                            zGenerate_SQL_Cmd(zCmdBuf);
-                            if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
-                                zPrint_Err(0, zpHostAddr, "record update failed");
-                            }
-
-                            break;
-                        default:
-                            zErrNo = -103;  // 无法识别的返回内容
-                            pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
-                            break;
+                    /* 判断是否是延迟到达的信息 */
+                    if (0 != strcmp(zpGlobRepo_[zRepoId]->dpingSig, zpRevSig)
+                            || zTimeStamp != zpGlobRepo_[zRepoId]->dpBaseTimeStamp) {
+                        zErrNo = -101;
+                        goto zMarkEnd;
                     }
 
+                    zSet_Bit(zpTmp_->resState, zRetBit);
+
+                    /* 最终成功的状态到达时，才需要递增全局计数并记当布署耗时 */
+                    if ('5' == zpReplyType[2]) {
+                        pthread_mutex_lock( &(zpGlobRepo_[zRepoId]->dpSyncLock) );
+
+                        /* 全局计数原子性 +1 */
+                        zpGlobRepo_[zRepoId]->dpReplyCnt++;
+
+                        pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
+
+                        if (zpGlobRepo_[zRepoId]->dpReplyCnt == zpGlobRepo_[zRepoId]->dpTotalTask) {
+                            pthread_cond_signal(&zpGlobRepo_[zRepoId]->dpSyncCond);
+                        }
+
+                        /* [DEBUG]：每台目标机的布署耗时统计 */
+                        snprintf(zCmdBuf, zGlobCommonBufSiz,
+                                "UPDATE dp_log SET host_timespent = %ld "
+                                "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                                time(NULL) - zpGlobRepo_[zRepoId]->dpBaseTimeStamp,
+                                zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
+
+                        if (0 > zPgSQL_.exec_once(zGlobPgConnInfo, zCmdBuf, NULL)) {
+                            zPrint_Err(0, zpHostAddr, "record update failed");
+                        }
+                    }
+
+                    zErrNo = 0;
                     goto zMarkEnd;
                 } else {
                     zErrNo = -103;  // 无法识别的返回内容
