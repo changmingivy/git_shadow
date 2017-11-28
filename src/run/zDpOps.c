@@ -1531,7 +1531,7 @@ zEndMark:
  */
 #define zGenerate_SQL_Cmd(zCmdBuf) do {\
     snprintf(zCmdBuf, zGlobCommonBufSiz,\
-            "UPDATE dp_log SET host_res = %d, host_timespent = %ld, host_errno = %d, host_detail = '%s' "\
+            "UPDATE dp_log SET host_res = %d,host_err = %d,host_timespent = %ld,host_detail = '%s' "\
             "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
 \
             0 == zErrNo ? 0 : (-102 == zErrNo ? -2 : -1),\
@@ -1634,15 +1634,14 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 }
 
                 /*
-                 * 已确定完全成功或必然失败的目标机状态，不允许进一步改变
+                 * 已确定完全成功，不允许进一步改变
                  * 理论上不会出现
                  */
-                if (zCheck_Bit(zpTmp_->state, 5)
-                        || zCheck_Bit(zpTmp_->state, 6)) {
-                    zErrNo = -81;
-                    // TO DO: insert a new record ???
-                    goto zMarkEnd;
-                }
+                // if (zCheck_Bit(zpTmp_->resState, 5)) {
+                //     zErrNo = -81;
+                //     // TO DO: insert a new record ???
+                //     goto zMarkEnd;
+                // }
 
                 /* 负号 '-' 表示是异常返回，正号 '+' 表示是阶段性成功返回 */
                 if ('-' == zpReplyType[1]) {
@@ -1677,17 +1676,17 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
                     switch (zpReplyType[2]) {
                         case '3':
-                            zSet_Bit(zpTmp_->state, 3);
+                            zSet_Bit(zpTmp_->resState, 3);
                             pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
                             zErrNo = 0;
                             break;
                         case '4':
-                            zSet_Bit(zpTmp_->state, 4);
+                            zSet_Bit(zpTmp_->resState, 4);
                             pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
                             zErrNo = 0;
                             break;
                         case '5':
-                            zSet_Bit(zpTmp_->state, 5);
+                            zSet_Bit(zpTmp_->resState, 5);
                             zpGlobRepo_[zRepoId]->dpReplyCnt++;
 
                             pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->dpSyncLock));
