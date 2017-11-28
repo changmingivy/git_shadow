@@ -647,7 +647,7 @@ int git_push_finish(git_push *push, const git_remote_callbacks *callbacks)
 		return error;
 
 	if (!push->unpack_ok) {
-		error = -1;
+		error = -40000;
 		giterr_set(GITERR_NET, "unpacking the sent packfile failed on the remote");
 	}
 

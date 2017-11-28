@@ -52,6 +52,17 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
  * zAuthType 置为 0 表示密码认证，置为 1 则表示 rsa 公钥认证
  * 若不需要远程执行结果返回，zpRemoteOutPutBuf 置为 NULL
  */
+    /*
+     * << 错误类型 >>
+     * err1 bit[0]:服务端错误
+     * err2 bit[1]:网络不通
+     * err3 bit[2]:SSH 连接认证失败
+     * err4 bit[3]:目标端磁盘容量不足
+     * err5 bit[4]:目标端权限不足
+     * err6 bit[5]:目标端文件冲突
+     * err7 bit[6]:目标端布署后动作执行失败
+     * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
+     */
 static _i
 zssh_exec(
         char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
@@ -64,7 +75,7 @@ zssh_exec(
     _i zSd, zRet, zErrNo;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
-    char *zpExitSingal=(char *) -1;
+    //char *zpExitSingal=(char *) -1;
 
     pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
@@ -85,7 +96,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
-        return -2;
+        return -2;  /* 网络不通 */
     }
 
     /* tell libssh2 we want it all done non-blocking */
@@ -98,7 +109,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_session_handshake failed");
-        return -2;
+        return -2;  /* 网络不通 */
     }
 
     if (0 == zAuthType) {  /* authenticate via zpPassWd */
@@ -114,7 +125,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
-        return -3;
+        return -3;  /* 认证失败 */
     }
 
     /* Exec non-blocking on the remote host */
@@ -128,7 +139,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_channel_open_session failed");
-        return -4;
+        return -1;
     }
 
     /* 多线程环境，必须复制到自身的栈中进行处理 */
@@ -144,7 +155,7 @@ zssh_exec(
         libssh2_exit();
         close(zSd);
         zPrint_Err(0, NULL, "libssh2_channel_exec failed");
-        return -4;
+        return -1;
     }
 
     if (NULL != zpRemoteOutPutBuf) {
@@ -179,7 +190,14 @@ zssh_exec(
     zErrNo = -1;
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); }
     if(0 == zRet) {
-        zErrNo = -1 * libssh2_channel_get_exit_status(zChannel);
+        zErrNo = libssh2_channel_get_exit_status(zChannel);
+        if (206 == zErrNo) {
+            zErrNo = -6;  /* 文件冲突 */
+        } else if (203 == zErrNo) {
+            zErrNo = -3;  /* 磁盘满 */
+        } else {
+            zErrNo = -1;  /* 未知错误 */
+        }
         //libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
     //if (NULL != zpExitSingal) {

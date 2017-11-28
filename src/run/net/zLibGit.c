@@ -101,7 +101,7 @@ zgit_cred_acquire_cb(git_cred **zppResOUT,
         } else {
             fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message);
         }
-        exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序
+        //exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序?
     }
 
     return 0;
@@ -177,8 +177,20 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
  * [ git push ]
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
+    /*
+     * << 错误类型 >>
+     * err1 bit[0]:服务端错误
+     * err2 bit[1]:网络不通
+     * err3 bit[2]:SSH 连接认证失败
+     * err4 bit[3]:目标端磁盘容量不足
+     * err5 bit[4]:目标端权限不足
+     * err6 bit[5]:目标端文件冲突
+     * err7 bit[6]:目标端布署后动作执行失败
+     * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
+     */
 static _i
 zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
+    _i zErrNo = 0;
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
@@ -190,7 +202,8 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             zpErrBufOUT[255] = '\0';
         }
 
-        return -1;
+        zErrNo = -1;
+        goto zEndMark;
     };
 
     /* connect to remote */
@@ -207,7 +220,8 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             zpErrBufOUT[255] = '\0';
         }
 
-        return -1;
+        zErrNo = -2;  /* 网络不通 */
+        goto zEndMark;
     }
 
     /* add [a] push refspec[s] */
@@ -220,7 +234,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
-    if (0 != git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts)) {
+    if (0 != (zErrNo = git_remote_upload(zRemote, &zGitRefsArray, &zPushOpts))) {
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
@@ -230,7 +244,18 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
             zpErrBufOUT[255] = '\0';
         }
 
-        return -1;
+        /*
+         * 更改了 libgit2 中 git_push_finish() 的源码
+         * 远程代码无法展开的情况，通常代表目标机磁盘已满
+         * 此时会返回定制的错误码 -40000
+         */
+        if (-40000 == zErrNo) {
+            zErrNo = -4;
+        } else {
+            zErrNo = -1;
+        }
+
+        goto zEndMark;
     }
 
     /* 同步 TAGS 之类的信息 */
@@ -244,7 +269,9 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
 
     git_remote_disconnect(zRemote);
     git_remote_free(zRemote);
-    return 0;
+
+zEndMark:
+    return zErrNo;
 }
 
 /*

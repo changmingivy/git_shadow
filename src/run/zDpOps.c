@@ -163,6 +163,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 static void *
 zssh_ccur_simple_init_host(void  *zpParam) {
     char zErrBuf[256] = {'\0'};
+    _i zErrNo = 0;
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
 
     _ull zHostId[2] = {0};
@@ -174,16 +175,17 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     zDpRes__ *zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
     for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
         if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {
-            if (0 == zssh_exec_simple(
+            if (0 == (zErrNo = zssh_exec_simple(
                         zpDpCcur_->p_userName,
                         zpDpCcur_->p_hostIpStrAddr,
                         zpDpCcur_->p_hostServPort,
                         zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock,
-                        zErrBuf)) {
+                        zErrBuf))) {
                 zSet_Bit(zpTmp_->resState, 1);  /* 成功则置位 bit[0] */
             } else {
                 zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 1);  /* 出错则置位 bit[0] */
+                zSet_Bit(zpTmp_->errState, -1 * zErrNo);  /* 返回的错误码是负数，其绝对值与错误位一一对应 */
                 strcpy(zpTmp_->errMsg, zErrBuf);
             }
 
@@ -200,7 +202,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
 };
 
 
-#define zNative_Fail_Confirm() do {\
+#define zNative_Fail_Confirm(zErrNo) do {\
     if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {\
         zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
     } else {\
@@ -209,6 +211,7 @@ zssh_ccur_simple_init_host(void  *zpParam) {
             if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
                 pthread_mutex_lock(&(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock));\
                 zSet_Bit(zpGlobRepo_[zpDpCcur_->repoId]->resType, 2);  /* 出错则置位 bit[1] */\
+                zSet_Bit(zpTmp_->errState, -1 * zErrNo);  /* 错误码置位 */\
                 strcpy(zpTmp_->errMsg, zErrBuf);\
 \
                 zpGlobRepo_[zpDpCcur_->repoId]->dpReplyCnt++;\
@@ -222,9 +225,24 @@ zssh_ccur_simple_init_host(void  *zpParam) {
     }\
 } while(0)
 
+/* 置位 bit[1]，昭示本地 git push 成功 */
+#define zNative_Success_Confirm() do {\
+    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {\
+        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");\
+    } else {\
+        zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];\
+        for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {\
+            if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {\
+                zSet_Bit(zpTmp_->resState, 2);  /* 置位 bit[1] */\
+                break;\
+            }\
+        }\
+    }\
+} while(0)
 
 static void *
 zgit_push_ccur(void *zp_) {
+    _i zErrNo = 0;
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp_;
     _ull zHostId[2] = {0};
     zDpRes__ *zpTmp_ = NULL;
@@ -274,63 +292,60 @@ zgit_push_ccur(void *zp_) {
             zpDpCcur_->repoId,
             zHostAddrBuf,
             zpDpCcur_->id);
-    if (0 != zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL)) {
-        /* if failed, delete '.git', ReInit the remote host */
-        char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
-        sprintf(zCmdBuf,\
-                "zPath=%s;"\
-                "for x in ${zPath} ${zPath}_SHADOW;"\
-                "do;"\
-                    "rm -f $x ${x}/.git/{index.lock,post-update}"\
-                    "mkdir -p $x;"\
-                    "cd $x;"\
-                    "if [[ 0 -ne $? ]];then exit 1;fi;"\
-                    "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 199;fi;"\
-                    "git init .;git config user.name _;git config user.email _;"\
-                "done;"\
-                "exec 777<>/dev/tcp/%s/%s;"\
-                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
-                "cat<&777 >${zPath}/.git/post-update;"\
-                "exec 777>&-;"\
-                "exec 777<&-;",\
-                zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
-                zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
-                zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath);\
-        if (0 == zssh_exec_simple(
-                    zpDpCcur_->p_userName,
-                    zpDpCcur_->p_hostIpStrAddr,
-                    zpDpCcur_->p_hostServPort,
-                    zCmdBuf,
-                    &(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock),
-                    zErrBuf)) {
-            /* if init-ops success, then try deploy once more... */
-            if (0 != zLibGit_.remote_push(
-                        zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler,
-                        zRemoteRepoAddrBuf,
-                        zpGitRefs,
-                        2,
-                        zErrBuf)) {
-                zNative_Fail_Confirm();
+
+    if (0 == (zErrNo = zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL))) {
+        zNative_Success_Confirm();
+    } else {
+        if (-1 == zErrNo) {
+            /* if failed, delete '.git', ReInit the remote host */
+            char zCmdBuf[1024 + 7 * zpGlobRepo_[zpDpCcur_->repoId]->repoPathLen];
+            sprintf(zCmdBuf,\
+                    "zPath=%s;"\
+                    "for x in ${zPath} ${zPath}_SHADOW;"\
+                    "do;"\
+                        "rm -f $x ${x}/.git/{index.lock,post-update}"\
+                        "mkdir -p $x;"\
+                        "cd $x;"\
+                        "if [[ 0 -ne $? ]];then exit 206;fi;"\
+                        "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
+                        "git init .;git config user.name _;git config user.email _;"\
+                    "done;"\
+                    "exec 777<>/dev/tcp/%s/%s;"\
+                    "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
+                    "cat<&777 >${zPath}/.git/post-update;"\
+                    "exec 777>&-;"\
+                    "exec 777<&-;",\
+                    zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen,\
+                    zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
+                    zpDpCcur_->repoId, zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath);\
+            if (0 == (zErrNo = zssh_exec_simple(
+                        zpDpCcur_->p_userName,
+                        zpDpCcur_->p_hostIpStrAddr,
+                        zpDpCcur_->p_hostServPort,
+                        zCmdBuf,
+                        &(zpGlobRepo_[zpDpCcur_->repoId]->dpSyncLock),
+                        zErrBuf))) {
+                /* if init-ops success, then try deploy once more... */
+                if (0 == (zErrNo = zLibGit_.remote_push(
+                            zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler,
+                            zRemoteRepoAddrBuf,
+                            zpGitRefs,
+                            2,
+                            zErrBuf))) {
+                    zNative_Success_Confirm();
+                } else {
+                    zNative_Fail_Confirm(zErrNo);
+                }
+            } else {
+                zNative_Fail_Confirm(zErrNo);
             }
         } else {
-            zNative_Fail_Confirm();
+            zNative_Fail_Confirm(zErrNo);
         }
     }
 
     /* git push 流量控制 */
     zCheck_Negative_Exit( sem_post(&(zpGlobRepo_[zpDpCcur_->repoId]->dpTraficControl)) );
-
-    /* 置位 bit[1]，昭示本地 git push 成功*/
-    if (0 != zConvert_IpStr_To_Num(zpDpCcur_->p_hostIpStrAddr, zHostId)) {
-        zPrint_Err(0, zpDpCcur_->p_hostIpStrAddr, "Convert IP to num failed");
-    } else {
-        zpTmp_ = zpGlobRepo_[zpDpCcur_->repoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-        for (; NULL != zpTmp_; zpTmp_ = zpTmp_->p_next) {
-            if (zIpVecCmp(zHostId, zpTmp_->clientAddr)) {
-                zSet_Bit(zpTmp_->state, 2);
-            }
-        }
-    }
 
     return NULL;
 }
@@ -928,8 +943,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
                 "rm -f $x ${x}/.git/{index.lock,post-update}"\
                 "mkdir -p $x;"\
                 "cd $x;"\
-                "if [[ 0 -ne $? ]];then exit 1;fi;"\
-                "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 199;fi;"\
+                "if [[ 0 -ne $? ]];then exit 206;fi;"\
+                "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
             "exec 777<>/dev/tcp/%s/%s;"\
