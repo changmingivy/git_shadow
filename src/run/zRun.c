@@ -204,6 +204,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
     sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
 
+#ifdef RELEASE
 zKeepAlive:
     zCheck_Negative_Exit( zPid = fork() );
 
@@ -214,6 +215,7 @@ zKeepAlive:
         kill(0, SIGUSR1);  /* 清理同一进程组内除自身外的所有进程*/
         goto zKeepAlive;
     } else {
+#endif
         /* 线程池初始化 */
         zThreadPool_.init();
 
@@ -228,9 +230,9 @@ zKeepAlive:
         zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
         zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
         zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能
-        zRun_.ops[4] = NULL;
+        zRun_.ops[4] = NULL;  // 查询指定项目的详细信息及最近一次的布署进度
         zRun_.ops[5] = NULL;
-        zRun_.ops[6] = zDpOps_.show_meta;  // 显示单个有效项目的元信息
+        zRun_.ops[6] = NULL;
         zRun_.ops[7] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
         zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
         zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
@@ -253,7 +255,9 @@ zKeepAlive:
                 zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
             }
         }
+#ifdef RELEASE
     }
+#endif
 }
 
 

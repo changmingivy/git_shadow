@@ -42,15 +42,17 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
     # 'B--': 布署出错；'B+3': 已收到推送的内容；'B+4': 已确认内容无误；'B+5': 布署后重启动作成功
     zTcpReply() {
-        ${zPathOnHost}_SHADOW/tools/notice\
-            "${zMasterAddr}"\
-            "${zMasterPort}"\
-            "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
-        # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
-        if [[ 0 -ne $? ]];then
-            exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
-            printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}">&555
-            exec 555>&-
+        if [[ 0 -lt ${zTimeStamp} ]]; then  # 目标机自请布署的动作，无需回复任何消息
+            ${zPathOnHost}_SHADOW/tools/notice\
+                "${zMasterAddr}"\
+                "${zMasterPort}"\
+                "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
+            # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
+            if [[ 0 -ne $? ]];then
+                exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
+                printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}">&555
+                exec 555>&-
+            fi
         fi
     }
 
@@ -78,20 +80,20 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
             exit 255
         elif [[ ${zTimeStamp} -gt `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 比正在进行的版本更新，kill 之
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
-        else  # 比正在进行的版本更老，理论上不会出现
+        else  # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 0
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
             exit 255
         fi
     fi
 
-    # 清除可能存在的由于 git 崩溃残留的锁文件
-    rm -f ${zPathOnHost}/.git/index.lock
-    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
-
     # 运行期间将自身 Pid、Ip、TimeStamp 等存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
     echo "$$" > /tmp/.${zProjId}_pid_post-update
     echo "${zSelfIpStrAddr}" >> /tmp/.${zProjId}_pid_post-update
     echo "${zTimeStamp}" >> /tmp/.${zProjId}_pid_post-update
+
+    # 清除可能存在的由于 git 崩溃残留的锁文件
+    rm -f ${zPathOnHost}/.git/index.lock
+    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     # 通知服务端已收到代码；此时尚未确认正确性
     zTcpReply "${zServSig}" "B+3" ""\

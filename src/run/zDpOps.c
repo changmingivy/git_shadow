@@ -1214,7 +1214,8 @@ static _i
 zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     _i zRepoId = 0;
     zDpCcur__ zDpSelf_ = {
-        .p_ccurLock = NULL  /* 标记无需发送通知给调用者的条件变量 */
+        .p_ccurLock = NULL,  /* 标记无需发送通知给调用者的条件变量 */
+        .id = 0  /* id 置为 0，确保其触发的 post-update 可被任何主动布署动作打断且不会打断任何主动布署 */
     };
 
     cJSON *zpJ = NULL;
@@ -1471,6 +1472,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
+    /* 确认布署环境无误，此时断开连接 */
+    shutdown(zSd, SHUT_RDWR);
+
     /* 正在布署的版本号，用于布署耗时分析及目标机状态回复计数 */
     strcpy(zpGlobRepo_[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
 
@@ -1516,9 +1520,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             exit(1);
         }
     }
-
-    /* 确认布署环境无误，此时断开连接 */
-    shutdown(zSd, SHUT_RDWR);
 
     /*
      * 基于 libgit2 实现 zgit_push(...) 函数，在系统负载上限之内并发布署
