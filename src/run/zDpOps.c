@@ -893,7 +893,9 @@ zdp_ccur(void *zp_) {
     zpGitRefs[0] = zGitRefsBuf[0];
     zpGitRefs[1] = zGitRefsBuf[1];
 
-    /* 并发布署流量控制 */
+    /*
+     * 并发布署窗口控制
+     */
     zCheck_Negative_Exit( sem_wait(&(zpGlobRepo_[zpDpCcur_->repoId]->dpTraficControl)) );
 
     /* when memory load > 80%，waiting ... */
@@ -979,7 +981,8 @@ zdp_ccur(void *zp_) {
             zpGlobRepo_[zpDpCcur_->repoId]->p_repoPath + zGlobHomePathLen);
 
     /*
-     * 将目标机 IPv6 中的 ':' 替换为 '_'，之后将其附加到分支名称上去
+     * 将目标机 IPv6 中的 ':' 替换为 '_'
+     * 之后将其附加到分支名称上去
      * 分支名称的一个重要用途是用于捎带信息至目标机
      */
     strcpy(zHostAddrBuf, zpDpCcur_->p_hostIpStrAddr);
@@ -1864,11 +1867,11 @@ zlock_repo(cJSON *zpJRoot, _i zSd) {
         return -2;  /* zErrNo = -2; */
     }
 
-    pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
+    pthread_mutex_lock( &(zpGlobRepo_[zRepoId]->dpLock) );
 
     zpGlobRepo_[zRepoId]->repoLock = zDpLocked;
 
-    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
+    pthread_mutex_unlock( &(zpGlobRepo_[zRepoId]->dpLock) );
 
     zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
 
@@ -1893,11 +1896,11 @@ zunlock_repo(cJSON *zpJRoot, _i zSd) {
         return -2;  /* zErrNo = -2; */
     }
 
-    pthread_rwlock_wrlock( &(zpGlobRepo_[zRepoId]->rwLock) );
+    pthread_mutex_lock( &(zpGlobRepo_[zRepoId]->dpLock) );
 
     zpGlobRepo_[zRepoId]->repoLock = zDpUnLock;
 
-    pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
+    pthread_mutex_unlock( &(zpGlobRepo_[zRepoId]->dpLock) );
 
     zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
 
