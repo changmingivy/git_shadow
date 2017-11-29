@@ -158,10 +158,10 @@ typedef struct {
     /* libssh2 与 libgit2 共用的并发同步锁与条件变量 */
     pthread_mutex_t dpSyncLock;
     pthread_cond_t dpSyncCond;
-    _ui totalHost;  // 每个项目的目标主机总数量，此值不能修改
-    _ui dpTotalTask;  // 用于统计总任务数，可动态修改
-    _ui dpTaskFinCnt;  // 用于统计任务完成数，仅代表执行函数返回
-    _ui dpReplyCnt;  // 用于统计最终状态返回
+    _i totalHost;  // 每个项目的目标主机总数量，此值不能修改
+    _i dpTotalTask;  // 用于统计总任务数，可动态修改
+    _i dpTaskFinCnt;  // 用于统计任务完成数，仅代表执行函数返回
+    _i dpReplyCnt;  // 用于统计最终状态返回
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
@@ -185,7 +185,9 @@ typedef struct {
 
     pthread_rwlock_t rwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
-    pthread_mutex_t dpLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
+
+    pthread_mutex_t dpLock;  // 正在进行中布署动作持有的锁
+    pthread_mutex_t dpWaitLock;  // 拿到此锁的线程才有权中止正在进行的布署动作，用于确保同一时间不会有多个中断请求
 
     /*
      * 并发布署屏障

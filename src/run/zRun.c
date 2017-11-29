@@ -64,7 +64,7 @@ zerr_vec_init(void) {
     zpErrVec[23] = "部分或全部目标机初始化失败";  /* useless.. */
     zpErrVec[24] = "没有在 ExtraData 字段中指明目标机总数";
     zpErrVec[25] = "";
-    zpErrVec[26] = "目标机列表为空";
+    zpErrVec[26] = "";
     zpErrVec[27] = "";
     zpErrVec[28] = "指定的目标机数量与实际解析出的数量不一致";
     zpErrVec[29] = "";

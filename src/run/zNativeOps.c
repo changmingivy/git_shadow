@@ -832,8 +832,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zpGlobRepo_[zRepoId]->memPoolOffSet = sizeof(void *);
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepo_[zRepoId]->memLock), NULL) );
 
-    /* 布署重试锁 */
+    /* 布署锁与布署等待锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepo_[zRepoId]->dpLock), NULL) );
+    zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepo_[zRepoId]->dpWaitLock), NULL) );
 
     /* libssh2 并发锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(&(zpGlobRepo_[zRepoId]->dpSyncLock), NULL) );
