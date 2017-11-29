@@ -84,8 +84,10 @@ typedef struct __zDpRes__ {
      * err6 bit[5]:目标端文件冲突
      * err7 bit[6]:目标端布署后动作执行失败
      * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
+     * err9 bit[8]:目标机 IP 格式错误/无法解析
+     * err10 bit[9]:目标机 IP 列表中存在重复项(同一个 IP 被指定多次)
      */
-    _uc errState;
+    _ui errState;
 
     char errMsg[256];  // 存放目标主机返回的错误信息
     struct __zDpRes__ *p_next;
@@ -190,7 +192,7 @@ typedef struct {
      * 用于保证基础环境就绪之后，工作线程才开始真正的布署动作
      * 需要每次布署时根据目标机数量实时初始化，不能随项目启动执行初始化
      */
-    pthread_barrier_t dpBarrier;
+    //pthread_barrier_t dpBarrier;
 
     zVecWrap__ commitVecWrap_;  // 存放 commit 记录的原始队列信息
     struct iovec commitVec_[zCacheSiz];

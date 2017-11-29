@@ -6,8 +6,8 @@
 
 typedef struct __zRegRes__ {
     char **pp_rets;  //matched results
-    _ui *p_resLen;  // results' strlen
-    _ui cnt;         //total num of matched substrings
+    _i *p_resLen;  // results' strlen
+    _i cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (_i, _ui);
     _i repoId;
