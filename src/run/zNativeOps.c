@@ -579,7 +579,6 @@ zgenerate_cache(void *zpParam) {
             zPgSQL_.conn_reset(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
 
             if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zpGlobRepo_[zpMeta_->repoId]->p_pgConnHd_);
                 zPrint_Err(0, NULL, "!!! FATAL !!!");
                 exit(1);
@@ -886,7 +885,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
-        zPgSQL_.res_clear(zpPgResHd_, NULL);
         zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
         exit(1);
     } else {
@@ -900,7 +898,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
             exit(1);
         } else {
@@ -911,8 +908,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /******************************
      * 获取最近一次布署的相关信息 *
      ******************************/
-    time_t zTimeStamp = 0;
-
     /* 取最近一次布署的版本号 */
     sprintf(zCommonBuf,
             "SELECT rev_sig, time_stamp FROM dp_log "
@@ -940,7 +935,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     } else {
         strncpy(zpGlobRepo_[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);  /* 提取最近一次布署的SHA1 sig */
         zpGlobRepo_[zRepoId]->lastDpSig[40] = '\0';
-        zTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
+
+        /* 上一次布署的时间戳保存在 dpBaseTimeStamp 中 */
+        zpGlobRepo_[zRepoId]->dpBaseTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
 
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
@@ -949,7 +946,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 "SELECT host_res FROM dp_log "
                 "WHERE proj_id = %d AND host_res != 0 AND time_stamp = %ld LIMIT 1",
                 zRepoId,
-                zTimeStamp);
+                zpGlobRepo_[zRepoId]->dpBaseTimeStamp);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
             zPrint_Err(0, NULL, "pgSQL exec failed");
@@ -971,7 +968,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             "SELECT host_ip FROM dp_log "
             "WHERE proj_id = %d AND time_stamp = %ld",
             zRepoId,
-            zTimeStamp);
+            zpGlobRepo_[zRepoId]->dpBaseTimeStamp);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zpGlobRepo_[zRepoId]->p_pgConnHd_);
         zPrint_Err(0, NULL, "pgSQL exec failed");
@@ -980,7 +977,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     if (NULL != (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
         zMem_C_Alloc(zpGlobRepo_[zRepoId]->p_dpResList_, zDpRes__, zpPgRes_->tupleCnt);
-        memset(zpGlobRepo_[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
+        // memset(zpGlobRepo_[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
 
         zpGlobRepo_[zRepoId]->totalHost = zpPgRes_->tupleCnt;
         zpGlobRepo_[zRepoId]->resType = 0;
@@ -999,9 +996,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 exit(1);
             }
 
-            zpGlobRepo_[zRepoId]->p_dpResList_[i].resState = 0;  /* 目标机状态复位 */
-            zpGlobRepo_[zRepoId]->p_dpResList_[i].errState = 0;  /* 目标机状态复位 */
-            zpGlobRepo_[zRepoId]->p_dpResList_[i].p_next = NULL;
+            /* 使用 calloc 分配的清零空间，无需复位 */
+            // zpGlobRepo_[zRepoId]->p_dpResList_[i].resState = 0;  /* 目标机状态复位 */
+            // zpGlobRepo_[zRepoId]->p_dpResList_[i].errState = 0;  /* 目标机状态复位 */
+            // zpGlobRepo_[zRepoId]->p_dpResList_[i].p_next = NULL;
 
             /* 更新HASH */
             zDpRes__ *zpTmpDpRes_ = zpGlobRepo_[zRepoId]->p_dpResHash_[(zpGlobRepo_[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDpHashSiz];
@@ -1179,7 +1177,6 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
 
         /* 尝试连接到 pgSQL server */
         while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zGlobPgConnInfo))) {
-            zPgSQL_.conn_clear(zpPgConnHd_);
             zPrint_Err(0, NULL, "Connect to pgSQL failed");
             sleep(60);
         }
@@ -1199,7 +1196,6 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
                         zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
                 if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpGlobRepo_[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
-                    zPgSQL_.res_clear(zpPgResHd_, NULL);
                     zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
                     continue;
                 } else {

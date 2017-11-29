@@ -66,7 +66,7 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
 static _i
 zssh_exec(
         char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
-        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType,
+        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, zAuthType__ zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz,
         pthread_mutex_t *zpCcurLock,
         char *zpErrBufOUT __attribute__ ((__unused__))/* size: 256 */
@@ -112,7 +112,7 @@ zssh_exec(
         return -2;  /* 网络不通 */
     }
 
-    if (0 == zAuthType) {  /* authenticate via zpPassWd */
+    if (zPassWordAuth == zAuthType) {  /* authenticate via zpPassWd */
         while (LIBSSH2_ERROR_EAGAIN ==
                 (zRet = libssh2_userauth_password(zSession, zpUserName, zpPassWd)));
     } else {  /* public key */

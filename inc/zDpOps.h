@@ -58,30 +58,6 @@ typedef struct __zThreadPool__ {
     void *p_param;
 } zThreadPool__;
 
-typedef struct __zDpCcur__ {
-    zThreadPool__ *p_threadSource_;  // 必须放置在首位
-
-    _i repoId;
-    _l id;  // 单次动作的身份唯一性标识，布署时为：time_stamp
-
-    char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1" "::1"
-    char *p_hostServPort;  // 字符串形式的端口号，如："22"
-    char *p_cmd;  // 需要执行的指令集合
-
-    _i authType;
-    const char *p_userName;  // 目标机上的用户名称
-    const char *p_pubKeyPath;  // 服务器上公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
-    const char *p_privateKeyPath;  // 服务器上私钥所在路径，如："/home/git/.ssh/id_rsa"
-    const char *p_passWd;  // 登陆密码或公钥加密密码
-
-    char *p_remoteOutPutBuf;  // 获取远程返回信息的缓冲区
-    _ui remoteOutPutBufSiz;
-
-    pthread_cond_t *p_ccurCond;  // 线程同步条件变量
-    pthread_mutex_t *p_ccurLock;  // 同步锁
-    _ui *p_taskCnt;  // SSH 任务完成计数
-} zDpCcur__;
-
 typedef struct __zDpRes__ {
     _ull clientAddr[2];  // unsigned long long int 型数据，IPv4 地址只使用第一个成员
 
@@ -114,6 +90,30 @@ typedef struct __zDpRes__ {
     char errMsg[256];  // 存放目标主机返回的错误信息
     struct __zDpRes__ *p_next;
 } zDpRes__;
+
+typedef struct __zDpCcur__ {
+    zThreadPool__ *p_threadSource_;  // 必须放置在首位
+
+    _i repoId;
+    _l id;  // 单次动作的身份唯一性标识，布署时为：time_stamp
+
+    char *p_hostIpStrAddr;  // 单个目标机 Ip，如："10.0.0.1" "::1"
+    char *p_hostServPort;  // 字符串形式的端口号，如："22"
+    char *p_cmd;  // 需要执行的指令集合
+
+    _i authType;
+    const char *p_userName;  // 目标机上的用户名称
+    const char *p_pubKeyPath;  // 服务器上公钥所在路径，如："/home/git/.ssh/id_rsa.pub"
+    const char *p_privateKeyPath;  // 服务器上私钥所在路径，如："/home/git/.ssh/id_rsa"
+    const char *p_passWd;  // 登陆密码或公钥加密密码
+
+    char *p_remoteOutPutBuf;  // 获取远程返回信息的缓冲区
+    _ui remoteOutPutBufSiz;
+
+    pthread_mutex_t *p_ccurLock;  // 同步锁
+
+    zDpRes__ *p_selfNode;  // 指向目标机在 HASH 链中的节点
+} zDpCcur__;
 
 /* 在zSend__之外，添加了：本地执行操作时需要，但对前端来说不必要的数据段 */
 typedef struct __zRefData__ {
@@ -184,6 +184,13 @@ typedef struct {
     pthread_rwlock_t rwLock;  // 每个代码库对应一把全局读写锁，用于写日志时排斥所有其它的写操作
     //pthread_rwlockattr_t zRWLockAttr;  // 全局锁属性：写者优先
     pthread_mutex_t dpLock;  // 用于分离失败重试布署与生成缓存之间的锁竞争
+
+    /*
+     * 并发布署屏障
+     * 用于保证基础环境就绪之后，工作线程才开始真正的布署动作
+     * 需要每次布署时根据目标机数量实时初始化，不能随项目启动执行初始化
+     */
+    pthread_barrier_t dpBarrier;
 
     zVecWrap__ commitVecWrap_;  // 存放 commit 记录的原始队列信息
     struct iovec commitVec_[zCacheSiz];

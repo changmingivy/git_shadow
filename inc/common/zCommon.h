@@ -8,26 +8,32 @@ typedef enum {
     zProtoTcp = 0,
     zProtoUdp = 1,
     zProtoSctp = 3,
-    zProtoNone
+    zProtoNone = 4
 } zProtoType__;
 
 typedef enum {
     zIpTypeV4 = 4,
     zIpTypeV6 = 6,
-    zIpTypeNone
+    zIpTypeNone = 9
 } zIpType__;
 
 typedef enum {
     zFalse = 0,
-    zTrue = 1,
+    zTrue = 1
 } zBool__;
+
+typedef enum {
+    zPubKeyAuth = 0,
+    zPassWordAuth = 1,
+    zNoneAuth = 3
+} zAuthType__;
 
 typedef enum {
     zStr = 0,
     zI32 = 1,
-    zI64,
-    zF32,
-    zF64
+    zI64 = 2,
+    zF32 = 3,
+    zF64 = 4
 } zJsonValueType__;
 
 

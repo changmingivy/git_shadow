@@ -226,7 +226,9 @@ zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
  */
 static void
 zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
-    PQfinish(zpPgConnHd_);
+    if (NULL != zpPgConnHd_) {
+        PQfinish(zpPgConnHd_);
+    }
 }
 
 
@@ -257,11 +259,9 @@ zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_) {
     zPgResHd__ *zpPgResHd_ = NULL;
 
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zpConnInfo))) {
-        zPgSQL_.conn_clear(zpPgConnHd_);
         return -90;
     } else {
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zpCmd, NULL == zppPgRes_ ? zFalse : zTrue))) {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPgSQL_.conn_clear(zpPgConnHd_);
             return -91;
         }
