@@ -8,10 +8,13 @@ if [[ 0 -ne $? ]]; then
 
     git checkout master
     if [[ 0 -ne $? ]]; then
-        printf "\033[31;01mFATAL!!!\033[00m  Git branch 'master' is invalid.\n"
+        printf "\033[31;01m[`date '+%F %H:%M:%S'`] FATAL!!!\033[00m  Git branch 'master' is invalid.\n"
         exit 255
     fi
 fi
+
+# 记录每个版本编译后生成的最终文件的详细信息
+find . -type d | xargs ls -gGA --time-style=long-iso > ____version____
 
 git add --all .
 git commit -m "`\ls -lh`"
