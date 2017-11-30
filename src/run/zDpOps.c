@@ -297,7 +297,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
  */
 static _i
 zprint_record(cJSON *zpJRoot, _i zSd) {
-    zVecWrap__ *zpSortedTopVecWrap_ = NULL;
+    zVecWrap__ *zpTopVecWrap_ = NULL;
     _i zRepoId = -1,
        zDataType = -1;
     cJSON *zpJ = NULL;
@@ -325,16 +325,16 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
 
     /* 用户请求的数据类型判断 */
     if (zIsCommitDataType == zDataType) {
-        zpSortedTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedCommitVecWrap_);
+        zpTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedCommitVecWrap_);
     } else if (zIsDpDataType == zDataType) {
-        zpSortedTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedDpVecWrap_);
+        zpTopVecWrap_ = &(zpGlobRepo_[zRepoId]->sortedDpVecWrap_);
     } else {
         pthread_rwlock_unlock(&(zpGlobRepo_[zRepoId]->rwLock));
         return -10;
     }
 
     /* 版本号级别的数据使用队列管理，容量固定，最大为 IOV_MAX */
-    if (0 < zpSortedTopVecWrap_->vecSiz) {
+    if (0 < zpTopVecWrap_->vecSiz) {
         /* json 前缀 */
         char zJsonPrefix[sizeof("{\"ErrNo\":0,\"CacheId\":%ld,\"data\":") + 16];
         _i zLen = sprintf(zJsonPrefix,
@@ -345,8 +345,8 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
 
         /* 正文 */
         zNetUtils_.sendmsg(zSd,
-                zpSortedTopVecWrap_->p_vec_,
-                zpSortedTopVecWrap_->vecSiz,
+                zpTopVecWrap_->p_vec_,
+                zpTopVecWrap_->vecSiz,
                 0, NULL, zIpTypeNone);
 
         /* json 后缀 */

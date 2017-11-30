@@ -520,8 +520,7 @@ static void *
 zgenerate_cache(void *zp) {
     char *zpRevSig[zCacheSiz] = { NULL };
     char zTimeStampVec[16 * zCacheSiz];
-    zVecWrap__ *zpTopVecWrap_ = NULL,
-               *zpSortedTopVecWrap_ = NULL;
+    zVecWrap__ *zpTopVecWrap_ = NULL;
     zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zp;
     _i zCnter = 0,
        zVecDataLen = 0;
@@ -534,7 +533,6 @@ zgenerate_cache(void *zp) {
         zGitRevWalk__ *zpRevWalker = NULL;
 
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->commitVecWrap_);
-        zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedCommitVecWrap_);
 
         sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);  /* use: refs/remotes/origin/master??? */
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(zpGlobRepo_[zpMeta_->repoId]->p_gitRepoHandler, zCommonBuf, 0))) {
@@ -560,14 +558,13 @@ zgenerate_cache(void *zp) {
         }
 
         /* 存储的是实际的对象数量 */
-        zpSortedTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = zCnter;
+        zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = zCnter;
 
     } else if (zIsDpDataType == zpMeta_->dataType) {
         zPgResHd__ *zpPgResHd_ = NULL;
         zPgRes__ *zpPgRes_ = NULL;
 
         zpTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->dpVecWrap_);
-        zpSortedTopVecWrap_ = &(zpGlobRepo_[zpMeta_->repoId]->sortedDpVecWrap_);
 
         /* 须使用 DISTINCT 关键字去重 */
         sprintf(zCommonBuf,
@@ -591,7 +588,7 @@ zgenerate_cache(void *zp) {
         } else {
             zpTopVecWrap_->vecSiz = (zCacheSiz < zpPgRes_->tupleCnt) ? zCacheSiz : zpPgRes_->tupleCnt;
         }
-        zpSortedTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
+        zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
 
         for (zCnter = 0; zCnter < zpTopVecWrap_->vecSiz; zCnter++) {
             zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(41));
@@ -627,10 +624,10 @@ zgenerate_cache(void *zp) {
         }
 
         /* 提交记录与布署记录缓存均是有序的，不需要额外排序 */
-        zpSortedTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
+        zpTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
 
         /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-        ((char *)(zpSortedTopVecWrap_->p_vec_[0].iov_base))[0] = '[';
+        ((char *)(zpTopVecWrap_->p_vec_[0].iov_base))[0] = '[';
     }
 
     /* 防止意外访问导致的程序崩溃 */
@@ -1015,11 +1012,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 指针指向自身的静态数据项 */
     zpGlobRepo_[zRepoId]->commitVecWrap_.p_vec_ = zpGlobRepo_[zRepoId]->commitVec_;
-    zpGlobRepo_[zRepoId]->sortedCommitVecWrap_.p_vec_ = zpGlobRepo_[zRepoId]->commitVec_;
     zpGlobRepo_[zRepoId]->commitVecWrap_.p_refData_ = zpGlobRepo_[zRepoId]->commitRefData_;
 
     zpGlobRepo_[zRepoId]->dpVecWrap_.p_vec_ = zpGlobRepo_[zRepoId]->dpVec_;
-    zpGlobRepo_[zRepoId]->sortedDpVecWrap_.p_vec_ = zpGlobRepo_[zRepoId]->dpVec_;
     zpGlobRepo_[zRepoId]->dpVecWrap_.p_refData_ = zpGlobRepo_[zRepoId]->dpRefData_;
 
     zpGlobRepo_[zRepoId]->p_dpCcur_ = zpGlobRepo_[zRepoId]->dpCcur_;

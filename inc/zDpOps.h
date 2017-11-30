@@ -339,21 +339,15 @@ typedef struct {
      */
     //pthread_barrier_t dpBarrier;
 
-    /* 存放 commit 记录 */
+    /* 存放新的版本号记录 */
     zVecWrap__ commitVecWrap_;
     struct iovec commitVec_[zCacheSiz];
     zRefData__ commitRefData_[zCacheSiz];
 
-    /* 存放经过排序的 commit 记录；暂留、当前已不需要 */
-    zVecWrap__ sortedCommitVecWrap_;
-
-    /* 存放 deploy 记录 */
+    /* 存放布署记录 */
     zVecWrap__ dpVecWrap_;
     struct iovec dpVec_[zCacheSiz];
     zRefData__ dpRefData_[zCacheSiz];
-
-    /* 存放经过排序的 deploy 记录；暂留、当前已不需要 */
-    zVecWrap__ sortedDpVecWrap_;
 
     /*
      * 线程内存池，预分配 8M 空间
