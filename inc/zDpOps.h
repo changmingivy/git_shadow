@@ -160,8 +160,7 @@ typedef struct {
     pthread_cond_t dpSyncCond;
     _i totalHost;  // 每个项目的目标主机总数量，此值不能修改
     _i dpTotalTask;  // 用于统计总任务数，可动态修改
-    _i dpTaskFinCnt;  // 用于统计任务完成数，仅代表执行函数返回
-    _i dpReplyCnt;  // 用于统计最终状态返回
+    _i dpTaskFinCnt;  // 用于统计任务完成数
 
     /* 0：非锁定状态，允许布署或撤销、更新ip数据库等写操作 */
     /* 1：锁定状态，拒绝执行布署、撤销、更新ip数据库等写操作，仅提供查询功能 */
