@@ -435,7 +435,7 @@ struct zDpOps__ {
 
 #define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
 
-#define /*_i*/ zConvert_IpStr_To_Num(/*|_llu [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
+#define /*_i*/ zConvert_IpStr_To_Num(/*|_ull [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
     _i zErrNo = 0;\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
         zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
@@ -445,7 +445,7 @@ struct zDpOps__ {
     zErrNo;  /* 宏返回值 */\
 })
 
-#define /*_i*/ zConvert_IpNum_To_Str(/*|_llu [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
+#define /*_i*/ zConvert_IpNum_To_Str(/*|_ull [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
     _i zErrNo = 0;\
     if (0xff == zpNumVec[1] /* IPv4 */) {\
         zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\

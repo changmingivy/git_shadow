@@ -171,6 +171,15 @@ zerr_vec_init(void) {
 /************
  * 网络服务 *
  ************/
+void
+zexit_clean(void) {
+    /*
+     * 进程退出时
+     * 清理同一进程组的所有进程
+     */
+    kill(0, SIGUSR1);
+}
+
 static void
 zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     /* 检查 pgSQL 运行环境是否是线程安全的 */
@@ -181,6 +190,12 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
 
     /* 成为守护进程 */
     zNativeUtils_.daemonize("/");
+
+    /*
+     * 主服务停止时，需要清理所有影子进程
+     * 如：定时同步远程代码的子进程
+     */
+    atexit(zexit_clean);
 
     /* 初始化错误信息影射表 */
     zerr_vec_init();
@@ -202,63 +217,45 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
     sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
 
-//#define __RELEASE__
-#ifdef __RELEASE__
-    _i zPid = -1;
+    /* 线程池初始化 */
+    zThreadPool_.init();
 
-zKeepAlive:
-    zCheck_Negative_Exit( zPid = fork() );
+    /* 扫描所有项目库并初始化之 */
+    zNativeOps_.proj_init_all(zpPgLogin_);
 
-    /* 子进程|业务进程|若退出，父进程|监控进程|将重启之 */
-    if (0 < zPid) {
-        waitpid(zPid, NULL, 0);
-        signal(SIGUSR1, SIG_IGN);
-        kill(0, SIGUSR1);  /* 清理同一进程组内除自身外的所有进程*/
-        goto zKeepAlive;
-    } else {
-#endif
-        /* 线程池初始化 */
-        zThreadPool_.init();
+    /* 定时扩展 pgSQL 日志数据表的分区 */
+    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
-        /* 扫描所有项目库并初始化之 */
-        zNativeOps_.proj_init_all(zpPgLogin_);
+    /* 索引范围：0 至 zServHashSiz - 1 */
+    zRun_.ops[0] = NULL;
+    zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
+    zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
+    zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能
+    zRun_.ops[4] = NULL;  // 查询指定项目的详细信息及最近一次的布署进度
+    zRun_.ops[5] = NULL;
+    zRun_.ops[6] = NULL;
+    zRun_.ops[7] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
+    zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
+    zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
+    zRun_.ops[10] = zDpOps_.print_diff_files;  // 显示差异文件路径列表
+    zRun_.ops[11] = zDpOps_.print_diff_contents;  // 显示差异文件内容
+    zRun_.ops[12] = zDpOps_.dp;  // 批量布署或撤销
+    zRun_.ops[13] = zDpOps_.req_dp;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
+    zRun_.ops[14] = zDpOps_.req_file;  // 请求服务器传输指定的文件
+    zRun_.ops[15] = NULL;
 
-        /* 定时扩展 pgSQL 日志数据表的分区 */
-        zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+    /* 返回的 socket 已经做完 bind 和 listen */
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zProtoTcp);
 
-        /* 索引范围：0 至 zServHashSiz - 1 */
-        zRun_.ops[0] = NULL;
-        zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
-        zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
-        zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能
-        zRun_.ops[4] = NULL;  // 查询指定项目的详细信息及最近一次的布署进度
-        zRun_.ops[5] = NULL;
-        zRun_.ops[6] = NULL;
-        zRun_.ops[7] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
-        zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
-        zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
-        zRun_.ops[10] = zDpOps_.print_diff_files;  // 显示差异文件路径列表
-        zRun_.ops[11] = zDpOps_.print_diff_contents;  // 显示差异文件内容
-        zRun_.ops[12] = zDpOps_.dp;  // 批量布署或撤销
-        zRun_.ops[13] = zDpOps_.req_dp;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
-        zRun_.ops[14] = zDpOps_.req_file;  // 请求服务器传输指定的文件
-        zRun_.ops[15] = NULL;
-
-        /* 返回的 socket 已经做完 bind 和 listen */
-        _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zProtoTcp);
-
-        /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
-        static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
-        for (_ui zCnter = 0;; zCnter++) {
-            if (-1 == (zSockAcceptParam_[zCnter % 64].connSd = accept(zMajorSd, NULL, 0))) {
-                zPrint_Err(errno, "-1 == accept(...)", NULL);
-            } else {
-                zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
-            }
+    /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
+    static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
+    for (_ui zCnter = 0;; zCnter++) {
+        if (-1 == (zSockAcceptParam_[zCnter % 64].connSd = accept(zMajorSd, NULL, 0))) {
+            zPrint_Err(errno, "-1 == accept(...)", NULL);
+        } else {
+            zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
         }
-#ifdef __RELEASE__
     }
-#endif
 }
 
 
