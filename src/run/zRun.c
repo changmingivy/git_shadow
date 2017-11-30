@@ -120,7 +120,7 @@ zerr_vec_init(void) {
     zpErrVec[79] = "";
     zpErrVec[80] = "目标机请求下载的文件路径不存在或无权访问";
     zpErrVec[81] = "同一目标机的同一次布署动作，收到重复的状态确认";
-    zpErrVec[82] = "";
+    zpErrVec[82] = "无法创建 <PATH>_SHADOW/____post-deploy.sh 文件";
     zpErrVec[83] = "";
     zpErrVec[84] = "";
     zpErrVec[85] = "";

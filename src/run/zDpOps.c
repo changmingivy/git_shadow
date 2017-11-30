@@ -1205,6 +1205,11 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         goto zEndMark;\
     }\
     zpSSHPort = zpJ->valuestring;\
+\
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "PostDpCmd");\
+    if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
+        zpPostDpCmd = zpJ->valuestring;\
+    }\
 } while(0)
 
 static _i
@@ -1216,9 +1221,34 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     _i zIpListStrLen, zIpCnt;
     _i zRepoId, zCacheId, zCommitId, zDataType;
     char *zpSSHUserName, *zpSSHPort;
+    char *zpPostDpCmd = NULL;
 
-    /* 提取信息 */
+    /*
+     * 提取信息
+     */
     zJson_Parse();
+
+    /*
+     * 提取用户指定的需要布署成功后执行的命令
+     * 注：会比代码库中的 ____post-deploy.sh 文件更早执行
+     */
+    if (NULL != zpPostDpCmd) {
+        _i zFd, zLen;
+        char zPathBuf[zpGlobRepo_[zRepoId]->repoPathLen + sizeof("_SHADOW/____post-deploy.sh")];
+        sprintf(zPathBuf, "%s_SHADOW/____post-deploy.sh", zpGlobRepo_[zRepoId]->p_repoPath);
+
+        if (0 > (zFd = open(zPathBuf, O_WRONLY | O_CREAT | O_TRUNC, 0755))) {
+            zErrNo = -82;
+            goto zEndMark;
+        }
+
+        zLen = strlen(zpPostDpCmd);
+        if (zLen != write(zFd, zpPostDpCmd, zLen)) {
+            close(zFd);
+            zErrNo = -82;
+            goto zEndMark;
+        }
+    }
 
     /*
      * 检查项目存在性
