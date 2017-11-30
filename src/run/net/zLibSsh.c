@@ -12,7 +12,9 @@
 extern struct zNetUtils__ zNetUtils_;
 
 static _i
-zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd, const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, _i zAuthType, char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
+zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
+        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, zAuthType__ zAuthType,
+        char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
 
 struct zLibSsh__ zLibSsh_ = {
     .exec = zssh_exec

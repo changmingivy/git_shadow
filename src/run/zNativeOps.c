@@ -32,19 +32,19 @@ static void *
 zalloc_cache(_i zRepoId, _ui zSiz);
 
 static void *
-zget_diff_content(void *zpParam);
+zget_diff_content(void *zp);
 
 static void *
-zget_file_list(void *zpParam);
+zget_file_list(void *zp);
 
 static void *
-zgenerate_cache(void *zpParam);
+zgenerate_cache(void *zp);
 
 static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
 
 static void *
-zsys_load_monitor(void *zpParam);
+zsys_load_monitor(void *zp);
 
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_);
@@ -111,8 +111,8 @@ zalloc_cache(_i zRepoId, _ui zSiz) {
  * 功能：生成单个文件的差异内容缓存
  */
 static void *
-zget_diff_content(void *zpParam) {
-    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zpParam;
+zget_diff_content(void *zp) {
+    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zp;
     zVecWrap__ *zpTopVecWrap_;
     zBaseData__ *zpTmpBaseData_[3];
     _i zBaseDataLen, zCnter;
@@ -230,8 +230,8 @@ zget_diff_content(void *zpParam) {
 }
 
 static void *
-zdistribute_task(void *zpParam) {
-    zCacheMeta__ *zpNode_ = (zCacheMeta__ *)zpParam;
+zdistribute_task(void *zp) {
+    zCacheMeta__ *zpNode_ = (zCacheMeta__ *)zp;
     zCacheMeta__ **zppKeepPtr = zpNode_->pp_resHash;
 
     do {
@@ -361,8 +361,8 @@ zget_file_list_large(zCacheMeta__ *zpMeta_, zVecWrap__ *zpTopVecWrap_, FILE *zpS
 
 
 static void *
-zget_file_list(void *zpParam) {
-    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zpParam;
+zget_file_list(void *zp) {
+    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *) zp;
     zVecWrap__ *zpTopVecWrap_;
     FILE *zpShellRetHandler;
 
@@ -403,7 +403,7 @@ zget_file_list(void *zpParam) {
     }
 
     /* 差异文件数量 <=24 生成Tree图 */
-    _ui zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
+    _i zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zCacheMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = {.alloc_fn = zalloc_cache, .repoId = zpMeta_->repoId};  // 使用项目内存池
@@ -517,12 +517,12 @@ zMarkLarge:
  * 当有新的布署或撤销动作完成时，所有的缓存都会失效，因此每次都需要重新执行此函数以刷新预载缓存
  */
 static void *
-zgenerate_cache(void *zpParam) {
+zgenerate_cache(void *zp) {
     char *zpRevSig[zCacheSiz] = { NULL };
     char zTimeStampVec[16 * zCacheSiz];
     zVecWrap__ *zpTopVecWrap_ = NULL,
                *zpSortedTopVecWrap_ = NULL;
-    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zpParam;
+    zCacheMeta__ *zpMeta_ = (zCacheMeta__ *)zp;
     _i zCnter = 0,
        zVecDataLen = 0;
     time_t zTimeStamp = 0;
@@ -1063,10 +1063,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
 /* 用于线程并发执行的外壳函数 */
 static void *
-zinit_one_repo_env_thread_wraper(void *zpParam) {
+zinit_one_repo_env_thread_wraper(void *zp) {
     _i zErrNo = 0;
 
-    if (0 > (zErrNo = zinit_one_repo_env(zpParam, -1))) {
+    if (0 > (zErrNo = zinit_one_repo_env(zp, -1))) {
         fprintf(stderr, "[zinit_one_repo_env] ErrNo: %d\n", zErrNo);
         exit(1);  /* 启动时有错，退出进程 */
     }
@@ -1078,7 +1078,7 @@ zinit_one_repo_env_thread_wraper(void *zpParam) {
 #ifndef _Z_BSD
 /* 定时获取系统全局负载信息 */
 static void *
-zsys_load_monitor(void *zpParam __attribute__ ((__unused__))) {
+zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
     FILE *zpHandler = NULL;
     _ul zTotalMem = 0,
         zAvalMem = 0;
@@ -1127,7 +1127,7 @@ zrefresh_commit_cache(_i zRepoId) {
  * 定时同步远程代码
  */
 static void *
-zcode_sync(void *zpParam __attribute__ ((__unused__))) {
+zcode_sync(void *zp __attribute__ ((__unused__))) {
 zLoop:
     for (_i i = zGlobMaxRepoId; i > 0; i--) {
         if (NULL != zpGlobRepo_[i] && 'Y' == zpGlobRepo_[i]->initFinished) {

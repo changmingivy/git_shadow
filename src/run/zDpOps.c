@@ -771,9 +771,9 @@ zEndMark:
 
 
 // static void *
-// zssh_ccur(void  *zpParam) {
+// zssh_ccur(void  *zp) {
 //     char zErrBuf[256] = {'\0'};
-//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 //
 //     zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
 //             zpDpCcur_->p_cmd,
@@ -816,9 +816,9 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 /* 简化参数版函数 */
 // static void *
-// zssh_ccur_simple(void  *zpParam) {
+// zssh_ccur_simple(void  *zp) {
 //     char zErrBuf[256] = {'\0'};
-//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zpParam;
+//     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 //
 //     zssh_exec_simple(
 //             zpDpCcur_->p_userName,
@@ -910,9 +910,9 @@ zssh_exec_simple(const char *zpSSHUserName,
 } while(0)
 
 static void *
-zdp_ccur(void *zp_) {
+zdp_ccur(void *zp) {
     _i zErrNo = 0;
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp_;
+    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
