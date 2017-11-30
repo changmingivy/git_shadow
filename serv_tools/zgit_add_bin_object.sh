@@ -1,11 +1,16 @@
 #!/bin/sh
 
+git stash
+git stash clear
+echo $0 > .gitignore
+
 git checkout master
 if [[ 0 -ne $? ]]; then
     git init .
     git config user.name "_"
     git config user.email "_@_"
 
+    git branch master
     git checkout master
     if [[ 0 -ne $? ]]; then
         printf "\033[31;01m[`date '+%F %H:%M:%S'`] FATAL!!!\033[00m  Git branch 'master' is invalid.\n"
@@ -17,7 +22,7 @@ fi
 find . -type d | xargs ls -gGA --time-style=long-iso > ____version____
 
 git add --all .
-git commit -m "`\ls -lh`"
+git commit -m "_"
 
 # 若 .git 占用空间超过 200M，则执行清理，仅保留最近的 10 次提交
 if [[ 200 -lt `du -sm .git | grep -o '[0-9]\+'` ]]; then
