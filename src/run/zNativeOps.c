@@ -770,6 +770,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     zpGlobRepo_[zRepoId]->maxPathLen = pathconf(zpGlobRepo_[zRepoId]->p_repoPath, _PC_PATH_MAX);
 
+    /*
+     * 项目别名路径，由用户每次布署时指定
+     */
+    zMem_Alloc(zpGlobRepo_[zRepoId]->p_repoAliasPath, char, zpGlobRepo_[zRepoId]->maxPathLen);
+
     /* 调用外部 SHELL 执行检查和创建，便于维护 */
     char zCommonBuf[zGlobCommonBufSiz + zpGlobRepo_[zRepoId]->repoPathLen];
     sprintf(zCommonBuf,
@@ -812,7 +817,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 全局 libgit2 Handler 初始化 */
     zCheck_Null_Exit( zpGlobRepo_[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zpGlobRepo_[zRepoId]->p_repoPath) );
 
-    /**********************************************************************************/
+    /* ============================================================================ */
+    /* ============================================================================ */
+    /* ============================================================================ */
+
     /*
      * 启动独立的进程负责定时拉取远程代码
      * OpenSSL 默认不是多线程安全的，此处必须使用多进程模型
@@ -866,7 +874,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             }
         }
     }
-    /**********************************************************************************/
+
+    /* ============================================================================ */
+    /* ============================================================================ */
+    /* ============================================================================ */
 
     /*
      * 内存池初始化，开头留一个指针位置，

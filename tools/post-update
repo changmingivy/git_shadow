@@ -1,52 +1,62 @@
 #!/usr/bin/env bash
-#
-# 拉取 serv@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp} 分支分代码到 master 分支
-# 与服务端进行信息交互
-
-# [ DEBUG ]
-printf "\n\n[`date`]" >> /tmp/.____post-deploy.log 2>&1
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin"
 export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
+
+# [ DEBUG ]
+printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
 # 由于 git push 会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
 #     参数格式类似：refs/heads/serv refs/heads/serv_SHADOW 的形式，
 #     分支的先后顺序与推送方的指令顺序一致，分别对应 $1 $2 ...
 
-#
 # << 错误类型 >>
-# err1 bit[0]:服务端错误
-# err2 bit[1]:网络不通
-# err3 bit[2]:SSH 连接认证失败
 # err4 bit[3]:目标端磁盘容量不足
 # err5 bit[4]:目标端权限不足
 # err6 bit[5]:目标端文件冲突
-# err7 bit[6]:目标端布署后动作执行失败
-# err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
-#
+# err7 bit[6]:目标端路径不存在
+
 (
     zPathOnHost="__PROJ_PATH"
     zMasterAddr="__MASTER_ADDR"
     zMasterPort="__MASTER_PORT"
 
+    zProjId=`echo $1 | awk -F@ '{print $2}'`;
+
+    # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
+    zSelfIpStrAddr=`echo $1 | awk -F@ '{print $3}' | sed 's/_/:/g'`;
+
+    zTimeStamp=`echo $1 | awk -F@ '{print $4}'`
+    zDpingSig=`echo $1 | awk -F@ '{print $5}'`
+
+    zProjAliasPath=`echo $1 | awk -F@ '{print $6}'`
     zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
-    zProjId=`echo $1 | awk -F@ '{print $2}'`;
-    zSelfIpStrAddr=`echo $1 | awk -F@ '{print $3}' | sed 's/_/:/g'`;  # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
-    zTimeStamp=`echo $1 | awk -F@ '{print $4}'`
-    zServBranchName="serv@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}"  # 取 serv@...@...@... 分支名称
+    zServBranchName="serv@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
 
-    # 当前 hook 执行过程中要去掉执行权限，防止以下的git操作触发hook无限循环
+    # 出错信息临时写入的位置
+    zErrLogPath="/tmp/.${zProjId}_${zTimeStamp}_errlog"
+
+    # 预置为空
+    zOldMasterSig=
+
+    # 当前 hook 执行过程中要去掉执行权限，防止以下的 git 操作触发 hook 无限循环
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
-    # 'B--': 布署出错；'B+3': 已收到推送的内容；'B+4': 已确认内容无误；'B+5': 布署后重启动作成功
+
+    # 'B-N': 布署出错信息返回
+    # 'B+3': 已收到推送的内容
+    # 'B+4': 已确认内容无误
+    # 'B+5': 布署后重启动作成功
     zTcpReply() {
-        if [[ 0 -lt ${zTimeStamp} ]]; then  # 目标机自请布署的动作，无需回复任何消息
+        # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
+        if [[ 0 -lt ${zTimeStamp} ]]; then
             ${zPathOnHost}_SHADOW/tools/notice\
                 "${zMasterAddr}"\
                 "${zMasterPort}"\
                 "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
+
             # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
             if [[ 0 -ne $? ]];then
                 exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
@@ -56,37 +66,93 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
         fi
     }
 
+
+    # 任何一环节失败，将调用此函数处理错误并回撤至原先的版本
+    zExitClean() {
+        # 尝试回撤至原始版本
+        # 此处只能尽力而为，无法进入项目路径，也无进一步措施可用
+        cd $zPathOnHost
+        if [[ 0 -eq $? ]]; then
+            export GIT_DIR="${zPathOnHost}/.git"
+            git stash
+            git stash clear
+            git branch master
+            git checkout master
+            git reset -q --hard $zOldMasterSig
+        fi
+
+        # 处理掉错误日志可能存在会与服务端 SQL 日志冲突的字符
+        sed -i 's/[[:blank:]]\+/ /g' ${zErrLogPath}
+        sed -i "s/\'/|/g" ${zErrLogPath}
+        sed -i 's/"/|/g' ${zErrLogPath}
+        sed -i "s/\n/;/g" ${zErrLogPath}
+
+        # 反馈错误信息至服务端
+        zTcpReply ${zDpingSig} $1 $2 >> /tmp/.____post-deploy.log 2>&1
+
+        # 删除错误日志文件与自身 pid 文件
+        rm ${zErrLogPath} /tmp/.${zProjId}_pid_post-update
+
+        # 退出之前还原权限
+        chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+
+        exit 255
+    }
+
+
+    # 检测必要的路径下是存在权限异常的文件
+    mkdir -p ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+    chown `whoami` ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
+    if [[ 0 -ne $? ]]; then
+        zExitClean "B-5" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+    fi
+
+    # 权限无误，清除可能被创建的空目录
+    rmdir ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+
+
     ##################
     # 进入项目代码库 #
     ##################
-    cd $zPathOnHost
+    cd $zPathOnHost 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        echo -e "\033[${zServBranchName}] [31;01m项目路径不存在！\033[00m" >> /tmp/.____post-deploy.log
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        exit 255
+        zExitClean "B-7" "cd $zPathOnHost: `cat ${zErrLogPath}`"\
+            >> /tmp/.____post-deploy.log 2>&1
     fi
+
+    # git 环境注册
     export GIT_DIR="${zPathOnHost}/.git"
     git branch master
 
-    # 获取最新接收的版本号
+    # 保留旧的版本号，在布署失败时自动回滚
+    zOldMasterSig=`git log master -1 --format=%H`
+
+    # 校验最新接收的版本号
     zServSig=`git log ${zServBranchName} -1 --format=%H`
+    if [[ ${zServSig} != ${zDpingSig} ]]; then
+        zExitClean "B-6" "${zServSig}(zServSig) != ${zDpingSig}(zDpingSig)"
+    fi
 
     # 检测是否存在重复布署动作
     if [[ 0 -ne `\ls /tmp/.${zProjId}_pid_post-update | wc -l` ]]; then
-        if [[ ${zTimeStamp} -eq `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 同一版本，返回错误
-            zTcpReply "${zServSig}" "B-8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
+        zOldTimeStamp=`tail -1 /tmp/.${zProjId}_pid_post-update`
+
+        # 同一版本，返回错误
+        # 比正在进行的版本更新，kill 之
+        # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
+        if [[ ${zTimeStamp} -eq ${zOldTimeStamp} ]]; then
+            zExitClean "B-8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
                 >> /tmp/.____post-deploy.log 2>&1
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-            exit 255
-        elif [[ ${zTimeStamp} -gt `tail -1 /tmp/.${zProjId}_pid_post-update` ]]; then  # 比正在进行的版本更新，kill 之
+        elif [[ ${zTimeStamp} -gt ${zOldTimeStamp} ]]; then
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
-        else  # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 0
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-            exit 255
+        else
+            chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+            exit 0
         fi
     fi
 
-    # 运行期间将自身 Pid、Ip、TimeStamp 等存入文件，用于防止同一项目的多个 post-update 进程并行带来混乱
+    # 运行期间将自身 Pid、Ip、TimeStamp 等存入文件
+    # 用于防止同一项目的多个 post-update 进程并行带来混乱
     echo "$$" > /tmp/.${zProjId}_pid_post-update
     echo "${zSelfIpStrAddr}" >> /tmp/.${zProjId}_pid_post-update
     echo "${zTimeStamp}" >> /tmp/.${zProjId}_pid_post-update
@@ -95,191 +161,150 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
     rm -f ${zPathOnHost}/.git/index.lock
     rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
-    # 通知服务端已收到代码；此时尚未确认正确性
-    zTcpReply "${zServSig}" "B+3" ""\
-        >> /tmp/.____post-deploy.log 2>&1 &
+    # 通知服务端已收到代码：上报阶段性成果
+    zTcpReply "${zDpingSig}" "B+3" "" >> /tmp/.____post-deploy.log 2>&1 &
 
     ##################
-    # 进入 SHADOW 库 #
+    # _SHADOW 库布署 #
     ##################
-    cd ${zPathOnHost}_SHADOW
+    cd ${zPathOnHost}_SHADOW 2>${zErrLogPath}
+    if [[ 0 -ne $? ]]; then
+        zExitClean "B-7" "cd ${zPathOnHost}_SHADOW: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+    fi
+
     export GIT_DIR="${zPathOnHost}_SHADOW/.git"
     git branch master
     git checkout master
+
     git pull ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
     if [[ 0 -ne $? ]]; then
         \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zPathOnHost}_SHADOW/errlog
+        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-            sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply "${zServSig}" "B-6" "git pull failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zExitClean "B-6" "git pull(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-            rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-            exit 255
         fi
     fi
 
-    git reset --hard 2>${zPathOnHost}_SHADOW/errlog
+    git reset --hard 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-        sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-        sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-        sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-        zTcpReply "${zServSig}" "B-6" "git reset failed, ${zPathOnHost}_SHADOW: `cat ${zPathOnHost}_SHADOW/errlog`"\
+        zExitClean "B-6" "git reset(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
             >> /tmp/.____post-deploy.log 2>&1
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
     fi
 
-    ############################
-    # 进入项目代码库，执行布署 #
-    ############################
-    cd $zPathOnHost
+    ##################
+    # 项目代码库布署 #
+    ##################
+    cd $zPathOnHost 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
+        zExitClean "B-7" "cd ${zPathOnHost}: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
     fi
+
+    # git 环境注册
     export GIT_DIR="${zPathOnHost}/.git"
     git checkout master
 
-    # 检测必要的路径下是存在权限异常的文件
-    mkdir -p ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-    chown `whoami` ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zPathOnHost}_SHADOW/errlog
-    if [[ 0 -ne $? ]]; then
-        sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-        sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-        sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-        sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-        zTcpReply "${zServSig}" "B-5" "permission denied, ${zProjOnLinePath} or `dirname ${zPathOnHost}`: `cat ${zPathOnHost}_SHADOW/errlog`"\
-            >> /tmp/.____post-deploy.log 2>&1
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
-    fi
-    rmdir ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW  # 权限无误，清除创建的空目录
-
+    # 还原代码到工作区
     git reset -q --hard ${zServBranchName}
     if [[ 0 -ne $? ]]; then
         # \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git reset -q --hard ${zServBranchName} 2>${zPathOnHost}_SHADOW/errlog
+        git reset -q --hard ${zServBranchName} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-            sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply "${zServSig}" "B-6" "git reset failed, ${zPathOnHost}: `cat ${zPathOnHost}_SHADOW/errlog`"\
+            zExitClean "B-6" "git reset(${zPathOnHost}): `cat ${zErrLogPath}`"\
                 >> /tmp/.____post-deploy.log 2>&1
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-            rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-            exit 255
         fi
     fi
 
-    # 校验布署结果
-    cd ../../`basename ${zPathOnHost}`/.git  # 兼容旧版项目库
+    # 兼容旧版布署系统创建的项目库路径
+    # ????
+    cd ../../`basename ${zPathOnHost}`/.git
     if [[ 0 -eq $? ]]; then
         cd ..
         export GIT_DIR="`pwd`/.git"
+        git branch master
         git checkout master
         git pull --force ${zPathOnHost}/.git ${zServBranchName}:${zServBranchName}
         git reset -q --hard ${zServBranchName}
-    else
-        export GIT_DIR="${zPathOnHost}/.git"
     fi
 
+    # 取 master 分支最新版本号，用于校验布署结果
     zMasterSig=`git log master -1 --format=%H`
-    if [[ "$zMasterSig" != "$zServSig" ]]; then  # 检查两个分支 git log 是否一致
-        zTcpReply "${zServSig}" "B-6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
+
+    # 1、检查两个分支 git log 是否一致
+    # 2、检查是否存在文件不一致现象(忽略新产生的未被 git 跟踪的文件)
+    if [[ "$zMasterSig" != "$zServSig" ]]; then
+        zExitClean "B-6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
             >> /tmp/.____post-deploy.log 2>&1
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
-    elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then  # 检查是否存在文件不一致现象(忽略未被 git 管理的新文件，如：log 等)
-        zTcpReply "${zServSig}" "B-6" "work area inconsistent(git status): `pwd`"\
+    elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then
+        zExitClean "B-6" "work area inconsistent(git status): `pwd`"\
             >> /tmp/.____post-deploy.log 2>&1
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
     fi
 
-    if [[ 0 -eq `ls -d ${zProjOnLinePath} | wc -l` ]]; then # 创建项目路径软链接
-        ln -sT ${zPathOnHost} ${zProjOnLinePath}
+
+    # 创建项目路径软链接
+    # 检测是否有路长冲突，若有，则抛出错误
+    if [[ 0 -eq `ls ${zProjOnLinePath} | wc -l` ]]; then
+        ln -sT ${zPathOnHost} ${zProjOnLinePath} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            zTcpReply "${zServSig}" "B-6" "创建软链接错误，请检查项目路径权限: ${zProjOnLinePath}"\
-                >> /tmp/.____post-deploy.log 2>&1
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-            rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-            exit 255
+            zExitClean "B-6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
         fi
-    elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`) # 检测是否有废弃的残留文件，若存在，则抛出错误
+    elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`)
         || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
-        zTcpReply "${zServSig}" "B-6" "既存路径(或链接)与项目路径冲突，请手动删除后重试布署: ${zProjOnLinePath}"\
-            >> /tmp/.____post-deploy.log 2>&1
-        chmod 0755 ${zPathOnHost}/.git/hooks/post-update  # 退出之前还原权限
-        rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
-        exit 255
+        zExitClean "B-6" "路径冲突: ${zProjOnLinePath}" >> /tmp/.____post-deploy.log 2>&1
     fi
 
-    rm -rf ${zProjOnLinePath}_SHADOW  # 清理可能存在的旧版布署系统的遗留文件
 
-    # 通知服务端已确认收到的内容准确无误
-    zTcpReply ${zMasterSig} "B+4" ""\
-        >> /tmp/.____post-deploy.log 2>&1 &
+    # 若用户指定了 alias 路径，则创建同名软链接指向项目库
+    # 检测路径是否有冲突，若有，则抛出错误
+    if [[ "" != ${zProjAliasPath} ]]; then
+        if [[ 0 -eq `ls ${zProjAliasPath} | wc -l` ]]; then
+            ln -sT ${zPathOnHost} ${zProjAliasPath} 2>${zErrLogPath}
+            if [[ 0 -ne $? ]]; then
+                zExitClean "B-6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+            fi
+        elif [[ ('l' != `ls -l ${zProjAliasPath} | grep -o '^l'`)
+            || ((${zPathOnHost} != `readlink -q ${zProjAliasPath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjAliasPath}`)) ]]; then
+            zExitClean "B-6" "路径冲突: ${zProjAliasPath}" >> /tmp/.____post-deploy.log 2>&1
+        fi
+    fi
 
-    # 更新开机自布署脚本
+    # 通知服务端已确认收到的内容准确无误：布署成功
+    zTcpReply ${zMasterSig} "B+4" "" >> /tmp/.____post-deploy.log 2>&1 &
+
+    # 更新开机自请布署的脚本
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
 
-    # 执行用户自定义的布署后动作：____post-deploy.sh
-    cd ${zProjOnLinePath}
+    # 布署成功，还原权限
+    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+
+    # 删除自身 pid 文件
+    rm /tmp/.${zProjId}_pid_post-update
+
+    # 清理可能存在的旧版布署系统的遗留文件
+    rm -rf ${zProjOnLinePath}_SHADOW
+
+    # 执行用户自定义的布署后动作
     if [[ 0 -ne `\ls ${zPathOnHost}_SHADOW/____post-deploy.sh | wc -l` ]]; then
         chmod 0755 ${zPathOnHost}_SHADOW/____post-deploy.sh
-        ${zPathOnHost}_SHADOW/____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
+        ${zPathOnHost}_SHADOW/____post-deploy.sh
         if [[ 0 -ne $? ]]; then
-            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-            sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply ${zMasterSig} "B-7" "[cmd exec failed]: `cat ${zPathOnHost}_SHADOW/errlog`"\
-                >> /tmp/.____post-deploy.log 2>&1
-            rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
             exit 255
         fi
     fi
 
     if [[ 0 -ne `\ls ${zProjOnLinePath}/____post-deploy.sh | wc -l` ]]; then
-        chmod 0755 ____post-deploy.sh
-        ./____post-deploy.sh 2>${zPathOnHost}_SHADOW/errlog
+        chmod 0755 ${zProjOnLinePath}/____post-deploy.sh
+        ${zProjOnLinePath}/____post-deploy.sh
         if [[ 0 -ne $? ]]; then
-            sed -i 's/[[:blank:]]\+/ /g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\'/|/g" ${zPathOnHost}_SHADOW/errlog
-            sed -i 's/"/|/g' ${zPathOnHost}_SHADOW/errlog
-            sed -i "s/\n/;/g" ${zPathOnHost}_SHADOW/errlog
-            zTcpReply ${zMasterSig} "B-7" "____post-deploy.sh failed: `cat ${zPathOnHost}_SHADOW/errlog`"\
-                >> /tmp/.____post-deploy.log 2>&1
-            rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
             exit 255
         fi
     fi
 
-    ###########################################
-    # 布署成功：'B+' 用于标识这是布署状态回复 #
-    ###########################################
+    # 追加通知用户自定义的布署后动作执行成功
     zTcpReply ${zMasterSig} "B+5" ""\
         >> /tmp/.____post-deploy.log 2>&1
-
-    # 退出之前还原权限
-    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
-
-    rm /tmp/.${zProjId}_pid_post-update  # 删除自身 pid 文件
 ) &

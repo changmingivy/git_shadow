@@ -852,8 +852,8 @@ zssh_exec_simple(const char *zpSSHUserName,
             "exec 777<>/dev/tcp/%s/%s;"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
             "cat<&777 >${zPath}/.git/post-update;"\
-            "exec 777>&-;"\
-            "exec 777<&-;",\
+            "exec 777>&-;exec 777<&-;"\
+            "chmod 0755 ${zPath}/.git/post-update",\
             zpGlobRepo_[zRepoId]->p_repoPath + zGlobHomePathLen,\
             zNetSrv_.p_ipAddr, zNetSrv_.p_port,\
             zRepoId, zpGlobRepo_[zRepoId]->p_repoPath);\
@@ -1037,15 +1037,19 @@ zdp_ccur(void *zp) {
     }
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/serv@%d@%s@%ld",
+    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/serv@%d@%s@%ld@%s@%s",
             zpDpCcur_->repoId,
             zHostAddrBuf,
-            zpDpCcur_->id);
+            zpDpCcur_->id,
+            zpGlobRepo_[zpDpCcur_->repoId]->dpingSig,
+            zpGlobRepo_[zpDpCcur_->repoId]->p_repoAliasPath);
 
-    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/serv_SHADOW@%d@%s@%ld",
+    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/serv_SHADOW@%d@%s@%ld@%s@%s",
             zpDpCcur_->repoId,
             zHostAddrBuf,
-            zpDpCcur_->id);
+            zpDpCcur_->id,
+            zpGlobRepo_[zpDpCcur_->repoId]->dpingSig,
+            zpGlobRepo_[zpDpCcur_->repoId]->p_repoAliasPath);
 
     /* 开始向目标机 push 代码 */
     if (0 == (zErrNo = zLibGit_.remote_push(zpGlobRepo_[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL))) {
@@ -1144,15 +1148,6 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 #define zJson_Parse() do {  /* json 解析 */\
-    cJSON *zpJ = NULL;\
-\
-    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");\
-    if (!cJSON_IsNumber(zpJ)) {\
-        zErrNo = -1;\
-        goto zEndMark;\
-    }\
-    zRepoId = zpJ->valueint;\
-\
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "CacheId");\
     if (!cJSON_IsNumber(zpJ)) {\
         zErrNo = -1;\
@@ -1210,6 +1205,13 @@ zself_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
         zpPostDpCmd = zpJ->valuestring;\
     }\
+\
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "AliasPath");\
+    if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
+        snprintf(zpGlobRepo_[zRepoId]->p_repoAliasPath, zpGlobRepo_[zRepoId]->maxPathLen, "%s", zpJ->valuestring);\
+    } else {\
+        zpGlobRepo_[zRepoId]->p_repoAliasPath[0] = '\0';\
+    }\
 } while(0)
 
 static _i
@@ -1223,8 +1225,26 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     char *zpSSHUserName, *zpSSHPort;
     char *zpPostDpCmd = NULL;
 
+    cJSON *zpJ = NULL;
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) {
+        zErrNo = -1;
+        goto zEndMark;
+    }
+    zRepoId = zpJ->valueint;
+
     /*
-     * 提取信息
+     * 检查项目存在性
+     */
+    if (NULL == zpGlobRepo_[zRepoId]
+            || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
+        zErrNo = -2;  /* zErrNo = -2; */
+        goto zEndMark;
+    }
+
+    /*
+     * 提取其余的 json 信息
      */
     zJson_Parse();
 
@@ -1248,15 +1268,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zErrNo = -82;
             goto zEndMark;
         }
-    }
-
-    /*
-     * 检查项目存在性
-     */
-    if (NULL == zpGlobRepo_[zRepoId]
-            || 'Y' != zpGlobRepo_[zRepoId]->initFinished) {
-        zErrNo = -2;  /* zErrNo = -2; */
-        goto zEndMark;
     }
 
     /*
@@ -1324,9 +1335,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /*
      * 若 SSH 认证信息有变动，则更新之
+     * 包括项目元信息与 DB 信息
      */
     if (0 != strcmp(zpSSHUserName, zpGlobRepo_[zRepoId]->sshUserName)
             || 0 != strcmp(zpSSHPort, zpGlobRepo_[zRepoId]->sshPort)) {
+
+        /* 更新元信息 */
+        snprintf(zpGlobRepo_[zRepoId]->sshUserName, 256, "%s", zpSSHUserName);
+        snprintf(zpGlobRepo_[zRepoId]->sshPort, 6, "%s", zpSSHPort);
+
+        /* 更新 DB */
         sprintf(zpCommonBuf,
                 "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s, WHERE proj_id = %d",
                 zpSSHUserName,
@@ -1569,9 +1587,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zpGlobRepo_[zRepoId]->p_dpCcur_[i].id = zpGlobRepo_[zRepoId]->dpBaseTimeStamp;
 
         zpGlobRepo_[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
-        zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_userName = zpSSHUserName;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_userName = zpGlobRepo_[zRepoId]->sshUserName;
         zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
-        zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_hostServPort = zpSSHPort;
+        zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_hostServPort = zpGlobRepo_[zRepoId]->sshPort;
 
         /* SSH 指令 */
         zpGlobRepo_[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
