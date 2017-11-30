@@ -486,7 +486,7 @@ zMarkOuter:;
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId)->p_vec_
             = zalloc_cache(zpMeta_->repoId, zLineCnter * sizeof(struct iovec));
 
-        for (_ui zCnter = 0; zCnter < zLineCnter; zCnter++) {
+        for (_i zCnter = 0; zCnter < zLineCnter; zCnter++) {
             /* 转换为 json 文本 */
             zVecDataLen = sprintf(zCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
                     zpRootNode_->pp_resHash[zCnter]->fileId,
