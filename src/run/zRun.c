@@ -202,7 +202,8 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
     sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
 
-#ifdef RELEASE
+//#define __RELEASE__
+#ifdef __RELEASE__
     _i zPid = -1;
 
 zKeepAlive:
@@ -255,7 +256,7 @@ zKeepAlive:
                 zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
             }
         }
-#ifdef RELEASE
+#ifdef __RELEASE__
     }
 #endif
 }
