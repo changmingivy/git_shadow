@@ -85,7 +85,6 @@ typedef struct __zDpRes__ {
      * err7 bit[6]:目标端布署后动作执行失败
      * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
      * err9 bit[8]:目标机 IP 格式错误/无法解析
-     * err10 bit[9]:目标机 IP 列表中存在重复项(同一个 IP 被指定多次)
      */
     _ui errState;
 

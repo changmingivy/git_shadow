@@ -1503,24 +1503,12 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zDpRes__ *zpTmp_ = NULL;
     for (_i zCnter = 0; zCnter < zpGlobRepo_[zRepoId]->totalHost; zCnter++) {
         /*
-         * 检测是否存在重复 IP
-         */
-        if (0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[0]
-                || 0 != zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr[1]) {
-            // zSetBit(, 10)
-            // errmsg = "IP 重复"
-            // DB Write
-            // continue;
-        }
-
-        /*
-         * 转换字符串格式的 IPaddr 为 _ull[2] 型
+         * 转换字符串格式的 IPaddr 为数组 _ull[2]
          */
         if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[zCnter], zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
-            // zSetBit(, 9)
-            // errmsg = "目标机格式错误"
-            // DB Write
-            // continue;
+            /* 此种错误信息记录到哪里 ??? */
+            zPrint_Err(0, zRegRes_.pp_rets[zCnter], "Invalid IP found!");
+            continue;
         }
 
         /*
@@ -1566,7 +1554,18 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             /* 生成工作线程参数 */
             zpGlobRepo_[zRepoId]->p_dpCcur_[zCnter].p_selfNode = &(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter]);
         } else {
-            while (NULL != zpTmp_->p_next) { zpTmp_ = zpTmp_->p_next; }
+            while (NULL != zpTmp_->p_next) {
+                zpTmp_ = zpTmp_->p_next;
+
+                /* 检测是否存在重复 IP */
+                if (zIpVecCmp(zpTmp_->clientAddr, zpGlobRepo_[zRepoId]->p_dpResList_[zCnter].clientAddr)) {
+                    /* 总任务计数 -1 */
+                    zpGlobRepo_[zRepoId]->dpTotalTask--;
+                    zPrint_Err(0, zRegRes_.pp_rets[zCnter], "same IP found!");
+                    continue;
+                }
+            }
+
             zpTmp_->p_next = &(zpGlobRepo_[zRepoId]->p_dpResList_[zCnter]);
 
             /* 生成工作线程参数 */

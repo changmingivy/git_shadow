@@ -173,8 +173,6 @@ zerr_vec_init(void) {
  ************/
 static void
 zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
-    _i zPid = -1;
-
     /* 检查 pgSQL 运行环境是否是线程安全的 */
     if (zFalse == zPgSQL_.thread_safe_check()) {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
@@ -205,6 +203,8 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
 
 #ifdef RELEASE
+    _i zPid = -1;
+
 zKeepAlive:
     zCheck_Negative_Exit( zPid = fork() );
 
