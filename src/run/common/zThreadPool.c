@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <pthread.h>
 
 #define zThreadPollSiz 129  // 允许同时处于空闲状态的线程数量，即常备线程数量
 #define zThreadPollSizMark (zThreadPollSiz - 1)
@@ -23,15 +22,6 @@ struct zThreadPool__ zThreadPool_ = {
     .init = zthread_poll_init,
     .add = zadd_to_thread_pool
 };
-
-typedef struct zThreadTask__ {
-    pthread_t selfTid;
-    pthread_cond_t condVar;
-
-    void * (* func) (void *);
-
-    void *p_param;
-} zThreadTask__ ;
 
 /* 线程池栈结构 */
 static zThreadTask__ *zpPoolStack_[zThreadPollSiz];

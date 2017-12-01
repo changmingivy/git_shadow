@@ -2,6 +2,7 @@
 #define ZRUN_H
 
 #include "zCommon.h"
+#include "zThreadPool.h"
 #include "zDpOps.h"
 #include "cJSON.h"
 
@@ -29,7 +30,7 @@ typedef struct __zRepo__ {
      * 所有需要传递给线程的数据结构
      * 均需在最前面预留一个指针的空间
      */
-    zThreadPool__ *p_threadSource_;
+    zThreadTask__ *p_threadSource_;
 
     /* 项目 ID */
     _i repoId;

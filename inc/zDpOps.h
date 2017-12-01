@@ -53,14 +53,6 @@
 #define zIsCommitDataType 0
 #define zIsDpDataType 1
 
-typedef struct __zThreadPool__ {
-    pthread_t selfTid;
-    pthread_cond_t condVar;
-
-    void * (* func) (void *);
-    void *p_param;
-} zThreadPool__;
-
 typedef struct __zDpRes__ {
     /*
      * unsigned long long int
@@ -109,7 +101,7 @@ typedef struct __zDpCcur__ {
      * 线程池会将此指针指向每个线程的元信息
      * 清理特定线程时会用到
      */
-    zThreadPool__ *p_threadSource_;
+    zThreadTask__ *p_threadSource_;
 
     _i repoId;
 
