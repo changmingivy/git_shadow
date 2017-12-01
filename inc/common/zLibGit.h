@@ -1,6 +1,14 @@
 #ifndef ZLIBGIT_H
 #define ZLIBGIT_H
 
+#ifndef _Z_BSD
+    #ifndef _XOPEN_SOURCE
+        #define _XOPEN_SOURCE 700
+        #define _DEFAULT_SOURCE
+        #define _BSD_SOURCE
+    #endif
+#endif
+
 #include "git2.h"
 #include "zRun.h"
 #include "zCommon.h"
