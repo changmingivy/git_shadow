@@ -238,12 +238,12 @@ zstart_server() {
     _i zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
-    static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};
+    static _i zSd[64] = {0};
     for (_ui zCnter = 0;; zCnter++) {
-        if (-1 == (zSockAcceptParam_[zCnter % 64].connSd = accept(zMajorSd, NULL, 0))) {
+        if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
             zPrint_Err(errno, "-1 == accept(...)", NULL);
         } else {
-            zThreadPool_.add(zops_route, &(zSockAcceptParam_[zCnter % 64]));
+            zThreadPool_.add(zops_route, & (zSd[zCnter % 64]));
         }
     }
 }
@@ -254,7 +254,7 @@ zstart_server() {
  */
 static void *
 zops_route(void *zpParam) {
-    _i zSd = ((zSockAcceptParam__ *) zpParam)->connSd;
+    _i zSd = * ((_i *) zpParam);
 
     char zDataBuf[zGlobCommonBufSiz] = {'\0'};
     char *zpDataBuf = zDataBuf;

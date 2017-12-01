@@ -18,10 +18,6 @@ typedef struct {
     char *p_port;
 } zNetSrv__;
 
-typedef struct __zSockAcceptParam__ {
-    _i connSd;
-} zSockAcceptParam__;
-
 
 #define zGlobRepoIdLimit 1024
 #define zDpTraficLimit 256  // 同一项目可同时发出的 push 连接数量上限
