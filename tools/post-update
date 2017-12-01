@@ -6,16 +6,15 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 # [ DEBUG ]
 printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
-# 由于 git push 会一直等待该勾子执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
+# 由于 git push 会一直等待该 hook 执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
-#     参数格式类似：refs/heads/serv refs/heads/serv_SHADOW 的形式，
-#     分支的先后顺序与推送方的指令顺序一致，分别对应 $1 $2 ...
+# 参数格式类似：refs/heads/serv refs/heads/serv_SHADOW
 
-# << 错误类型 >>
-# err4 bit[3]:目标端磁盘容量不足
-# err5 bit[4]:目标端权限不足
-# err6 bit[5]:目标端文件冲突
-# err7 bit[6]:目标端路径不存在
+# [ 错误类型 ]
+# err4 :目标端磁盘容量不足
+# err5 :目标端权限不足
+# err6 :目标端文件冲突
+# err7 :目标端路径不存在
 
 (
     zPathOnHost="__PROJ_PATH"
@@ -27,15 +26,18 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
     zSelfIpStrAddr=`echo $1 | awk -F@ '{print $3}' | sed 's/_/:/g'`;
 
+    # 本次布署的唯一身份标识
     zTimeStamp=`echo $1 | awk -F@ '{print $4}'`
     zDpingSig=`echo $1 | awk -F@ '{print $5}'`
 
+    # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
     zProjAliasPath=`echo $1 | awk -F@ '{print $6}'`
     zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
+    # 触发本次 hook 的分支名称
     zServBranchName="serv@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
 
-    # 出错信息临时写入的位置
+    # 临时保存错误信息的位置
     zErrLogPath="/tmp/.${zProjId}_${zTimeStamp}_errlog"
 
     # 预置为空
@@ -45,19 +47,16 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
 
-    # 'B-N': 布署出错信息返回
-    # 'B+3': 已收到推送的内容
-    # 'B+4': 已确认内容无误
-    # 'B+5': 布署后重启动作成功
+    # 'SN': 阶段性成功上报
+    # 'EN': 错误信息上报
     zTcpReply() {
         # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
+        # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
         if [[ 0 -lt ${zTimeStamp} ]]; then
             ${zPathOnHost}_SHADOW/tools/notice\
                 "${zMasterAddr}"\
                 "${zMasterPort}"\
                 "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
-
-            # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
             if [[ 0 -ne $? ]];then
                 exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
                 printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}">&555
@@ -104,7 +103,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     mkdir -p ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
     chown `whoami` ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        zExitClean "B-5" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+        zExitClean "E5" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     # 权限无误，清除可能被创建的空目录
@@ -116,7 +115,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     ##################
     cd $zPathOnHost 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        zExitClean "B-7" "cd $zPathOnHost: `cat ${zErrLogPath}`"\
+        zExitClean "E7" "cd $zPathOnHost: `cat ${zErrLogPath}`"\
             >> /tmp/.____post-deploy.log 2>&1
     fi
 
@@ -130,7 +129,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 校验最新接收的版本号
     zServSig=`git log ${zServBranchName} -1 --format=%H`
     if [[ ${zServSig} != ${zDpingSig} ]]; then
-        zExitClean "B-6" "${zServSig}(zServSig) != ${zDpingSig}(zDpingSig)"
+        zExitClean "E6" "${zServSig}(zServSig) != ${zDpingSig}(zDpingSig)"
     fi
 
     # 检测是否存在重复布署动作
@@ -141,7 +140,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         # 比正在进行的版本更新，kill 之
         # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
         if [[ ${zTimeStamp} -eq ${zOldTimeStamp} ]]; then
-            zExitClean "B-8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
+            zExitClean "E8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
                 >> /tmp/.____post-deploy.log 2>&1
         elif [[ ${zTimeStamp} -gt ${zOldTimeStamp} ]]; then
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
@@ -162,14 +161,14 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     # 通知服务端已收到代码：上报阶段性成果
-    zTcpReply "${zDpingSig}" "B+3" "" >> /tmp/.____post-deploy.log 2>&1 &
+    zTcpReply "${zDpingSig}" "S3" "" >> /tmp/.____post-deploy.log 2>&1 &
 
     ##################
     # _SHADOW 库布署 #
     ##################
     cd ${zPathOnHost}_SHADOW 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        zExitClean "B-7" "cd ${zPathOnHost}_SHADOW: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+        zExitClean "E7" "cd ${zPathOnHost}_SHADOW: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     export GIT_DIR="${zPathOnHost}_SHADOW/.git"
@@ -183,14 +182,14 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         git stash clear
         git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            zExitClean "B-6" "git pull(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
+            zExitClean "E6" "git pull(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
 
     git reset --hard 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        zExitClean "B-6" "git reset(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
+        zExitClean "E6" "git reset(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
             >> /tmp/.____post-deploy.log 2>&1
     fi
 
@@ -199,7 +198,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     ##################
     cd $zPathOnHost 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
-        zExitClean "B-7" "cd ${zPathOnHost}: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+        zExitClean "E7" "cd ${zPathOnHost}: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     # git 环境注册
@@ -214,7 +213,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         git stash clear
         git reset -q --hard ${zServBranchName} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            zExitClean "B-6" "git reset(${zPathOnHost}): `cat ${zErrLogPath}`"\
+            zExitClean "E6" "git reset(${zPathOnHost}): `cat ${zErrLogPath}`"\
                 >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
@@ -237,10 +236,10 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 1、检查两个分支 git log 是否一致
     # 2、检查是否存在文件不一致现象(忽略新产生的未被 git 跟踪的文件)
     if [[ "$zMasterSig" != "$zServSig" ]]; then
-        zExitClean "B-6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
+        zExitClean "E6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
             >> /tmp/.____post-deploy.log 2>&1
     elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then
-        zExitClean "B-6" "work area inconsistent(git status): `pwd`"\
+        zExitClean "E6" "work area inconsistent(git status): `pwd`"\
             >> /tmp/.____post-deploy.log 2>&1
     fi
 
@@ -250,11 +249,11 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     if [[ 0 -eq `ls ${zProjOnLinePath} | wc -l` ]]; then
         ln -sT ${zPathOnHost} ${zProjOnLinePath} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
-            zExitClean "B-6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+            zExitClean "E6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
         fi
     elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`)
         || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
-        zExitClean "B-6" "路径冲突: ${zProjOnLinePath}" >> /tmp/.____post-deploy.log 2>&1
+        zExitClean "E6" "路径冲突: ${zProjOnLinePath}" >> /tmp/.____post-deploy.log 2>&1
     fi
 
 
@@ -264,16 +263,16 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         if [[ 0 -eq `ls ${zProjAliasPath} | wc -l` ]]; then
             ln -sT ${zPathOnHost} ${zProjAliasPath} 2>${zErrLogPath}
             if [[ 0 -ne $? ]]; then
-                zExitClean "B-6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
+                zExitClean "E6" "`cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
             fi
         elif [[ ('l' != `ls -l ${zProjAliasPath} | grep -o '^l'`)
             || ((${zPathOnHost} != `readlink -q ${zProjAliasPath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjAliasPath}`)) ]]; then
-            zExitClean "B-6" "路径冲突: ${zProjAliasPath}" >> /tmp/.____post-deploy.log 2>&1
+            zExitClean "E6" "路径冲突: ${zProjAliasPath}" >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
 
     # 通知服务端已确认收到的内容准确无误：布署成功
-    zTcpReply ${zMasterSig} "B+4" "" >> /tmp/.____post-deploy.log 2>&1 &
+    zTcpReply ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
 
     # 更新开机自请布署的脚本
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
@@ -305,6 +304,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     # 追加通知用户自定义的布署后动作执行成功
-    zTcpReply ${zMasterSig} "B+5" ""\
+    zTcpReply ${zMasterSig} "S5" ""\
         >> /tmp/.____post-deploy.log 2>&1
 ) &
