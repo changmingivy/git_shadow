@@ -19,8 +19,6 @@ typedef struct {
 } zNetSrv__;
 
 typedef struct __zSockAcceptParam__ {
-    void *p_threadPoolMeta_;
-
     _i connSd;
 } zSockAcceptParam__;
 
@@ -87,13 +85,6 @@ typedef struct __zDpRes__ {
 } zDpRes__;
 
 typedef struct __zDpCcur__ {
-    /*
-     * 必须放置在首位
-     * 线程池会将此指针指向每个线程的元信息
-     * 清理特定线程时会用到
-     */
-    zThreadTask__ *p_threadSource_;
-
     _i repoId;
 
     /*
@@ -134,11 +125,38 @@ typedef struct __zDpCcur__ {
     char *p_remoteOutPutBuf;
     _ui remoteOutPutBufSiz;
 
-    /* libssh2 中的部分环节需要加锁，才能并发 */
-    pthread_mutex_t *p_ccurLock;
-
     /* 指向目标机 IP 在服务端 HASH 链中的节点 */
     zDpRes__ *p_selfNode;
+
+
+    /*
+     * 修改线程任务完成状态必须是原子性的，
+     * 即调度者在清理线程的时候，不允许再有工作线程自行退出
+     * 另 libssh2 中的部分环节需要加锁，才能安全并发
+     */
+    pthread_mutex_t *p_ccurLock;
+
+    /* --------------------------------------
+     * 如下三项由工作线程填写，调度者不必赋值
+     * -------------------------------------- */
+
+    /*
+     * 工作线程将当次任务错误码写出到此值
+     * 0 表示成功
+     * 其余数字表示错误码
+     * */
+    _c errNo;
+
+     /*
+      * 0 表示尚未完成任务
+      * 1 表示工作线程已完成当前任务，可能已经承接其它任务，不能被清理
+      */
+    _c finMark;
+
+    /*
+     * 工作线程将自身的 Tid 写入此值
+     */
+    pthread_t tid;
 } zDpCcur__;
 
 
@@ -191,12 +209,6 @@ typedef struct __zCacheMeta__ {
  * 用于存放每个项目的专用元信息
  */
 typedef struct __zRepo__ {
-    /*
-     * 所有需要传递给线程的数据结构
-     * 均需在最前面预留一个指针的空间
-     */
-    zThreadTask__ *p_threadSource_;
-
     /* 项目 ID */
     _i repoId;
 
@@ -418,11 +430,11 @@ struct zRun__ {
     char *p_SSHPubKeyPath;
     char *p_SSHPrvKeyPath;
 
-	/* 布署系统自身服务连接信息 */
-	zNetSrv__ netSrv_;
+    /* 布署系统自身服务连接信息 */
+    zNetSrv__ netSrv_;
 
     /* postgreSQL 全局认证信息 */
-	zPgLogin__ pgLogin_;
+    zPgLogin__ pgLogin_;
     char pgConnInfo[2048];
 };
 
