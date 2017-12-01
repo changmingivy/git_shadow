@@ -1,13 +1,11 @@
 #ifndef ZRUN_H
 #define ZRUN_H
 
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
+#ifndef _XOPEN_SOURCE
+    #define _XOPEN_SOURCE 700
 #endif
+
+#include <pthread.h>
 
 #include "zCommon.h"
 #include "zNetUtils.h"
