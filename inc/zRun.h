@@ -24,7 +24,7 @@ typedef struct __zSockAcceptParam__ {
 } zSockAcceptParam__;
 
 
-//#define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
+#define zGlobRepoIdLimit 1024
 #define zDpTraficLimit 256  // 同一项目可同时发出的 push 连接数量上限
 
 #define zCacheSiz 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
@@ -409,7 +409,7 @@ struct zRun__ {
     _s maxRepoId;
 
     /* 数组：指向每个项目的元信息 */
-    zRepo__ *p_repoVec[1024];
+    zRepo__ *p_repoVec[zGlobRepoIdLimit];
 
     char *p_homePath;
     char *p_loginName;
