@@ -24,18 +24,18 @@
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zReset_Mem_Pool_State(zRepoId) do {\
-    pthread_mutex_lock(&(zpGlobRepo_[zRepoId]->memLock));\
+    pthread_mutex_lock(&(zRun_.p_repoVec[zRepoId]->memLock));\
     \
-    void **zppPrev = zpGlobRepo_[zRepoId]->p_memPool;\
+    void **zppPrev = zRun_.p_repoVec[zRepoId]->p_memPool;\
     while(NULL != zppPrev[0]) {\
         zppPrev = zppPrev[0];\
-        munmap(zpGlobRepo_[zRepoId]->p_memPool, zMemPoolSiz);\
-        zpGlobRepo_[zRepoId]->p_memPool = zppPrev;\
+        munmap(zRun_.p_repoVec[zRepoId]->p_memPool, zMemPoolSiz);\
+        zRun_.p_repoVec[zRepoId]->p_memPool = zppPrev;\
     }\
-    zpGlobRepo_[zRepoId]->memPoolOffSet = sizeof(void *);\
-    /* memset(zpGlobRepo_[zRepoId]->p_memPool, 0, zMemPoolSiz); */\
+    zRun_.p_repoVec[zRepoId]->memPoolOffSet = sizeof(void *);\
+    /* memset(zRun_.p_repoVec[zRepoId]->p_memPool, 0, zMemPoolSiz); */\
     \
-    pthread_mutex_unlock(&(zpGlobRepo_[zRepoId]->memLock));\
+    pthread_mutex_unlock(&(zRun_.p_repoVec[zRepoId]->memLock));\
 } while(0)
 
 
