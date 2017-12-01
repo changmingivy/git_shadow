@@ -30,7 +30,6 @@
 #include "zRun.h"
 
 #include "zPosixReg.h"
-#include "zPgSQL.h"
 #include "zThreadPool.h"
 //#include "zMd5Sum.h"
 #include "cJSON.h"

@@ -5,6 +5,7 @@
 #include "zThreadPool.h"
 #include "zNetUtils.h"
 
+#include "zPgSQL.h"
 #include "zDpOps.h"
 #include "cJSON.h"
 
