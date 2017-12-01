@@ -4,9 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern char *zpGlobSSHPubKeyPath;
-extern char *zpGlobSSHPrvKeyPath;
-
 static git_repository *
 zgit_env_init(char *zpNativeRepoAddr);
 
@@ -42,6 +39,9 @@ zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
 
 static _i
 zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
+
+
+extern struct zRun__ zRun_;
 
 
 struct zLibGit__ zLibGit_ = {
@@ -95,13 +95,12 @@ zgit_cred_acquire_cb(git_cred **zppResOUT,
         unsigned int zpAllowedTypes __attribute__ ((__unused__)),
         void * zPayload __attribute__ ((__unused__))) {
 
-    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl, zpGlobSSHPubKeyPath, zpGlobSSHPrvKeyPath, NULL)) {
+    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl, zRun_.p_SSHPubKeyPath, zRun_.p_SSHPrvKeyPath, NULL)) {
         if (NULL == giterr_last()) {
             fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n");
         } else {
             fprintf(stderr, "\033[31;01m====Error message====\033[00m\n%s\n", giterr_last()->message);
         }
-        //exit(1);  // 无法生成认证证书，则无法进行任何布署动作，直接退出程序?
     }
 
     return 0;
