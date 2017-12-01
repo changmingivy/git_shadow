@@ -16,38 +16,31 @@
 #include "zCommon.h"
 #include "zRun.h"
 
-char *zpGlobLoginName = NULL;
-zNetSrv__ zNetSrv_ = { NULL, NULL };
-
 extern struct zRun__ zRun_;
 
 _i
 main(_i zArgc, char **zppArgv) {
-    zPgLogin__ zPgLogin_;
-    memset(&zPgLogin_, 0, sizeof(zPgLogin__));
-
     _i zOpt = 0;
-
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'u':
-                zpGlobLoginName = optarg; break;
+                zRun_.p_loginName = optarg; break;
             case 'h':
-                zNetSrv_.p_ipAddr = optarg; break;
+                zRun_.netSrv_.p_ipAddr = optarg; break;
             case 'p':
-                zNetSrv_.p_port = optarg; break;
+                zRun_.netSrv_.p_port = optarg; break;
             case 'H':
-                zPgLogin_.p_host = optarg; break;
+                zRun_.pgLogin_.p_host = optarg; break;
             case 'A':
-                zPgLogin_.p_addr = optarg; break;
+                zRun_.pgLogin_.p_addr = optarg; break;
             case 'P':
-                zPgLogin_.p_port = optarg; break;
+                zRun_.pgLogin_.p_port = optarg; break;
             case 'U':
-                zPgLogin_.p_userName = optarg; break;
+                zRun_.pgLogin_.p_userName = optarg; break;
             case 'F':
-                zPgLogin_.p_passFilePath = optarg; break;
+                zRun_.pgLogin_.p_passFilePath = optarg; break;
             case 'D':
-                zPgLogin_.p_dbName = optarg; break;
+                zRun_.pgLogin_.p_dbName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPrint_Time();
                 fprintf(stderr,
@@ -69,6 +62,6 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
-    /* 启动服务 */
-    zRun_.run(&zNetSrv_, &zPgLogin_);
+    /* 启动主服务 */
+    zRun_.run();
 }

@@ -19,23 +19,16 @@ extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 
-extern char *zpGlobLoginName;
-
-char *zpGlobHomePath = NULL;
-char *zpGlobSSHPubKeyPath = NULL;
-char *zpGlobSSHPrvKeyPath = NULL;
-_i zGlobHomePathLen = 0;
-
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
 
 struct zRun__ zRun_ = {
     .run = zstart_server,
     .route = zops_route,
-    .ops = { NULL }
+    .ops = { NULL },
 };
 
-char *zpErrVec[128];
+static char *zpErrVec[128];
 
 void
 zerr_vec_init(void) {
@@ -181,7 +174,7 @@ zexit_clean(void) {
 }
 
 static void
-zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
+zstart_server() {
     /* 检查 pgSQL 运行环境是否是线程安全的 */
     if (zFalse == zPgSQL_.thread_safe_check()) {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
@@ -201,27 +194,27 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zerr_vec_init();
 
     /* 提取 $USER */
-    if (NULL == zpGlobLoginName) {
-        zpGlobLoginName = "git";
+    if (NULL == zRun_.p_loginName) {
+        zRun_.p_loginName = "git";
     }
 
     /* 提取 $HOME */
-    struct passwd *zpPWD = getpwnam(zpGlobLoginName);
-    zCheck_Null_Exit(zpGlobHomePath = zpPWD->pw_dir);
+    struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
+    zCheck_Null_Exit(zRun_.p_homePath = zpPWD->pw_dir);
 
-    zGlobHomePathLen = strlen(zpGlobHomePath);
+    zRun_.homePathLen = strlen(zRun_.p_homePath);
 
-    zMem_Alloc(zpGlobSSHPubKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa.pub"));
-    sprintf(zpGlobSSHPubKeyPath, "%s/.ssh/id_rsa.pub", zpGlobHomePath);
+    zMem_Alloc(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
+    sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
 
-    zMem_Alloc(zpGlobSSHPrvKeyPath, char, strlen(zpGlobHomePath) + sizeof("/.ssh/id_rsa"));
-    sprintf(zpGlobSSHPrvKeyPath, "%s/.ssh/id_rsa", zpGlobHomePath);
+    zMem_Alloc(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
+    sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
 
     /* 线程池初始化 */
     zThreadPool_.init();
 
     /* 扫描所有项目库并初始化之 */
-    zNativeOps_.proj_init_all(zpPgLogin_);
+    zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
 
     /* 定时扩展 pgSQL 日志数据表的分区 */
     zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
@@ -245,7 +238,7 @@ zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_) {
     zRun_.ops[15] = NULL;
 
     /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zpNetSrv_->p_ipAddr, zpNetSrv_->p_port, zProtoTcp);
+    _i zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
 
     /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
     static zSockAcceptParam__ zSockAcceptParam_[64] = {{NULL, 0}};

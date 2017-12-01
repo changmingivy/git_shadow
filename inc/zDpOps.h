@@ -27,6 +27,7 @@
 #include "zLibGit.h"
 
 #include "zNativeOps.h"
+#include "zRun.h"
 
 #include "zPosixReg.h"
 #include "zPgSQL.h"
@@ -35,7 +36,6 @@
 #include "cJSON.h"
 
 #define zGlobRepoNumLimit 256  // 可以管理的代码库数量上限
-#define zGlobRepoIdLimit 10 * 256  // 代码库 ID 上限
 #define zCacheSiz 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
 #define zDpTraficLimit 256  // 同一项目可同时发出的 push 连接数量上限
 #define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
@@ -375,27 +375,6 @@ typedef struct {
 } zRepo__;
 
 
-/*
- * 现存的所有项目 ID 中的最大值
- */
-extern _i zGlobMaxRepoId;
-
-/* 系统 CPU 与 MEM 负载监控：以 0-100 表示 */
-extern pthread_mutex_t zGlobCommonLock;
-extern pthread_cond_t zGlobCommonCond;  // 系统由高负载降至可用范围时，通知等待的线程继续其任务(注：使用全局通用锁与之配套)
-extern _ul zGlobMemLoad;  // 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
-extern char zGlobPgConnInfo[2048];  // postgreSQL 全局统一连接方式：所有布署相关数据存放于一个数据库中
-
-/* 服务端自身的 IP 地址与端口 */
-typedef struct {
-    char *p_ipAddr;
-    char *p_port;
-} zNetSrv__;
-extern zNetSrv__ zNetSrv_;
-
-/* 全局所有项目的 META HASH */
-extern zRepo__ *zpGlobRepo_[zGlobRepoIdLimit];
-
 typedef struct __zCacheMeta__ {
     _i opsId;  // 网络交互时，代表操作指令（从 1 开始的连续排列的非负整数）
     _i repoId;  // 项目代号（从 1 开始的非负整数）
@@ -415,6 +394,7 @@ typedef struct __zCacheMeta__ {
     _i lineNum;  // 行号
     _i offSet;  // 纵向偏移
 } zCacheMeta__;
+
 
 struct zDpOps__ {
     _i (* show_dp_process) (cJSON *, _i);

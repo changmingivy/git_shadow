@@ -17,6 +17,7 @@
 #include "zLibGit.h"
 #include "zPgSQL.h"
 #include "zDpOps.h"
+#include "zRun.h"
 //#include "zMd5Sum.h"
 
 #define zMemPoolSiz 8 * 1024 * 1024  // 内存池初始分配 8M 内存
