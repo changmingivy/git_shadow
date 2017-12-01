@@ -9,9 +9,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "zNetUtils.h"
-#include "zThreadPool.h"
-
 extern struct zThreadPool__ zThreadPool_;
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
