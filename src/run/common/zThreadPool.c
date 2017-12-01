@@ -42,7 +42,7 @@ zthread_canceled_cleanup(void *zp_) {
 static void *
 zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
     zThreadTask__ *zpSelfTask;
-    zMem_C_Alloc(zpSelfTask, zThreadTask__, 1);
+    zMem_Alloc(zpSelfTask, zThreadTask__, 1);
     zpSelfTask->func = NULL;
 
     zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
