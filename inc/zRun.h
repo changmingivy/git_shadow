@@ -1,12 +1,6 @@
 #ifndef ZRUN_H
 #define ZRUN_H
 
-#ifndef _XOPEN_SOURCE
-    #define _XOPEN_SOURCE 700
-#endif
-
-#include <pthread.h>
-
 #include "zCommon.h"
 #include "zNetUtils.h"
 #include "zThreadPool.h"
