@@ -931,7 +931,7 @@ zdp_ccur(void *zp) {
 
     /* when memory load > 80%，waiting ... */
     pthread_mutex_lock(& (zRun_.commonLock));
-    while (80 < zGlobMemLoad) {
+    while (80 < zRun_.memLoad) {
         pthread_cond_wait(& (zRun_.commonCond), & (zRun_.commonLock));
     }
     pthread_mutex_unlock(& (zRun_.commonLock));
@@ -1283,7 +1283,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /*
      * check system load
      */
-    if (80 < zGlobMemLoad) {
+    if (80 < zRun_.memLoad) {
         zErrNo = -16;
         goto zEndMark;
     }
