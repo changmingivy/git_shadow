@@ -1,9 +1,10 @@
 #ifndef ZRUN_H
 #define ZRUN_H
 
+#include <pthread.h>
 #include "zCommon.h"
-#include "zThreadPool.h"
 #include "zNetUtils.h"
+#include "zThreadPool.h"
 
 #include "zPgSQL.h"
 #include "zDpOps.h"

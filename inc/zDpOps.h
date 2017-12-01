@@ -31,6 +31,7 @@
 
 #include "zPosixReg.h"
 #include "zThreadPool.h"
+#include "zPgSQL.h"
 //#include "zMd5Sum.h"
 #include "cJSON.h"
 
