@@ -123,6 +123,7 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     }
 
     zFullLen = 1 + strlen(zpOrigStr);
+    zMaxItemNum = zFullLen / 2;
 
     /* 将足够大的内存一次性分配 */
     if (NULL == zpResOUT->alloc_fn) {
