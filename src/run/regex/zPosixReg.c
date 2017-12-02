@@ -64,12 +64,13 @@ zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject
 
     /* 将足够大的内存一次性分配，后续成员通过指针位移的方式获取内存 */
     if (NULL == zpRegResOUT->alloc_fn) {
-        zMem_Alloc(zpRegResOUT->p_resLen, char, sizeof(_i) * zDynSubjectlen + sizeof(void *) * zDynSubjectlen + 2 * zDynSubjectlen);
+        zMem_Alloc(zpRegResOUT->pp_rets, char, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zDynSubjectlen);
     } else {
-        zpRegResOUT->p_resLen = zpRegResOUT->alloc_fn(zpRegResOUT->repoId, sizeof(_i) * zDynSubjectlen + sizeof(void *) * zDynSubjectlen + 2 * zBytes(zDynSubjectlen));
+        zpRegResOUT->pp_rets = zpRegResOUT->alloc_fn(zpRegResOUT->repoId, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zBytes(zDynSubjectlen));
     }
-    zpRegResOUT->pp_rets = (char **)(zpRegResOUT->p_resLen + zDynSubjectlen);
-    zpRegResOUT->pp_rets[0] = (char *)(zpRegResOUT->pp_rets + zDynSubjectlen);
+
+    zpRegResOUT->p_resLen = (_i *)(zpRegResOUT->pp_rets + zDynSubjectlen);
+    zpRegResOUT->pp_rets[0] = (char *)(zpRegResOUT->p_resLen + zDynSubjectlen);
 
     for (_i zCnter = 0; zDynSubjectlen > 0; zCnter++) {
         if (0 != (zErrNo = regexec(zpRegInit_, zpRegSubject, 1, &zMatchRes_, 0))) {
@@ -167,7 +168,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
 
     /* 将足够大的内存一次性分配 */
     if (NULL == zpResOUT->alloc_fn) {
-        zMem_Alloc(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBytes(zFullLen));
+        zMem_Alloc(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zFullLen);
     } else {
         zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBytes(zFullLen));
     }
@@ -190,7 +191,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
 static void
 zreg_free_res(zRegRes__ *zpRes_) {
     if (NULL == zpRes_->alloc_fn) {
-        free((zpRes_)->p_resLen);
+        free((zpRes_)->pp_rets);
     };
 }
 
