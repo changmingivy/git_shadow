@@ -218,17 +218,19 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
 
-    # 兼容旧版布署系统创建的项目库路径
-    # ????
-    cd ../../`basename ${zPathOnHost}`/.git
-    if [[ 0 -eq $? ]]; then
-        cd ..
-        export GIT_DIR="`pwd`/.git"
-        git branch master
-        git checkout master
-        git pull --force ${zPathOnHost}/.git ${zServBranchName}:${zServBranchName}
-        git reset -q --hard ${zServBranchName}
-    fi
+    # ======== !!!! ========
+    # 不再兼容旧版布署创建的项目路径，逐个项目升级时，依次重启相关服务
+    # ======== !!!! ========
+
+    # cd ../../`basename ${zPathOnHost}`/.git
+    # if [[ 0 -eq $? ]]; then
+    #     cd ..
+    #     export GIT_DIR="`pwd`/.git"
+    #     git branch master
+    #     git checkout master
+    #     git pull --force ${zPathOnHost}/.git ${zServBranchName}:${zServBranchName}
+    #     git reset -q --hard ${zServBranchName}
+    # fi
 
     # 取 master 分支最新版本号，用于校验布署结果
     zMasterSig=`git log master -1 --format=%H`
