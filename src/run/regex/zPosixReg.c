@@ -153,14 +153,15 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
          * strsep() 会返回空字符串 ""，不会返回 NULL，但 zpStr 会被置为 NULL
          */
         zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim);
-        zpResOUT->cnt++;
 
         /* 此条件一定会发生，故不会是无限循环 */
         if (NULL == zpStr) {
             zpResOUT->p_resLen[zpResOUT->cnt] = strlen(zpResOUT->pp_rets[zpResOUT->cnt]);
+            zpResOUT->cnt++;  /* 必须置于此处 */
             break;
         } else {
             zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
+            zpResOUT->cnt++;
         }
     }
 }
@@ -202,14 +203,15 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     zpResOUT->cnt = 0;
     for (;;) {
         zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim);
-        zpResOUT->cnt++;
 
         /* 此条件一定会发生，故不会是无限循环 */
         if (NULL == zpStr) {
             zpResOUT->p_resLen[zpResOUT->cnt] = strlen(zpResOUT->pp_rets[zpResOUT->cnt]);
+            zpResOUT->cnt++;  /* 必须置于此处 */
             break;
         } else {
             zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
+            zpResOUT->cnt++;
         }
     }
 }
