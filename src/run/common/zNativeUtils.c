@@ -239,29 +239,6 @@ zthread_system(void *zpCmd) {
 }
 
 // /*
-//  * 用途：
-//  *   从字符串取按指定分割符逐一取出每个字段
-//  * 返回值:
-//  *   下一个字段的第一个字符在源字符串中的下标（index）
-//  * 参数：
-//  *   zpOffSet：定义一个整型变量赋值为0，之后循环传入此同一个变量即可
-//  *   zpBufOUT：每一次循环后，存放的是取出的字段（子字符串，将原分割符替换为了'\0'）
-//  *   zStrLen：是使用 strlen() 函数获得的源字符串的长度（不含 '\0'）
-//  * 取值完毕判断条件：
-//  *   以返回值大于 (zStrLen + 1) 为条件终止循环取字段
-//  */
-// _i
-// zget_str_field(char *zpBufOUT, char *zpStr, _i zStrLen, char zDelimiter, _i *zpOffSet) {
-//     _i i = 0;
-//     for (; (*zpOffSet < zStrLen) && (zpStr[*zpOffSet] != zDelimiter); (*zpOffSet)++) {
-//         zpBufOUT[i++] = zpStr[*zpOffSet];
-//     }
-//     zpBufOUT[i] = '\0';
-//     (*zpOffSet)++;
-//     return *zpOffSet;
-// }
-
-// /*
 //  *  检查一个目录是否已存在
 //  *  返回：1表示已存在，0表示不存在，-1表示出错
 //  */

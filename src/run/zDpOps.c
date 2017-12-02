@@ -1308,6 +1308,11 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     } else {\
         zRun_.p_repoVec[zRepoId]->p_repoAliasPath[0] = '\0';\
     }\
+\
+    zpJ = cJSON_V(zpJRoot, "delim");\
+    if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
+        zpDelim = zpJ->valuestring;\
+    }\
 } while(0)
 
 static _i
@@ -1315,10 +1320,15 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     _i zErrNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
 
-    char *zpIpList;
-    _i zIpListStrLen, zIpCnt;
     _i zRepoId, zCacheId, zCommitId, zDataType;
     char *zpSSHUserName, *zpSSHPort;
+    char *zpIpList;
+    _i zIpListStrLen, zIpCnt;
+    /*
+     * IPaddr 字符串的分割符，若没有明确指定，则默认为空格
+     */
+    char *zpDelim = " ";
+
     char *zpPostDpCmd = NULL;
 
     cJSON *zpJ = NULL;
@@ -1538,24 +1548,17 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * 正则匹配目标机 IP 列表
-     * IP 之间必须以空格分割
+     * 目标机 IP 列表处理
      * 使用定制的 alloc 函数，从项目内存池中分配内存
+     * 需要检查目标机集合是否为空或数量不符
      */
-    zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = {
         .alloc_fn = zNativeOps_.alloc,
         .repoId = zRepoId
     };
 
-    zPosixReg_.init(&zRegInit_ , "[^ ]+");
-    zPosixReg_.match(&zRegRes_, &zRegInit_, zpIpList);
-    zPosixReg_.free_meta(&zRegInit_);
+    zPosixReg_.str_split(&zRegRes_, zpIpList, zpDelim);
 
-    /*
-     * 检查目标机集合是否为空
-     * 或数量不符
-     */
     if (0 == zRegRes_.cnt
             || zIpCnt != zRegRes_.cnt) {
         zErrNo = -28;

@@ -409,8 +409,12 @@ zget_file_list(void *zp) {
     /* 差异文件数量 <=24 生成Tree图 */
     _i zVecDataLen, zBaseDataLen, zNodeCnter, zLineCnter;
     zCacheMeta__ *zpRootNode_, *zpTmpNode_[3];  // [0]：本体    [1]：记录父节点    [2]：记录兄长节点
-    zRegInit__ zRegInit_;
-    zRegRes__ zRegRes_ = {.alloc_fn = zalloc_cache, .repoId = zpMeta_->repoId};  // 使用项目内存池
+
+    //zRegInit__ zRegInit_;
+    zRegRes__ zRegRes_ = {
+        .alloc_fn = zalloc_cache,  // 使用项目内存池
+        .repoId = zpMeta_->repoId
+    };
 
     /*
      * 在生成树节点之前分配空间，以使其不为 NULL，
@@ -422,12 +426,11 @@ zget_file_list(void *zp) {
 
     zpRootNode_ = NULL;
     zLineCnter = 0;
-    zPosixReg_.init(&zRegInit_, "[^/]+");
     if (NULL != zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         zBaseDataLen = strlen(zCommonBuf);
 
         zCommonBuf[zBaseDataLen - 1] = '\0';  /* 去除换行符 */
-        zPosixReg_.match(&zRegRes_, &zRegInit_, zCommonBuf);
+        zPosixReg_.str_split(&zRegRes_, zCommonBuf, "/");
 
         zNodeCnter = 0;
         zpTmpNode_[2] = zpTmpNode_[1] = zpTmpNode_[0] = NULL;
@@ -439,7 +442,7 @@ zget_file_list(void *zp) {
             zBaseDataLen = strlen(zCommonBuf);
 
             zCommonBuf[zBaseDataLen - 1] = '\0';  /* 去除换行符 */
-            zPosixReg_.match(&zRegRes_, &zRegInit_, zCommonBuf);
+            zPosixReg_.str_split(&zRegRes_, zCommonBuf, "/");
 
             zpTmpNode_[0] = zpRootNode_;
             zpTmpNode_[2] = zpTmpNode_[1] = NULL;
@@ -469,7 +472,6 @@ zMarkOuter:;
         }
     }
 
-    zPosixReg_.free_meta(&zRegInit_);
     pclose(zpShellRetHandler);
 
     if (NULL == zpRootNode_) {

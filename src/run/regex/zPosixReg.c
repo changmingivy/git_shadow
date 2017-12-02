@@ -8,10 +8,13 @@
 #include <errno.h>
 
 static void
-zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern);
+zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern);
 
 static void
-zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject);
+zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject);
+
+static void
+zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
 
 static void
 zreg_free_res(zRegRes__ *zpRes_);
@@ -29,38 +32,36 @@ struct zPosixReg__ zPosixReg_ = {
 
 /* 使用 posix 扩展正则 */
 static void
-zreg_init(zRegInit__ *zpRegInit_Out, const char *zpRegPattern) {
+zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
-    if (0 != (zErrNo = regcomp(zpRegInit_Out, zpRegPattern, REG_EXTENDED))) {
+    if (0 != (zErrNo = regcomp(zpRegInitOUT, zpRegPattern, REG_EXTENDED))) {
         zPrint_Time();
-        regerror(zErrNo, zpRegInit_Out, zErrBuf, zBytes(256));
+        regerror(zErrNo, zpRegInitOUT, zErrBuf, zBytes(256));
         zPrint_Err(0, NULL, zErrBuf);
-        regfree(zpRegInit_Out);
+        regfree(zpRegInitOUT);
         exit(1);
     }
 }
 
 static void
-zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubject) {
+zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject) {
     _i zErrNo, zDynSubjectlen, zResStrLen;
     _ui zOffSet = 0;
     char zErrBuf[256];
     regmatch_t zMatchRes_;
 
-    zpRegRes_Out->cnt = 0;
+    zpRegResOUT->cnt = 0;
     zDynSubjectlen = strlen(zpRegSubject);
 
     /* 将足够大的内存一次性分配，后续成员通过指针位移的方式获取内存 */
-    if (NULL == zpRegRes_Out->alloc_fn) {
-        zMem_Alloc(zpRegRes_Out->p_resLen, _ui, 2 * zBytes(zDynSubjectlen));
-        zpRegRes_Out->pp_rets = (char **)(zpRegRes_Out->p_resLen + zDynSubjectlen);
-        zMem_Alloc(zpRegRes_Out->pp_rets[0], char, 2 * zBytes(zDynSubjectlen));
+    if (NULL == zpRegResOUT->alloc_fn) {
+        zMem_Alloc(zpRegResOUT->p_resLen, char, sizeof(_i) * zDynSubjectlen + sizeof(void *) * zDynSubjectlen + 2 * zDynSubjectlen);
     } else {
-        zpRegRes_Out->p_resLen = zpRegRes_Out->alloc_fn(zpRegRes_Out->repoId, sizeof(_ui) * 2 * zBytes(zDynSubjectlen));
-        zpRegRes_Out->pp_rets = (char **)(zpRegRes_Out->p_resLen + zDynSubjectlen);
-        zpRegRes_Out->pp_rets[0] = zpRegRes_Out->alloc_fn(zpRegRes_Out->repoId, zBytes(2 * zDynSubjectlen));
+        zpRegResOUT->p_resLen = zpRegResOUT->alloc_fn(zpRegResOUT->repoId, sizeof(_i) * zDynSubjectlen + sizeof(void *) * zDynSubjectlen + 2 * zBytes(zDynSubjectlen));
     }
+    zpRegResOUT->pp_rets = (char **)(zpRegResOUT->p_resLen + zDynSubjectlen);
+    zpRegResOUT->pp_rets[0] = (char *)(zpRegResOUT->pp_rets + zDynSubjectlen);
 
     for (_i zCnter = 0; zDynSubjectlen > 0; zCnter++) {
         if (0 != (zErrNo = regexec(zpRegInit_, zpRegSubject, 1, &zMatchRes_, 0))) {
@@ -80,16 +81,58 @@ zreg_match(zRegRes__ *zpRegRes_Out, regex_t *zpRegInit_, const char *zpRegSubjec
             break;
         }
 
-        zpRegRes_Out->p_resLen[zpRegRes_Out->cnt] = zResStrLen;
-        zpRegRes_Out->cnt++;
+        zpRegResOUT->p_resLen[zpRegResOUT->cnt] = zResStrLen;
+        zpRegResOUT->cnt++;
 
-        zpRegRes_Out->pp_rets[zCnter] = zpRegRes_Out->pp_rets[0] + zOffSet;
-        strncpy(zpRegRes_Out->pp_rets[zCnter], zpRegSubject + zMatchRes_.rm_so, zResStrLen);
-        zpRegRes_Out->pp_rets[zCnter][zResStrLen] = '\0';
+        zpRegResOUT->pp_rets[zCnter] = zpRegResOUT->pp_rets[0] + zOffSet;
+        strncpy(zpRegResOUT->pp_rets[zCnter], zpRegSubject + zMatchRes_.rm_so, zResStrLen);
+        zpRegResOUT->pp_rets[zCnter][zResStrLen] = '\0';
 
         zOffSet += zMatchRes_.rm_eo + 1;  // '+ 1' for '\0'
         zpRegSubject += zMatchRes_.rm_eo + 1;
         zDynSubjectlen -= zMatchRes_.rm_eo + 1;
+    }
+}
+
+
+/*
+ * 用途：
+ *   将字符串按指定分割符分割，返回分割后的结果，以 zRegRes__ 结构的形式返回
+ * 出错返回 -1
+ * 可以指定连续多个分割符
+ * 写出结构体成员若未使用项目内存池，则需要释放
+ */
+static void
+zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
+    char *zpStr = NULL;
+    _i zFullLen =  0;
+
+    if (!(zpResOUT && zpOrigStr && zpDelim)) {
+        zPrint_Err(0, NULL, "param invalid");
+        exit(1);
+    }
+
+    zFullLen = 1 + strlen(zpOrigStr);
+
+    /* 此函数不计算 reslen，调用者需要自行计算 */
+    zpResOUT->p_resLen = NULL;
+
+    /* 将足够大的内存一次性分配 */
+    if (NULL == zpResOUT->alloc_fn) {
+        zMem_Alloc(zpResOUT->pp_rets, char, zBytes(zFullLen) / 2 * sizeof(void *) + zBytes(zFullLen));
+    } else {
+        zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zBytes(zFullLen) / 2 * sizeof(void *) + zBytes(zFullLen));
+    }
+
+    zpStr = (char *) (zpResOUT->pp_rets) + zBytes(zFullLen);
+    strcpy(zpStr, zpOrigStr);
+
+    zpResOUT->cnt = 0;
+    while (NULL != (zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim))) {
+        zpResOUT->cnt++;
+        while ('\0' != zpStr[0] && NULL != strchr(zpDelim, zpStr[0])) {
+            zpStr++;
+        }
     }
 }
 
