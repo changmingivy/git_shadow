@@ -28,7 +28,12 @@ zreg_free_meta(zRegInit__ *zpInit_);
 /* 对外公开的接口 */
 struct zPosixReg__ zPosixReg_ = {
     .init = zreg_init,
+
     .match = zreg_match,
+
+    .str_split = zstr_split,
+    .str_split_fast = zstr_split_fast,
+
     .free_meta = zreg_free_meta,
     .free_res = zreg_free_res
 };
