@@ -995,8 +995,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         /* 取最近一次布署的最终结果 */
         sprintf(zCommonBuf,
-                "SELECT host_res FROM dp_log "
-                "WHERE proj_id = %d AND host_res != 0 AND time_stamp = %ld LIMIT 1",
+                "SELECT host_res[4] FROM dp_log "
+                "WHERE proj_id = %d AND 0 != host_res[4] AND time_stamp = %ld LIMIT 1",
                 zRepoId,
                 zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
