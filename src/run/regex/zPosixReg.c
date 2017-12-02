@@ -117,7 +117,7 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     _i zFullLen =  0,
        zMaxItemNum = 0;
 
-    if (!(zpResOUT && zpOrigStr && zpDelim)) {
+    if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
         zPrint_Err(0, NULL, "param invalid");
         exit(1);
     }
@@ -138,19 +138,39 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     strcpy(zpStr, zpOrigStr);
 
     zpResOUT->cnt = 0;
-    while (NULL != (zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim))) {
-        zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
-        zpResOUT->cnt++;
-        while ('\0' != zpStr[0] && NULL != strchr(zpDelim, zpStr[0])) {
+    for (;;) {
+        /*
+         * 去除连续的分割符
+         * 需要首先被执行，用于防止开头就是分割符
+         */
+        while ('\0' != zpStr[0]
+                && NULL != strchr(zpDelim, zpStr[0])) {
             zpStr++;
+        }
+
+        /*
+         * 即使此时取到只一个 '\0'，
+         * strsep() 会返回空字符串 ""，不会返回 NULL，但 zpStr 会被置为 NULL
+         */
+        zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim);
+        zpResOUT->cnt++;
+
+        /* 此条件一定会发生，故不会是无限循环 */
+        if (NULL == zpStr) {
+            zpResOUT->p_resLen[zpResOUT->cnt] = strlen(zpResOUT->pp_rets[zpResOUT->cnt]);
+            break;
+        } else {
+            zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
         }
     }
 }
 
 
 /*
- * 功能同上，速度更快，
- * 但不能识别分割符连续的情况，服务端内部使用
+ * 功能同上，但：
+ *     不能识别分割符连续的情况，
+ *     不能以分割符开头，
+ * 仅限服务端内部使用，对源字符串的规范性要求较高
  */
 static void
 zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
@@ -158,7 +178,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     _i zFullLen =  0,
        zMaxItemNum = 0;
 
-    if (!(zpResOUT && zpOrigStr && zpDelim)) {
+    if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
         zPrint_Err(0, NULL, "param invalid");
         exit(1);
     }
@@ -180,9 +200,17 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     strcpy(zpStr, zpOrigStr);
 
     zpResOUT->cnt = 0;
-    while (NULL != (zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim))) {
-        zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
+    for (;;) {
+        zpResOUT->pp_rets[zpResOUT->cnt] = strsep(&zpStr, zpDelim);
         zpResOUT->cnt++;
+
+        /* 此条件一定会发生，故不会是无限循环 */
+        if (NULL == zpStr) {
+            zpResOUT->p_resLen[zpResOUT->cnt] = strlen(zpResOUT->pp_rets[zpResOUT->cnt]);
+            break;
+        } else {
+            zpResOUT->p_resLen[zpResOUT->cnt] = zpStr - zpResOUT->pp_rets[zpResOUT->cnt] - 1;
+        }
     }
 }
 
