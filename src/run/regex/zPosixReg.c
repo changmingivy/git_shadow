@@ -191,7 +191,6 @@ static void
 zreg_free_res(zRegRes__ *zpRes_) {
     if (NULL == zpRes_->alloc_fn) {
         free((zpRes_)->p_resLen);
-        free((zpRes_)->pp_rets[0]);
     };
 }
 
