@@ -430,7 +430,7 @@ zget_file_list(void *zp) {
         zBaseDataLen = strlen(zCommonBuf);
 
         zCommonBuf[zBaseDataLen - 1] = '\0';  /* 去除换行符 */
-        zPosixReg_.str_split(&zRegRes_, zCommonBuf, "/");
+        zPosixReg_.str_split_fast(&zRegRes_, zCommonBuf, "/");
 
         zNodeCnter = 0;
         zpTmpNode_[2] = zpTmpNode_[1] = zpTmpNode_[0] = NULL;
@@ -442,7 +442,7 @@ zget_file_list(void *zp) {
             zBaseDataLen = strlen(zCommonBuf);
 
             zCommonBuf[zBaseDataLen - 1] = '\0';  /* 去除换行符 */
-            zPosixReg_.str_split(&zRegRes_, zCommonBuf, "/");
+            zPosixReg_.str_split_fast(&zRegRes_, zCommonBuf, "/");
 
             zpTmpNode_[0] = zpRootNode_;
             zpTmpNode_[2] = zpTmpNode_[1] = NULL;

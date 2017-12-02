@@ -28,6 +28,7 @@ struct zPosixReg__ {
     void (* match) (zRegRes__ *, regex_t *, const char *);
 
     void (* str_split) (zRegRes__ *, char *, char *);
+    void (* str_split_fast) (zRegRes__ *, char *, char *);
 
     void (* free_meta) (zRegInit__ *);
     void (* free_res) (zRegRes__ *);
