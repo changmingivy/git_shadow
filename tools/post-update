@@ -47,6 +47,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
     # 预置为空
     zOldMasterSig=
+    zRecvContent=
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的 git 操作触发 hook 无限循环
     chmod 0444 ${zPathOnHost}/.git/hooks/post-update
@@ -58,13 +59,15 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
         # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
         if [[ 0 -lt ${zTimeStamp} ]]; then
-            ${zPathOnHost}_SHADOW/tools/notice\
+            zRecvContent=`${zPathOnHost}_SHADOW/tools/notice\
                 "${zMasterAddr}"\
                 "${zMasterPort}"\
-                "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}"
+                "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}"`
             if [[ 0 -ne $? ]];then
-                exec 555>/dev/tcp/${zMasterAddr}/${zMasterPort}
-                printf "{\"OpsId\":8,\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${1}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${2}\",\"content\":\"${3}\"}">&555
+                exec 555<>/dev/tcp/${zMasterAddr}/${zMasterPort}
+                printf "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&555
+                zRecvContent=`cat<&555`
+                exec 555<&-
                 exec 555>&-
             fi
         fi
@@ -92,7 +95,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         sed -i "s/\n/;/g" ${zErrLogPath}
 
         # 反馈错误信息至服务端
-        zTcpReply ${zDpingSig} $1 $2 >> /tmp/.____post-deploy.log 2>&1
+        zTcpReply 8 ${zDpingSig} $1 $2 >> /tmp/.____post-deploy.log 2>&1
 
         # 删除错误日志文件与自身 pid 文件
         rm ${zErrLogPath} /tmp/.${zProjId}_pid_post-update
@@ -102,6 +105,13 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
         exit 255
     }
+
+
+    # 首先测试是否可与服务端正常通信
+    zTcpReply 0 0 0 0
+    if [[ "!" != ${zRecvContent} ]]; then
+        exit 255
+    fi
 
 
     # 检测必要的路径下是存在权限异常的文件
@@ -166,7 +176,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     rm -f ${zPathOnHost}_SHADOW/.git/index.lock
 
     # 通知服务端已收到代码：上报阶段性成果
-    zTcpReply "${zDpingSig}" "S3" "" >> /tmp/.____post-deploy.log 2>&1 &
+    zTcpReply 8 "${zDpingSig}" "S3" "" >> /tmp/.____post-deploy.log 2>&1 &
 
     ##################
     # _SHADOW 库布署 #
@@ -279,7 +289,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     # 通知服务端已确认收到的内容准确无误：布署成功
-    zTcpReply ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
+    zTcpReply 8 ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
 
     # 更新开机自请布署的脚本
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
@@ -311,6 +321,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     fi
 
     # 追加通知用户自定义的布署后动作执行成功
-    zTcpReply ${zMasterSig} "S5" ""\
+    zTcpReply 8 ${zMasterSig} "S5" ""\
         >> /tmp/.____post-deploy.log 2>&1
 ) &

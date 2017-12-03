@@ -51,11 +51,11 @@ struct zDpOps__ {
     _i (* state_confirm) (cJSON *, _i);
 
     _i (* lock) (cJSON *, _i);
-    _i (* unlock) (cJSON *zpJRoot, _i zSd);
+    _i (* unlock) (cJSON *, _i);
 
     _i (* req_file) (cJSON *, _i);
 
-    void * (* route) (void *);
+    _i (* pang) (cJSON *, _i);
 };
 
 

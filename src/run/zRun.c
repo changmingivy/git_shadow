@@ -217,7 +217,7 @@ zstart_server() {
     zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
     /* 索引范围：0 至 zServHashSiz - 1 */
-    zRun_.ops[0] = NULL;
+    zRun_.ops[0] = zDpOps_.pang;  // 目标机使用此接口测试与服务端的连通性
     zRun_.ops[1] = zDpOps_.creat;  // 添加新代码库
     zRun_.ops[2] = zDpOps_.lock;  // 锁定某个项目的布署／撤销功能，仅提供查询服务（即只读服务）
     zRun_.ops[3] = zDpOps_.unlock;  // 恢复布署／撤销功能

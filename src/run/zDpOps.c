@@ -56,6 +56,9 @@ zunlock_repo(cJSON *zpJRoot, _i zSd);
 static _i
 zreq_file(cJSON *zpJRoot, _i zSd);
 
+static _i
+zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
+
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
     .show_dp_process = zprint_dp_process,
@@ -74,7 +77,9 @@ struct zDpOps__ zDpOps_ = {
     .lock = zlock_repo,
     .unlock = zunlock_repo,
 
-    .req_file = zreq_file
+    .req_file = zreq_file,
+
+    .pang = zpang
 };
 
 
@@ -840,7 +845,11 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGenerate_Ssh_Cmd(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
-            "zPath=%s;"\
+            "zPath=%s;zIP=%s;zPort=%s;"\
+            "exec 777<>/dev/tcp/${zIP}/${zPort};"\
+            "printf '{\"OpsId\":0}'>&777;"\
+            "if [[ \"!\" != `cat<&777` ]];then exit 202;fi;"\
+            "exec 777>&-;exec 777<&-;"\
             "for x in ${zPath} ${zPath}_SHADOW;"\
             "do;"\
                 "rm -f $x ${x}/.git/{index.lock,post-update}"\
@@ -850,7 +859,7 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
-            "exec 777<>/dev/tcp/%s/%s;"\
+            "exec 777<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
             "cat<&777 >${zPath}/.git/post-update;"\
             "exec 777>&-;exec 777<&-;"\
@@ -1534,8 +1543,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"
             "rm -rf ./tools;"
             "cp -R ${zGitShadowPath}/tools ./;"
-            "chmod 0755 ./tools/post-update;"
-            "eval sed -i 's@__PROJ_PATH@%s@g' ./tools/post-update;"
             "git add --all .;"
             "git commit --allow-empty -m _;"
             "git push --force %s/.git master:master_SHADOW",
@@ -1543,7 +1550,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zRun_.p_repoVec[zRepoId]->p_repoPath,  /* 中控机上的代码库路径 */
             zGet_OneCommitSig(zpTopVecWrap_, zCommitId),  /* 请求布署的版本号 */
             zRun_.p_repoVec[zRepoId]->p_repoPath,
-            zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,  /* 目标机上的代码库路径 */
             zRun_.p_repoVec[zRepoId]->p_repoPath);
 
     if (0 != WEXITSTATUS( system(zpCommonBuf) )) {
@@ -2139,4 +2145,18 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     return 0;
 }
 
+/*
+ * Ping、Pang
+ * 目标机使用此接口测试与服务端的连通性
+ */
+static _i
+zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
+    /*
+     * 目标机发送 "?"
+     * 服务端回复 "!"
+     */
+    zNetUtils_.send_nosignal(zSd, "!", sizeof("!") - 1);
+
+    return 0;
+}
 #undef cJSON_V
