@@ -224,7 +224,7 @@ zstart_server() {
     zRun_.ops[4] = NULL;  // 查询指定项目的详细信息及最近一次的布署进度
     zRun_.ops[5] = NULL;
     zRun_.ops[6] = NULL;
-    zRun_.ops[7] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
+    zRun_.ops[7] = zDpOps_.glob_res_confirm;  // 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退
     zRun_.ops[8] = zDpOps_.state_confirm;  // 远程主机初始经状态、布署结果状态、错误信息
     zRun_.ops[9] = zDpOps_.print_revs;  // 显示CommitSig记录（提交记录或布署记录，在json中以DataType字段区分）
     zRun_.ops[10] = zDpOps_.print_diff_files;  // 显示差异文件路径列表
@@ -232,7 +232,7 @@ zstart_server() {
     zRun_.ops[12] = zDpOps_.dp;  // 批量布署或撤销
     zRun_.ops[13] = zDpOps_.req_dp;  // 用于新加入某个项目的主机每次启动时主动请求中控机向自己承载的所有项目同目最近一次已布署版本代码
     zRun_.ops[14] = zDpOps_.req_file;  // 请求服务器传输指定的文件
-    zRun_.ops[15] = NULL;
+    zRun_.ops[15] = zDpOps_.show_dp_process;  // 显示单个项目的布署进度信息
 
     /* 返回的 socket 已经做完 bind 和 listen */
     _i zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);

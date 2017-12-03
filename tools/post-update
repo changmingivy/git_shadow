@@ -108,7 +108,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
 
     # 首先测试是否可与服务端正常通信
-    zTcpReply 0 0 0 0
+    zTcpReply 0 "" "" ""
     if [[ "!" != ${zRecvContent} ]]; then
         exit 255
     fi
@@ -288,10 +288,43 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
 
+
     # 通知服务端已确认收到的内容准确无误：布署成功
     zTcpReply 8 ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
 
-    # 更新开机自请布署的脚本
+
+    # 等待确认服务端的全局结果
+    # 若全局结果不是成功，则执行回退
+    # 全局成功，服务端回复 "S"，失败回复 "F"，尚未确定最终结果回复 "W"
+    sleep 20
+    while :
+    do
+        zTcpReply 7 "" "" "" >> /tmp/.____post-deploy.log 2>&1
+
+        if [[ "S" == ${zRecvContent} ]]; then
+            break
+        elif [[ "F" == ${zRecvContent} ]]; then
+            # 尝试回撤至原始版本
+            # 此处只能尽力而为，若无法进入项目路径，也无进一步措施可用
+            cd $zPathOnHost
+            if [[ 0 -eq $? ]]; then
+                export GIT_DIR="${zPathOnHost}/.git"
+                git stash
+                git stash clear
+                git branch master
+                git checkout master
+                git reset -q --hard $zOldMasterSig
+            fi
+
+            exit 255
+        else
+            # 继续等待
+            sleep 5
+        fi
+    done
+
+
+    #### 更新开机自请布署的脚本：将弃用！
     cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
 
     # 布署成功，还原权限

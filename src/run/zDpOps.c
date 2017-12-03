@@ -59,6 +59,9 @@ zreq_file(cJSON *zpJRoot, _i zSd);
 static _i
 zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
 
+static _i
+zglob_res_confirm(cJSON *zpJRoot, _i zSd);
+
 /* 对外公开的统一接口 */
 struct zDpOps__ zDpOps_ = {
     .show_dp_process = zprint_dp_process,
@@ -72,6 +75,7 @@ struct zDpOps__ zDpOps_ = {
     .dp = zbatch_deploy,
     .req_dp = zspec_deploy,
 
+    .glob_res_confirm = zglob_res_confirm,
     .state_confirm = zstate_confirm,
 
     .lock = zlock_repo,
@@ -95,7 +99,7 @@ ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((_
 
 
 /*
- * 7：显示布署进度
+ * 15：显示布署进度
  */
 /* 目标机初化与布署失败的错误回显 */
 // #define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
@@ -2146,6 +2150,7 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
 }
 
 /*
+ * 0：
  * Ping、Pang
  * 目标机使用此接口测试与服务端的连通性
  */
@@ -2155,8 +2160,74 @@ zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
      * 目标机发送 "?"
      * 服务端回复 "!"
      */
-    zNetUtils_.send_nosignal(zSd, "!", sizeof("!") - 1);
+    zNetUtils_.send_nosignal(zSd, "!", sizeof('!'));
 
     return 0;
 }
+
+/*
+ * 7：
+ * 目标机自身布署成功之后，向服务端核对全局结果，
+ * 若全局结果是失败，则执行回退
+ * 全局成功，回复 "S"，否则回复 "F"，尚未确定最终结果回复 "W"
+ */
+static _i
+zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
+    _i zRepoId = -1;
+    time_t zTimeStamp = 0;
+
+    /* 提取 value[key] */
+    cJSON *zpJ = NULL;
+
+    zpJ = cJSON_V(zpJRoot, "ProjId");
+    if (!cJSON_IsNumber(zpJ)) {
+        return -1;
+    }
+    zRepoId = zpJ->valueint;
+
+    /* 检查项目存在性 */
+    if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+        return -2;  /* zErrNo = -2; */
+    }
+
+    zpJ = cJSON_V(zpJRoot, "TimeStamp");
+    if (!cJSON_IsNumber(zpJ)) {
+        return -1;
+    }
+    zTimeStamp = (time_t)zpJ->valuedouble;
+
+    if (zTimeStamp < zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp) {
+        /*
+         * 若已有新的布署动作产生，统一返回失身标识，
+         * 避免目标机端无谓的执行已经过期的布署后动作
+         */
+        zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+    } else {
+        if (0 == zRun_.p_repoVec[zRepoId]->resType) {
+            if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+                if (0 == zRun_.p_repoVec[zRepoId]->resType) {
+                    /*
+                     * 之前两个条件的判断并非原子性的
+                     * 此时有必要再判断一次 resType
+                     * 确定成功
+                     */
+                    zNetUtils_.send_nosignal(zSd, "S", sizeof('S'));
+                } else {
+                    /* 确定失败 */
+                    zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+                }
+            } else {
+                /* 结果尚未确定，正在 waiting... */
+                zNetUtils_.send_nosignal(zSd, "W", sizeof('W'));
+            }
+        } else {
+            /* 确定失败 */
+            zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+        }
+    }
+
+    return 0;
+}
+
+
 #undef cJSON_V
