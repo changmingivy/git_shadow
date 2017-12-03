@@ -3,14 +3,14 @@
 # 入参是本机所有Ip地址，上层调用者必须已进入对应项目的 _SHADOW 目录
 
 zSelfIpList=$1
-zMasterIpAddr=__MASTER_ADDR
-zMasterPort=__MASTER_PORT
 
 zCurPath=`pwd`
 zProjPath=`echo ${zCurPath} | sed -n 's/_SHADOW$//p'`
 
 cd $zProjPath
 zProjId=`git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$' | head -1`
+zMasterIpAddr=`git branch | grep -m 1 | awk -F@ '{print $2}'`
+zMasterPort=`git branch | grep -m 1 | awk -F@ '{print $3}'`
 
 (
 while :

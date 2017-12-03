@@ -34,7 +34,6 @@ if [[ 0 -lt `ls -d ${zDeployPath} 2>/dev/null | wc -l` ]]; then
         if [[ 0 -ne $? ]]; then exit 255; fi
         rm -rf ./tools
         cp -r ${zShadowPath}/tools ./
-        eval sed -i 's%__PROJ_PATH%${zPathOnHost}%g' ./tools/post-update
         exit 0
     else
         exit 255

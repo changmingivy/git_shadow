@@ -8,7 +8,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
 # 由于 git push 会一直等待该 hook 执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
-# 参数格式类似：refs/heads/serv refs/heads/serv_SHADOW
+# 参数格式类似：refs/heads/s refs/heads/S
 
 # [ 错误类型 ]
 # err4 :目标端磁盘容量不足
@@ -17,25 +17,30 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 # err7 :目标端路径不存在
 
 (
-    zPathOnHost="__PROJ_PATH"
-    zMasterAddr="__MASTER_ADDR"
-    zMasterPort="__MASTER_PORT"
-
-    zProjId=`echo $1 | awk -F@ '{print $2}'`;
+    zPathOnHost=`dirname \`pwd\``
 
     # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
-    zSelfIpStrAddr=`echo $1 | awk -F@ '{print $3}' | sed 's/_/:/g'`;
+    zMasterAddr=`echo $1 | awk -F@ '{print $2}' | sed 's/_/:/g'`
+    zMasterPort=`echo $1 | awk -F@ '{print $3}'`
+
+    zProjId=`echo $1 | awk -F@ '{print $4}'`
+
+    # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
+    zSelfIpStrAddr=`echo $1 | awk -F@ '{print $5}' | sed 's/_/:/g'`
 
     # 本次布署的唯一身份标识
-    zTimeStamp=`echo $1 | awk -F@ '{print $4}'`
-    zDpingSig=`echo $1 | awk -F@ '{print $5}'`
+    zTimeStamp=`echo $1 | awk -F@ '{print $6}'`
+    zDpingSig=`echo $1 | awk -F@ '{print $7}'`
 
     # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
-    zProjAliasPath=`echo $1 | awk -F@ '{print $6}'`
+    zProjAliasPath=`echo $1 | awk -F@ '{print $8}'`
     zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
-    # 触发本次 hook 的分支名称
-    zServBranchName="serv@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
+    # 接收到内容的项目分支名称
+    zServBranch="s@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
+
+    # 接收到内容的项目分支名称
+    zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
 
     # 临时保存错误信息的位置
     zErrLogPath="/tmp/.${zProjId}_${zTimeStamp}_errlog"
@@ -127,7 +132,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     zOldMasterSig=`git log master -1 --format=%H`
 
     # 校验最新接收的版本号
-    zServSig=`git log ${zServBranchName} -1 --format=%H`
+    zServSig=`git log ${zServBranch} -1 --format=%H`
     if [[ ${zServSig} != ${zDpingSig} ]]; then
         zExitClean "E6" "${zServSig}(zServSig) != ${zDpingSig}(zDpingSig)"
     fi
@@ -175,12 +180,12 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     git branch master
     git checkout master
 
-    git pull ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master
+    git pull ${zPathOnHost}/.git ${zShadowBranch}:master
     if [[ 0 -ne $? ]]; then
         \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git pull --force ${zPathOnHost}/.git ${zServBranchName}_SHADOW:master 2>${zErrLogPath}
+        git pull --force ${zPathOnHost}/.git ${zShadowBranch}:master 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
             zExitClean "E6" "git pull(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
                 >> /tmp/.____post-deploy.log 2>&1
@@ -206,12 +211,12 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     git checkout master
 
     # 还原代码到工作区
-    git reset -q --hard ${zServBranchName}
+    git reset -q --hard ${zServBranch}
     if [[ 0 -ne $? ]]; then
         # \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
         git stash
         git stash clear
-        git reset -q --hard ${zServBranchName} 2>${zErrLogPath}
+        git reset -q --hard ${zServBranch} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
             zExitClean "E6" "git reset(${zPathOnHost}): `cat ${zErrLogPath}`"\
                 >> /tmp/.____post-deploy.log 2>&1
@@ -228,8 +233,8 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     #     export GIT_DIR="`pwd`/.git"
     #     git branch master
     #     git checkout master
-    #     git pull --force ${zPathOnHost}/.git ${zServBranchName}:${zServBranchName}
-    #     git reset -q --hard ${zServBranchName}
+    #     git pull --force ${zPathOnHost}/.git ${zServBranch}:${zServBranch}
+    #     git reset -q --hard ${zServBranch}
     # fi
 
     # 取 master 分支最新版本号，用于校验布署结果
@@ -238,7 +243,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 1、检查两个分支 git log 是否一致
     # 2、检查是否存在文件不一致现象(忽略新产生的未被 git 跟踪的文件)
     if [[ "$zMasterSig" != "$zServSig" ]]; then
-        zExitClean "E6" "code version inconsistent(git log): branch ${zServBranchName} != branch master"\
+        zExitClean "E6" "code version inconsistent(git log): branch ${zServBranch} != branch master"\
             >> /tmp/.____post-deploy.log 2>&1
     elif [[ 0 -ne "`git status --short --untracked-files=no | wc -l`" ]]; then
         zExitClean "E6" "work area inconsistent(git status): `pwd`"\

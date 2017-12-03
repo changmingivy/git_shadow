@@ -1051,14 +1051,18 @@ zdp_ccur(void *zp) {
     }
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/serv@%d@%s@%ld@%s@%s",
+    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+            zRun_.netSrv_.specStrForGit,
+            zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
             zHostAddrBuf,
             zpDpCcur_->id,
             zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
 
-    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/serv_SHADOW@%d@%s@%ld@%s@%s",
+    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
+            zRun_.netSrv_.specStrForGit,
+            zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
             zHostAddrBuf,
             zpDpCcur_->id,

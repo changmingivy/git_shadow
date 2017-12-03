@@ -16,6 +16,8 @@
 typedef struct {
     char *p_ipAddr;
     char *p_port;
+
+    char specStrForGit[INET6_ADDRSTRLEN];
 } zNetSrv__;
 
 

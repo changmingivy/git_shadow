@@ -26,7 +26,17 @@ main(_i zArgc, char **zppArgv) {
             case 'u':
                 zRun_.p_loginName = optarg; break;
             case 'h':
-                zRun_.netSrv_.p_ipAddr = optarg; break;
+                zRun_.netSrv_.p_ipAddr = optarg;
+
+                /* git push 会用此字符串作为分支名称的一部分 */
+                snprintf(zRun_.netSrv_.specStrForGit, INET6_ADDRSTRLEN, "%s", zRun_.netSrv_.p_ipAddr);
+                for (_i i = 0; '\0' != zRun_.netSrv_.specStrForGit[i]; i++) {
+                    if (':' == zRun_.netSrv_.specStrForGit[i]) {
+                        zRun_.netSrv_.specStrForGit[i] = '_';
+                    }
+                }
+
+                break;
             case 'p':
                 zRun_.netSrv_.p_port = optarg; break;
             case 'H':
