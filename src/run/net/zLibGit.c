@@ -42,6 +42,14 @@ zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
 static _i
 zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
 
+static git_repository *
+zgit_init(char *zpPath, zbool_t zIsBare);
+
+static git_repository *
+zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
+
+static _i
+zgit_add_and_commit(git_repository *zpRepo, char *zpPath);
 
 extern struct zRun__ zRun_;
 
@@ -61,7 +69,11 @@ struct zLibGit__ zLibGit_ = {
     .branch_del = zgit_branch_del_local,
     .branch_rename = zgit_branch_rename_local,
     .branch_switch = zgit_branch_switch_local,
-    .branch_list_all = zgit_branch_list_local
+    .branch_list_all = zgit_branch_list_local,
+
+    .init = zgit_init,
+    .clone = zgit_clone,
+    .add_and_commit = zgit_add_and_commit
 };
 
 /* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
