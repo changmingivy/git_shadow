@@ -13,7 +13,7 @@
 #include "zNetUtils.h"
 
 struct zLibSsh__ {
-    _i (* exec) (char *, char *, char *, const char *, const char *, const char *, const char *, zAuthType__, char *, _ui, pthread_mutex_t *, char *);
+    _i (* exec) (char *, char *, char *, const char *, const char *, const char *, const char *, znet_auth_t, char *, _ui, pthread_mutex_t *, char *);
 };
 
 #endif  // #ifndef ZLIBSSH_H

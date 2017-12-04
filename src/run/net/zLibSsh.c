@@ -13,7 +13,7 @@ extern struct zNetUtils__ zNetUtils_;
 
 static _i
 zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
-        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, zAuthType__ zAuthType,
+        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
 
 struct zLibSsh__ zLibSsh_ = {
@@ -68,7 +68,7 @@ zwait_socket(_i zSd, LIBSSH2_SESSION *zSession) {
 static _i
 zssh_exec(
         char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
-        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, zAuthType__ zAuthType,
+        const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz,
         pthread_mutex_t *zpCcurLock,
         char *zpErrBufOUT __attribute__ ((__unused__))/* size: 256 */

@@ -26,13 +26,13 @@ static _i
 zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
 
 static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zBool__ zForceMark);
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zbool_t zForceMark);
 
 static _i
 zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
 
 static _i
-zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zBool__ zForceMark);
+zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark);
 
 static _i
 zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
@@ -354,7 +354,7 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
  * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
  */
 static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zBool__ zForceMark) {
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zbool_t zForceMark) {
     git_reference *zpHead = NULL;
     git_reference *zpNewBranch = NULL;
 
@@ -440,7 +440,7 @@ zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName) {
  * 分支改名
  */
 static _i
-zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zBool__ zForceMark) {
+zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark) {
     git_reference *zpOld = NULL;
     git_reference *zpNew = NULL;
 
