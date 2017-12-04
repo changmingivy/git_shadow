@@ -142,7 +142,8 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
@@ -162,7 +163,8 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = zRefsCnt;
 
-    git_fetch_options zFetchOpts = GIT_FETCH_OPTIONS_INIT;
+    git_fetch_options zFetchOpts;  // = GIT_FETCH_OPTIONS_INIT;
+    git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
 
     /* do the fetch */
     //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
@@ -218,7 +220,8 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
+    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
@@ -239,7 +242,8 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = zRefsCnt;
 
-    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;
+    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
+    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
@@ -569,7 +573,8 @@ static git_repository *
 zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) {
     git_repository *zpRepo = NULL;
 
-    git_clone_options zOpt = GIT_CLONE_OPTIONS_INIT;
+    git_clone_options zOpt;  // = GIT_CLONE_OPTIONS_INIT;
+    git_clone_init_options(&zOpt, GIT_CLONE_OPTIONS_VERSION);
 
     zOpt.fetch_opts.callbacks.credentials = zgit_cred_acquire_cb;
     zOpt.bare = zIsBare;
