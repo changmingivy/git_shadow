@@ -49,7 +49,7 @@ static git_repository *
 zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
 
 static _i
-zgit_add_and_commit(git_repository *zpRepo, char *zpPath);
+zgit_add_and_commit(git_repository *zpRepo, char *zpPath, char *zpCommitMsg);
 
 extern struct zRun__ zRun_;
 
@@ -596,7 +596,7 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
  * && git commit --allow-empty -m "_"
  */
 static _i
-zgit_add_and_commit(git_repository *zpRepo, char *zpPath) {
+zgit_add_and_commit(git_repository *zpRepo, char *zpPath, char *zpCommitMsg) {
     _i zErrNo = 0;
     struct stat zS;
     zCheck_Negative_Return(stat(zpPath, &zS), -1);
@@ -615,6 +615,11 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpPath) {
     git_signature *zpMe = NULL;
 
     git_oid zCommitOid;
+
+    if (! (zpRepo && zpPath && zpCommitMsg)) {
+        zPrint_Err(0, NULL, "NULL param found");
+        return -1;
+    }
 
     /* get index */
     if (0 != git_repository_index(&zpIndex, zpRepo)) {
@@ -689,7 +694,7 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpPath) {
         return -1;
     }
 
-    if (0 != git_commit_create(&zCommitOid, zpRepo, "HEAD", zpMe, zpMe, "UTF-8", "_", zpTree, 1, zppParentCommit)) {
+    if (0 != git_commit_create(&zCommitOid, zpRepo, "HEAD", zpMe, zpMe, "UTF-8", zpCommitMsg, zpTree, 1, zppParentCommit)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_signature_free(zpMe);
         git_tree_free(zpTree);
