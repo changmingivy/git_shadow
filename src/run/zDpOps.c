@@ -1553,7 +1553,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                  * 则先前记录的已布署成功的主机，不再布署
                  * ==== 此处的执行效率有待优化 ====
                  */
-                if (zIsSameSig && zCheck_Bit(zpTmp_->resState, 5)) {
+                if (zIsSameSig && zCheck_Bit(zpTmp_->resState, 4)) {
                     /* 复制上一次的全部状态位 */
                     zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = zpTmp_->resState;
 
@@ -2025,104 +2025,50 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
 
 
 /*
- * 15：显示布署进度
- */
-/* 目标机初化与布署失败的错误回显 */
-// #define zErrMeta ("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
-// #define zErrMetaSiz zSizeOf("{\"ErrNo\":%d,\"FailedDetail\":\"%s\",\"FailedRevSig\":\"%s\"}")
-// static _i
-// zprint_dp_process(cJSON *zpJRoot, _i zSd) {
-//        /* ：：：留作实时进度接口备用
-//         * 顺序遍历线性列表，获取尚未确认状态的客户端ip列表 */
-//        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-//        _i zOffSet = 0;
-//        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz))
-//                && (zCnter < zRun_.p_repoVec[zRepoId]->totalHost); zCnter++) {
-//            //if (1 != zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].dpState) {
-//            if (1/* test */) {
-//                if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
-//                    zPrint_Err(0, NULL, "Convert IP num to str failed");
-//                } else {
-//                    zOffSet += snprintf(zppCommonBuf[0] + zOffSet, zBufLen - zErrMetaSiz - zOffSet, "([%s]%s)",
-//                            zIpStrAddrBuf,
-//                            '\0' == zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg);
-//
-//                    /* 未返回成功状态的目标机 IP 计数并清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-//                    zFailedHostCnt++;
-//                    zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-//                    zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
-//                }
-//            }
-//        }
-// }
-
-
-//    /* 检测执行结果，并返回失败列表 */
-//    if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->resType, 1)  /* 检查 bit[0] 是否置位 */
-//            || (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask)) {
-//        char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-//        _ui zFailedHostCnt = 0;
-//        _i zOffSet = sprintf(zpCommonBuf, "无法连接的目标机:");
-//        for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zRun_.p_repoVec[zRepoId]->totalHost); zCnter++) {
-//            if (!zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].resState, 1)
-//                    /* || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errState */) {
-//                if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
-//                    zPrint_Err(0, NULL, "Convert IP num to str failed");
-//                } else {
-//                    zOffSet += snprintf(zpCommonBuf+ zOffSet,
-//                            zBufLen - zErrMetaSiz - zOffSet,
-//                            "([%s]%s)",
-//                            zIpStrAddrBuf,
-//                            '\0' == zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg);
-//                    zFailedHostCnt++;
-//
-//                    /* 未返回成功状态的目标机IP清零，以备下次重新初始化，必须在取完对应的失败IP之后执行 */
-//                    zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr[0] = 0;
-//                    zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr[1] = 0;
-//                }
-//            }
-//        }
-//
-//        zErrNo = -23;
-//        goto zEndMark;
-//    }
-
-/*
-项目ID
-项目正式路径、路径别名
-创建日期
-是否允许布署(锁定状态)
-最近一次布署的相关信息
-    版本号
-    总状态: success/fail/in process
-    实时进度: total: 100, success: 90, failed:3, in process:7
-    开始布署的时间:
-    耗时(秒):
-    失败的目标机及原因
-    正在布署的目标机及所处阶段
-
-====>
-    S4 表示布署成功
-    S5 表示布署后动作也执行成功
-
-最近30天布署数据分析
-    布署成功率(成功的台次/总台次) 1186/1200
-    平均布署耗时(所有布署成功的目标机总耗时/总台次)
-    错误分类及占比
-
-目标机平均负载及正态分布系数(负载均衡性)数据分析
-    CPU 负载(1h/6h/12h/7d)
-    MEM 负载(1h/6h/12h/7d)
-    网络 IO 负载(1h/6h/12h/7d)
-    磁盘 IO 负载(1h/6h/12h/7d)
-    磁盘容量负载(1h/6h/12h/7d)
-*/
-
-
-/*
  * 15：布署进度实时查询接口
  * 同时包含项目元信息
  */
+/*****************************************************************
+====>[ META INFO ]<====
+id: 19
+proj_path: /home/git/miaopai
+proj_alias_path: /home/git/www
+proj_create_time: 2017-01-31 08:30:00
+permit_deploy: Yes
+
+====>[ RECENT DEPLOY INFO ]<====
+version_sig: abcdefgh12345678abcdefgh12345678abcdefgh
+result: success / fail / in process
+real_time_process_count
+	total: 200
+	success: 195
+	failed: 2
+	in_process: 3
+start_time: 2017-12-31 19:39:03
+time_spent: 20s
+
+failed_hosts: [fe80::9(permission denied)] [::1(SSH auth failed)]
+
+NOTE: (0)nothing done, (1)host init done, (2)operation of server done, (3)host has received data, but has't confirm)
+in_process_hosts: [192.168.10.2(3)] [10.2.3.4(1)] [abcd::fetf(2)] [::1(0)]
+
+====>[ DEPLOY DATA ANALYSIS (RECENT 30 DAYS) ]<====
+success_rate: 1999 / 2100
+average_time_spent: 12s
+error classification ratio
+server_err:
+net(s=>h):
+net(h=>s):
+permission:
+disk_space:
+
+====>[ HOSTS' LOAD ANALYSIS (1H/6H/12H/7D) ]<====
+cpu:
+mem:
+io/net:
+io/disk:
+disk usage:
+****************************************************************/
 static _i
 zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     _i zErrNo = 0;
@@ -2162,8 +2108,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     /* 项目创建时间 */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
         zPrint_Err(0, NULL, "DB connect failed");
-        zErrNo = -90;
-        goto zEndMark;
+        return -90;
     } else {
         snprintf(zSQLBuf, zGlobCommonBufSiz,
                 "SELECT create_time FROM proj_meta WHERE proj_id = %d", zRepoId);
@@ -2171,8 +2116,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             zPrint_Err(0, NULL, "SQL exec failed");
-            zErrNo = -91;
-            goto zEndMark;
+            return -91;
         }
 
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))
@@ -2181,7 +2125,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPrint_Err(0, NULL, "DB err: 'create_time' miss or duplicate");
-            goto zEndMark;
+            return -92;
         } else {
             zpCreatTime = zpPgRes_->tupleRes_[0].pp_fields[0];
         }
@@ -2190,9 +2134,15 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     // 目标机总数
     // zRun_.p_repoVec[zRepoId]->totalHost;
 
-    // 成功计数：无须布署的部分，初始状态即为成功，故此值预置为 totalHost - dpTotalTask
-    // zRun_.p_repoVec[zRepoId]->totalHost - zRun_.p_repoVec[zRepoId]->dpTotalTask;
-        
+    // 成功计数
+    _i zSuccessCnt = 0;
+
+    // 失败计数
+    _i zFailCnt = 0;
+
+    // 正在进行中的计数
+    _i zWaitingCnt = 0;
+
     // 项目锁定状态：Y / N
     // zRun_.p_repoVec[zRepoId]->repoLock;
 
@@ -2201,6 +2151,94 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
 
     // 开始布署的时间
     // zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
+
+    /* 检测执行结果，并返回失败列表 */
+    _i zWaitBufLen = zRun_.p_repoVec[zRepoId]->dpTotalTask * (INET6_ADDRSTRLEN + 8),
+       zErrBufLen = zRun_.p_repoVec[zRepoId]->dpTotalTask * (INET6_ADDRSTRLEN + 256);
+    char *zpWaitBuf = NULL,
+         *zpErrBuf = NULL;
+    zMem_Alloc(zpWaitBuf, char, zWaitBufLen + zErrBufLen);
+    zpErrBuf = zpWaitBuf + zErrBufLen;
+    char *zpStage = "0";
+    char zIpStrBuf[INET6_ADDRSTRLEN];
+    _i zOffSet[2] = {0};
+
+    for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
+        if (0 == zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState) {  /* 无错 */
+            if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 4)) {  /* 已确定成功 */
+                zSuccessCnt++;
+            } else {  /* 阶段性成功，即未确认完全成功 */
+                if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 3)) {  /* 目标机已收到布署内容 */
+                    zpStage = "3";
+                } else if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 2)) {  /* 服务端布署动作成功 */
+                    zpStage = "2";
+                } else if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1)) {  /* 目标机初始化成功 */
+                    zpStage = "1";
+                } else {  /* 毫无进展 */
+                    zpStage = "0";
+                }
+
+                if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr, zIpStrBuf)) {
+                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+                } else {
+                    zOffSet[0] += snprintf(zpWaitBuf + zOffSet[0], zWaitBufLen - zOffSet[0],
+                            " [%s(%s)]", zIpStrBuf, zpStage);
+                }
+            }
+        } else {  /* 有错 */
+            zFailCnt++;
+            if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr, zIpStrBuf)) {
+                zPrint_Err(0, NULL, "Convert IP num to str failed");
+            } else {
+                zOffSet[1] += snprintf(zpErrBuf + zOffSet[1], zErrBufLen - zOffSet[1],
+                        " [%s(%s)]",
+                        zIpStrBuf,
+                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg);
+            }
+        }
+    }
+
+    /* 总数减去已确定结果的，剩余的就是正在进行中的... */
+    zWaitingCnt = zRun_.p_repoVec[zRepoId]->totalHost - zSuccessCnt - zFailCnt;
+
+    /* 创建临时表 */
+    _i zTbNo = 0;
+
+    pthread_mutex_lock(& (zRun_.commonLock));
+    zTbNo = ++zRun_.p_repoVec[zRepoId]->tempTableNo;
+    pthread_mutex_unlock(& (zRun_.commonLock));
+
+    /*
+     * 截取最近 30 天的记录，生成一张临时表
+     */
+    sprintf(zSQLBuf,
+            "CREATE TABLE tmp%u as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
+            "WHERE proj_id = %d AND time_stamp > %ld",
+            zTbNo,
+            zRepoId, time(NULL) - 3600 * 24 * 30);
+
+    // 目标机总台次
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
+
+    // 布署成功的总台次
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
+
+    // 所有布署成功台次的耗时之和
+    sprintf(zSQLBuf, "SELECT sum(host_timespent) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
+
+    /* 各类错误计数 */
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[1] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[2] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[3] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[4] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[5] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[6] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[7] = '1'", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_err[8] = '1'", zTbNo);
+
+    /* 布署成功率 */
+    /* 布署平均耗时 */
+    /* 各类错误计数与占比 */
 
     // 全局布署结果
     if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
@@ -2221,116 +2259,40 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     if ('W' == zGlobRes) {
         zGlobTimeSpent = time(NULL) - zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
     } else {
-        zGlobTimeSpent = /* TODO: 取 DB 中最晚的时间戳 */ - zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
+        // 最近一次布署的最长耗时
+        sprintf(zSQLBuf,
+                "SELECT max(host_timespent) FROM tmp%u WHERE time_stamp = %ld",
+                zTbNo,
+                zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
+
+        zGlobTimeSpent = /* TODO: 取 DB 中最晚的时间戳 */0;
     }
-
-//    /* 检测执行结果，并返回失败列表 */
-//    char zIpStrAddrBuf[INET6_ADDRSTRLEN];
-//    _ui zFailedHostCnt = 0;
-//    _i zOffSet = sprintf(zpCommonBuf, "无法连接的目标机:");
-//    for (_ui zCnter = 0; (zOffSet < (zBufLen - zErrMetaSiz)) && (zCnter < zRun_.p_repoVec[zRepoId]->totalHost); zCnter++) {
-//        if (!zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].resState, 1)
-//                /* || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errState */) {
-//            if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].clientAddr, zIpStrAddrBuf)) {
-//                zPrint_Err(0, NULL, "Convert IP num to str failed");
-//            } else {
-//                zOffSet += snprintf(zpCommonBuf+ zOffSet,
-//                        zBufLen - zErrMetaSiz - zOffSet,
-//                        "([%s]%s)",
-//                        zIpStrAddrBuf,
-//                        '\0' == zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg[0] ? "" : zRun_.p_repoVec[zRepoId]->p_dpResList_[zCnter].errMsg);
-//                zFailedHostCnt++;
-//            }
-//        }
-//    }
-
-    _ui zTbNo = 0;
-
-    char zCmdBuf[256];
-    _i zIpListSiz = 0,
-       zJsonSiz = 0,
-       zHostCnt = 0;
-
-
-    /* 创建临时表 */
-    pthread_mutex_lock(& (zRun_.commonLock));
-    zTbNo = ++zRun_.p_repoVec[zRepoId]->tempTableNo;
-    pthread_mutex_unlock(& (zRun_.commonLock));
-    sprintf(zCmdBuf, "CREATE TABLE tmp%u as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
-            "WHERE proj_id = %d AND time_stamp > %ld",
-            zTbNo,
-            zRepoId, time(NULL) - 3600 * 24 * 30);
-
-    /* 布署成功率 */
-    /* 布署平均耗时 */
-    /* 各类错误计数与占比 */
-
-    // 目标机总台次
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
-
-    // 布署成功的总台次
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
-
-    // 所有布署成功台次的耗时之和
-    sprintf(zCmdBuf, "SELECT sum(host_timespent) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
-
-    /* 各类错误计数 */
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[1] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[2] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[3] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[4] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[5] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[6] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[7] = '1'", zTbNo);
-    sprintf(zCmdBuf, "SELECT count(host_ip) FROM tmp%u WHEREhost_err[8] = '1'", zTbNo);
 
     /* 删除临时表 */
-    sprintf(zCmdBuf, "DROP TABLE tmp%u", zTbNo);
+    sprintf(zSQLBuf, "DROP TABLE tmp%u", zTbNo);
 
-    if (0 > (zErrNo = zPgSQL_.exec_once(zRun_.pgConnInfo, zCmdBuf, &zpPgRes_))) {
-        zPgSQL_.res_clear(NULL, zpPgRes_);
-        return zErrNo;
-    }
-
-    if (NULL == zpPgRes_) {
-        zHostCnt = 0;
-        zIpListSiz = 1;
-    } else {
-        zHostCnt = zpPgRes_->tupleCnt;
-        zIpListSiz = (1 + INET6_ADDRSTRLEN) * zpPgRes_->tupleCnt;
-    }
-
-    zJsonSiz = 256
-        + zRun_.p_repoVec[zRepoId]->repoPathLen
-        + zIpListSiz
-        + sizeof("{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpedRev: %s\nLastDpState: %s\nTotalHost: %d\nHostIPs: %s\"}");
-
-    char zIpsBuf[zIpListSiz];
-    char zJsonBuf[zJsonSiz];
-
-    zIpsBuf[0] = '\0';
-    for (_i i = 0; i < zHostCnt; i++) {
-        strcat(zIpsBuf, " ");
-        strcat(zIpsBuf, zpPgRes_->tupleRes_[i].pp_fields[0]);
-    }
-
-    zPgSQL_.res_clear(NULL, zpPgRes_);
-
-    zJsonSiz = sprintf(zJsonBuf,
-            "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: %d\nLastHostIPs:%s\"}",
+    /****************
+     * 生成最终结果 *
+     ****************/
+    // TODO
+    char zJsonBuf[10240];
+    _i zJsonSiz = sprintf(zJsonBuf,
+            "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: \nLastHostIPs:\"}",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->p_repoPath,
             zDpLocked == zRun_.p_repoVec[zRepoId]->repoLock ? "No" : "Yes",
             '\0' == zRun_.p_repoVec[zRepoId]->lastDpSig[0] ? "_" : zRun_.p_repoVec[zRepoId]->lastDpSig,
-            zCacheDamaged == zRun_.p_repoVec[zRepoId]->repoState ? (1 == zRun_.p_repoVec[zRepoId]->dpingMark) ? "in process" : "fail" : "success",
-            zHostCnt,
-            zIpsBuf);
+            zCacheDamaged == zRun_.p_repoVec[zRepoId]->repoState ? (1 == zRun_.p_repoVec[zRepoId]->dpingMark) ? "in process" : "fail" : "success");
 
     /* 发送最终结果 */
     zNetUtils_.send_nosignal(zSd, zJsonBuf, zJsonSiz);
 
-zEndMark:
-    return zErrNo;
+    /* clean... */
+    zPgSQL_.conn_clear(zpPgConnHd_);
+    zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
+    free(zpWaitBuf);
+
+    return 0;
 }
 
 

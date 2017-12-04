@@ -120,7 +120,7 @@ zerr_vec_init(void) {
     zpErrVec[89] = "";
     zpErrVec[90] = "数据库连接失败";
     zpErrVec[91] = "SQL 命令执行失败";
-    zpErrVec[92] = "";
+    zpErrVec[92] = "SQL 执行结果错误";  /* 发生通常代表存在 BUG */
     zpErrVec[93] = "";
     zpErrVec[94] = "";
     zpErrVec[95] = "";
