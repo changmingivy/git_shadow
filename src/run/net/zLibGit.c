@@ -580,51 +580,118 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
  */
 static _i
 zgit_add_and_commit(git_repository *zpRepo, char *zpPath) {
+    _i zErrNo = 0;
     struct stat zS;
     zCheck_Negative_Return(stat(zpPath, &zS), -1);
 
-    /* get index */
     git_index* zpIndex = NULL;
+
+    git_reference *zpHead = NULL;
+    git_commit *zpParentCommit = NULL;
+
+    git_oid zTreeOid;
+    git_tree *zpTree = NULL;
+
+    const git_commit *zppParentCommit[1] = { NULL };
+    _i zParentCnt = 0;
+
+    git_signature *zpMe = NULL;
+
+    git_oid zCommitOid;
+
+    /* get index */
     if (0 != git_repository_index(&zpIndex, zpRepo)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     /* git add file */
-    _i zErrNo = 0;
     if (S_ISDIR(zS.st_mode)) {
         git_strarray zPaths;
         zPaths.strings = &zpPath;
         zPaths.count = 1;
 
-        zErrNo = git_index_add_all(zpIndex, &zPaths, GIT_INDEX_ADD_DEFAULT, NULL, NULL);
+        zErrNo = git_index_add_all(zpIndex, &zPaths, GIT_INDEX_ADD_FORCE, NULL, NULL);
     } else {
         zErrNo = git_index_add_bypath(zpIndex, zpPath);
     }
 
     if (0 != zErrNo) {
-        git_index_free(zpIndex);
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_index_free(zpIndex);
         return -1;
     }
 
     /* Write the in-memory index to disk */
-    git_index_write(zpIndex);
+    if (0 != git_index_write(zpIndex)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_index_free(zpIndex);
+        return -1;
+    }
+
+    if (0 == (zErrNo = git_repository_head(&zpHead, zpRepo))) {
+        git_commit_lookup(&zpParentCommit, zpRepo, git_reference_target(zpHead));
+
+        zParentCnt = 1;
+        zppParentCommit[0] = zpParentCommit;
+
+        git_reference_free(zpHead);
+    } else if (GIT_EUNBORNBRANCH == zErrNo) {
+        /* empty repo, do nothing... */
+    } else {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_index_free(zpIndex);
+        return -1;
+    }
+
+    if (0 != git_index_write_tree(&zTreeOid, zpIndex)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        if (NULL != zpParentCommit) {
+            git_commit_free(zpParentCommit);
+        }
+        git_index_free(zpIndex);
+        return -1;
+    }
+
+    if (0 != git_tree_lookup(&zpTree, zpRepo, &zTreeOid)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        if (NULL != zpParentCommit) {
+            git_commit_free(zpParentCommit);
+        }
+        git_index_free(zpIndex);
+        return -1;
+    }
+
+    if (0 != git_signature_now(&zpMe, "_", "_@_")) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_tree_free(zpTree);
+        if (NULL != zpParentCommit) {
+            git_commit_free(zpParentCommit);
+        }
+        git_index_free(zpIndex);
+        return -1;
+    }
+
+    if (0 != git_commit_create(&zCommitOid, zpRepo, "HEAD", zpMe, zpMe, "UTF-8", "_", zpTree, 1, zppParentCommit)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_signature_free(zpMe);
+        git_tree_free(zpTree);
+        if (NULL != zpParentCommit) {
+            git_commit_free(zpParentCommit);
+        }
+        git_index_free(zpIndex);
+        return -1;
+    }
 
     /* clean... */
     git_index_free(zpIndex);
+    if (NULL != zpParentCommit) {
+        git_commit_free(zpParentCommit);
+    }
+    git_tree_free(zpTree);
+    git_signature_free(zpMe);
 
     return 0;
-}
-
-
-/*
- * git config
- */
-static _i
-zgit_config() {
-    git_signature_now(NULL, NULL, NULL);
-
 }
 
 
