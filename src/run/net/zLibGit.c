@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 static git_repository *
 zgit_env_init(char *zpNativeRepoAddr);
@@ -26,7 +28,7 @@ static _i
 zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
 
 static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zbool_t zForceMark);
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark);
 
 static _i
 zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
@@ -128,8 +130,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
-    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
@@ -149,8 +150,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = zRefsCnt;
 
-    git_fetch_options zFetchOpts;
-    git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
+    git_fetch_options zFetchOpts = GIT_FETCH_OPTIONS_INIT;
 
     /* do the fetch */
     //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
@@ -206,8 +206,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     };
 
     /* connect to remote */
-    git_remote_callbacks zConnOpts;  // = GIT_REMOTE_CALLBACKS_INIT;
-    git_remote_init_callbacks(&zConnOpts, GIT_REMOTE_CALLBACKS_VERSION);
+    git_remote_callbacks zConnOpts = GIT_REMOTE_CALLBACKS_INIT;
     zConnOpts.credentials = zgit_cred_acquire_cb;  // 指定身份认证所用的回调函数
 
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
@@ -228,8 +227,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     zGitRefsArray.strings = zppRefs;
     zGitRefsArray.count = zRefsCnt;
 
-    git_push_options zPushOpts;  // = GIT_PUSH_OPTIONS_INIT;
-    git_push_init_options(&zPushOpts, GIT_PUSH_OPTIONS_VERSION);
+    git_push_options zPushOpts = GIT_PUSH_OPTIONS_INIT;
     zPushOpts.pb_parallelism = 1;  // 限定单个 push 动作可以使用的线程数，若指定为 0，则将与本地的CPU数量相同
 
     /* do the push */
@@ -354,32 +352,33 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
  * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
  */
 static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zbool_t zForceMark) {
-    git_reference *zpHead = NULL;
+zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark) {
+    git_reference *zpBaseRef = NULL;
     git_reference *zpNewBranch = NULL;
 
-    const git_oid *zpHeadOid = NULL;
+    const git_oid *zpBaseRefOid = NULL;
     git_commit *zpLastCommit = NULL;
 
-    /* 获取当前 HEAD 的指向 */
-    if (0 != git_repository_head(&zpHead, zpRepo)) {
+    /* 获取基准版本 BaseRev 的 ref 指向 */
+    //if (0 != git_repository_head(&zpBaseRef, zpRepo)) {
+    if (0 != git_reference_lookup(&zpBaseRef, zpRepo, NULL == zpBaseRev ? "HEAD" : zpBaseRev)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     /* 提取其 oid 对象 */
-    if (NULL == (zpHeadOid = git_reference_target(zpHead))) {
+    if (NULL == (zpBaseRefOid = git_reference_target(zpBaseRef))) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
 
-        git_reference_free(zpHead);
+        git_reference_free(zpBaseRef);
         return -1;
     }
 
     /* 获取 HEAD 的最后一次 commit  */
-    if (0 != git_commit_lookup(&zpLastCommit, zpRepo, zpHeadOid)) {
+    if (0 != git_commit_lookup(&zpLastCommit, zpRepo, zpBaseRefOid)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
 
-        git_reference_free(zpHead);
+        git_reference_free(zpBaseRef);
         return -1;
     }
 
@@ -387,12 +386,12 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, zbool_t zForce
     if (0 != git_branch_create(&zpNewBranch, zpRepo, zpBranchName, zpLastCommit, zForceMark)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
 
-        git_reference_free(zpHead);
+        git_reference_free(zpBaseRef);
         git_commit_free(zpLastCommit);
         return -1;
     }
 
-    git_reference_free(zpHead);
+    git_reference_free(zpBaseRef);
     git_commit_free(zpLastCommit);
     git_reference_free(zpNewBranch);
 
@@ -529,6 +528,105 @@ zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i
 
     return 0;
 }
+
+
+/*
+ * git init .
+ * zIsBare 置为 1/zTrue，则会初始化成 bare 库；否则就是普通库
+ */
+static git_repository *
+zgit_init(char *zpPath, zbool_t zIsBare) {
+    git_repository *zpRepo = NULL;
+
+    /* With working directory or bare */
+    if (0 != git_repository_init(&zpRepo, zpPath, zIsBare)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return NULL;
+    }
+
+    return zpRepo;
+}
+
+
+/*
+ * git clone URL/.git
+ * zpBranchName: clone 后使用的默认分支，置为 NULL 表示使用远程库的默认分支
+ * zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
+ */
+static git_repository *
+zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) {
+    git_repository *zpRepo = NULL;
+
+    git_clone_options zOpt = GIT_CLONE_OPTIONS_INIT;
+
+    zOpt.fetch_opts.callbacks.credentials = zgit_cred_acquire_cb;
+    zOpt.bare = zIsBare;
+    zOpt.checkout_branch = zpBranchName;
+
+    if (0 != git_clone(&zpRepo, zpRepoAddr, zpPath, &zOpt)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return NULL;
+    }
+
+    return zpRepo;
+}
+
+
+/*
+ * git config user.name _
+ * && git config user.email _
+ * && git add --all PATH
+ * && git commit --allow-empty -m "_"
+ */
+static _i
+zgit_add_and_commit(git_repository *zpRepo, char *zpPath) {
+    struct stat zS;
+    zCheck_Negative_Return(stat(zpPath, &zS), -1);
+
+    /* get index */
+    git_index* zpIndex = NULL;
+    if (0 != git_repository_index(&zpIndex, zpRepo)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    /* git add file */
+    _i zErrNo = 0;
+    if (S_ISDIR(zS.st_mode)) {
+        git_strarray zPaths;
+        zPaths.strings = &zpPath;
+        zPaths.count = 1;
+
+        zErrNo = git_index_add_all(zpIndex, &zPaths, GIT_INDEX_ADD_DEFAULT, NULL, NULL);
+    } else {
+        zErrNo = git_index_add_bypath(zpIndex, zpPath);
+    }
+
+    if (0 != zErrNo) {
+        git_index_free(zpIndex);
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    /* Write the in-memory index to disk */
+    git_index_write(zpIndex);
+
+    /* clean... */
+    git_index_free(zpIndex);
+
+    return 0;
+}
+
+
+/*
+ * git config
+ */
+static _i
+zgit_config() {
+    git_signature_now(NULL, NULL, NULL);
+
+}
+
 
 // /*
 //  * TO DO...

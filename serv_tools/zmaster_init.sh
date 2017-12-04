@@ -59,7 +59,6 @@ git config user.name "$zProjId"
 git config user.email "${zProjId}@${zPathOnHost}"
 git add --all .
 git commit -m "____Dp_System_Init____"
-git branch -f CURRENT
 git branch -f ${zServBranchName}  # 远程代码接收到 server${zProjId} 分支
 
 # 元数据：创建以 <项目名称>_SHADOW 命名的目录，初始化为git库

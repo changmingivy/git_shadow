@@ -1337,10 +1337,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 调用外部 SHELL 执行，便于维护
      */
     sprintf(zpCommonBuf,
-            "cd %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
-            "\\ls -a | grep -Ev '^(\\.|\\.\\.|\\.git)$' | xargs rm -rf;"
-            "git reset %s; if [[ 0 -ne $? ]]; then exit 1; fi;"
-
             "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"
             "rm -rf ./tools;"
             "cp -R ${zGitShadowPath}/tools ./;"
@@ -1348,8 +1344,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             "git commit --allow-empty -m _;"
             "git push --force %s/.git master:master_SHADOW",
 
-            zRun_.p_repoVec[zRepoId]->p_repoPath,  /* 中控机上的代码库路径 */
-            zGet_OneCommitSig(zpTopVecWrap_, zCommitId),  /* 请求布署的版本号 */
             zRun_.p_repoVec[zRepoId]->p_repoPath,
             zRun_.p_repoVec[zRepoId]->p_repoPath);
 
@@ -1608,16 +1602,13 @@ zSkipMark:;
             pthread_rwlock_wrlock(&zRun_.p_repoVec[zRepoId]->rwLock);
 
             /*
-             * 创建新的 CURRENT 分支，将强制覆盖已存的同名分支
-             */
-            if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "CURRENT", zTrue)) {
-                zPrint_Err(0, NULL, "create branch CURRENT failed");
-            }
-
-            /*
              * 以上一次成功布署的版本号为名称，创建一个新分支，用于保证回撤的绝对可行性
              */
-            if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zRun_.p_repoVec[zRepoId]->lastDpSig, zTrue)) {
+            if (0 != zLibGit_.branch_add(
+                        zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                        zRun_.p_repoVec[zRepoId]->lastDpSig,
+                        zRun_.p_repoVec[zRepoId]->lastDpSig,
+                        zTrue)) {
                 zPrint_Err(0, NULL, "create branch failed");
             }
 

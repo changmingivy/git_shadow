@@ -27,7 +27,7 @@ struct zLibGit__ {
 
     _i (* get_one_commitsig_and_timestamp) (char *, git_repository *, git_revwalk *);
 
-    _i (* branch_add) (git_repository *, char *, zbool_t);
+    _i (* branch_add) (git_repository *, char *, char *, zbool_t);
     _i (* branch_del) (git_repository *, char *);
     _i (* branch_rename) (git_repository *, char *, char *, zbool_t);
     _i (* branch_switch)(git_repository *, char *);
