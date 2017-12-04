@@ -62,15 +62,16 @@ typedef struct __zDpRes__ {
 
     /*
      * << 错误类型 >>
-     * err1 bit[0]:服务端错误
-     * err2 bit[1]:网络不通
-     * err3 bit[2]:SSH 连接认证失败
-     * err4 bit[3]:目标端磁盘容量不足
-     * err5 bit[4]:目标端权限不足
-     * err6 bit[5]:目标端文件冲突
-     * err7 bit[6]:目标端路径不存在
-     * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
-     * err9 bit[8]:目标机 IP 格式错误/无法解析
+     * err1 bit[0]: 服务端错误
+     * err2 bit[1]: server ==> host 网络不通
+     * err3 bit[2]: SSH 连接认证失败
+     * err4 bit[3]: 目标端磁盘容量不足
+     * err5 bit[4]: 目标端权限不足
+     * err6 bit[5]: 目标端文件冲突
+     * err7 bit[6]: 目标端路径不存在
+     * err8 bit[7]: 目标端收到重复布署指令(同一目标机的多个不同IP)
+     * err9 bit[8]: 目标机 IP 格式错误/无法解析
+     * err10 bit[9]: host ==> server 网络不通
      */
     _ui errState;
 
@@ -101,7 +102,7 @@ typedef struct __zDpCcur__ {
     char *p_cmd;
 
     /* SSH 认证类型：公钥或密码 */
-    zAuthType__ authType;
+    znet_auth_t authType;
 
     /* 目标机上的用户名称 */
     const char *p_userName;

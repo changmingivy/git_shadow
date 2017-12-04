@@ -4,29 +4,30 @@
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
+
 typedef enum {
     zProtoTcp = 0,
     zProtoUdp = 1,
     zProtoSctp = 3,
     zProtoNone = 4
-} zProtoType__;
+} znet_proto_t;
 
 typedef enum {
     zIpTypeV4 = 4,
     zIpTypeV6 = 6,
     zIpTypeNone = 9
-} zIpType__;
+} zip_t;
 
 typedef enum {
     zFalse = 0,
     zTrue = 1
-} zBool__;
+} zbool_t;
 
 typedef enum {
     zPubKeyAuth = 0,
     zPassWordAuth = 1,
     zNoneAuth = 3
-} zAuthType__;
+} znet_auth_t;
 
 typedef enum {
     zStr = 0,
@@ -34,7 +35,7 @@ typedef enum {
     zI64 = 2,
     zF32 = 3,
     zF64 = 4
-} zJsonValueType__;
+} zjson_value_t;
 
 
 /*

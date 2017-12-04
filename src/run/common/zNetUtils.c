@@ -12,28 +12,28 @@
 #include <poll.h>
 
 static _i
-zgenerate_serv_SD(char *zpHost, char *zpPort, zProtoType__ zProtoType);
+zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType);
 
 static _i
 ztcp_connect(char *zpHost, char *zpPort, _i zFlags);
 
 static _i
-zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType);
+zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
 
 static _i
 zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
 
 static _i
-zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType);
+zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
 
 static _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_);
 
 static _i
-zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ull *zpResOUT/* _ull[2] */);
+zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
 
 static _i
-zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zIpType__ zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
+zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
 
 struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,
@@ -51,7 +51,7 @@ struct zNetUtils__ zNetUtils_ = {
  * Option zServType: 1 for TCP, 0 for UDP.
  */
 static _i
-zgenerate_serv_SD(char *zpHost, char *zpPort, zProtoType__ zProtoType) {
+zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
     _i zSd = -1,
        zErrNo = -1;
     struct addrinfo *zpRes_ = NULL,
@@ -172,7 +172,7 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
 }
 
 static _i
-zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType) {
+zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
     _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags,
             zpAddr_,
             (NULL == zpAddr_) ? 0: ((zIpTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
@@ -186,7 +186,7 @@ zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
 }
 
 static _i
-zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zIpType__ zIpType) {
+zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
     if (NULL == zpVec_) {
         return -1;
     }
@@ -228,7 +228,7 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_)
  * inet_pton: 返回 1 表示成功，返回 0 表示指定的地址无效，返回 -1 表示指定的ip类型错误
  */
 static _i
-zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ull *zpResOUT/* _ull[2] */) {
+zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */) {
     _i zErrNo = -1;
 
     if (zIpTypeV6 == zIpType) {
@@ -255,7 +255,7 @@ zconvert_ip_str_to_bin(const char *zpStrAddr, zIpType__ zIpType, _ull *zpResOUT/
 }
 
 static _i
-zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zIpType__ zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */) {
+zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */) {
     _i zErrNo = -1;
 
     if (zIpType == zIpTypeV6) {

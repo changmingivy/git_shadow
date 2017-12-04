@@ -195,8 +195,8 @@ zssh_exec(
         zErrNo = libssh2_channel_get_exit_status(zChannel);
         if (206 == zErrNo) {
             zErrNo = -6;  /* 文件冲突 */
-        } else if (202 == zErrNo) {
-            zErrNo = -2;  /* 目标机无法连接服务端 */
+        } else if (210 == zErrNo) {
+            zErrNo = -10;  /* host ==> server 网络不通 */
         } else if (203 == zErrNo) {
             zErrNo = -3;  /* 磁盘满 */
         } else {
