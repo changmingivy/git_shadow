@@ -17,8 +17,6 @@ typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;
 
 typedef struct __zPgResTuple__ {
-    void *p_gc;  // thread garbage collection
-
     _i *p_taskCnt;
 
     char **pp_fields;

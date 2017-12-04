@@ -975,6 +975,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
             zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
 
+            /* dpingSig 预署为 lastSig */
+            strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
+
             /* 最近一次的布署结果置位 */
             zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
 
@@ -987,6 +990,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         /* 提取最近一次布署的版本号 */
         strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);
         zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
+
+        /* dpingSig 预署为 lastSig */
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
 
         /* 上一次布署的时间戳保存在 dpBaseTimeStamp 中 */
         zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
