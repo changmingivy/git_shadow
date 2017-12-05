@@ -35,7 +35,7 @@ struct zLibGit__ {
 
     git_repository * (* init) (char *, zbool_t);
     git_repository * (* clone) (char *, char *, char *, zbool_t);
-    _i (* add_and_commit) (git_repository *, char *, char *);
+    _i (* add_and_commit) (git_repository *, char *, char *, char *);
 };
 
 #endif  // #ifndef ZLIBGIT_H
