@@ -14,6 +14,7 @@
 
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <dirent.h>
 
 #include <libpq-fe.h>
 
@@ -671,6 +672,7 @@ zgenerate_cache(void *zp) {
 
 /*
  * 参数：项目基本信息
+ * @zSdToClose 作用一：子进程凭此决定是否需要关闭此套接字；作用二：用以识别是项目载入还是项目新建
  * pp_field: [0 repoId] [1 pathOnHost] [2 sourceUrl] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 static _i
@@ -757,11 +759,63 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, char, zRun_.p_repoVec[zRepoId]->maxPathLen);
 
     /* ==== 服务端创建项目 ==== */
+    struct stat zS;
+    if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS)) {
+        /* 若是项目新建，则不允许存在同名路径 */
+        if (0 > zSdToClose) {
+            zFree_Source();
+            return -36;
+        } else {
+            if ( ! S_ISDIR(zS.st_mode)) {
+                zFree_Source();
+                return -30;
+            } else {  /* 兼容旧版本 */
+                /* 全局 libgit2 Handler 初始化 */
+                zCheck_Null_Exit( zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath) );
+
+                zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse);
+
+                /* TODO：删除所有除 .git 之外的文件与目录 */
+                DIR *zpDirHandler = opendir(zRun_.p_repoVec[zRepoId]->p_repoPath);
+
+                if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
+                    zFree_Source();
+                    return -45;
+                }
+            }
+        }
+    } else {
+        /* git clone URL/.git */
+        if (0 != zLibGit_.clone(zpRepoMeta_->pp_fields[2], zRun_.p_repoVec[zRepoId]->p_repoPath, NULL, zFalse)) {
+            zFree_Source();
+            return -42;
+        }
+
+        /* git config user.name _ && git config user.email _@_ */
+        if (0 != zLibGit_.config_name_email(zRun_.p_repoVec[zRepoId]->p_repoPath)) {
+            zFree_Source();
+            return -43;
+        }
+
+        /* 全局 libgit2 Handler 初始化 */
+        zCheck_Null_Exit( zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath) );
+
+        /* 创建 ____servXXXXXXXX 分支 */
+        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse)) {
+            zFree_Source();
+            return -44;
+        }
+
+        /* 创建 ____baseXXXXXXXX 空分支 */
+        if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
+            zFree_Source();
+            return -45;
+        }
+    }
+
     // 检测路径是否已存在，加一参数区别是项目载入还是新建
     // git clone URL
     // git config user.name user.email
-    // git branch master
-    // git checkout master
     // git branch -f ____servXXXXXXXX
     // git branch -f ____baseXXXXXXXX
     // rm -rf *
@@ -806,9 +860,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 连接目标机所用的 ssh_user_name 与 ssh_port */
     strcpy(zRun_.p_repoVec[zRepoId]->sshUserName, zpRepoMeta_->pp_fields[6]);
     strcpy(zRun_.p_repoVec[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
-
-    /* 全局 libgit2 Handler 初始化 */
-    zCheck_Null_Exit( zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath) );
 
     /* ============================================================================ */
     /* ============================================================================ */
