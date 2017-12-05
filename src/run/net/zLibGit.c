@@ -576,6 +576,7 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
 
 /*
  * 提交文件至指定分支
+ * 路径名称必须是相对于 git 库根路径的
  * git config user.name _
  * && git config user.email _
  * && git add --all PATH

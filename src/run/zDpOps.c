@@ -1333,21 +1333,42 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * 布署前中控机的准备工作
-     * 调用外部 SHELL 执行，便于维护
+     * 将当前的时间戳写出到 "HookAwaker" 文件
      */
-    sprintf(zpCommonBuf,
-            "cd %s_SHADOW; if [[ 0 -ne $? ]]; then exit 1; fi;"
-            "rm -rf ./tools;"
-            "cp -R ${zGitShadowPath}/tools ./;"
-            "git add --all .;"
-            "git commit --allow-empty -m _;"
-            "git push --force %s/.git master:master_SHADOW",
+    _i zDirFd = open(zRun_.p_repoVec[zRepoId]->p_repoPath, O_RDONLY);
+    if (0 > zDirFd) {
+        zPrint_Err(errno, "", "open err");
+        zErrNo = -15;
+        goto zCleanMark;
+    }
 
-            zRun_.p_repoVec[zRepoId]->p_repoPath,
-            zRun_.p_repoVec[zRepoId]->p_repoPath);
+    _i zFd = openat(zDirFd, "HookAwaker", O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    if (0 > zFd) {
+        close(zDirFd);
+        zPrint_Err(errno, "", "openat err");
+        zErrNo = -15;
+        goto zCleanMark;
+    }
 
-    if (0 != WEXITSTATUS( system(zpCommonBuf) )) {
+    time_t zTimeStamp = time(NULL);
+    if (sizeof(time_t) != write(zFd, &zTimeStamp, sizeof(time_t))) {
+        close(zFd);
+        close(zDirFd);
+        zPrint_Err(errno, "", "write err");
+        zErrNo = -15;
+        goto zCleanMark;
+    }
+
+    close(zFd);
+    close(zDirFd);
+
+    /* 每次尝试将 master_SHADOW 分支删除，避免该分支体积过大，不必关心执行结果 */
+    zLibGit_.branch_del(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "master_SHADOW");
+
+    /*
+     * 提交到 master_SHADOW 分支，确保每次 push 都能触发 post-update 勾子
+     */
+    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "master_SHADOW", "HookAwaker", "_")) {
         zErrNo = -15;
         goto zCleanMark;
     }
