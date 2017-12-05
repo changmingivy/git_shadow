@@ -646,7 +646,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGenerate_Ssh_Cmd(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
-            "zPath=%s;zIP=%s;zPort=%s;"\
+            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
             "exec 777<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"OpsId\":0}'>&777;"\
             "if [[ \"!\" != `cat<&777` ]];then exit 210;fi;"\
@@ -657,17 +657,25 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "mkdir -p $x;"\
                 "cd $x;"\
                 "if [[ 0 -ne $? ]];then exit 206;fi;"\
-                "if [[ 97 -lt `df . | grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
+                "if [[ 97 -lt `df .|grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
-            "exec 777<>/dev/tcp/${zIP}/${zPort};"\
-            "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"%s_SHADOW/tools/post-update\"}'>&777;"\
-            "cat<&777 >${zPath}/.git/post-update;"\
-            "exec 777>&-;exec 777<&-;"\
-            "chmod 0755 ${zPath}/.git/post-update",\
+\
+            "if [[ 0 -eq `ls ${zPath}_SHADOW/notice|wc -l` ]];then;"\
+                "exec 777<>/dev/tcp/${zIP}/${zPort};"\
+                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/notice\"}'>&777;"\
+                "cat<&777 >${zPath}_SHADOW/notice;"\
+                "exec 777>&-;exec 777<&-;"\
+            "fi;"\
+\
+            "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/post-update\"}'>${zPath}/.git/post-update;"\
+            "if [[ 0 -ne $? ]];then exit 1;fi;chmod 0755 ${zPath}/.git/post-update;"\
+            "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/____req-deploy.sh\"}'>${HOME}/.____req-deploy.sh;"\
+            "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/zhost_self_deploy.sh\"}'>${zPath}_SHADOW/zhost_self_deploy.sh;",\
+            zRun_.servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
             zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port,\
-            zRepoId, zRun_.p_repoVec[zRepoId]->p_repoPath);\
+            zRepoId, zRepoId, zRepoId, zRepoId);\
 } while(0)
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\

@@ -60,7 +60,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
         # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
         if [[ 0 -lt ${zTimeStamp} ]]; then
-            zRecvContent=`${zPathOnHost}_SHADOW/tools/notice\
+            zRecvContent=`${zPathOnHost}_SHADOW/notice\
                 "${zMasterAddr}"\
                 "${zMasterPort}"\
                 "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}"`
@@ -318,9 +318,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     done
 
-
-    #### 更新开机自请布署的脚本：将弃用！
-    cp ${zPathOnHost}_SHADOW/tools/____req-deploy.sh ${HOME}/.____req-deploy.sh
 
     # 布署成功，还原权限
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update

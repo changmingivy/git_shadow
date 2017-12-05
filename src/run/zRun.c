@@ -178,6 +178,9 @@ zstart_server() {
         exit(1);
     }
 
+    /* 提取主程序自身的启动路径 */
+    zCheck_Null_Exit( getcwd(zRun_.servPath, 256) );
+
     /* 成为守护进程 */
     zNativeUtils_.daemonize("/");
 

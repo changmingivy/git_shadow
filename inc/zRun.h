@@ -423,9 +423,14 @@ struct zRun__ {
     /* 数组：指向每个项目的元信息 */
     zRepo__ *p_repoVec[zGlobRepoIdLimit];
 
-    char *p_homePath;
-    char *p_loginName;
+    /* 服务端主程序的启动根路径 */
+    char servPath[256];
 
+    /* 服务端所属用户的登陆名称与家路径 */
+    char *p_loginName;
+    char *p_homePath;
+
+    /* 服务端的公私钥存储位置 */
     char *p_SSHPubKeyPath;
     char *p_SSHPrvKeyPath;
 
