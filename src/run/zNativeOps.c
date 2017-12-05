@@ -549,13 +549,14 @@ zgenerate_cache(void *zp) {
     char zCommonBuf[256 + zRun_.p_repoVec[zpMeta_->repoId]->repoPathLen + 12];
 
     if (zIsCommitDataType == zpMeta_->dataType) {
-        zGitRevWalk__ *zpRevWalker = NULL;
-
         zpTopVecWrap_ = &(zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_);
 
-        /* use: refs/remotes/origin/master??? */
-        sprintf(zCommonBuf, "refs/heads/server%d", zpMeta_->repoId);
-        if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler, zCommonBuf, 0))) {
+        /* use: refs/remotes/origin/____serv ??? */
+        zGitRevWalk__ *zpRevWalker = NULL;
+        if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(
+                        zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
+                        "refs/heads/____serv",
+                        0))) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  /* 出现严重错误，退出程序 ? */
         } else {
@@ -826,12 +827,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             _i zLen = strlen(zpRepoMeta_->pp_fields[3]);
             _i zCnter = 0;
 
-            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/server%d") + zLen + 16];
+            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/____serv") + zLen];
             char *zpFetchRefs = zFetchRefs;
             sprintf(zFetchRefs,
-                    "+refs/heads/%s:refs/heads/server%d",
-                    zpRepoMeta_->pp_fields[3],
-                    zRepoId);
+                    "+refs/heads/%s:refs/heads/____serv",
+                    zpRepoMeta_->pp_fields[3]);
 
             git_repository *zpGitRepoHandler = zRun_.p_repoVec[zRepoId]->p_gitRepoHandler;  /* 1、留存 git 句柄 */
             chdir(zRun_.p_repoVec[zRepoId]->p_repoPath);  /* 2、切换至项目路径下 */
@@ -841,7 +841,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
                     zCnter++;
                     if (5 < zCnter) {  /* 连续失败超过 5 次，删除本地分支，重新拉取 */
-                        zLibGit_.branch_del(zpGitRepoHandler, /**/zpFetchRefs + zLen + sizeof("+refs/heads/:refs/heads/") - 1/**/);
+                        zLibGit_.branch_del(zpGitRepoHandler, "serv");
                     }
 
                     zPrint_Err(0, NULL, "!!!WARNING!!! code sync failed");
@@ -1183,13 +1183,15 @@ zrefresh_commit_cache(_i zRepoId) {
  */
 static void *
 zcode_sync(void *zp __attribute__ ((__unused__))) {
+    char zCommonBuf[64] = {'\0'};
 zLoop:
     for (_i i = zRun_.maxRepoId; i > 0; i--) {
         if (NULL != zRun_.p_repoVec[i] && 'Y' == zRun_.p_repoVec[i]->initFinished) {
             /* get new revs */
-            char zCommonBuf[64] = {'\0'};
-            sprintf(zCommonBuf, "refs/heads/server%d", i);
-            zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zRun_.p_repoVec[i]->p_gitRepoHandler, zCommonBuf, 0);
+            zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                    zRun_.p_repoVec[i]->p_gitRepoHandler,
+                    "refs/heads/____serv",
+                    0);
 
             if (NULL == zpRevWalker) {
                 continue;
@@ -1206,6 +1208,9 @@ zLoop:
                     pthread_rwlock_unlock(&(zRun_.p_repoVec[i]->rwLock));
                 };
             }
+
+            /* 每次有写入内容，都需要复位 */
+            zCommonBuf[0] = '\0';
         }
     }
 

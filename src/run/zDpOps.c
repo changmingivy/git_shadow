@@ -869,7 +869,7 @@ zdp_ccur(void *zp) {
     }
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/master:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+    sprintf(zpGitRefs[0], "+refs/heads/____serv:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
@@ -878,7 +878,7 @@ zdp_ccur(void *zp) {
             zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
 
-    sprintf(zpGitRefs[1], "+refs/heads/master_SHADOW:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
+    sprintf(zpGitRefs[1], "+refs/heads/____shadow:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
@@ -1370,13 +1370,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     close(zFd);
     close(zDirFd);
 
-    /* 每次尝试将 master_SHADOW 分支删除，避免该分支体积过大，不必关心执行结果 */
-    zLibGit_.branch_del(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "master_SHADOW");
+    /* 每次尝试将 ____shadow 分支删除，避免该分支体积过大，不必关心执行结果 */
+    zLibGit_.branch_del(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____shadow");
 
     /*
-     * 提交到 master_SHADOW 分支，确保每次 push 都能触发 post-update 勾子
+     * 提交到 ____shadow 分支，确保每次 push 都能触发 post-update 勾子
      */
-    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "master_SHADOW", "HookAwaker", "_")) {
+    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____shadow", "HookAwaker", "_")) {
         zErrNo = -15;
         goto zCleanMark;
     }
