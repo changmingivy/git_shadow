@@ -51,6 +51,9 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
 static _i
 zgit_add_and_commit(git_repository *zpRepo, char *zpRefName, char *zpPath, char *zpCommitMsg);
 
+static _i
+zgit_config_name_and_email(char *zpRepoPath);
+
 extern struct zRun__ zRun_;
 
 
@@ -73,7 +76,9 @@ struct zLibGit__ zLibGit_ = {
 
     .init = zgit_init,
     .clone = zgit_clone,
-    .add_and_commit = zgit_add_and_commit
+    .add_and_commit = zgit_add_and_commit,
+
+    .config_name_email = zgit_config_name_and_email
 };
 
 /* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
@@ -710,6 +715,38 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpRefName/*branch name*/, char
     git_tree_free(zpTree);
     git_signature_free(zpMe);
 
+    return 0;
+}
+
+
+/*
+ * @param zpRepoPath 源库路径
+ * 功能等同于：git config user.name = "_" && git config user.email = "_@_"
+ */
+static _i
+zgit_config_name_and_email(char *zpRepoPath) {
+    char zConfPathBuf[strlen(zpRepoPath) + sizeof("/.git/config")];
+    sprintf(zConfPathBuf, "%s/.git/config", zpRepoPath);
+
+    git_config *zpConf = NULL;
+    if (0 != git_config_open_ondisk(&zpConf, zConfPathBuf)) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        return -1;
+    }
+
+    if (0 != git_config_set_string(zpConf, "user.name", "_")) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_config_free(zpConf);
+        return -1;
+    }
+
+    if (0 != git_config_set_string(zpConf, "user.email", "_@_")) {
+        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        git_config_free(zpConf);
+        return -1;
+    }
+
+    git_config_free(zpConf);
     return 0;
 }
 

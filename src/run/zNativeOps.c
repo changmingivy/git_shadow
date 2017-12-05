@@ -551,11 +551,11 @@ zgenerate_cache(void *zp) {
     if (zIsCommitDataType == zpMeta_->dataType) {
         zpTopVecWrap_ = &(zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_);
 
-        /* use: refs/remotes/origin/____serv ??? */
+        /* use: refs/remotes/origin/____servXXXXXXXX ??? */
         zGitRevWalk__ *zpRevWalker = NULL;
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(
                         zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
-                        "refs/heads/____serv",
+                        "refs/heads/____servXXXXXXXX",
                         0))) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
             exit(1);  /* 出现严重错误，退出程序 ? */
@@ -756,31 +756,43 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, char, zRun_.p_repoVec[zRepoId]->maxPathLen);
 
-    /* 调用外部 SHELL 执行检查和创建，便于维护 */
-    char zCommonBuf[zGlobCommonBufSiz + zRun_.p_repoVec[zRepoId]->repoPathLen];
-    sprintf(zCommonBuf,
-            "sh ${zGitShadowPath}/serv_tools/zmaster_init.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
-            zRun_.p_repoVec[zRepoId]->repoId,
-            zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
-            zpRepoMeta_->pp_fields[2],
-            zpRepoMeta_->pp_fields[3],
-            zpRepoMeta_->pp_fields[4]);
+    /* ==== 服务端创建项目 ==== */
+    // 检测路径是否已存在，加一参数区别是项目载入还是新建
+    // git clone URL
+    // git config user.name user.email
+    // git branch master
+    // git checkout master
+    // git branch -f ____servXXXXXXXX
+    // git branch -f ____baseXXXXXXXX
+    // rm -rf *
+    // 将空内容提交到 base 分支
+    //
 
-    /*
-     * system 返回的是与 waitpid 中的 status 一样的值，
-     * 需要用宏 WEXITSTATUS 提取真正的错误码
-     */
-    zErrNo = WEXITSTATUS( system(zCommonBuf) );
-    if (255 == zErrNo) {
-        zFree_Source();
-        return -36;
-    } else if (254 == zErrNo) {
-        zFree_Source();
-        return -33;
-    } else if (253 == zErrNo) {
-        zFree_Source();
-        return -38;
-    }
+    //    /* 调用外部 SHELL 执行检查和创建，便于维护 */
+    //    char zCommonBuf[zGlobCommonBufSiz + zRun_.p_repoVec[zRepoId]->repoPathLen];
+    //    sprintf(zCommonBuf,
+    //            "sh ${zGitShadowPath}/serv_tools/zmaster_init.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
+    //            zRun_.p_repoVec[zRepoId]->repoId,
+    //            zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
+    //            zpRepoMeta_->pp_fields[2],
+    //            zpRepoMeta_->pp_fields[3],
+    //            zpRepoMeta_->pp_fields[4]);
+
+    //    /*
+    //     * system 返回的是与 waitpid 中的 status 一样的值，
+    //     * 需要用宏 WEXITSTATUS 提取真正的错误码
+    //     */
+    //    zErrNo = WEXITSTATUS( system(zCommonBuf) );
+    //    if (255 == zErrNo) {
+    //        zFree_Source();
+    //        return -36;
+    //    } else if (254 == zErrNo) {
+    //        zFree_Source();
+    //        return -33;
+    //    } else if (253 == zErrNo) {
+    //        zFree_Source();
+    //        return -38;
+    //    }
 
     /*
      * PostgreSQL 中以 char(1) 类型存储
@@ -827,10 +839,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             _i zLen = strlen(zpRepoMeta_->pp_fields[3]);
             _i zCnter = 0;
 
-            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/____serv") + zLen];
+            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/____servXXXXXXXX") + zLen];
             char *zpFetchRefs = zFetchRefs;
             sprintf(zFetchRefs,
-                    "+refs/heads/%s:refs/heads/____serv",
+                    "+refs/heads/%s:refs/heads/____servXXXXXXXX",
                     zpRepoMeta_->pp_fields[3]);
 
             git_repository *zpGitRepoHandler = zRun_.p_repoVec[zRepoId]->p_gitRepoHandler;  /* 1、留存 git 句柄 */
@@ -968,7 +980,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 以空分支的版本号作为最近一次布署的版本号...
      */
     if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-        sprintf(zCommonBuf, "refs/heads/____base.XXXXXXXX");
+        sprintf(zCommonBuf, "refs/heads/____baseXXXXXXXX");
         zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zCommonBuf, 0);
         if (NULL != zpRevWalker && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
             /* 提取最近一次布署的版本号 */
@@ -983,7 +995,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
             zLibGit_.destroy_revwalker(zpRevWalker);
         } else {
-            zPrint_Err(0, NULL, "read revSig from branch '____base.XXXXXXXX' failed");
+            zPrint_Err(0, NULL, "read revSig from branch '____baseXXXXXXXX' failed");
             exit(1);
         }
     } else {
@@ -1190,7 +1202,7 @@ zLoop:
             /* get new revs */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                     zRun_.p_repoVec[i]->p_gitRepoHandler,
-                    "refs/heads/____serv",
+                    "refs/heads/____servXXXXXXXX",
                     0);
 
             if (NULL == zpRevWalker) {
