@@ -172,7 +172,9 @@ zexit_clean(void) {
 
 static void
 zstart_server() {
-    /* 检查 pgSQL 运行环境是否是线程安全的 */
+    /*
+     * 检查 pgSQL 运行环境是否是线程安全的
+     */
     if (zFalse == zPgSQL_.thread_safe_check()) {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
@@ -184,7 +186,9 @@ zstart_server() {
      */
     zCheck_Null_Exit( getcwd(zRun_.servPath, 256) );
 
-    /* 转换为守护进程 */
+    /*
+     * 转换为后台守护进程
+     */
     zNativeUtils_.daemonize("/");
 
     /*
@@ -219,7 +223,10 @@ zstart_server() {
     /* 扫描所有项目库并初始化之 */
     zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
 
-    /* 定时扩展新的 pgSQL 日志分区表及清理旧的分区表 */
+    /*
+     * 定时扩展新的 pgSQL 日志分区表
+     * 及清理旧的分区表
+     */
     zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
     /* 索引范围：0 至 zServHashSiz - 1 */
@@ -243,7 +250,10 @@ zstart_server() {
     /* 返回的 socket 已经做完 bind 和 listen */
     _i zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
 
-    /* 会传向新线程，使用静态变量；使用数组防止负载高时造成线程参数混乱 */
+    /*
+     * 会传向新线程，使用静态变量
+     * 使用数组防止负载高时造成线程参数混乱
+     */
     static _i zSd[64] = {0};
     for (_ui zCnter = 0;; zCnter++) {
         if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
@@ -270,7 +280,10 @@ zops_route(void *zpParam) {
        zDataLen = -1,
        zDataBufSiz = zGlobCommonBufSiz;
 
-    /* 若收到的数据量很大，直接一次性扩展为 1024 倍的缓冲区，以简化逻辑 */
+    /*
+     * 若收到的数据量很大，
+     * 直接一次性扩展为 1024 倍的缓冲区
+     */
     if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
         zDataBufSiz *= 1024;
         zMem_Alloc(zpDataBuf, char, zDataBufSiz);
@@ -278,7 +291,10 @@ zops_route(void *zpParam) {
         zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
 
-    /* 最短的json字符串：{"a":}，6 字节 */
+    /*
+     * 最短的 json 字符串：{"a":}
+     * 长度合计 6 字节
+     */
     if (zBytes(6) > zDataLen) {
         zPrint_Err(errno, NULL, "recvd data too short(< 6bytes)");
         goto zMarkEnd;
@@ -301,7 +317,10 @@ zops_route(void *zpParam) {
     }
     cJSON_Delete(zpJRoot);
 
-    /* 成功状态在下层函数中回复，通用的错误状态返回至此处统一处理 */
+    /*
+     * 成功状态及特殊的错误信息在执行函数中直接回复
+     * 通用的错误状态返回至此处统一处理
+     */
     if (0 > zErrNo) {
         if (-1 == zErrNo) {
             fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
