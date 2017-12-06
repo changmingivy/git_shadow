@@ -2047,59 +2047,6 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
 /*
  * 15：布署进度实时查询接口，同时包含项目元信息，示例如下：
  */
-/*****************************************************************
- * ====>[ META INFO ]<====
- * id: 19
- * proj_path: /home/git/miaopai
- * proj_alias_path: /home/git/www
- * proj_create_time: 2017-01-31 08:30:00
- * permit_deploy: Yes
- *
- * ====>[ RECENT DEPLOY INFO ]<====
- * version_sig: abcdefgh12345678abcdefgh12345678abcdefgh
- * result: success / fail / in process
- * start_time: 2017-12-31 19:39:03
- * time_spent: 20s
- *
- * real_time_process_count
- *     total: 200
- *     success: 195
- *     failed: 2
- *     in_process: 3
- *
- * failed_hosts:
- *     [fe80::9(permission denied)]
- *     [::1(SSH auth failed)]
- *
- * in_process_hosts:
- * NOTE: (0)nothing done, (1)host init done, (2)operation of server done, (3)host has received data, but has't do final confirm)
- *     [192.168.10.2(3)]
- *     [10.2.3.4(1)]
- *     [abcd::fetf(2)]
- *     [::1(0)]
- *
- * ====>[ DEPLOY DATA ANALYSIS (RECENT 30 DAYS) ]<====
- * success_rate: 1999 / 2100
- * average_time_spent(success only): 12s
- *
- * error classification
- *     total: 18
- *     server_err: 1
- *     net(server => host): 5
- *     net(host => server): 7
- *     host_load: 1
- *     host_permission: 1
- *     host_disk_space: 1
- *     host_file_conflict: 1
- *     time_out: 1
- *
- * ====>[ HOSTS' LOAD ANALYSIS (1H/6H/12H/7D) ]<====
- * cpu: TODO
- * mem: TODO
- * io/net: TODO
- * io/disk: TODO
- * disk usage: TODO
-****************************************************************/
 //#define zSQL_Exec(zpPgConnHd_, zpPgResHd_, zpPgRes_, zSQLBuf) do {
 #define zSQL_Exec() do {\
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {\
@@ -2349,11 +2296,124 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
         zPrint_Err(0, NULL, "SQL exec failed");
         return -91;
     }
+
     zPgSQL_.res_clear(zpPgResHd_, NULL);
+    zPgSQL_.conn_clear(zpPgConnHd_);
 
     /****************
      * 生成最终结果 *
      ****************/
+/********** ==== 样例 ==== *****************
+ * {
+ *   "ProjMeta": {
+ *     "id": 9,
+ *     "path": "/home/git/miaopai",
+ *     "AliasPath": "/home/git/www",
+ *     "CreatedTime": "2017-10-01 09:30:00",  // 置于 zRepo__ 中
+ *     "PermitDp": "Yes"
+ *   },
+ *   "RecentDpInfo": {
+ *     "DataType": 0,
+ *     "RevId": 3,
+ *     "CacheId": 1561000100,
+ *     "result": "in_process",
+ *     "TimeStamp": 1561000101,
+ *     "TimeSpent": 10,
+ *     "process": {
+ *       "total": 200,
+ *       "success": 189,
+ *       "fail": {
+ *         "cnt": 8,
+ *         "detail": {
+ *           "NetServToHost": [
+ *             "::1",
+ *             "10.1.2.9"
+ *           ],
+ *           "NetHostToServ": [
+ *
+ *           ],
+ *           "NetAuth": [
+ *
+ *           ],
+ *           "HostDisk": [
+ *
+ *           ],
+ *           "HostLoad": [
+ *             "fec0::8",
+ *             "127.0.0.1",
+ *             "0.0.0.0"
+ *           ],
+ *           "HostPermission": [
+ *             "abcd::1:2"
+ *           ],
+ *           "HostFileConflict": [
+ *             "1.1.1.1"
+ *           ],
+ *           "unknown": [
+ *
+ *           ]
+ *         }
+ *       },
+ *       "InProcess": {
+ *         "cnt": 3,
+ *         "StageIn": {
+ *           "HostInit": [
+ *             "172.0.0.9"
+ *           ],
+ *           "ServDpOps": [
+ *             "2.3.4.5"
+ *           ],
+ *           "HostRecvWaiting": [
+ *             "1:2::f"
+ *           ],
+ *           "HostConfirmWaiting": [
+ *
+ *           ]
+ *         }
+ *       }
+ *     }
+ *   },
+ *   "DpDataAnalysis": {
+ *     "SuccessRate": 99.99,
+ *     "AvgTimeSpent": 12,
+ *     "ErrClassification": {
+ *       "total": 10,
+ *       "NetServToHost": 1,
+ *       "NetHostToServ": 1,
+ *       "NetAuth": 2,
+ *       "HostDisk": 1,
+ *       "HostLoad": 1,
+ *       "HostPermission": 1,
+ *       "HostFileConflict": 3,
+ *       "unknown": 0
+ *     }
+ *   },
+ *   "HostDataAnalysis": {
+ *     "cpu": {
+ *       "AvgLoad": 56.00,
+ *       "LoadBalance": 1.51
+ *     },
+ *     "mem": {
+ *       "AvgLoad": 56.00,
+ *       "LoadBalance": 1.51
+ *     },
+ *     "IO/Net": {
+ *       "AvgLoad": 56.00,
+ *       "LoadBalance": 1.51
+ *     },
+ *     "IO/Disk": {
+ *       "AvgLoad": 56.00,
+ *       "LoadBalance": 1.51
+ *     },
+ *     "DiskUsage": {
+ *       "Current": 70.00,
+ *       "Max": 90.01,
+ *       "Avg": 56.00
+ *     }
+ *   }
+ * }
+ *
+*********************************/
     // 项目路径与别名
     // zRun_.p_repoVec[zRepoId]->p_repoPath;
     // zRun_.p_repoVec[zRepoId]->p_repoAliasPath;
@@ -2375,20 +2435,15 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     /* 各类错误计数与占比 */
 
     // !!!!TODO
-    char zJsonBuf[10240];
-    _i zJsonSiz = sprintf(zJsonBuf,
-            "{\"ErrNo\":0,\"content\":\"Id %d\nPath: %s\nPermitDp: %s\nLastDpRev: %s\nLastDpResult: %s\nLastHostCnt: \nLastHostIPs:\"}",
-            zRepoId,
-            zRun_.p_repoVec[zRepoId]->p_repoPath,
-            zDpLocked == zRun_.p_repoVec[zRepoId]->repoLock ? "No" : "Yes",
-            '\0' == zRun_.p_repoVec[zRepoId]->lastDpSig[0] ? "_" : zRun_.p_repoVec[zRepoId]->lastDpSig,
-            zCacheDamaged == zRun_.p_repoVec[zRepoId]->repoState ? (1 == zRun_.p_repoVec[zRepoId]->dpingMark) ? "in process" : "fail" : "success");
+    char zResBuf[10240];
+    _i zResSiz = sprintf(zResBuf,
+            "{\"ErrNo\":0,\"content\":\"\"}",
+            );
 
     /* 发送最终结果 */
-    zNetUtils_.send_nosignal(zSd, zJsonBuf, zJsonSiz);
+    zNetUtils_.send_nosignal(zSd, zResBuf, zResSiz);
 
     /* clean... */
-    zPgSQL_.conn_clear(zpPgConnHd_);
     free(zpWaitBuf);
 
     return 0;
