@@ -125,10 +125,11 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
 
     zset_nonblocking(zSd);
 
+    errno = 0;
     if (0 == connect(zSd, zpAddr_, (AF_INET6 == zIpFamily) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))) {
         zset_blocking(zSd);  /* 连接成功后，属性恢复为阻塞 */
         return zSd;
-    } else {  /* 多线程环境检查 errno == EINPROGRESS 也无意义 */
+    } else if (EINPROGRESS == errno) {
         struct pollfd zWd_ = {zSd, POLLIN | POLLOUT, -1};
         /*
          * poll 出错返回 -1，超时返回 0，
@@ -139,6 +140,8 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
             zset_blocking(zSd);  /* 连接成功后，属性恢复为阻塞 */
             return zSd;
         }
+    } else {
+        zPrint_Err(errno, NULL, "connect err");
     }
 
     /* 已超时或出错 */

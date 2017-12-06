@@ -760,6 +760,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* ==== 服务端创建项目 ==== */
     struct stat zS;
+    DIR *zpDIR = NULL;
+    struct dirent *zpItem = NULL;
     if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS)) {
         /* 若是项目新建，则不允许存在同名路径 */
         if (0 > zSdToClose) {
@@ -775,8 +777,24 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
                 zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse);
 
-                /* TODO：删除所有除 .git 之外的文件与目录 */
-                DIR *zpDirHandler = opendir(zRun_.p_repoVec[zRepoId]->p_repoPath);
+                /*
+                 * 删除所有除 .git 之外的文件与目录
+                 * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
+                 */
+                errno = 0;
+                zCheck_Null_Exit(zpDIR = opendir(zRun_.p_repoVec[zRepoId]->p_repoPath));
+                while (NULL != (zpItem = readdir(zpDIR))) {
+                    if (DT_DIR == zpItem->d_type) {
+                        if (0 != strcmp(".git", zpItem->d_name)
+                                && 0 != strcmp(".", zpItem->d_name)
+                                && 0 != strcmp("..", zpItem->d_name)) {
+                            zCheck_Negative_Exit(zNativeUtils_.path_del(zpItem->d_name));
+                        }
+                    } else {
+                        zCheck_Negative_Exit(unlink(zpItem->d_name));
+                    }
+                }
+                zCheck_NotZero_Exit(errno);
 
                 if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
                     zFree_Source();
@@ -806,47 +824,31 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             return -44;
         }
 
-        /* 创建 ____baseXXXXXXXX 空分支 */
+        /*
+         * 创建 ____baseXXXXXXXX 空分支
+         * 删除所有除 .git 之外的文件与目录
+         * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
+         */
+        errno = 0;
+        zCheck_Null_Exit(zpDIR = opendir(zRun_.p_repoVec[zRepoId]->p_repoPath));
+        while (NULL != (zpItem = readdir(zpDIR))) {
+            if (DT_DIR == zpItem->d_type) {
+                if (0 != strcmp(".git", zpItem->d_name)
+                        && 0 != strcmp(".", zpItem->d_name)
+                        && 0 != strcmp("..", zpItem->d_name)) {
+                    zCheck_Negative_Exit(zNativeUtils_.path_del(zpItem->d_name));
+                }
+            } else {
+                zCheck_Negative_Exit(unlink(zpItem->d_name));
+            }
+        }
+        zCheck_NotZero_Exit(errno);
+
         if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
             zFree_Source();
             return -45;
         }
     }
-
-    // 检测路径是否已存在，加一参数区别是项目载入还是新建
-    // git clone URL
-    // git config user.name user.email
-    // git branch -f ____servXXXXXXXX
-    // git branch -f ____baseXXXXXXXX
-    // rm -rf *
-    // 将空内容提交到 base 分支
-    //
-
-    //    /* 调用外部 SHELL 执行检查和创建，便于维护 */
-    //    char zCommonBuf[zGlobCommonBufSiz + zRun_.p_repoVec[zRepoId]->repoPathLen];
-    //    sprintf(zCommonBuf,
-    //            "sh ${zGitShadowPath}/serv_tools/zmaster_init.sh \"%d\" \"%s\" \"%s\" \"%s\" \"%s\"",
-    //            zRun_.p_repoVec[zRepoId]->repoId,
-    //            zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
-    //            zpRepoMeta_->pp_fields[2],
-    //            zpRepoMeta_->pp_fields[3],
-    //            zpRepoMeta_->pp_fields[4]);
-
-    //    /*
-    //     * system 返回的是与 waitpid 中的 status 一样的值，
-    //     * 需要用宏 WEXITSTATUS 提取真正的错误码
-    //     */
-    //    zErrNo = WEXITSTATUS( system(zCommonBuf) );
-    //    if (255 == zErrNo) {
-    //        zFree_Source();
-    //        return -36;
-    //    } else if (254 == zErrNo) {
-    //        zFree_Source();
-    //        return -33;
-    //    } else if (253 == zErrNo) {
-    //        zFree_Source();
-    //        return -38;
-    //    }
 
     /*
      * PostgreSQL 中以 char(1) 类型存储
