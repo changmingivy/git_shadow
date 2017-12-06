@@ -10,6 +10,8 @@
 #include <time.h>
 #include <errno.h>
 
+#define cJSON_V(zpJRoot, zpValueName) cJSON_GetObjectItemCaseSensitive((zpJRoot), (zpValueName))
+
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
 
@@ -85,18 +87,6 @@ struct zDpOps__ zDpOps_ = {
 
     .pang = zpang
 };
-
-
-#define cJSON_V(zpJRoot, zpValueName) cJSON_GetObjectItemCaseSensitive((zpJRoot), (zpValueName))
-
-
-/*
- * 0: 测试函数
- */
-_i
-ztest_conn(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((__unused__))) {
-    return -126;
-}
 
 
 /*

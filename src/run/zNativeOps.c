@@ -616,7 +616,7 @@ zgenerate_cache(void *zp) {
             zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(41));
             /*
              * 存储 RevSig 的 SQL 数据类型是 char(40)，只会存数据正文，不存 '\0'
-             * 使用 libpq 取出来的值是41位，最后又会追加一个 '\0'
+             * 使用 libpq 取出来的值是 41 位，最后又会追加一个 '\0'
              */
             strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_[zCnter].pp_fields[0]);
             strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_[zCnter].pp_fields[1]);
@@ -1323,7 +1323,7 @@ zLoop:
 
 /*
  * 定时扩展日志表分区
- * 每天尝试创建之后 10 天的分区表
+ * 每天尝试创建之后 10 天的分区表，并删除 30 天之前的表
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
 void *
@@ -1350,11 +1350,26 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
                 continue;
             }
 
+            /* 创建之后 10 天的分区表 */
             for (zId = 0; zId < 10; zId ++) {
                 sprintf(zCmdBuf,
                         "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                         "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                         zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
+
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
+                    zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+                    continue;
+                } else {
+                    zPgSQL_.res_clear(zpPgResHd_, NULL);
+                }
+            }
+
+            /* 清除 30 天之前的分区表 */
+            for (zId = 0; zId < 10; zId ++) {
+                sprintf(zCmdBuf,
+                        "DROP TABLE IF EXISTS dp_log_%d_%d",
+                        zRepoId, zBaseId - zId - 30);
 
                 if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
                     zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
