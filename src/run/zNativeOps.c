@@ -1016,6 +1016,37 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         }
     }
 
+    /*
+     * 提取项目创建时间
+     */
+    sprintf(zCommonBuf,
+            "SELECT create_time FROM proj_meta WHERE proj_id = %d", zRepoId);
+
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
+        zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+        zPrint_Err(0, NULL, "SQL exec failed");
+        exit(1);
+    }
+
+    if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))
+            || 1 != zpPgRes_->tupleCnt
+            || 1 != zpPgRes_->fieldCnt) {
+        zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
+        zPrint_Err(0, NULL, "DB err: 'create_time' miss or duplicate");
+        exit(1);
+    }
+
+    time_t zCreatedTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+    struct tm *zpCreatedTM_ = localtime( & zCreatedTimeStamp);
+    sprintf(zRun_.p_repoVec[zRepoId]->createdTime, "%d-%d-%d %d:%d:%d",
+            zpCreatedTM_->tm_year + 1900,
+            zpCreatedTM_->tm_mon + 1,  /* Month (0-11) */
+            zpCreatedTM_->tm_mday,
+            zpCreatedTM_->tm_hour,
+            zpCreatedTM_->tm_min,
+            zpCreatedTM_->tm_sec);
+
     /******************************
      * 获取最近一次布署的相关信息 *
      ******************************/

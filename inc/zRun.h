@@ -72,6 +72,7 @@ typedef struct __zDpRes__ {
      * err8 bit[7]: 目标端收到重复布署指令(同一目标机的多个不同IP)
      * err9 bit[8]: 目标机 IP 格式错误/无法解析
      * err10 bit[9]: host ==> server 网络不通
+     * err11 bit[10]: 目标端负载过高
      */
     _ui errState;
 
@@ -208,6 +209,9 @@ typedef struct __zCacheMeta__ {
  * 用于存放每个项目的专用元信息
  */
 typedef struct __zRepo__ {
+    /* 项目创建时间，格式：2016-12-01 09:29:00 */
+    char createdTime[24];
+
     /* 项目 ID */
     _i repoId;
 
