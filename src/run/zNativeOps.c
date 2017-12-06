@@ -681,7 +681,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
     _i zRepoId = 0,
-       zErrNo = 0,
        zStrLen = 0;
     _c zNeedPull = -1;
 
@@ -690,6 +689,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
+
+    char zCommonBuf[zGlobCommonBufSiz];
 
     /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
@@ -1033,9 +1034,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 以空分支的版本号作为最近一次布署的版本号...
      */
     if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-        sprintf(zCommonBuf, "refs/heads/____baseXXXXXXXX");
-        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zCommonBuf, 0);
-        if (NULL != zpRevWalker && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                "refs/heads/____baseXXXXXXXX",
+                0);
+        if (NULL != zpRevWalker
+                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
             /* 提取最近一次布署的版本号 */
             strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
             zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
