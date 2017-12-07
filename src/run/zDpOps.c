@@ -2447,13 +2447,8 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     /****************
      * 生成最终结果 *
      ****************/
-    /* 布署成功率 */
-    /* 布署平均耗时 */
-    /* 各类错误计数与占比 */
-
-    // !!!!TODO
     char zResBuf[8192];
-    _i zResSiz = sprintf(zResBuf,
+    _i zResSiz = snprintf(zResBuf, 8192,
             "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\",\"PermitDp\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->p_repoPath,

@@ -600,8 +600,8 @@ zgenerate_cache(void *zp) {
     char zTimeStampVec[16 * zCacheSiz];
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zCacheMeta__ *zpMeta_ = (zCacheMeta__ *) zp;
-    _i zCnter = 0,
-       zVecDataLen = 0;
+    _i zVecDataLen = 0,
+       i = 0;
     time_t zTimeStamp = 0;
 
     /* 计算本函数需要用到的最大 BufSiz */
@@ -617,19 +617,19 @@ zgenerate_cache(void *zp) {
                         "refs/heads/____servXXXXXXXX",
                         0))) {
             zPrint_Err(0, NULL, "\n!!! git repo ERROR !!!\n");
-            exit(1);  /* 出现严重错误，退出程序 ? */
+            return (void *) -41;
         } else {
-            for (zCnter = 0; zCnter < zCacheSiz; zCnter++) {
-                zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(44));
+            for (i = 0; i < zCacheSiz; i++) {
+                zpRevSig[i] = zalloc_cache(zpMeta_->repoId, zBytes(44));
                 if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(
-                                zpRevSig[zCnter],
+                                zpRevSig[i],
                                 zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
                                 zpRevWalker))
                         &&
-                        0 != strcmp(zRun_.p_repoVec[zpMeta_->repoId]->lastDpSig, zpRevSig[zCnter])) {
-                    sprintf(zTimeStampVec + 16 * zCnter, "%ld", zTimeStamp);
+                        0 != strcmp(zRun_.p_repoVec[zpMeta_->repoId]->lastDpSig, zpRevSig[i])) {
+                    sprintf(zTimeStampVec + 16 * i, "%ld", zTimeStamp);
                 } else {
-                    zpRevSig[zCnter] = NULL;
+                    zpRevSig[i] = NULL;
                     break;
                 }
             }
@@ -638,7 +638,7 @@ zgenerate_cache(void *zp) {
         }
 
         /* 存储的是实际的对象数量 */
-        zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = zCnter;
+        zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = i;
 
     } else if (zIsDpDataType == zpMeta_->dataType) {
         zPgResHd__ *zpPgResHd_ = NULL;
@@ -657,8 +657,8 @@ zgenerate_cache(void *zp) {
 
             if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_);
-                zPrint_Err(0, NULL, "!!! FATAL !!!");
-                exit(1);
+                zPrint_Err(0, NULL, "SQL exec err");
+                return (void *) -91;
             }
         }
 
@@ -670,47 +670,51 @@ zgenerate_cache(void *zp) {
         }
         zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
 
-        for (zCnter = 0; zCnter < zpTopVecWrap_->vecSiz; zCnter++) {
-            zpRevSig[zCnter] = zalloc_cache(zpMeta_->repoId, zBytes(41));
+        for (i = 0; i < zpTopVecWrap_->vecSiz; i++) {
+            zpRevSig[i] = zalloc_cache(zpMeta_->repoId, zBytes(41));
             /*
              * 存储 RevSig 的 SQL 数据类型是 char(40)，只会存数据正文，不存 '\0'
              * 使用 libpq 取出来的值是 41 位，最后又会追加一个 '\0'
              */
-            strcpy(zpRevSig[zCnter], zpPgRes_->tupleRes_[zCnter].pp_fields[0]);
-            strcpy(zTimeStampVec + 16 * zCnter, zpPgRes_->tupleRes_[zCnter].pp_fields[1]);
+            strcpy(zpRevSig[i], zpPgRes_->tupleRes_[i].pp_fields[0]);
+            strcpy(zTimeStampVec + 16 * i, zpPgRes_->tupleRes_[i].pp_fields[1]);
         }
 
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     } else {
-        zPrint_Err(0, NULL, "数据类型错误!");
+        /* 出现则代表有 BUG */
+        zPrint_Err(0, NULL, "BUG: 内部数据类型指定错误");
         exit(1);
     }
 
     if (NULL != zpRevSig[0]) {
-        for (zCnter = 0; zCnter < zCacheSiz && NULL != zpRevSig[zCnter]; zCnter++) {
+        for (i = 0; i < zCacheSiz && NULL != zpRevSig[i]; i++) {
             /* 转换为JSON 文本 */
             zVecDataLen = sprintf(zCommonBuf,
                     ",{\"RevId\":%d,\"RevSig\":\"%s\",\"RevTimeStamp\":\"%s\"}",
-                    zCnter,
-                    zpRevSig[zCnter],
-                    zTimeStampVec + 16 * zCnter);
+                    i,
+                    zpRevSig[i],
+                    zTimeStampVec + 16 * i);
 
-            zpTopVecWrap_->p_vec_[zCnter].iov_len = zVecDataLen;
-            zpTopVecWrap_->p_vec_[zCnter].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
-            memcpy(zpTopVecWrap_->p_vec_[zCnter].iov_base, zCommonBuf, zVecDataLen);
+            zpTopVecWrap_->p_vec_[i].iov_len = zVecDataLen;
+            zpTopVecWrap_->p_vec_[i].iov_base = zalloc_cache(zpMeta_->repoId, zVecDataLen);
+            memcpy(zpTopVecWrap_->p_vec_[i].iov_base, zCommonBuf, zVecDataLen);
 
-            zpTopVecWrap_->p_refData_[zCnter].p_data = zpRevSig[zCnter];
-            zpTopVecWrap_->p_refData_[zCnter].p_subVecWrap_ = NULL;
+            zpTopVecWrap_->p_refData_[i].p_data = zpRevSig[i];
+            zpTopVecWrap_->p_refData_[i].p_subVecWrap_ = NULL;
         }
 
-        /* 提交记录与布署记录缓存均是有序的，不需要额外排序 */
-        zpTopVecWrap_->p_vec_ = zpTopVecWrap_->p_vec_;
-
-        /* 修饰第一项，形成二维json；最后一个 ']' 会在网络服务中通过单独一个 send 发过去 */
-        ((char *)(zpTopVecWrap_->p_vec_[0].iov_base))[0] = '[';
+        /*
+         * 修饰第一项，形成二维json
+         * 最后一个 ']' 会在网络服务中通过单独一个 send 发过去
+         */
+        ((char *) (zpTopVecWrap_->p_vec_[0].iov_base))[0] = '[';
     }
 
-    /* 防止意外访问导致的程序崩溃 */
+    /*
+     * 程序安全：
+     * 防止意外或恶意访问导致程序崩溃
+     */
     memset(zpTopVecWrap_->p_refData_ + zpTopVecWrap_->vecSiz,
             0,
             sizeof(zRefData__) * (zCacheSiz - zpTopVecWrap_->vecSiz));
@@ -731,7 +735,7 @@ zgenerate_cache(void *zp) {
 /*
  * 参数：项目基本信息
  * @zSdToClose 作用一：子进程凭此决定是否需要关闭此套接字；作用二：用以识别是项目载入还是项目新建
- * pp_field: [0 repoId] [1 pathOnHost] [2 sourceUrl] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
+ * zpRepoMeta_->pp_field[i]: [0 repoId] [1 pathOnHost] [2 sourceUrl] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
@@ -753,9 +757,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
 
+    /* 检查项目 ID 是否超限 */
     if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) {
         return -32;
     }
+
+    /* 检查项目 ID 是否冲突 */
     if (NULL != zRun_.p_repoVec[zRepoId]) {
         return -35;
     }
@@ -763,35 +770,37 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMem_C_Alloc(zRun_.p_repoVec[zRepoId], zRepo__, 1);
     zRun_.p_repoVec[zRepoId]->repoId = zRepoId;
+
+    /* needPull */
     zNeedPull = toupper(zpRepoMeta_->pp_fields[5][0]);
 
     /*
      * 提取项目绝对路径
-     * 最终格式：/home/git/`dirname($Path_On_Host)`/.____DpSystem/`basename($Path_On_Host)`
+     * 去掉 basename 部分，之后拼接出最终的服务端路径字符串
+     * 服务端项目路径格式：${HOME}/`dirname $zPathOnHost`/.____DpSystem/${zProjNo}/`basename $zPathOnHost`
      */
     zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
     zPosixReg_.match(&zRegRes_, &zRegInit_, zpRepoMeta_->pp_fields[1]);
     zPosixReg_.free_meta(&zRegInit_);
 
     if (0 == zRegRes_.cnt) {
-        /* handle error ? */
+        zPosixReg_.free_res(&zRegRes_);
+        free(zRun_.p_repoVec[zRepoId]);
+        zRun_.p_repoVec[zRepoId] = NULL;
+        return -29;
     }
 
-    /*
-     * 去掉 basename 部分，
-     * 之后拼接出最终的字符串
-     */
     zpOrigPath = zpRepoMeta_->pp_fields[1];
     zStrLen = strlen(zpOrigPath);
     zKeepValue = zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1];
     zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1] = '\0';
 
-    /* 去除多余的 '/' */
-    while ('/' == zpOrigPath[0]) {
+    while ('/' == zpOrigPath[0]) {  /* 去除多余的 '/' */
         zpOrigPath++;
     }
 
-    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoPath, char, 128 + zStrLen);
+    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoPath, char,
+            sizeof("//.____DpSystem//") + zRun_.homePathLen + zStrLen + 16 + zRegRes_.p_resLen[0]);
 
     zRun_.p_repoVec[zRepoId]->repoPathLen =
         sprintf(zRun_.p_repoVec[zRepoId]->p_repoPath,
@@ -803,21 +812,27 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     zPosixReg_.free_res(&zRegRes_);
 
-    /* 恢复原始字符串，上层调用者需要使用 */
-    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.p_resLen[0] - 1] = zKeepValue;
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.p_resLen[0] - 1]
+        = zKeepValue;  /* 恢复原始字符串，上层调用者需要使用 */
 
     /*
      * 取出本项目所在文件系统支持的最大路径长度
      * 用于度量 git 输出的差异文件相对路径最大可用空间
      */
-    zRun_.p_repoVec[zRepoId]->maxPathLen = pathconf(zRun_.p_repoVec[zRepoId]->p_repoPath, _PC_PATH_MAX);
+    zRun_.p_repoVec[zRepoId]->maxPathLen =
+        pathconf(zRun_.p_repoVec[zRepoId]->p_repoPath, _PC_PATH_MAX);
 
     /*
      * 项目别名路径，由用户每次布署时指定
+     * 长度限制为 maxPathLen
      */
     zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, char, zRun_.p_repoVec[zRepoId]->maxPathLen);
 
-    /* ==== 服务端创建项目 ==== */
+    /*
+     * ================
+     *  服务端创建项目
+     * ================
+     */
     struct stat zS;
     DIR *zpDIR = NULL;
     struct dirent *zpItem = NULL;

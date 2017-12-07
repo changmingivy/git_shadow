@@ -297,7 +297,7 @@ zEndMark:
  * success return zpRevWalker, fail return NULL
  */
 static zGitRevWalk__ *
-zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
+zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
     git_object *zpObj;
     git_revwalk *zpRevWalker = NULL;
 
@@ -307,13 +307,13 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType) {
     }
 
     /* zSortType 显示順序：[0] git 默认排序，新记录在上、[1]逆序，旧记录在上 */
-    if (0 == zSortType) {
-        zSortType = GIT_SORT_TIME;
+    if (0 == zSortMode) {
+        zSortMode = GIT_SORT_TIME;
     } else {
-        zSortType = GIT_SORT_TIME | GIT_SORT_REVERSE;
+        zSortMode = GIT_SORT_TIME | GIT_SORT_REVERSE;
     }
 
-    git_revwalk_sorting(zpRevWalker, zSortType);
+    git_revwalk_sorting(zpRevWalker, zSortMode);
 
     if ((0 != git_revparse_single(&zpObj, zpRepo, zpRef))
             || (0 != git_revwalk_push(zpRevWalker, git_object_id(zpObj)))) {

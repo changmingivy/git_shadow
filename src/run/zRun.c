@@ -57,8 +57,8 @@ zerr_vec_init(void) {
     zpErrVec[26] = "";
     zpErrVec[27] = "";
     zpErrVec[28] = "指定的目标机总数与实际解析出的数量不一致";
-    zpErrVec[29] = "";
-    zpErrVec[30] = "项目路径不是目录，存在非目录文件与之同名";
+    zpErrVec[29] = "指定的项目路径不合法";
+    zpErrVec[30] = "指定项目路径不是目录，存在非目录文件与之同名";
     zpErrVec[31] = "SSHUserName 字段太长(>255 char)";
     zpErrVec[32] = "指定的项目 ID 超限(0 - 1024)";
     zpErrVec[33] = "无法创建指定的项目路径";
@@ -69,7 +69,7 @@ zerr_vec_init(void) {
     zpErrVec[38] = "";
     zpErrVec[39] = "SSHPort 字段太长(>5 char)";
     zpErrVec[40] = "";
-    zpErrVec[41] = "";
+    zpErrVec[41] = "服务端 git 库异常";
     zpErrVec[42] = "git clone 错误";
     zpErrVec[43] = "git config 错误";
     zpErrVec[44] = "git branch 错误";
