@@ -55,7 +55,7 @@ typedef struct __zBaseData__ {
 } zBaseData__;
 
 struct zNativeOps__ {
-    void * (* get_revs) (void *);
+    void (* get_revs) (void *);
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 

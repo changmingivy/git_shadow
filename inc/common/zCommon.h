@@ -106,9 +106,12 @@ typedef enum {
     __FILE__,\
     __LINE__,\
     __func__,\
-    zCause == NULL? "" : zCause,\
+    (NULL == zCause) ? "" : zCause,\
     (NULL == zCause) ? zCustomContents : strerror(zErrNo));\
 } while(0)
+
+#define zPrint_Err_Easy() zPrint_Err(0, NULL, "")
+#define zPrint_Err_Easy_Sys() zPrint_Err(errno, "", NULL)
 
 #define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
     if (NULL == (zRes)) {\

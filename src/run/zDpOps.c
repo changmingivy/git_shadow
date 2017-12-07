@@ -1673,10 +1673,10 @@ zSkipMark:;
             zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
 
             zSubMeta_.dataType = zIsCommitDataType;
-            zNativeOps_.get_revs(&zSubMeta_);
+            zNativeOps_.get_revs(& zSubMeta_);
 
             zSubMeta_.dataType = zIsDpDataType;
-            zNativeOps_.get_revs(&zSubMeta_);
+            zNativeOps_.get_revs(& zSubMeta_);
 
             /* 标记缓存为可用状态 */
             zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;

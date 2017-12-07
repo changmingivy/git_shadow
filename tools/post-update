@@ -74,7 +74,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     }
 
-
     # 任何一环节失败，将调用此函数处理错误并回撤至原先的版本
     zExitClean() {
         # 尝试回撤至原始版本
@@ -107,13 +106,11 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         exit 255
     }
 
-
     # 首先测试是否可与服务端正常通信
     zTcpReply 0 "" "" ""
     if [[ "!" != ${zRecvContent} ]]; then
         exit 255
     fi
-
 
     # 检测必要的路径下是存在权限异常的文件
     mkdir -p ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
@@ -124,7 +121,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
     # 权限无误，清除可能被创建的空目录
     rmdir ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-
 
     ##################
     # 进入项目代码库 #
@@ -173,48 +169,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 通知服务端已收到代码：上报阶段性成果
     zTcpReply 8 "${zDpingSig}" "S3" "" >> /tmp/.____post-deploy.log 2>&1 &
 
-    ##################
-    # _SHADOW 库布署 #
-    ##################
-    cd ${zPathOnHost}_SHADOW 2>${zErrLogPath}
-    if [[ 0 -ne $? ]]; then
-        zExitClean "E7" "cd ${zPathOnHost}_SHADOW: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
-    fi
-
-    export GIT_DIR="${zPathOnHost}_SHADOW/.git"
-    git branch master
-    git checkout master
-
-    git pull ${zPathOnHost}/.git ${zShadowBranch}:master
-    if [[ 0 -ne $? ]]; then
-        \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
-        git stash
-        git stash clear
-        git pull --force ${zPathOnHost}/.git ${zShadowBranch}:master 2>${zErrLogPath}
-        if [[ 0 -ne $? ]]; then
-            zExitClean "E6" "git pull(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
-                >> /tmp/.____post-deploy.log 2>&1
-        fi
-    fi
-
-    git reset --hard 2>${zErrLogPath}
-    if [[ 0 -ne $? ]]; then
-        zExitClean "E6" "git reset(${zPathOnHost}_SHADOW): `cat /tmp/.${zProjId}_${zTimeStamp}_errlog`"\
-            >> /tmp/.____post-deploy.log 2>&1
-    fi
-
-    ##################
-    # 项目代码库布署 #
-    ##################
-    cd $zPathOnHost 2>${zErrLogPath}
-    if [[ 0 -ne $? ]]; then
-        zExitClean "E7" "cd ${zPathOnHost}: `cat ${zErrLogPath}`" >> /tmp/.____post-deploy.log 2>&1
-    fi
-
-    # git 环境注册
-    export GIT_DIR="${zPathOnHost}/.git"
-    git checkout master
-
     # 还原代码到工作区
     git reset -q --hard ${zDpingSig}
     if [[ 0 -ne $? ]]; then
@@ -255,7 +209,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             >> /tmp/.____post-deploy.log 2>&1
     fi
 
-
     # 创建项目路径软链接
     # 检测是否有路长冲突，若有，则抛出错误
     if [[ 0 -eq `ls ${zProjOnLinePath} | wc -l` ]]; then
@@ -267,7 +220,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
         zExitClean "E6" "路径冲突: ${zProjOnLinePath}" >> /tmp/.____post-deploy.log 2>&1
     fi
-
 
     # 若用户指定了 alias 路径，则创建同名软链接指向项目库
     # 检测路径是否有冲突，若有，则抛出错误
@@ -283,10 +235,8 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     fi
 
-
     # 通知服务端已确认收到的内容准确无误：布署成功
     zTcpReply 8 ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
-
 
     # 等待确认服务端的全局结果
     # 若全局结果不是成功，则执行回退
@@ -317,7 +267,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             sleep 5
         fi
     done
-
 
     # 布署成功，还原权限
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update
