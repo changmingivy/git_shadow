@@ -278,14 +278,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     rm -rf ${zProjOnLinePath}_SHADOW
 
     # 执行用户自定义的布署后动作
-    if [[ 0 -ne `\ls ${zPathOnHost}_SHADOW/____post-deploy.sh | wc -l` ]]; then
-        chmod 0755 ${zPathOnHost}_SHADOW/____post-deploy.sh
-        ${zPathOnHost}_SHADOW/____post-deploy.sh
-        if [[ 0 -ne $? ]]; then
-            exit 255
-        fi
-    fi
-
     if [[ 0 -ne `\ls ${zProjOnLinePath}/____post-deploy.sh | wc -l` ]]; then
         chmod 0755 ${zProjOnLinePath}/____post-deploy.sh
         ${zProjOnLinePath}/____post-deploy.sh

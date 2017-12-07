@@ -1282,28 +1282,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zJson_Parse();
 
     /*
-     * 提取用户指定的需要布署成功后执行的命令
-     * 注：会比代码库中的 ____post-deploy.sh 文件更早执行
-     */
-    if (NULL != zpPostDpCmd) {
-        _i zFd, zLen;
-        char zPathBuf[zRun_.p_repoVec[zRepoId]->repoPathLen + sizeof("_SHADOW/____post-deploy.sh")];
-        sprintf(zPathBuf, "%s_SHADOW/____post-deploy.sh", zRun_.p_repoVec[zRepoId]->p_repoPath);
-
-        if (0 > (zFd = open(zPathBuf, O_WRONLY | O_CREAT | O_TRUNC, 0755))) {
-            zErrNo = -82;
-            goto zEndMark;
-        }
-
-        zLen = strlen(zpPostDpCmd);
-        if (zLen != write(zFd, zpPostDpCmd, zLen)) {
-            close(zFd);
-            zErrNo = -82;
-            goto zEndMark;
-        }
-    }
-
-    /*
      * 检查 pgSQL 是否可以正常连通
      */
     if (zFalse == zPgSQL_.conn_check(zRun_.pgConnInfo)) {
@@ -2047,7 +2025,9 @@ zunlock_repo(cJSON *zpJRoot, _i zSd) {
 }
 
 
-/* 14: 向目标机传输指定的文件 */
+/*
+ * 14: 向目标机传输指定的文件
+ */
 static _i
 zreq_file(cJSON *zpJRoot, _i zSd) {
     char zDataBuf[4096] = {'\0'};
