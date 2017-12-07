@@ -11,11 +11,8 @@
 
 #define zThreadPollSizMark (zThreadPollSiz - 1)
 
-static void
-zthread_poll_init(void);
-
-static void
-zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
+static void zthread_poll_init(void);
+static void zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
 
 /******************************
  * ====  对外公开的接口  ==== *

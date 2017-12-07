@@ -8,44 +8,21 @@
 #include <errno.h>
 
 
-static zPgConnHd__ *
-zpg_conn(const char *zpConnInfo);
-
-static void
-zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
-
-static zPgResHd__ *
-zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet);
-
-static zPgResHd__ *
-zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet);
-
-static zPgResHd__ *
-zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt);
-
-static zPgResHd__ *
-zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet);
-
-static zPgRes__ *
-zpg_parse_res(zPgResHd__ *zpPgResHd_);
-
-static void
-zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_);
-
-static void
-zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
-
-static zbool_t
-zpg_conn_check(const char *zpConnInfo);
-
-static zbool_t
-zpg_thread_safe_check();
-
-static _i
-zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_);
+static zPgConnHd__ * zpg_conn(const char *zpConnInfo);
+static void zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
+static zPgResHd__ * zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet);
+static zPgResHd__ * zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet);
+static zPgResHd__ * zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt);
+static zPgResHd__ * zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet);
+static zPgRes__ * zpg_parse_res(zPgResHd__ *zpPgResHd_);
+static void zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_);
+static void zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
+static zbool_t zpg_conn_check(const char *zpConnInfo);
+static zbool_t zpg_thread_safe_check();
+static _i zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_);
 
 /*
- * 外部调用接口
+ * Public 接口
  */
 struct zPgSQL__ zPgSQL_ = {
     .conn = zpg_conn,

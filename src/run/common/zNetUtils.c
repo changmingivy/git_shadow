@@ -11,29 +11,14 @@
 #include <fcntl.h>
 #include <poll.h>
 
-static _i
-zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType);
-
-static _i
-ztcp_connect(char *zpHost, char *zpPort, _i zFlags);
-
-static _i
-zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
-
-static _i
-zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
-
-static _i
-zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
-
-static _i
-zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_);
-
-static _i
-zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
-
-static _i
-zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
+static _i zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType);
+static _i ztcp_connect(char *zpHost, char *zpPort, _i zFlags);
+static _i zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
+static _i zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
+static _i zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
+static _i zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_);
+static _i zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
+static _i zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
 
 struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,

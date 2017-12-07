@@ -7,23 +7,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
-static void
-zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern);
-
-static void
-zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject);
-
-static void
-zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
-
-static void
-zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
-
-static void
-zreg_free_res(zRegRes__ *zpRes_);
-
-static void
-zreg_free_meta(zRegInit__ *zpInit_);
+static void zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern);
+static void zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject);
+static void zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
+static void zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
+static void zreg_free_res(zRegRes__ *zpRes_);
+static void zreg_free_meta(zRegInit__ *zpInit_);
 
 /* 对外公开的接口 */
 struct zPosixReg__ zPosixReg_ = {

@@ -6,56 +6,22 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-static git_repository *
-zgit_env_init(char *zpNativeRepoAddr);
-
-static void
-zgit_env_clean(git_repository *zpRepoCredHandler);
-
-static _i
-zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
-
-static _i
-zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
-
-static zGitRevWalk__ *
-zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType);
-
-static void
-zgit_destroy_revwalker(git_revwalk *zpRevWalker);
-
-static _i
-zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
-
-static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark);
-
-static _i
-zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
-
-static _i
-zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark);
-
-static _i
-zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
-
-static _i
-zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
-
-static git_repository *
-zgit_init(char *zpPath, zbool_t zIsBare);
-
-static git_repository *
-zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
-
-static _i
-zgit_add_and_commit(git_repository *zpRepo, char *zpRefName, char *zpPath, char *zpCommitMsg);
-
-static _i
-zgit_config_name_and_email(char *zpRepoPath);
-
-extern struct zRun__ zRun_;
-
+static git_repository * zgit_env_init(char *zpNativeRepoAddr);
+static void zgit_env_clean(git_repository *zpRepoCredHandler);
+static _i zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
+static _i zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);
+static zGitRevWalk__ * zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortType);
+static void zgit_destroy_revwalker(git_revwalk *zpRevWalker);
+static _i zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker);
+static _i zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark);
+static _i zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
+static _i zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark);
+static _i zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
+static _i zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
+static git_repository * zgit_init(char *zpPath, zbool_t zIsBare);
+static git_repository * zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
+static _i zgit_add_and_commit(git_repository *zpRepo, char *zpRefName, char *zpPath, char *zpCommitMsg);
+static _i zgit_config_name_and_email(char *zpRepoPath);
 
 struct zLibGit__ zLibGit_ = {
     .env_init = zgit_env_init,
@@ -80,6 +46,8 @@ struct zLibGit__ zLibGit_ = {
 
     .config_name_email = zgit_config_name_and_email
 };
+
+extern struct zRun__ zRun_;
 
 /* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 static git_repository *

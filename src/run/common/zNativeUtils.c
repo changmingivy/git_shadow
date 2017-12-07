@@ -22,29 +22,14 @@
 #include <time.h>
 #include <errno.h>
 
-static void
-zdaemonize(const char *zpWorkDir);
-
-static void *
-zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
-
-static _i
-zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
-
-static void
-zsleep(_d zSecs);
-
-static void *
-zthread_system(void *zpCmd);
-
-static _i
-zdel_linebreak(char *zpStr);
-
-static _i
-zpath_del(char *zpPath);
-
-static _i
-zpath_cp(char *zpDestpath, char *zpSrcPath);
+static void zdaemonize(const char *zpWorkDir);
+static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
+static _i zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
+static void zsleep(_d zSecs);
+static void * zthread_system(void *zpCmd);
+static _i zdel_linebreak(char *zpStr);
+static _i zpath_del(char *zpPath);
+static _i zpath_cp(char *zpDestpath, char *zpSrcPath);
 
 struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,

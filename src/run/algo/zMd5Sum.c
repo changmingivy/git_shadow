@@ -20,8 +20,7 @@
 #include <time.h>
 
 
-static _i
-zgenerate_file_sig_md5(char *zpFilePath, char *zpResOUT/* char [33] */);
+static _i zgenerate_file_sig_md5(char *zpFilePath, char *zpResOUT/* char [33] */);
 
 struct zMd5Sum__ zMd5Sum_= {
 	.md5sum = zgenerate_file_sig_md5

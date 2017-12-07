@@ -27,30 +27,14 @@ extern struct zDpOps__ zDpOps_;
 extern struct zRun__ zRun_;
 extern struct zPgSQL__ zPgSQL_;
 
-static void *
-zalloc_cache(_i zRepoId, _ui zSiz);
-
-static void *
-zget_diff_content(void *zp);
-
-static void *
-zget_file_list(void *zp);
-
-static void
-zgenerate_cache(void *zp);
-
-static _i
-zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
-
-static void *
-zsys_load_monitor(void *zp);
-
-static void *
-zinit_env(zPgLogin__ *zpPgLogin_);
-
-void *
-zextend_pg_partition(void *zp);
-
+static void * zalloc_cache(_i zRepoId, _ui zSiz);
+static void * zget_diff_content(void *zp);
+static void * zget_file_list(void *zp);
+static void zgenerate_cache(void *zp);
+static _i zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
+static void * zsys_load_monitor(void *zp);
+static void * zinit_env(zPgLogin__ *zpPgLogin_);
+static void * zextend_pg_partition(void *zp);
 
 struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
@@ -1443,7 +1427,7 @@ zLoop:
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，
  * 表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
-void *
+static void *
 zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;

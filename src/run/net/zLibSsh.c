@@ -9,16 +9,15 @@
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
 
-extern struct zNetUtils__ zNetUtils_;
-
-static _i
-zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
+static _i zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
 
 struct zLibSsh__ zLibSsh_ = {
     .exec = zssh_exec
 };
+
+extern struct zNetUtils__ zNetUtils_;
 
 /* select events dirven */
 static _i
