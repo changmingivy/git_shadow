@@ -808,17 +808,17 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      *  服务端创建项目
      * ================
      */
-    struct stat zS;
+    struct stat zS_;
     DIR *zpDIR = NULL;
     struct dirent *zpItem = NULL;
-    if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS)) {
+    if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS_)) {
         /* 若是项目新建，则不允许存在同名路径 */
         if (0 > zSdToClose) {
             zFree_Source();
             zPrint_Err_Easy();
             return -36;
         } else {
-            if (! S_ISDIR(zS.st_mode)) {
+            if (! S_ISDIR(zS_.st_mode)) {
                 zFree_Source();
                 zPrint_Err_Easy();
                 return -30;
@@ -1333,7 +1333,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 /* 用于线程并发执行的外壳函数 */
 static void *
 zinit_one_repo_env_thread_wraper(void *zp) {
-    /* 启动时有错，退出进程 */
+    /* 主程序本身启动时发生错误，退出 */
     if (0 > zinit_one_repo_env(zp, -1)) {
         exit(1);
     }
@@ -1343,7 +1343,9 @@ zinit_one_repo_env_thread_wraper(void *zp) {
 
 
 #ifndef _Z_BSD
-/* 定时获取系统全局负载信息 */
+/*
+ * 定时获取系统全局负载信息
+ */
 static void *
 zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
     FILE *zpHandler = NULL;
@@ -1396,9 +1398,11 @@ zrefresh_commit_cache(_i zRepoId) {
 static void *
 zcode_sync(void *zp __attribute__ ((__unused__))) {
     char zCommonBuf[64] = {'\0'};
+
 zLoop:
     for (_i i = zRun_.maxRepoId; i > 0; i--) {
-        if (NULL != zRun_.p_repoVec[i] && 'Y' == zRun_.p_repoVec[i]->initFinished) {
+        if (NULL != zRun_.p_repoVec[i]
+                && 'Y' == zRun_.p_repoVec[i]->initFinished) {
             /* get new revs */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                     zRun_.p_repoVec[i]->p_gitRepoHandler,
@@ -1429,14 +1433,15 @@ zLoop:
     sleep(2);
     goto zLoop;
 
-    return (void *) -1;  /* never reach here */
+    /* never reach here */
+    return (void *) -1;
 }
 
 
 /*
- * 定时扩展日志表分区
- * 每天尝试创建之后 10 天的分区表，并删除 30 天之前的表
- * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
+ * 定时调整分区表：每天尝试创建之后 10 天的分区表，并删除 30 天之前的表；
+ * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，
+ * 表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
 void *
 zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
@@ -1444,85 +1449,99 @@ zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
     zPgResHd__ *zpPgResHd_ = NULL;
     char zCmdBuf[1024];
 
-    while (1) {
-        /* 每天（24 * 60 * 60 秒）尝试创建新日志表 */
-        sleep(86400);
+zLoop:
+    /*
+     * 每天（24 * 60 * 60 秒）尝试创建新日志表
+     */
+    sleep(86400);
 
-        /* 尝试连接到 pgSQL server */
-        while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-            zPrint_Err(0, NULL, "Connect to pgSQL failed");
-            sleep(60);
-        }
-
-        /* 非紧要任务，串行执行即可 */
-        _i zBaseId = time(NULL) / 86400,
-           zId = 0;
-        for (_i zRepoId = 0; zRepoId <= zRun_.maxRepoId; zRepoId++) {
-            if (NULL == zRun_.p_repoVec[zRepoId] || 'N' == zRun_.p_repoVec[zRepoId]->initFinished) {
-                continue;
-            }
-
-            /* 创建之后 10 天的分区表 */
-            for (zId = 0; zId < 10; zId ++) {
-                sprintf(zCmdBuf,
-                        "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-                        "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                        zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
-
-                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
-                    zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
-                    continue;
-                } else {
-                    zPgSQL_.res_clear(zpPgResHd_, NULL);
-                }
-            }
-
-            /* 清除 30 天之前的分区表 */
-            for (zId = 0; zId < 10; zId ++) {
-                sprintf(zCmdBuf,
-                        "DROP TABLE IF EXISTS dp_log_%d_%d",
-                        zRepoId, zBaseId - zId - 30);
-
-                if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
-                    zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
-                    continue;
-                } else {
-                    zPgSQL_.res_clear(zpPgResHd_, NULL);
-                }
-            }
-        }
-
-        zPgSQL_.conn_clear(zpPgConnHd_);
+    /* 尝试连接到 pgSQL server */
+    while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
+        zPrint_Err(0, NULL, "Connect to pgSQL failed");
+        sleep(60);
     }
 
+    /* 非紧要任务，串行执行即可 */
+    _i zBaseId = time(NULL) / 86400,
+       zId = 0;
+    for (_i zRepoId = 0; zRepoId <= zRun_.maxRepoId; zRepoId++) {
+        if (NULL == zRun_.p_repoVec[zRepoId] || 'N' == zRun_.p_repoVec[zRepoId]->initFinished) {
+            continue;
+        }
+
+        /* 创建之后 10 天的分区表 */
+        for (zId = 0; zId < 10; zId ++) {
+            sprintf(zCmdBuf,
+                    "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
+                    "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
+                    zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
+
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
+                zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+                continue;
+            } else {
+                zPgSQL_.res_clear(zpPgResHd_, NULL);
+            }
+        }
+
+        /* 清除 30 天之前的分区表 */
+        for (zId = 0; zId < 10; zId ++) {
+            sprintf(zCmdBuf,
+                    "DROP TABLE IF EXISTS dp_log_%d_%d",
+                    zRepoId, zBaseId - zId - 30);
+
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
+                zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
+                continue;
+            } else {
+                zPgSQL_.res_clear(zpPgResHd_, NULL);
+            }
+        }
+    }
+
+    zPgSQL_.conn_clear(zpPgConnHd_);
+
+    goto zLoop;
+
+    /* never reach here */
     return NULL;
 }
 
 
-/* 读取项目信息，初始化配套环境 */
+/*
+ * 读取项目信息，初始化配套环境
+ */
 static void *
 zinit_env(zPgLogin__ *zpPgLogin_) {
     char zDBPassFilePath[1024];
-    struct stat zStat_;
+    struct stat zS_;
 
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
 
-    /* 确保 pgSQL 密钥文件存在并合法 */
+    /*
+     * 确保 pgSQL 密钥文件存在并合法
+     */
     if (NULL == zpPgLogin_->p_passFilePath) {
-        snprintf(zDBPassFilePath, 1024, "%s/.pgpass", zRun_.p_homePath);
+        snprintf(zDBPassFilePath, 1024,
+                "%s/.pgpass",
+                zRun_.p_homePath);
         zpPgLogin_->p_passFilePath = zDBPassFilePath;
     }
 
-    zCheck_NotZero_Exit( stat(zpPgLogin_->p_passFilePath, &zStat_) );
-    if (!S_ISREG(zStat_.st_mode)) {
-        zPrint_Err(0, NULL, "postgreSQL: passfile is not a regular file!");
+    zCheck_NotZero_Exit( stat(zpPgLogin_->p_passFilePath, &zS_) );
+
+    if (! S_ISREG(zS_.st_mode)) {
+        zPrint_Err_Easy();
         exit(1);
     }
+
     zCheck_NotZero_Exit( chmod(zpPgLogin_->p_passFilePath, 00600) );
 
-    /* 生成连接 pgSQL 的元信息 */
+    /*
+     * 生成连接 pgSQL 的元信息
+     */
     snprintf(zRun_.pgConnInfo, 2048,
             "%s%s "
             "%s%s "
@@ -1545,13 +1564,17 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "dbname=",
             NULL == zpPgLogin_->p_dbName ? "dpDB": zpPgLogin_->p_dbName);
 
-    /* 尝试连接到 pgSQL server */
+    /*
+     * 尝试连接到 pgSQL server
+     */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        zPrint_Err(0, NULL, "Connect to pgSQL failed");
+        zPrint_Err_Easy();
         exit(1);
     }
 
-    /* 启动时尝试创建表 */
+    /*
+     * 启动时尝试创建后备的分区表
+     */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
             "CREATE TABLE IF NOT EXISTS proj_meta "
             "("
@@ -1565,40 +1588,41 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "ssh_user_name   varchar NOT NULL,"
             "ssh_port        varchar NOT NULL"
             ");"
-\
+
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "proj_id         int NOT NULL,"
             "time_stamp      bigint NOT NULL,"
             "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
-            "host_res        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表布署过程中的一种状态 */
+            "host_res        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，一一对应于布署过程中的各个阶段性成功 */
             "host_err        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
             "host_timespent  smallint NOT NULL DEFAULT 0,"
             "host_detail     varchar"
             ") PARTITION BY LIST (proj_id);",
-\
+
             zFalse);
 
     if (NULL == zpPgResHd_) {
-        zPrint_Err(0, NULL, "pgSQL exec failed");
+        zPrint_Err_Easy();
         exit(1);
     }
 
-    /* 查询已有项目信息 */
+    /*
+     * 查询已有项目信息，之后
+     * 此 pg 连接已经用完，断开连接
+     */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-            "SELECT proj_id, path_on_host, source_url, source_branch, source_vcs_type, need_pull, ssh_user_name, ssh_port FROM proj_meta",
+            "SELECT proj_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port FROM proj_meta",
             zTrue);
-
-    /* 已经执行完结并取回结果，立即断开连接 */
     zPgSQL_.conn_clear(zpPgConnHd_);
 
     if (NULL == zpPgResHd_) {
-        zPrint_Err(0, NULL, "pgSQL exec failed");
+        zPrint_Err_Easy();
         exit(1);
     } else {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-            zPrint_Err(0, NULL, "No valid repo found!");
+            zPrint_Err(0, NULL, "NO VALID REPO FOUND!");
             goto zMarkNotFound;
         }
     }
@@ -1615,8 +1639,11 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     }
     pthread_mutex_unlock(& zRun_.commonLock);
 
-    /* 清理资源占用，创建新项目时，需要重新建立连接 */
 zMarkNotFound:
+    /*
+     * 清理资源占用
+     * 创建新项目时，需要重新建立连接
+     */
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
 #ifndef _Z_BSD
