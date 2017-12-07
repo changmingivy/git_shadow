@@ -1057,41 +1057,52 @@ zEndMark:
 
 /*
  * 13：
- * 测试环境布署清求：不拿锁、不刷新系统IP列表、不刷新缓存
- * 用于对项目外的非正式目标机进行布署，通常用于测试目的
- * 也可以用于目标机自请布署的情况(自动请求同步)
+ * 不拿锁、不刷新系统IP列表、不刷新缓存
+ * 主要用于对项目外的非正式目标机进行布署，通常用于测试目的
+ * 也可以用于目标机自请布署的情况 (自动请求同步)
  */
 static _i
 zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
-    _i zRepoId = 0;
-    _i zIpCnt = 0;
-    char *zpIpList = NULL;
-    char *zpRevSig = NULL;
+    _i zRepoId = 0,
+       zIpCnt = 0;
+    char *zpIpList = NULL,
+         *zpRevSig = NULL,
+         *zpDelim = " ";
 
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
     if (!cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy();
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "IpCnt");
     if (!cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy();
         return -1;
     }
     zIpCnt = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "IpList");
     if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy();
         return -1;
     }
     zpIpList = zpJ->valuestring;
 
-    zRegInit__ zI_;
-    zRegRes__ zR_ = { .alloc_fn = NULL };
+    zpJ = cJSON_V(zpJRoot, "delim");
+    if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {
+        zpDelim = zpJ->valuestring;
+    }
 
-    /* 只有一个IP的情况下，没有必要进行正则匹配 */
+    /* 使用系统 alloc */
+    zRegRes__ zR_ = {
+        .alloc_fn = NULL
+    };
+
+    /* 只有一个IP的情况下，简化处理 */
     if (1 == zIpCnt) {
         /*
          * callback 更换为非 NULL 值
@@ -1099,11 +1110,10 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
          */
         zR_.alloc_fn = (void *) -1;
     } else {
-        zPosixReg_.init(&zI_, "[^ ]+");
-        zPosixReg_.match(&zR_, &zI_, zpIpList);
-        zPosixReg_.free_meta(&zI_);
+        zPosixReg_.str_split(&zR_, zpIpList, zpDelim);
         if (zIpCnt != zR_.cnt) {
             zPosixReg_.free_res(&zR_);
+            zPrint_Err_Easy();
             return -28;
         }
     }
@@ -1124,7 +1134,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     };
 
     /*
-     * 未提示目标机版本号或提示的版本号不符时，执行布署
+     * 仅在未提供目标机版本号或提供的版本号已过期及无效时，执行布署
      */
     if (NULL == zpRevSig
             || 0 != strncmp(zpRevSig, zRun_.p_repoVec[zRepoId]->lastDpSig, 40)) {
@@ -1139,9 +1149,14 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         for (_i i = 0; i < zR_.cnt; i++) {
             zDp_.p_hostIpStrAddr = zR_.pp_rets[i];
 
-            zdp_ccur( & zDp_ );
+            /*
+             * 执行布署
+             */
+            zdp_ccur(& zDp_);
+
             if (0 != zDp_.errNo) {
                 zPosixReg_.free_res(&zR_);
+                zPrint_Err_Easy();
                 return zDp_.errNo;
             }
         }
