@@ -111,7 +111,7 @@ typedef enum {
     (NULL == zCause) ? (NULL == zCustomContents ? "" : zCustomContents) : strerror(zErrNo));\
 } while(0)
 
-#define zPrint_Err_Easy(zMsg) zPrint_Err(0, NULL, zMsg)
+#define zPrint_Err_Easy(zMsg) zPrint_Err(0, NULL, (zMsg))
 #define zPrint_Err_Easy_Sys() zPrint_Err(errno, "", NULL)
 
 #define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
