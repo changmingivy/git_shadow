@@ -95,7 +95,7 @@ typedef enum {
 /*
  * =>>> Error Management <<<=
  */
-#define zPrint_Err(zErrNo, zCause, zCustomContents) do {\
+#define zPrint_Err(zErrNo, zCause, zMsg) do {\
     zPrint_Time();\
     fprintf(stderr,\
     "\033[31;01m[ ERROR ] \033[00m"\
@@ -107,8 +107,8 @@ typedef enum {
     __FILE__,\
     __LINE__,\
     __func__,\
-    (NULL == zCause) ? "" : zCause,\
-    (NULL == zCause) ? (NULL == zCustomContents ? "" : zCustomContents) : strerror(zErrNo));\
+    NULL == (zCause) ? "" : (zCause),\
+    NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 } while(0)
 
 #define zPrint_Err_Easy(zMsg) zPrint_Err(0, NULL, (zMsg))
