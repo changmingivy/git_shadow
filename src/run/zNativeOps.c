@@ -124,7 +124,7 @@ zget_diff_content(void *zp) {
     } else if (zIsDpDataType == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
     } else {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return NULL;
     }
 
@@ -169,7 +169,7 @@ zget_diff_content(void *zp) {
         pclose(zpShellRetHandler);
     } else {
         pclose(zpShellRetHandler);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return (void *) -1;
     }
 
@@ -337,7 +337,7 @@ zget_file_list(void *zp) {
     } else if (zIsDpDataType == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
     } else {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return (void *) -1;
     }
 
@@ -361,7 +361,7 @@ zget_file_list(void *zp) {
 
     if (NULL == zNativeUtils_.read_line(zCommonBuf, zMaxBufLen, zpShellRetHandler)) {
         pclose(zpShellRetHandler);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return (void *) -1;
     } else {
         if (24 < strtol(zCommonBuf, NULL, 10)) {
@@ -574,7 +574,7 @@ zgenerate_cache(void *zp) {
                         zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
                         "refs/heads/____servXXXXXXXX",
                         0))) {
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             exit(1);
         } else {
             for (i = 0; i < zCacheSiz; i++) {
@@ -615,7 +615,7 @@ zgenerate_cache(void *zp) {
 
             if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_);
-                zPrint_Err_Easy();
+                zPrint_Err_Easy("");
                 exit(1);
             }
         }
@@ -641,7 +641,7 @@ zgenerate_cache(void *zp) {
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     } else {
         /* BUG! */
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -715,13 +715,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 检查项目 ID 是否超限 */
     if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -32;
     }
 
     /* 检查项目 ID 是否冲突 */
     if (NULL != zRun_.p_repoVec[zRepoId]) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -35;
     }
 
@@ -745,7 +745,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPosixReg_.free_res(&zRegRes_);
         free(zRun_.p_repoVec[zRepoId]);
         zRun_.p_repoVec[zRepoId] = NULL;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -29;
     }
 
@@ -799,18 +799,18 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         /* 若是项目新建，则不允许存在同名路径 */
         if (0 > zSdToClose) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -36;
         } else {
             if (! S_ISDIR(zS_.st_mode)) {
                 zFree_Source();
-                zPrint_Err_Easy();
+                zPrint_Err_Easy("");
                 return -30;
             } else {  /* TO DEL: 兼容旧版本 */
                 /* 全局 libgit2 Handler 初始化 */
                 if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
                     zFree_Source();
-                    zPrint_Err_Easy();
+                    zPrint_Err_Easy("");
                     return -46;
                 }
 
@@ -832,7 +832,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                             if (0 != zNativeUtils_.path_del(zpItem->d_name)) {
                                 closedir(zpDIR);
                                 zFree_Source();
-                                zPrint_Err_Easy();
+                                zPrint_Err_Easy("");
                                 return -40;
                             }
                         }
@@ -851,7 +851,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
                 if (0 != zLibGit_.branch_rename(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____base.XXXXXXXX", "____baseXXXXXXXX", zTrue)) {
                     if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
-                        zPrint_Err_Easy();
+                        zPrint_Err_Easy("");
                         return -45;
                     }
                 }
@@ -861,21 +861,21 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         /* git clone URL */
         if (0 != zLibGit_.clone(zpRepoMeta_->pp_fields[2], zRun_.p_repoVec[zRepoId]->p_repoPath, NULL, zFalse)) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -42;
         }
 
         /* git config user.name _ && git config user.email _@_ */
         if (0 != zLibGit_.config_name_email(zRun_.p_repoVec[zRepoId]->p_repoPath)) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -43;
         }
 
         /* 全局 libgit2 Handler 初始化 */
         if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath)) ) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -46;
         }
 
@@ -885,7 +885,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          */
         if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse)) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -44;
         }
 
@@ -895,7 +895,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          */
         if (NULL == (zpDIR = opendir(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -40;
         }
 
@@ -908,7 +908,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     if (0 != zNativeUtils_.path_del(zpItem->d_name)) {
                         closedir(zpDIR);
                         zFree_Source();
-                        zPrint_Err_Easy();
+                        zPrint_Err_Easy("");
                         return -40;
                     }
                 }
@@ -916,7 +916,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 if (0 != unlink(zpItem->d_name)) {
                     closedir(zpDIR);
                     zFree_Source();
-                    zPrint_Err_Easy();
+                    zPrint_Err_Easy("");
                     return -40;
                 }
             }
@@ -925,7 +925,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         if (0 != errno) {
             closedir(zpDIR);
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -40;
         }
 
@@ -933,7 +933,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
             zFree_Source();
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -40;
         }
     }
@@ -944,7 +944,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
         zFree_Source();
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -37;
     }
 
@@ -1058,7 +1058,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 本项目 pgSQL 连接的全局 Handler */
     if (NULL == (zRun_.p_repoVec[zRepoId]->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1085,7 +1085,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     } else {
         zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -1098,7 +1098,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             exit(1);
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -1113,7 +1113,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1123,7 +1123,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             || 1 != zpPgRes_->fieldCnt) {
         zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
         zPgSQL_.res_clear(zpPgResHd_, NULL);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1148,7 +1148,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zRepoId);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1172,7 +1172,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
             zLibGit_.destroy_revwalker(zpRevWalker);
         } else {
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             exit(1);
         }
     } else {
@@ -1194,7 +1194,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             exit(1);
         }
 
@@ -1219,7 +1219,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
         zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1242,7 +1242,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
             if (0 != zConvert_IpStr_To_Num(zpPgRes_->tupleRes_[i].pp_fields[0],
                         zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
-                zPrint_Err_Easy();
+                zPrint_Err_Easy("");
                 exit(1);
             }
 
@@ -1516,7 +1516,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     zCheck_NotZero_Exit( stat(zpPgLogin_->p_passFilePath, &zS_) );
 
     if (! S_ISREG(zS_.st_mode)) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1551,7 +1551,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
      * 尝试连接到 pgSQL server
      */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1587,7 +1587,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             zFalse);
 
     if (NULL == zpPgResHd_) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     }
 
@@ -1601,7 +1601,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     zPgSQL_.conn_clear(zpPgConnHd_);
 
     if (NULL == zpPgResHd_) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         exit(1);
     } else {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
