@@ -238,6 +238,9 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 通知服务端已确认收到的内容准确无误：布署成功
     zTcpReply 8 ${zMasterSig} "S4" "" >> /tmp/.____post-deploy.log 2>&1 &
 
+    # 布署成功，还原权限
+    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+
     # 等待确认服务端的全局结果
     # 若全局结果不是成功，则执行回退
     # 全局成功，服务端回复 "S"，失败回复 "F"，尚未确定最终结果回复 "W"
@@ -268,25 +271,9 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     done
 
-    # 布署成功，还原权限
-    chmod 0755 ${zPathOnHost}/.git/hooks/post-update
-
     # 删除自身 pid 文件
     rm /tmp/.${zProjId}_pid_post-update
 
     # 清理可能存在的旧版布署系统的遗留文件
     rm -rf ${zProjOnLinePath}_SHADOW
-
-    # 执行用户自定义的布署后动作
-    if [[ 0 -ne `\ls ${zProjOnLinePath}/____post-deploy.sh | wc -l` ]]; then
-        chmod 0755 ${zProjOnLinePath}/____post-deploy.sh
-        ${zProjOnLinePath}/____post-deploy.sh
-        if [[ 0 -ne $? ]]; then
-            exit 255
-        fi
-    fi
-
-    # 追加通知用户自定义的布署后动作执行成功
-    zTcpReply 8 ${zMasterSig} "S5" ""\
-        >> /tmp/.____post-deploy.log 2>&1
 ) &

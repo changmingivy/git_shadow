@@ -1046,6 +1046,17 @@ zdp_ccur(void *zp) {
     zPgSQL_.conn_clear(zpPgConnHd_);
     zPgSQL_.res_clear(zpPgResHd_, NULL);
 
+    /*
+     * ==== 非核心功能 ====
+     * 运行用户指定的布署后动作，不提供执行结果保证
+     */
+    if (NULL != zpDpCcur_->p_postDpCmd) {
+        zssh_exec_simple(zpDpCcur_->p_userName,
+                zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+                zpDpCcur_->p_postDpCmd,
+                zpDpCcur_->p_ccurLock, NULL);
+    }
+
 zEndMark:
     pthread_mutex_lock(zpDpCcur_->p_ccurLock);
     zpDpCcur_->finMark = 1;
@@ -1226,7 +1237,13 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 \
     zpJ = cJSON_V(zpJRoot, "PostDpCmd");\
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
-        zpPostDpCmd = zpJ->valuestring;\
+        zpPostDpCmd = zNativeOps_.alloc(zRepoId,\
+                sizeof("cd  && ()")\
+                + zRun_.p_repoVec[zRepoId]->repoPathLen - zRun_.homePathLen\
+                + strlen(zpJ->valuestring));\
+        sprintf(zpPostDpCmd, "cd %s && (%s)",\
+                zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
+                zpJ->valuestring);\
     }\
 \
     zpJ = cJSON_V(zpJRoot, "AliasPath");\
@@ -1612,8 +1629,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
 
-        /* SSH 指令 */
+        /* 目标机初始化与布署后执行命令 */
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_postDpCmd = zpPostDpCmd;
 
         /* 清理线程时保持状态不变；另，libssh2 部分环节需要持锁才能安全并发 */
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock = & zRun_.p_repoVec[zRepoId]->dpSyncLock;

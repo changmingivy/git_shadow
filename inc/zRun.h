@@ -99,8 +99,11 @@ typedef struct __zDpCcur__ {
     /* 字符串形式的端口号，如："22" */
     char *p_hostServPort;
 
-    /* 需要执行的 SSH 指令集合 */
+    /* 需要执行的 SSH 初始化命令 */
     char *p_cmd;
+
+    /* 布署成功后需要执行的动作 */
+    char *p_postDpCmd;
 
     /* SSH 认证类型：公钥或密码 */
     znet_auth_t authType;
