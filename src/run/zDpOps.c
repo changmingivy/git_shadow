@@ -1182,13 +1182,18 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 #define zJson_Parse() do {  /* json 解析 */\
-    zpJ = cJSON_V(zpJRoot, "CacheId");\
-    if (! cJSON_IsNumber(zpJ)) {\
-        zErrNo = -1;\
-        zPrint_Err_Easy("");\
-        goto zEndMark;\
+    zpJ = cJSON_V(zpJRoot, "ForceRev");\
+    if (cJSON_IsString(zpJ) && 40 == strlen(zpJ->valuestring)) {\
+        zpForceSig = zpJ->valuestring;\
+    } else {\
+        zpJ = cJSON_V(zpJRoot, "CacheId");\
+        if (! cJSON_IsNumber(zpJ)) {\
+            zErrNo = -1;\
+            zPrint_Err_Easy("");\
+            goto zEndMark;\
+        }\
+        zCacheId = zpJ->valueint;\
     }\
-    zCacheId = zpJ->valueint;\
 \
     zpJ = cJSON_V(zpJRoot, "RevId");\
     if (! cJSON_IsNumber(zpJ)) {\
@@ -1270,15 +1275,25 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     _i zErrNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
 
-    _i zRepoId, zCacheId, zCommitId, zDataType;
-    char *zpSSHUserName, *zpSSHPort;
-    char *zpIpList;
-    _i zIpListStrLen, zIpCnt;
+    _i zRepoId = -1,
+       zCacheId = -1,
+       zCommitId = -1,
+       zDataType = -1;
 
-    /* IP 字符串的分割符，若没有明确指定，则默认为空格 */
-    char *zpDelim = " ";
+    char *zpIpList = NULL;
+    _i zIpListStrLen = 0,
+       zIpCnt = 0;
 
-    char *zpPostDpCmd = NULL;
+    char *zpSSHUserName = NULL,
+         *zpSSHPort = NULL;
+
+    /*
+     * IP 字符串的分割符
+     * 若没有明确指定，则默认为空格
+     */
+    char *zpDelim = " ",
+         *zpForceSig = NULL,
+         *zpPostDpCmd = NULL;
 
     cJSON *zpJ = NULL;
 
@@ -1420,9 +1435,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
+     * 非强制指定版本号的情况下，
      * 检查布署请求中标记的 CacheId 是否有效
      */
-    if (zCacheId != zRun_.p_repoVec[zRepoId]->cacheId) {
+    if (NULL == zpForceSig
+            && zCacheId != zRun_.p_repoVec[zRepoId]->cacheId) {
         zErrNo = -8;
         zPrint_Err_Easy("cacheId invalid");
         goto zCleanMark;
@@ -1520,7 +1537,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /*
      * 转存正在布署的版本号
      */
-    strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+    if (NULL == zpForceSig) {
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+    } else {
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpForceSig);
+    }
 
     /*
      * 若目标机数量超限，则另行分配内存
