@@ -79,8 +79,8 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
@@ -88,19 +88,19 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
     /* 检查项目存在性 */
     if (NULL == zRun_.p_repoVec[zRepoId]
             || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -2;
     }
 
     zpJ = cJSON_V(zpJRoot, "DataType");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zDataType = zpJ->valueint;
 
     if (0 != pthread_rwlock_tryrdlock(& zRun_.p_repoVec[zRepoId]->rwLock)) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     };
 
@@ -111,7 +111,7 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zRepoId]->dpVecWrap_;
     } else {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -10;
     }
 
@@ -144,7 +144,7 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.send_nosignal(zSd, "]}", sizeof("]}") - 1);
     } else {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -70;
     }
 
@@ -173,35 +173,35 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
     if (NULL == zRun_.p_repoVec[zMeta_.repoId] || 'Y' != zRun_.p_repoVec[zMeta_.repoId]->initFinished) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -2;
     }
 
     zpJ = cJSON_V(zpJRoot, "DataType");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.dataType = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "RevId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.commitId = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "CacheId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.cacheId = zpJ->valueint;
@@ -211,7 +211,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
      * 不允许查看文件差异内容
      */
     if (zCacheDamaged == zRun_.p_repoVec[zMeta_.repoId]->repoState) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -13;
     }
 
@@ -220,20 +220,20 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     } else if (zIsDpDataType == zMeta_.dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zMeta_.repoId]->dpVecWrap_;
     } else {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -10;
     }
 
     /* get rdlock */
     if (0 != pthread_rwlock_tryrdlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock)) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     }
 
     /* CHECK: cacheId */
     if (zMeta_.cacheId != zRun_.p_repoVec[zMeta_.repoId]->cacheId) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -8;
     }
 
@@ -242,7 +242,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
             || ((zCacheSiz - 1) < zMeta_.commitId)
             || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_data)) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -3;
     }
 
@@ -253,20 +253,20 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -71;
         }
     } else if ((void *) 1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     } else if ((void *) -1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -71;
     }
 
@@ -328,42 +328,42 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
     if (NULL == zRun_.p_repoVec[zMeta_.repoId] || 'Y' != zRun_.p_repoVec[zMeta_.repoId]->initFinished) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -2;
     }
 
     zpJ = cJSON_V(zpJRoot, "DataType");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.dataType = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "RevId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.commitId = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "FileId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.fileId = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "CacheId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.cacheId = zpJ->valueint;
@@ -373,18 +373,18 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     } else if (zIsDpDataType == zMeta_.dataType) {
         zpTopVecWrap_= & zRun_.p_repoVec[zMeta_.repoId]->dpVecWrap_;
     } else {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -10;
     }
 
     if (0 != pthread_rwlock_tryrdlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock)) {
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     };
 
     if (zMeta_.cacheId != zRun_.p_repoVec[zMeta_.repoId]->cacheId) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -8;
     }
 
@@ -392,7 +392,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             || ((zCacheSiz - 1) < zMeta_.commitId)\
             || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_data)) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -3;
     }
 
@@ -403,20 +403,20 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -71;
         }
     } else if ((void *) 1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     } else if ((void *) -1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -71;
     }
 
@@ -434,20 +434,20 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 
         if ((void *) -1 == zNativeOps_.get_diff_contents(&zMeta_)) {
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -72;
         }
     } else if ((void *) 1 == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -11;
     } else if ((void *) -1 == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zRun_.commonLock);
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         return -72;
     }
 
@@ -504,77 +504,77 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zpProjInfo[0] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "PathOnHost");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zpProjInfo[1] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "NeedPull");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zpProjInfo[5] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "SSHUserName");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     if (255 < strlen(zpJ->valuestring)) {
         zErrNo = -31;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zpProjInfo[6] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "SSHPort");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
 
     if (5 < strlen(zpJ->valuestring)) {
         zErrNo = -39;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zpProjInfo[7] = zpJ->valuestring;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
         zpJ = cJSON_V(zpJRoot, "SourceUrl");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zErrNo = -34;
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             goto zEndMark;
         }
         zpProjInfo[2] = zpJ->valuestring;
 
         zpJ = cJSON_V(zpJRoot, "SourceBranch");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zErrNo = -34;
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             goto zEndMark;
         }
         zpProjInfo[3] = zpJ->valuestring;
 
         zpJ = cJSON_V(zpJRoot, "SourceVcsType");
-        if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zErrNo = -34;
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             goto zEndMark;
         }
         zpProjInfo[4] = zpJ->valuestring;
@@ -584,7 +584,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zpProjInfo[4] = "Git";
     } else {
         zErrNo = -34;
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
 
@@ -620,7 +620,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
 
             zErrNo = -91;
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             goto zEndMark;
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -739,7 +739,7 @@ zssh_exec_simple(const char *zpSSHUserName,
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {\
         zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );\
         zPgSQL_.conn_clear(zpPgConnHd_);\
-        zPrint_Err_Easy();\
+        zPrint_Err_Easy("");\
 \
         zpDpCcur_->errNo = -91;\
         goto zEndMark;\
@@ -834,7 +834,7 @@ zdp_ccur(void *zp) {
         zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );
         zpDpCcur_->errNo = -90;
 
-        zPrint_Err_Easy();
+        zPrint_Err_Easy("");
         goto zEndMark;
     } else {
         snprintf(zSQLBuf, zGlobCommonBufSiz,
@@ -1014,7 +1014,7 @@ zdp_ccur(void *zp) {
                     zPgSQL_.res_clear(zpPgResHd_, NULL);
 
                     zpDpCcur_->errNo = -12;
-                    zPrint_Err_Easy();
+                    zPrint_Err_Easy("");
                     goto zEndMark;
                 }
             } else {
@@ -1025,7 +1025,7 @@ zdp_ccur(void *zp) {
                 zPgSQL_.res_clear(zpPgResHd_, NULL);
 
                 zpDpCcur_->errNo = -23;
-                zPrint_Err_Easy();
+                zPrint_Err_Easy("");
                 goto zEndMark;
             }
         } else {
@@ -1036,7 +1036,7 @@ zdp_ccur(void *zp) {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
 
             zpDpCcur_->errNo = -12;
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             goto zEndMark;
         }
     }
@@ -1083,22 +1083,22 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "IpCnt");
-    if (!cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zIpCnt = zpJ->valueint;
 
     zpJ = cJSON_V(zpJRoot, "IpList");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
-        zPrint_Err_Easy();
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zpIpList = zpJ->valuestring;
@@ -1124,7 +1124,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         zPosixReg_.str_split(&zR_, zpIpList, zpDelim);
         if (zIpCnt != zR_.cnt) {
             zPosixReg_.free_res(&zR_);
-            zPrint_Err_Easy();
+            zPrint_Err_Easy("");
             return -28;
         }
     }
@@ -1167,7 +1167,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
             if (0 != zDp_.errNo) {
                 zPosixReg_.free_res(&zR_);
-                zPrint_Err_Easy();
+                zPrint_Err_Easy("");
                 return zDp_.errNo;
             }
         }
@@ -1183,54 +1183,60 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
  */
 #define zJson_Parse() do {  /* json 解析 */\
     zpJ = cJSON_V(zpJRoot, "CacheId");\
-    if (!cJSON_IsNumber(zpJ)) {\
+    if (! cJSON_IsNumber(zpJ)) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zCacheId = zpJ->valueint;\
 \
     zpJ = cJSON_V(zpJRoot, "RevId");\
-    if (!cJSON_IsNumber(zpJ)) {\
+    if (! cJSON_IsNumber(zpJ)) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zCommitId = zpJ->valueint;\
 \
     zpJ = cJSON_V(zpJRoot, "DataType");\
-    if (!cJSON_IsNumber(zpJ)) {\
-        return -1;\
+    if (! cJSON_IsNumber(zpJ)) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zDataType = zpJ->valueint;\
 \
     zpJ = cJSON_V(zpJRoot, "IpList");\
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zpIpList = zpJ->valuestring;\
     zIpListStrLen = strlen(zpIpList);\
 \
     zpJ = cJSON_V(zpJRoot, "IpCnt");\
-    if (!cJSON_IsNumber(zpJ)) {\
+    if (! cJSON_IsNumber(zpJ)) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zIpCnt = zpJ->valueint;\
 \
     /* 同一项目所有目标机的 ssh 用户名必须相同 */\
     zpJ = cJSON_V(zpJRoot, "SSHUserName");\
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zpSSHUserName = zpJ->valuestring;\
 \
     /* 同一项目所有目标机的 sshd 端口必须相同 */\
     zpJ = cJSON_V(zpJRoot, "SSHPort");\
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zErrNo = -1;\
+        zPrint_Err_Easy("");\
         goto zEndMark;\
     }\
     zpSSHPort = zpJ->valuestring;\
@@ -1268,9 +1274,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     char *zpSSHUserName, *zpSSHPort;
     char *zpIpList;
     _i zIpListStrLen, zIpCnt;
-    /*
-     * IPaddr 字符串的分割符，若没有明确指定，则默认为空格
-     */
+
+    /* IP 字符串的分割符，若没有明确指定，则默认为空格 */
     char *zpDelim = " ";
 
     char *zpPostDpCmd = NULL;
@@ -1278,8 +1283,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
         zErrNo = -1;
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
     zRepoId = zpJ->valueint;
@@ -1289,7 +1295,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (NULL == zRun_.p_repoVec[zRepoId]
             || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        zErrNo = -2;  /* zErrNo = -2; */
+        zErrNo = -2;
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
 
@@ -1303,6 +1310,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (zFalse == zPgSQL_.conn_check(zRun_.pgConnInfo)) {
         zErrNo = -90;
+        zPrint_Err_Easy("pgSQL conn failed");
         goto zEndMark;
     }
 
@@ -1311,6 +1319,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (80 < zRun_.memLoad) {
         zErrNo = -16;
+        zPrint_Err_Easy("mem load too high");
         goto zEndMark;
     }
 
@@ -1320,6 +1329,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (0 != pthread_mutex_trylock( & zRun_.p_repoVec[zRepoId]->dpWaitLock )) {
         zErrNo = -11;
+        zPrint_Err_Easy("");
         goto zEndMark;
     }
 
@@ -1336,9 +1346,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 旧的布署流程在此值不再为 1 时，会主动退出，并清理相关的工作线程
      */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-
     zRun_.p_repoVec[zRepoId]->dpingMark = 0;
-
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
 
     /*
@@ -1396,7 +1404,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
 
                 /* 数据库不可用，停止服务 ? */
-                zPrint_Err(0, NULL, "!!! FATAL !!!");
+                zPrint_Err_Easy("==== FATAL ====");
                 exit(1);
             }
         }
@@ -1407,6 +1415,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (zDpLocked == zRun_.p_repoVec[zRepoId]->repoLock) {
         zErrNo = -6;
+        zPrint_Err_Easy("repo locked");
         goto zCleanMark;
     }
 
@@ -1415,6 +1424,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (zCacheId != zRun_.p_repoVec[zRepoId]->cacheId) {
         zErrNo = -8;
+        zPrint_Err_Easy("cacheId invalid");
         goto zCleanMark;
     }
 
@@ -1427,6 +1437,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zRepoId]->dpVecWrap_;
     } else {
         zErrNo = -10;  /* 无法识别 */
+        zPrint_Err_Easy("==== BUG ====");
         goto zCleanMark;
     }
 
@@ -1437,54 +1448,34 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             || ((zCacheSiz - 1) < zCommitId)
             || (NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data)) {
         zErrNo = -3;
+        zPrint_Err_Easy("commitId invalid");
         goto zCleanMark;
     }
 
     /*
-     * 将当前的时间戳写出到 "HookAwaker" 文件
+     * 每次尝试将 ____shadowXXXXXXXX 分支删除
+     * 避免该分支体积过大，不必关心执行结果
      */
-    _i zDirFd = open(zRun_.p_repoVec[zRepoId]->p_repoPath, O_RDONLY);
-    if (0 > zDirFd) {
-        zPrint_Err(errno, "", "open err");
-        zErrNo = -15;
-        goto zCleanMark;
-    }
-
-    _i zFd = openat(zDirFd, "HookAwaker", O_WRONLY | O_TRUNC | O_CREAT, 0755);
-    if (0 > zFd) {
-        close(zDirFd);
-        zPrint_Err(errno, "", "openat err");
-        zErrNo = -15;
-        goto zCleanMark;
-    }
-
-    time_t zTimeStamp = time(NULL);
-    if (sizeof(time_t) != write(zFd, &zTimeStamp, sizeof(time_t))) {
-        close(zFd);
-        close(zDirFd);
-        zPrint_Err(errno, "", "write err");
-        zErrNo = -15;
-        goto zCleanMark;
-    }
-
-    close(zFd);
-    close(zDirFd);
-
-    /* 每次尝试将 ____shadowXXXXXXXX 分支删除，避免该分支体积过大，不必关心执行结果 */
-    zLibGit_.branch_del(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____shadowXXXXXXXX");
+    zLibGit_.branch_del(
+            zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+            "____shadowXXXXXXXX");
 
     /*
-     * 提交到 ____shadowXXXXXXXX 分支，确保每次 push 都能触发 post-update 勾子
+     * 执行一次空提交到 ____shadowXXXXXXXX 分支
+     * 确保每次 push 都能触发 post-update 勾子
      */
-    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____shadowXXXXXXXX", "HookAwaker", "_")) {
+    if (0 != zLibGit_.add_and_commit(
+                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                "____shadowXXXXXXXX", ".", "_")) {
         zErrNo = -15;
+        zPrint_Err_Easy("libgit2 err");
         goto zCleanMark;
     }
 
     /*
      * 目标机 IP 列表处理
      * 使用定制的 alloc 函数，从项目内存池中分配内存
-     * 需要检查目标机集合是否为空或数量不符
+     * 需要检查目标机集合是否为空，或数量不符
      */
     zRegRes__ zRegRes_ = {
         .alloc_fn = zNativeOps_.alloc,
@@ -1493,8 +1484,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     zPosixReg_.str_split(&zRegRes_, zpIpList, zpDelim);
 
-    if (0 == zRegRes_.cnt
-            || zIpCnt != zRegRes_.cnt) {
+    if (0 == zRegRes_.cnt || zIpCnt != zRegRes_.cnt) {
+        zPrint_Err_Easy("host IPs'cnt err");
         zErrNo = -28;
         goto zCleanMark;
     }
@@ -1520,33 +1511,36 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zRun_.p_repoVec[zRepoId]->dpTaskFinCnt = 0;
 
     /*
-     * 此项用于标记已完成的任务中，是否存在失败的结果
+     * 用于标记已完成的任务中，是否存在失败的结果
      * 目标机初始化环节出错置位 bit[0]
      * 布署环节出错置位 bit[1]
      */
     zRun_.p_repoVec[zRepoId]->resType = 0;
 
     /*
-     * 标记：正在布署的版本号
+     * 转存正在布署的版本号
      */
     strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
 
     /*
      * 若目标机数量超限，则另行分配内存
-     * 否则使用预置的固定空间
+     * 否则使用预置的静态空间
      */
     if (zForecastedHostNum < zRun_.p_repoVec[zRepoId]->totalHost) {
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_ = zNativeOps_.alloc(zRepoId, zRegRes_.cnt * sizeof(zDpCcur__));
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_ =
+            zNativeOps_.alloc(zRepoId, zRegRes_.cnt * sizeof(zDpCcur__));
     } else {
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_ = zRun_.p_repoVec[zRepoId]->dpCcur_;
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_ =
+            zRun_.p_repoVec[zRepoId]->dpCcur_;
     }
 
     /*
-     * 暂留上一次布署的数据
+     * 暂留上一次布署的 HashMap
      * 用于判断目标机增减差异，并据此决定每台目标机需要执行的动作
      */
     zDpRes__ *zpOldDpResHash_[zDpHashSiz];
-    memcpy(zpOldDpResHash_, zRun_.p_repoVec[zRepoId]->p_dpResHash_, zDpHashSiz * sizeof(zDpRes__ *));
+    memcpy(zpOldDpResHash_, zRun_.p_repoVec[zRepoId]->p_dpResHash_,
+            zDpHashSiz * sizeof(zDpRes__ *));
     zDpRes__ *zpOldDpResList_ = zRun_.p_repoVec[zRepoId]->p_dpResList_;
 
     /*
@@ -1559,10 +1553,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /*
      * Clear hash buf before reuse it!!!
      */
-    memset(zRun_.p_repoVec[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
+    memset(zRun_.p_repoVec[zRepoId]->p_dpResHash_,
+            0, zDpHashSiz * sizeof(zDpRes__ *));
 
     /*
-     * 生成目标机初始化的 SSH 命令
+     * 生成目标机初始化的命令
      */
     zGenerate_Ssh_Cmd(zpCommonBuf, zRepoId);
 
@@ -1572,25 +1567,30 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * ==========================
      */
     zbool_t zIsSameSig = zFalse;
-    if (0 == strcmp(zGet_OneCommitSig(zpTopVecWrap_, zCommitId), zRun_.p_repoVec[zRepoId]->lastDpSig)) {
+    if (0 == strcmp(zGet_OneCommitSig(zpTopVecWrap_, zCommitId),
+                zRun_.p_repoVec[zRepoId]->lastDpSig)) {
         zIsSameSig = zTrue;
     }
 
     /*
      * 布署耗时基准：相同版本号重复布署时不更新
      */
-    if (!zIsSameSig) {
+    if (! zIsSameSig) {
         zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = time(NULL);
     }
 
     zDpRes__ *zpTmp_ = NULL;
     for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
-        /* 检测是否存在重复IP */
+        /*
+         * 检测是否存在重复IP
+         */
         if (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
                 || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1]) {
+
             /* 总任务计数递减 */
             zRun_.p_repoVec[zRepoId]->totalHost--;
-            zPrint_Err(0, NULL, "same IP");
+
+            zPrint_Err_Easy("same IP");
             continue;
         }
 
@@ -1598,9 +1598,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * IPnum 链表赋值
          * 转换字符串格式的 IPaddr 为数组 _ull[2]
          */
-        if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[i], zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
+        if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[i],
+                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
+
             /* 此种错误信息记录到哪里 ??? */
-            zPrint_Err(0, NULL, "Invalid IP");
+            zPrint_Err_Easy("Invalid IP");
             continue;
         }
 
@@ -1633,20 +1635,29 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_postDpCmd = zpPostDpCmd;
 
-        /* 清理线程时保持状态不变；另，libssh2 部分环节需要持锁才能安全并发 */
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock = & zRun_.p_repoVec[zRepoId]->dpSyncLock;
-
         /*
-         * 更新 HASH 链
+         * 清理线程时需要保持即时的状态不变
+         * 另，libssh2 部分环节需要持锁才能安全并发
          */
-        zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDpHashSiz];
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock =
+            & zRun_.p_repoVec[zRepoId]->dpSyncLock;
 
         /*
-         * 若顶层为空，直接指向数组中对应的位置
+         * 更新 HashMap
+         */
+        zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                % zDpHashSiz
+        ];
+
+        /*
+         * 若 HashMap 顶层为空，直接指向链表中对应的位置
          */
         if (NULL == zpTmp_) {
-            zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDpHashSiz]
-                = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+            zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                    % zDpHashSiz
+            ] = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
 
             /* 生成工作线程参数 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
@@ -1662,26 +1673,36 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         }
 
         /*
-         * 基于旧的 HASH 链检测是否是新加入的目标机
+         * 基于旧的 HashMap 检测是否是新加入的目标机
          */
-        zpTmp_ = zpOldDpResHash_[zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0] % zDpHashSiz];
+        zpTmp_ = zpOldDpResHash_[
+            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                % zDpHashSiz
+        ];
+
         while (NULL != zpTmp_) {
-            /* 若目标机 IPaddr 已存在，且初始化结果是成功的，则跳过远程初始化环节 */
-            if (zIpVecCmp(zpTmp_->clientAddr, zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
+            /*
+             * 若目标机 IPaddr 已存在
+             * 且初始化结果是成功的
+             * 则跳过远程初始化环节
+             */
+            if ( zIpVecCmp(zpTmp_->clientAddr,
+                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
                     && !zCheck_Bit(zpTmp_->resState, 1)) {
-                /* 置为 NULL，则布署时就不会执行 SSH 命令 */
+
+                /* 置为 NULL，则布署时就不会执行目标机初始化命令 */
                 zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = NULL;
 
                 /*
                  * 若是相同版本号重复布署
-                 * 则先前记录的已布署成功的主机，不再布署
+                 * 且上一次布署的结果成功，则不需要执行布署
                  * ==== 此处的执行效率有待优化 ====
                  */
                 if (zIsSameSig && zCheck_Bit(zpTmp_->resState, 4)) {
                     /* 复制上一次的全部状态位 */
                     zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = zpTmp_->resState;
 
-                    /* 总任务数递减 -1 */
+                    /* 总任务数递减 */
                     zRun_.p_repoVec[zRepoId]->dpTotalTask--;
                     goto zSkipMark;
                 }
@@ -1692,7 +1713,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zpTmp_ = zpTmp_->p_next;
         }
 
-        /* 执行布署 */
+        /*
+         * 执行布署
+         */
         zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
 zSkipMark:;
     }
@@ -1709,54 +1732,58 @@ zSkipMark:;
      * 或新的布署请求到达
      */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-
     while (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask
             && 1 == zRun_.p_repoVec[zRepoId]->dpingMark) {
-        pthread_cond_wait(&zRun_.p_repoVec[zRepoId]->dpSyncCond, & (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-    }
 
+        pthread_cond_wait(
+                & zRun_.p_repoVec[zRepoId]->dpSyncCond,
+                & zRun_.p_repoVec[zRepoId]->dpSyncLock);
+    }
     pthread_mutex_unlock( (& zRun_.p_repoVec[zRepoId]->dpSyncLock) );
 
     /*
-     * 运行至此，首先要判断：
-     * 是被新的布署请求中断 ？
+     * 运行至此，首先要判断：是被新的布署请求中断 ？
      * 还是返回全部的部署结果 ?
      */
     if (1 == zRun_.p_repoVec[zRepoId]->dpingMark) {
         /*
          * 当布署的版本号与上一次成功布署的不同时
-         * 才需要刷新缓存及其它布署后动作
+         * 才需要刷新缓存
          */
-        if (!zIsSameSig) {
-            /* 获取写锁，此时将拒绝所有查询类请求 */
+        if (! zIsSameSig) {
+            /*
+             * 获取写锁
+             * 此时将拒绝所有查询类请求
+             */
             pthread_rwlock_wrlock(&zRun_.p_repoVec[zRepoId]->rwLock);
 
             /*
-             * 以上一次成功布署的版本号为名称，创建一个新分支，用于保证回撤的绝对可行性
+             * 以上一次成功布署的版本号为名称
+             * 创建一个新分支，用于保证回撤的绝对可行性
              */
             if (0 != zLibGit_.branch_add(
                         zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
                         zRun_.p_repoVec[zRepoId]->lastDpSig,
                         zRun_.p_repoVec[zRepoId]->lastDpSig,
                         zTrue)) {
-                zPrint_Err(0, NULL, "create branch failed");
+                zPrint_Err_Easy("branch create err");
             }
 
             /*
              * 更新最新一次布署版本号
-             * ==== 务必在创建新分支之后执行 ====
              */
-            strcpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+            strcpy(zRun_.p_repoVec[zRepoId]->lastDpSig,
+                    zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
 
             /*
-             * 内存池复位
+             * 项目内存池复位
              */
-            zReset_Mem_Pool_State(zRepoId);
+            zReset_Mem_Pool_State( zRepoId );
 
-            /* 更新 cacheId */
+            /* update cacheId */
             zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
 
-            /* 新版本号列表与已布署列表缓存更新 */
+            /* 刷新缓存 */
             zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
 
             zSubMeta_.dataType = zIsCommitDataType;
@@ -1788,11 +1815,12 @@ zSkipMark:;
         pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
 
         zErrNo = -127;
+        zPrint_Err_Easy("Deploy interrupted");
     }
 
 zCleanMark:
     /* ==== 释放布署主锁 ==== */
-    pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpLock );
+    pthread_mutex_unlock(& zRun_.p_repoVec[zRepoId]->dpLock);
 
 zEndMark:
     return zErrNo;
@@ -1816,44 +1844,51 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
          * zpRevSig = NULL,
          * zpReplyType = NULL;
 
-    /* 提取 value[key] */
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
     if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        return -2;  /* zErrNo = -2; */
+        zPrint_Err_Easy("");
+        return -2;
     }
 
     zpJ = cJSON_V(zpJRoot, "TimeStamp");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zTimeStamp = (time_t)zpJ->valuedouble;
 
     zpJ = cJSON_V(zpJRoot, "HostAddr");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zpHostAddr = zpJ->valuestring;
     if (0 != zConvert_IpStr_To_Num(zpHostAddr, zHostId)) {
+        zPrint_Err_Easy("");
         return -18;
     }
 
     zpJ = cJSON_V(zpJRoot, "RevSig");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zpRevSig = zpJ->valuestring;
 
+    /* 格式，SN: S1..S9，EN: E3..E8 */
     zpJ = cJSON_V(zpJRoot, "ReplyType");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]
-            || 3 > strlen(zpJ->valuestring)) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]
+            || 2 > strlen(zpJ->valuestring)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zpReplyType = zpJ->valuestring;
@@ -1861,12 +1896,14 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     /* 正文...遍历信息链 */
     for (zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[zHostId[0] % zDpHashSiz];
-            zpTmp_ != NULL; zpTmp_ = zpTmp_->p_next) {
-        if (zIpVecCmp(zpTmp_->clientAddr, zHostId)) {
+            zpTmp_ != NULL;
+            zpTmp_ = zpTmp_->p_next) {
+        if ( zIpVecCmp(zpTmp_->clientAddr, zHostId) ) {
             /* 检查信息类型是否合法 */
             zRetBit = strtol(zpReplyType + 1, NULL, 10);
             if (0 >= zRetBit || 24 < zRetBit) {
-                zErrNo = -103;
+                zErrNo = -1;
+                zPrint_Err_Easy("UNknown reply type");
                 goto zMarkEnd;
             }
 
@@ -1889,13 +1926,15 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
                 /* 设计 SQL 连接池 ??? */
                 if (0 > zPgSQL_.exec_once(zRun_.pgConnInfo, zCmdBuf, NULL)) {
-                    zPrint_Err(0, NULL, "record update failed");
+                    zPrint_Err_Easy("DB record update err");
                 }
 
                 /* 判断是否是延迟到达的信息 */
                 if (0 != strcmp(zRun_.p_repoVec[zRepoId]->dpingSig, zpRevSig)
                         || zTimeStamp != zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp) {
+
                     zErrNo = -101;
+                    zPrint_Err_Easy("msg out-of-date");
                     goto zMarkEnd;
                 }
 
@@ -1904,21 +1943,20 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 /* 发生错误，bit[1] 置位表示目标机布署出错返回 */
                 zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 2);
 
-                pthread_mutex_lock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
-
                 /*
                  * 确认此台目标机会布署失败
                  * 全局计数原子性+1
+                 * 若任务计数已满，则通知上层调度者
                  */
+                pthread_mutex_lock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
                 zRun_.p_repoVec[zRepoId]->dpTaskFinCnt++;
-
                 pthread_mutex_unlock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
-
                 if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
                     pthread_cond_signal(&zRun_.p_repoVec[zRepoId]->dpSyncCond);
                 }
 
                 zErrNo = -102;
+                zPrint_Err_Easy("");
                 goto zMarkEnd;
             } else if ('S' == zpReplyType[0]) {
                 snprintf(zCmdBuf, zGlobCommonBufSiz,
@@ -1928,27 +1966,28 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                         zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
 
                 if (0 > zPgSQL_.exec_once(zRun_.pgConnInfo, zCmdBuf, NULL)) {
-                    zPrint_Err(0, NULL, "record update failed");
+                    zPrint_Err_Easy("DB record update err");
                 }
 
                 /* 判断是否是延迟到达的信息 */
                 if (0 != strcmp(zRun_.p_repoVec[zRepoId]->dpingSig, zpRevSig)
                         || zTimeStamp != zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp) {
                     zErrNo = -101;
+                    zPrint_Err_Easy("msg out-of-date");
                     goto zMarkEnd;
                 }
 
                 zSet_Bit(zpTmp_->resState, zRetBit);
 
-                /* 最终成功的状态到达时，才需要递增全局计数并记当布署耗时 */
+                /* 最终成功的状态到达时，才需要递增全局计数并记录布署耗时 */
                 if ('5' == zpReplyType[2]) {
+                    /*
+                     * 全局计数原子性+1
+                     * 若任务计数已满，则通知上层调度者
+                     */
                     pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpSyncLock );
-
-                    /* 全局计数原子性 +1 */
                     zRun_.p_repoVec[zRepoId]->dpTaskFinCnt++;
-
                     pthread_mutex_unlock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
-
                     if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
                         pthread_cond_signal(&zRun_.p_repoVec[zRepoId]->dpSyncCond);
                     }
@@ -1961,14 +2000,15 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                             zRepoId, zpHostAddr, zTimeStamp, zpRevSig);
 
                     if (0 > zPgSQL_.exec_once(zRun_.pgConnInfo, zCmdBuf, NULL)) {
-                        zPrint_Err(0, NULL, "record update failed");
+                        zPrint_Err_Easy("DB record update err");
                     }
                 }
 
                 zErrNo = 0;
                 goto zMarkEnd;
             } else {
-                zErrNo = -103;  // 无法识别的返回内容
+                zErrNo = -1;
+                zPrint_Err_Easy("UNdefined reply type");
                 goto zMarkEnd;
             }
         }
@@ -1977,12 +2017,11 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 zMarkEnd:
     return zErrNo;
 }
-
 #undef zGenerate_SQL_Cmd
+
 
 /*
  * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务
- * 3：允许布署／撤销／更新ip数据库
  */
 static _i
 zlock_repo(cJSON *zpJRoot, _i zSd) {
@@ -1992,27 +2031,33 @@ zlock_repo(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        return -2;  /* zErrNo = -2; */
+    if (NULL == zRun_.p_repoVec[zRepoId]
+            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+        zPrint_Err_Easy("");
+        return -2;
     }
 
     pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
-
     zRun_.p_repoVec[zRepoId]->repoLock = zDpLocked;
-
     pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpLock );
 
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}",
+            sizeof("{\"ErrNo\":0}") - 1);
 
     return 0;
 }
 
+
+/*
+ * 3：允许布署／撤销／更新ip数据库
+ */
 static _i
 zunlock_repo(cJSON *zpJRoot, _i zSd) {
     _i zRepoId = -1;
@@ -2021,23 +2066,25 @@ zunlock_repo(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        return -2;  /* zErrNo = -2; */
+    if (NULL == zRun_.p_repoVec[zRepoId]
+            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+        zPrint_Err_Easy("");
+        return -2;
     }
 
     pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
-
     zRun_.p_repoVec[zRepoId]->repoLock = zDpUnLock;
-
     pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpLock );
 
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}",
+            sizeof("{\"ErrNo\":0}") - 1);
 
     return 0;
 }
@@ -2056,14 +2103,21 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "Path");
-    if (!cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy("");
         return -1;
     }
 
-    zCheck_Negative_Return( zFd = open(zpJ->valuestring, O_RDONLY), -80 );
+    zCheck_Negative_Return(
+            zFd = open(zpJ->valuestring, O_RDONLY),
+            -80);
 
+    /* 此处并未保证传输过程的绝对可靠性 */
     while (0 < (zDataLen = read(zFd, zDataBuf, 4096))) {
-        zNetUtils_.send_nosignal(zSd, zDataBuf, zDataLen);
+        if (zDataLen != zNetUtils_.send_nosignal(zSd, zDataBuf, zDataLen)) {
+            zPrint_Err_Easy("file trans err");
+            return -126;
+        }
     }
 
     close(zFd);
@@ -2071,8 +2125,7 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
 }
 
 /*
- * 0：
- * Ping、Pang
+ * 0：Ping、Pang
  * 目标机使用此接口测试与服务端的连通性
  */
 static _i
@@ -2087,8 +2140,7 @@ zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
 }
 
 /*
- * 7：
- * 目标机自身布署成功之后，向服务端核对全局结果，
+ * 7：目标机自身布署成功之后，向服务端核对全局结果
  * 若全局结果是失败，则执行回退
  * 全局成功，回复 "S"，否则回复 "F"，尚未确定最终结果回复 "W"
  */
@@ -2101,18 +2153,23 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        return -2;  /* zErrNo = -2; */
+    if (NULL == zRun_.p_repoVec[zRepoId]
+            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+
+        zPrint_Err_Easy("");
+        return -2;
     }
 
     zpJ = cJSON_V(zpJRoot, "TimeStamp");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zTimeStamp = (time_t)zpJ->valuedouble;
@@ -2324,7 +2381,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
 
     /* 提取项目 ID */
     zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (!cJSON_IsNumber(zpJ)) {
+    if (! cJSON_IsNumber(zpJ)) {
         return -1;
     }
     zRepoId = zpJ->valueint;

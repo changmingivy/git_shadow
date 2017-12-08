@@ -131,7 +131,7 @@ zerr_vec_init(void) {
     zpErrVec[100] = "";
     zpErrVec[101] = "目标机返回的版本号与正在布署的不一致";
     zpErrVec[102] = "目标机 post-update 出错返回";
-    zpErrVec[103] = "目标机返回的信息类型无法识别";
+    zpErrVec[103] = "";
     zpErrVec[104] = "";
     zpErrVec[105] = "";
     zpErrVec[106] = "";

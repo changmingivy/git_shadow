@@ -391,6 +391,7 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRe
 
 
 /*
+ * [ TEST: PASS ]
  * 删除分支
  */
 static _i
