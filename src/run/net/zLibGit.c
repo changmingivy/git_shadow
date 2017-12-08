@@ -339,34 +339,45 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
 
 /*
  * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
+ * @param 可以指定为 “HEAD”/NULL 或者具体的 40 位 SHA1 commitSig
  */
 static _i
 zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark) {
     git_reference *zpNewBranch = NULL;
-    git_commit *zpLastCommit = NULL;
+    git_commit *zpCommit = NULL;
     git_oid zBaseRefOid;
 
     /* 获取基准版本 BaseRev 的 Oid */
-    if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, NULL == zpBaseRev ? "HEAD" : zpBaseRev)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return -1;
+    if (NULL == zpBaseRev || 0 == strcmp("HEAD", zpBaseRev)) {
+        if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, "HEAD")) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            return -1;
+        }
+    } else {
+        if (0 != git_oid_fromstr(& zBaseRefOid, zpBaseRev)) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            return -1;
+        }
     }
 
-    /* 获取 HEAD 的最后一次 commit  */
-    if (0 != git_commit_lookup(&zpLastCommit, zpRepo, &zBaseRefOid)) {
+    /*
+     * 获取 HEAD 的最后一次 commit
+     * 或者指定的具体的 commit
+     */
+    if (0 != git_commit_lookup(&zpCommit, zpRepo, &zBaseRefOid)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     /* 基于 HEAD 的最后一次 commit 创建新分支 */
-    if (0 != git_branch_create(&zpNewBranch, zpRepo, zpBranchName, zpLastCommit, zForceMark)) {
+    if (0 != git_branch_create(&zpNewBranch, zpRepo, zpBranchName, zpCommit, zForceMark)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
 
-        git_commit_free(zpLastCommit);
+        git_commit_free(zpCommit);
         return -1;
     }
 
-    git_commit_free(zpLastCommit);
+    git_commit_free(zpCommit);
     git_reference_free(zpNewBranch);
 
     return 0;
@@ -549,17 +560,24 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
 
 /*
  * 提交文件至指定分支
- * 路径名称必须是相对于 git 库根路径的
- * git config user.name _
- * && git config user.email _
- * && git add --all PATH
- * && git commit --allow-empty -m "_"
+ * [@] 路径名称必须是相对于 git 库根路径的
+ * @param zpRefName 除非使用 “HEAD”，否则其名称必须完整，如：refs/heads/xxx
+ *
+ * 功能等同于如下命令的组合：
+ *     git config user.name _
+ *     && git config user.email _
+ *     && git add --all PATH
+ *     && git commit --allow-empty -m "_"
  */
 static _i
-zgit_add_and_commit(git_repository *zpRepo, char *zpRefName/*branch name*/, char *zpPath, char *zpMsg) {
+zgit_add_and_commit(git_repository *zpRepo __z1,
+        char *zpRefName/*branch name*/,
+        char *zpPath __z1,
+        char *zpMsg __z1) {
+
     _i zErrNo = 0;
-    struct stat zS;
-    zCheck_Negative_Return(stat(zpPath, &zS), -1);
+    struct stat zS_;
+    zCheck_Negative_Return(stat(zpPath, &zS_), -1);
 
     git_index* zpIndex = NULL;
 
@@ -576,11 +594,6 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpRefName/*branch name*/, char
 
     git_oid zCommitOid;
 
-    if (! (zpRepo && zpPath && zpMsg)) {
-        zPrint_Err(0, NULL, "NULL param found");
-        return -1;
-    }
-
     /* get index */
     if (0 != git_repository_index(&zpIndex, zpRepo)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
@@ -588,7 +601,7 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpRefName/*branch name*/, char
     }
 
     /* git add file */
-    if (S_ISDIR(zS.st_mode)) {
+    if (S_ISDIR(zS_.st_mode)) {
         git_strarray zPaths;
         zPaths.strings = &zpPath;
         zPaths.count = 1;
@@ -664,7 +677,7 @@ zgit_add_and_commit(git_repository *zpRepo, char *zpRefName/*branch name*/, char
     }
 
     /* 将新生成的树对象、父节点 CommitId 联系起来，写到库中 */
-    if (0 != git_commit_create(&zCommitOid, zpRepo, zpRefName, zpMe, zpMe, "UTF-8", zpMsg, zpTree, 1, zppParentCommit)) {
+    if (0 != git_commit_create(&zCommitOid, zpRepo, zpRefName, zpMe, zpMe, "UTF-8", zpMsg, zpTree, zParentCnt, zppParentCommit)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_signature_free(zpMe);
         git_tree_free(zpTree);
