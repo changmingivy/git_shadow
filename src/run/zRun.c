@@ -322,18 +322,13 @@ zops_route(void *zpParam) {
      * 通用的错误状态返回至此处统一处理
      */
     if (0 > zErrNo) {
+        /* 无法解析的数据，打印出其原始信息 */
         if (-1 == zErrNo) {
             fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
         }
 
         zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
         zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
-
-        /*
-         * [DEBUG]: 错误信息，打印出一份，
-         * 防止客户端已断开的场景导致错误信息丢失
-         */
-        zPrint_Err(0, NULL, zpDataBuf);
     }
 
 zMarkEnd:

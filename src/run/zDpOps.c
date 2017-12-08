@@ -2327,7 +2327,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {\
             zPgSQL_.conn_clear(zpPgConnHd_);\
             free(zpStageBuf);\
-            zPrint_Err(0, NULL, "SQL exec failed");\
+            zPrint_Err_Easy("SQL exec err");\
             return -91;\
         }\
 \
@@ -2335,7 +2335,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
             zPgSQL_.conn_clear(zpPgConnHd_);\
             zPgSQL_.res_clear(zpPgResHd_, NULL);\
             free(zpStageBuf);\
-            zPrint_Err(0, NULL, "DB err");\
+            zPrint_Err_Easy("SQL result err");\
             return -92;\
         }\
 } while (0)
@@ -2382,39 +2382,43 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     /* 提取项目 ID */
     zpJ = cJSON_V(zpJRoot, "ProjId");
     if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId] || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+    if (NULL == zRun_.p_repoVec[zRepoId]
+            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+        zPrint_Err_Easy("");
         return -2;
     }
 
     /* 从 DB 中提取项目创建时间 */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        zPrint_Err(0, NULL, "DB connect failed");
+        zPrint_Err_Easy("DB connect failed");
         return -90;
     }
 
     /*
-     * 成功计数
-     * 失败计数
-     * 正在进行中的计数
+     * 成功、失败、正在进行中的计数
      */
     _i zSuccessCnt = 0,
        zFailCnt = 0,
        zWaitingCnt = 0;
 
-    /* 提取目标机的实时信息 */
+    /* 存放目标机实时信息的 BUF */
     _i zStageBufLen = zRun_.p_repoVec[zRepoId]->dpTotalTask * (INET6_ADDRSTRLEN + 3),
        zErrBufLen = zRun_.p_repoVec[zRepoId]->dpTotalTask * (INET6_ADDRSTRLEN + 256);
 
     char *zpStageBuf[4],
          *zpErrBuf[zErrClassNum];
+
+    /* 一次性分配所需的全部空间 */
     zMem_Alloc(zpStageBuf[0], char, 4 * zStageBufLen + zErrClassNum * zErrBufLen);
 
     _i i, j;
+
     for (i = 1; i < 4; i++) {
         zpStageBuf[i] = zpStageBuf[i - 1] + zStageBufLen;
         zpStageBuf[i][1] = '\0';
@@ -2435,11 +2439,15 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 4)) {  /* 已确定成功 */
                 zSuccessCnt++;
             } else {  /* 阶段性成功，即未确认完全成功 */
-                if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr, zIpStrBuf)) {
-                    zPrint_Err(0, NULL, "Convert IP num to str failed");
+                if (0 != zConvert_IpNum_To_Str(
+                            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr,
+                            zIpStrBuf)) {
+                    zPrint_Err_Easy("IPConvert err");
                 } else {
                     for (j = 0; j < 4; j++) {
-                        if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, j + 1)) {
+                        if (zCheck_Bit(
+                                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState,
+                                    j + 1)) {
                             zStageOffSet[j] += snprintf(
                                     zpStageBuf[j] + zStageOffSet[j],
                                     zStageBufLen - zStageOffSet[j],
@@ -2452,11 +2460,15 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             }
         } else {  /* 有错 */
             zFailCnt++;
-            if (0 != zConvert_IpNum_To_Str(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr, zIpStrBuf)) {
-                zPrint_Err(0, NULL, "Convert IP num to str failed");
+            if (0 != zConvert_IpNum_To_Str(
+                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr,
+                        zIpStrBuf)) {
+                zPrint_Err_Easy("IPConvert err");
             } else {
                 for (j = 0; j < zErrClassNum; j++) {
-                    if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, j + 1)) {
+                    if (zCheck_Bit(
+                                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState,
+                                j + 1)) {
                         zErrOffSet[j] += snprintf(
                                 zpErrBuf[j] + zErrOffSet[j],
                                 zErrBufLen - zErrOffSet[j],
@@ -2474,7 +2486,8 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     zWaitingCnt = zRun_.p_repoVec[zRepoId]->totalHost - zSuccessCnt - zFailCnt;
 
     /*
-     * 截取最近 30 天的记录，生成一张临时表
+     * 从 DB 中提取最近 30 天的记录
+     * 首先生成一张临时表，以提高效率
      */
     _i zTbNo = 0;
 
@@ -2491,26 +2504,37 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         free(zpStageBuf);
-        zPrint_Err(0, NULL, "SQL exec failed");
+        zPrint_Err_Easy("SQL exec failed");
         return -91;
     }
     zPgSQL_.res_clear(zpPgResHd_, NULL);
 
     /* 目标机总台次 */
-    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
+    sprintf(zSQLBuf,
+            "SELECT count(host_ip) FROM tmp%u",
+            zTbNo);
     zSQL_Exec();
+
     _f zTotalTimes = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
     /* 布署成功的总台次 */
-    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u WHERE host_res[5] = '1'", zTbNo);
+    sprintf(zSQLBuf,
+            "SELECT count(host_ip) FROM tmp%u "
+            "WHERE host_res[4] = '1'",
+            zTbNo);
     zSQL_Exec();
+
     _f zSuccessTimes = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
     /* 所有布署成功台次的耗时之和 */
-    sprintf(zSQLBuf, "SELECT sum(host_timespent) FROM tmp%u WHERE host_res[4] = '1'", zTbNo);
+    sprintf(zSQLBuf,
+            "SELECT sum(host_timespent) FROM tmp%u "
+            "WHERE host_res[4] = '1'",
+            zTbNo);
     zSQL_Exec();
+
     _f zSuccessTimeSpentAll = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
@@ -2532,6 +2556,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             "sum(to_number(host_err[11], '9')) "
             "FROM tmp%u", zTbNo);
     zSQL_Exec();
+
     _c zErrCnt[11];
     zErrCnt[0] = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     zErrCnt[1] = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
@@ -2570,10 +2595,12 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
         zGlobTimeSpent = time(NULL) - zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
     } else {
         sprintf(zSQLBuf,
-                "SELECT max(host_timespent) FROM tmp%u WHERE time_stamp = %ld",
+                "SELECT max(host_timespent) FROM tmp%u "
+                "WHERE time_stamp = %ld",
                 zTbNo,
                 zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
         zSQL_Exec();
+
         zGlobTimeSpent = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
@@ -2583,7 +2610,8 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         free(zpStageBuf);
-        zPrint_Err(0, NULL, "SQL exec failed");
+
+        zPrint_Err_Easy("SQL exec err");
         return -91;
     }
 
