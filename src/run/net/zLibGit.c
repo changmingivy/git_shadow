@@ -338,8 +338,9 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
 
 
 /*
+ * [ TEST: PASS ]
  * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
- * @param 可以指定为 “HEAD”/NULL 或者具体的 40 位 SHA1 commitSig
+ * @param 可以指定为 “HEAD”、NULL、refs/heads/xxx  或者具体的 40 位 SHA1 commitSig
  */
 static _i
 zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark) {
@@ -350,6 +351,11 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRe
     /* 获取基准版本 BaseRev 的 Oid */
     if (NULL == zpBaseRev || 0 == strcmp("HEAD", zpBaseRev)) {
         if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, "HEAD")) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            return -1;
+        }
+    } else if (5 <= strlen(zpBaseRev) && 0 == strncmp("refs/", zpBaseRev, 5)) {
+        if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, zpBaseRev)) {
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
@@ -559,7 +565,9 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
 
 
 /*
+ * [ TEST: PASS ]
  * 提交文件至指定分支
+ * 若分支不存在，将基于当前 HEAD 自动创建一个新分支
  * [@] 路径名称必须是相对于 git 库根路径的
  * @param zpRefName 除非使用 “HEAD”，否则其名称必须完整，如：refs/heads/xxx
  *
@@ -571,7 +579,7 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
  */
 static _i
 zgit_add_and_commit(git_repository *zpRepo __z1,
-        char *zpRefName/*branch name*/,
+        char *zpRefName,
         char *zpPath __z1,
         char *zpMsg __z1) {
 
@@ -701,6 +709,7 @@ zgit_add_and_commit(git_repository *zpRepo __z1,
 
 
 /*
+ * [ TEST: PASS ]
  * @param zpRepoPath 源库路径
  * 功能等同于：git config user.name = "_" && git config user.email = "_@_"
  */
