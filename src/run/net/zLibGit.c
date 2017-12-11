@@ -51,7 +51,7 @@ extern struct zRun__ zRun_;
 
 /* 代码库新建或载入时调用一次即可；zpNativelRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式 */
 static git_repository *
-zgit_env_init(char *zpNativeRepoAddr) {
+zgit_env_init(char *zpNativeRepoAddr __z1) {
     git_repository *zpRepoHandler;
 
     if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
@@ -69,7 +69,7 @@ zgit_env_init(char *zpNativeRepoAddr) {
 
 /* 通常无须调用，随布署系统运行一直处于使用状态 */
 static void
-zgit_env_clean(git_repository *zpRepoCredHandler) {
+zgit_env_clean(git_repository *zpRepoCredHandler __z1) {
     git_repository_free(zpRepoCredHandler);
     git_libgit2_shutdown();
 }
@@ -99,7 +99,7 @@ zgit_cred_acquire_cb(git_cred **zppResOUT,
  * zpRemoteRepoAddr 参数必须是 路径/.git 或 URL/仓库名.git 或 bare repo 的格式
  */
 _i
-zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
+zgit_remote_fetch(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char **zppRefs __z1, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
     /* get the remote */
     git_remote* zRemote = NULL;
     //git_remote_lookup( &zRemote, zpRepo, "origin" );  // 使用已命名分支时，调用此函数
@@ -175,7 +175,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
      * err8 bit[7]:目标端收到重复布署指令(同一目标机的多个不同IP)
      */
 static _i
-zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
+zgit_remote_push(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char **zppRefs __z1, _i zRefsCnt, char *zpErrBufOUT/* size: 256 */) {
     _i zErrNo = 0;
     /* get the remote */
     git_remote* zRemote = NULL;
@@ -265,7 +265,7 @@ zEndMark:
  * success return zpRevWalker, fail return NULL
  */
 static zGitRevWalk__ *
-zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
+zgit_generate_revwalker(git_repository *zpRepo __z1, char *zpRef __z1, _i zSortMode) {
     git_object *zpObj;
     git_revwalk *zpRevWalker = NULL;
 
@@ -295,7 +295,9 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
 
 static void
 zgit_destroy_revwalker(git_revwalk *zpRevWalker) {
-    git_revwalk_free(zpRevWalker);
+    if (NULL != zpRevWalker) {
+        git_revwalk_free(zpRevWalker);
+    }
 }
 
 /*
@@ -304,7 +306,7 @@ zgit_destroy_revwalker(git_revwalk *zpRevWalker) {
  * 用途：每调用一次取出一条数据
  */
 static _i
-zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, git_revwalk *zpRevWalker) {
+zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT __z1, git_repository *zpRepo __z1, git_revwalk *zpRevWalker __z1) {
     git_oid zOid;
     git_commit *zpCommit = NULL;
     _i zErrNo = 0;
@@ -343,7 +345,7 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
  * @param 可以指定为 “HEAD”、NULL、refs/heads/xxx  或者具体的 40 位 SHA1 commitSig
  */
 static _i
-zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRev, zbool_t zForceMark) {
+zgit_branch_add_local(git_repository *zpRepo __z1, char *zpBranchName __z1, char *zpBaseRev, zbool_t zForceMark) {
     git_reference *zpNewBranch = NULL;
     git_commit *zpCommit = NULL;
     git_oid zBaseRefOid;
@@ -395,7 +397,7 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRe
  * 删除分支
  */
 static _i
-zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName) {
+zgit_branch_del_local(git_repository *zpRepo __z1, char *zpBranchName __z1) {
     git_reference *zpBranch = NULL;
 
     if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
@@ -431,7 +433,7 @@ zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName) {
  * 分支改名
  */
 static _i
-zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark) {
+zgit_branch_rename_local(git_repository *zpRepo __z1, char *zpOldName __z1, char *zpNewName __z1, zbool_t zForceMark) {
     git_reference *zpOld = NULL;
     git_reference *zpNew = NULL;
 
@@ -463,7 +465,7 @@ zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewNam
  * 切换分支
  */
 static _i
-zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName) {
+zgit_branch_switch_local(git_repository *zpRepo __z1, char *zpBranchName __z1) {
     git_reference *zpBranch = NULL;
 
     if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
@@ -496,7 +498,7 @@ zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName) {
  * 若缓冲区大小不足，写出的内容将会不完整，但分支数量将是完整的
  */
 static _i
-zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt) {
+zgit_branch_list_local(git_repository *zpRepo __z1, char *zpResBufOUT __z1, _i zBufLen, _i *zpResItemCnt __z1) {
     git_branch_iterator *zpBranchIter = NULL;
     git_reference *zpTmpBranch = NULL;
     git_branch_t zBranchTypeOUT;
@@ -527,7 +529,7 @@ zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i
  * zIsBare 置为 1/zTrue，则会初始化成 bare 库；否则就是普通库
  */
 static git_repository *
-zgit_init(char *zpPath, zbool_t zIsBare) {
+zgit_init(char *zpPath __z1, zbool_t zIsBare) {
     git_repository *zpRepo = NULL;
 
     /* With working directory or bare */
@@ -542,11 +544,11 @@ zgit_init(char *zpPath, zbool_t zIsBare) {
 
 /*
  * git clone URL/.git
- * zpBranchName: clone 后使用的默认分支，置为 NULL 表示使用远程库的默认分支
- * zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
+ * @zpBranchName: clone 后使用的默认分支，置为 NULL 表示使用远程库的默认分支
+ * @zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
  */
 static git_repository *
-zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) {
+zgit_clone(char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t zIsBare) {
     git_repository *zpRepo = NULL;
 
     git_clone_options zOpt;  // = GIT_CLONE_OPTIONS_INIT;
@@ -554,7 +556,10 @@ zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare) 
 
     zOpt.fetch_opts.callbacks.credentials = zgit_cred_acquire_cb;
     zOpt.bare = zIsBare;
-    zOpt.checkout_branch = zpBranchName;
+
+    if (NULL != zpBranchName) {
+        zOpt.checkout_branch = zpBranchName;
+    }
 
     if (0 != git_clone(&zpRepo, zpRepoAddr, zpPath, &zOpt)) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
@@ -715,7 +720,7 @@ zgit_add_and_commit(git_repository *zpRepo __z1,
  * 功能等同于：git config user.name = "_" && git config user.email = "_@_"
  */
 static _i
-zgit_config_name_and_email(char *zpRepoPath) {
+zgit_config_name_and_email(char *zpRepoPath __z1) {
     char zConfPathBuf[strlen(zpRepoPath) + sizeof("/.git/config")];
     sprintf(zConfPathBuf, "%s/.git/config", zpRepoPath);
 

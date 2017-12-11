@@ -46,8 +46,8 @@ zBaseImg="${zOS}_base.img"
 zCpuNum="2"
 zMem="128M"
 zDiskSiz="20G"
-zHostNatIf="enp2s0"
-zHostIP="172.30.80.49"
+zHostNatIf="wlp1s0"
+zHostIP="10.30.1.109"
 zBridgeIf=br0
 
 modprobe tun
