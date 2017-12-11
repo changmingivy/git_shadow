@@ -16,10 +16,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 # err6 :目标端文件冲突
 # err7 :目标端路径不存在
 
-#
-# TODO: 删除不再需要分支；运行 git gc 清理无用对象占用的空间
-#
-
 (
     zPathOnHost=`dirname \`pwd\``
 
@@ -40,7 +36,8 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     zProjAliasPath=`echo $1 | awk -F@ '{print $8}'`
     zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
-    # 接收到内容的项目分支名称
+    # 当次布署的活动分支，仅用于所有动作完成后，进行清理
+    zServBranch="s@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
     zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
 
     # 临时保存错误信息的位置
@@ -100,6 +97,10 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         # 删除错误日志文件与自身 pid 文件
         rm ${zErrLogPath} /tmp/.${zProjId}_pid_post-update
 
+        # 清理分支
+        git branch -D ${zServBranch}
+        git branch -D ${zShadowBranch}
+
         # 退出之前还原权限
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update
 
@@ -143,14 +144,18 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         zOldTimeStamp=`tail -1 /tmp/.${zProjId}_pid_post-update`
 
         # 同一版本，返回错误
-        # 比正在进行的版本更新，kill 之
+        # 比正在进行的版本更新，kill 之，并清理其创建的分支
         # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
         if [[ ${zTimeStamp} -eq ${zOldTimeStamp} ]]; then
             zExitClean "E8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"\
                 >> /tmp/.____post-deploy.log 2>&1
         elif [[ ${zTimeStamp} -gt ${zOldTimeStamp} ]]; then
             kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
+            git branch -D `head -3 /tmp/.${zProjId}_pid_post-update | tail -1`
+            git branch -D `head -4 /tmp/.${zProjId}_pid_post-update | tail -1`
         else
+            git branch -D ${zServBranch}
+            git branch -D ${zShadowBranch}
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update
             exit 0
         fi
@@ -158,8 +163,13 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
     # 运行期间将自身 Pid、Ip、TimeStamp 等存入文件
     # 用于防止同一项目的多个 post-update 进程并行带来混乱
+    # 同时用于清理资源占用
     echo "$$" > /tmp/.${zProjId}_pid_post-update
     echo "${zSelfIpStrAddr}" >> /tmp/.${zProjId}_pid_post-update
+
+    echo "${zServBranch}" >> /tmp/.${zProjId}_pid_post-update
+    echo "${zShadowBranch}" >> /tmp/.${zProjId}_pid_post-update
+
     echo "${zTimeStamp}" >> /tmp/.${zProjId}_pid_post-update
 
     # 清除可能存在的由于 git 崩溃残留的锁文件
@@ -244,7 +254,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 等待确认服务端的全局结果
     # 若全局结果不是成功，则执行回退
     # 全局成功，服务端回复 "S"，失败回复 "F"，尚未确定最终结果回复 "W"
-    sleep 20
+    sleep 10
     while :
     do
         zTcpReply 7 "" "" "" >> /tmp/.____post-deploy.log 2>&1
@@ -264,6 +274,8 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
                 git reset -q --hard $zOldMasterSig
             fi
 
+            git branch -D ${zServBranch}
+            git branch -D ${zShadowBranch}
             exit 255
         else
             # 继续等待
@@ -271,9 +283,19 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         fi
     done
 
-    # 删除自身 pid 文件
+    # 删除自身 pid 文件及已用完的分支
     rm /tmp/.${zProjId}_pid_post-update
+    git branch -D ${zServBranch}
+    git branch -D ${zShadowBranch}
 
     # 清理可能存在的旧版布署系统的遗留文件
     rm -rf ${zProjOnLinePath}_SHADOW
+
+    # git 仓库占用空间超过 200M 时，清理空间
+    # 非必须动作，对执行周期要求不严格，故异常退出时，可不必执行此步
+    cd ${zPathOnHost}
+    if [[ 200 -lt `du -sm .git | grep -o '[0-9]\+'` ]]; then
+        git reflog expire --expire=now --all
+        git gc --aggressive --prune=all
+    fi
 ) &

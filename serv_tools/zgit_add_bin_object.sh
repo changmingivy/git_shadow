@@ -27,8 +27,8 @@ find . -type d | xargs ls -gGA --time-style=long-iso > ____version____
 git add --all .
 git commit -m "_"
 
-# 若 .git 占用空间超过 50M，则执行清理，仅保留最近的 10 次提交
-if [[ 50 -lt `du -sm .git | grep -o '[0-9]\+'` ]]; then
+# 若 .git 占用空间超过 200M，则执行清理，仅保留最近的 10 次提交
+if [[ 200 -lt `du -sm .git | grep -o '[0-9]\+'` ]]; then
     zBaseRef=`git log --format=%H | head -10 | tail -1`
 
     git checkout --orphan temp ${zBaseRef}
