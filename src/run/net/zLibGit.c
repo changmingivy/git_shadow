@@ -597,7 +597,7 @@ zgit_clone(git_repository **zppRepoOUT, char *zpRepoAddr __z1, char *zpPath __z1
  * 功能等同于如下命令的组合：
  *     git config user.name _
  *     && git config user.email _
- *     && git add --all PATH
+ *     && git add --all /PATH
  *     && git commit --allow-empty -m "_"
  */
 static _i

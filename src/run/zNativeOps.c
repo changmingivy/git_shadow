@@ -858,7 +858,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 closedir(zpDIR);
 
                 if (0 != zLibGit_.branch_rename(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____base.XXXXXXXX", "____baseXXXXXXXX", zTrue)) {
-                    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
+                    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
                         zPrint_Err_Easy("");
                         return -45;
                     }
