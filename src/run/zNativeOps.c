@@ -1146,19 +1146,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             exit(1);
         }
 
-        time_t zCreatedTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
-        struct tm *zpCreatedTM_ = localtime( & zCreatedTimeStamp);
-        sprintf(zRun_.p_repoVec[zRepoId]->createdTime, "%d-%d-%d %d:%d:%d",
-                zpCreatedTM_->tm_year + 1900,
-                zpCreatedTM_->tm_mon + 1,  /* Month (0-11) */
-                zpCreatedTM_->tm_mday,
-                zpCreatedTM_->tm_hour,
-                zpCreatedTM_->tm_min,
-                zpCreatedTM_->tm_sec);
+        /* strncpy 不会自动追加 '\0' */
+        strncpy(zRun_.p_repoVec[zRepoId]->createdTime, zpPgRes_->tupleRes_[0].pp_fields[0], 23);
+        zRun_.p_repoVec[zRepoId]->createdTime[23] = '\0';
 
         /* clean... */
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
+
+    /* 默认允许布署 */
+    zRun_.p_repoVec[zRepoId]->allowDp = 'Y';
 
     /******************************
      * 获取最近一次布署的相关信息 *

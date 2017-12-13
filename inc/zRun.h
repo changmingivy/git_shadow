@@ -31,9 +31,6 @@ typedef struct {
 
 #define zGlobCommonBufSiz 1024
 
-#define zDpUnLock 0
-#define zDpLocked 1
-
 #define zCacheGood 0
 #define zCacheDamaged 1
 
@@ -308,7 +305,7 @@ typedef struct __zRepo__ {
      * 用于标识本项目是否处于锁定状态
      * 即：可查询，但不允许布署
      */
-    _c repoLock;
+    _c allowDp;
 
     /*
      * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
