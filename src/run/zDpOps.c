@@ -624,6 +624,20 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             goto zEndMark;
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
+
+            /*
+             * 既有项目，直接从DB中提取提取项目创建时间
+             * 项目新建时，由于项目创建时间属于参考类数据，直接使用当前时间戳即可
+             */
+            time_t zCreatedTimeStamp = time(NULL);
+            struct tm *zpCreatedTM_ = localtime( & zCreatedTimeStamp);
+            sprintf(zRun_.p_repoVec[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->createdTime, "%d-%d-%d %d:%d:%d",
+                    zpCreatedTM_->tm_year + 1900,
+                    zpCreatedTM_->tm_mon + 1,  /* Month (0-11) */
+                    zpCreatedTM_->tm_mday,
+                    zpCreatedTM_->tm_hour,
+                    zpCreatedTM_->tm_min,
+                    zpCreatedTM_->tm_sec);
         }
 
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
