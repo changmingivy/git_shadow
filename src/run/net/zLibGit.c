@@ -18,7 +18,7 @@ static _i zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName);
 static _i zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewName, zbool_t zForceMark);
 static _i zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
 static _i zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
-static git_repository * zgit_init(char *zpPath, zbool_t zIsBare);
+static _i zgit_init(git_repository **zppRepoOUT, const char *zpPath, zbool_t zIsBare);
 static git_repository * zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
 static _i zgit_add_and_commit(git_repository *zpRepo, char *zpRefName, char *zpPath, char *zpCommitMsg);
 static _i zgit_config_name_and_email(char *zpRepoPath);
@@ -528,17 +528,25 @@ zgit_branch_list_local(git_repository *zpRepo __z1, char *zpResBufOUT __z1, _i z
  * git init .
  * zIsBare 置为 1/zTrue，则会初始化成 bare 库；否则就是普通库
  */
-static git_repository *
-zgit_init(char *zpPath __z1, zbool_t zIsBare) {
-    git_repository *zpRepo = NULL;
+static _i
+zgit_init(git_repository **zppRepoOUT __z1, const char *zpPath __z1, zbool_t zIsBare) {
+    _i zErrNo = 0;
 
-    /* With working directory or bare */
-    if (0 != git_repository_init(&zpRepo, zpPath, zIsBare)) {
+    /**
+     * 在进行任何其它操作之前，必须首先调用 git_libgit2_init()
+     * 此处要使用 0 > ... 作为条件
+     */
+    if (0 > (zErrNo = git_libgit2_init())) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return NULL;
+    } else {
+        zErrNo = 0;
+        if (0 != (zErrNo = git_repository_init(zppRepoOUT, zpPath, zIsBare))) {
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            git_libgit2_shutdown();
+        }
     }
 
-    return zpRepo;
+    return zErrNo;
 }
 
 
@@ -548,12 +556,9 @@ zgit_init(char *zpPath __z1, zbool_t zIsBare) {
  * @zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
  */
 static _i
-zgit_clone_cb_repo_init(git_repository **zpRepoOUT,
+zgit_clone_cb_repo_init(git_repository **zppRepoOUT,
         const char *zpPath, _i zIsBare, void *zpPayLoad __attribute__ ((__unused__))) {
-    _i zErrNo = 0;
-    zErrNo = git_repository_init(zpRepoOUT, zpPath, zIsBare);
-
-    return zErrNo;
+    return zgit_init(zppRepoOUT, zpPath, zIsBare);
 }
 
 static git_repository *
