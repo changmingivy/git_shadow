@@ -547,6 +547,15 @@ zgit_init(char *zpPath __z1, zbool_t zIsBare) {
  * @zpBranchName: clone 后使用的默认分支，置为 NULL 表示使用远程库的默认分支
  * @zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
  */
+static _i
+zgit_clone_cb_repo_init(git_repository **zpRepoOUT,
+        const char *zpPath, _i zIsBare, void *zpPayLoad __attribute__ ((__unused__))) {
+    _i zErrNo = 0;
+    zErrNo = git_repository_init(zpRepoOUT, zpPath, zIsBare);
+
+    return zErrNo;
+}
+
 static git_repository *
 zgit_clone(char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t zIsBare) {
     git_repository *zpRepo = NULL;
@@ -555,7 +564,8 @@ zgit_clone(char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t
     git_clone_init_options(&zOpt, GIT_CLONE_OPTIONS_VERSION);
 
     zOpt.fetch_opts.callbacks.credentials = zgit_cred_acquire_cb;
-    zOpt.bare = zIsBare;
+    zOpt.bare = (zFalse == zIsBare) ? 0 : 1;
+    zOpt.repository_cb = zgit_clone_cb_repo_init;
 
     if (NULL != zpBranchName) {
         zOpt.checkout_branch = zpBranchName;
