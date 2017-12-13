@@ -2361,7 +2361,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
 #define zSQL_Exec() do {\
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {\
             zPgSQL_.conn_clear(zpPgConnHd_);\
-            free(zpStageBuf);\
+            free(zpStageBuf[0]);\
             zPrint_Err_Easy("SQL exec err");\
             return -91;\
         }\
@@ -2369,7 +2369,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {\
             zPgSQL_.conn_clear(zpPgConnHd_);\
             zPgSQL_.res_clear(zpPgResHd_, NULL);\
-            free(zpStageBuf);\
+            free(zpStageBuf[0]);\
             zPrint_Err_Easy("SQL result err");\
             return -92;\
         }\
@@ -2531,14 +2531,14 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_unlock(& (zRun_.commonLock));
 
     sprintf(zSQLBuf,
-            "CREATE TABLE tmp%u as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
+            "CREATE TABLE tmp%d as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
             "WHERE proj_id = %d AND time_stamp > %ld",
             zTbNo,
             zRepoId, time(NULL) - 3600 * 24 * 30);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
-        free(zpStageBuf);
+        free(zpStageBuf[0]);
         zPrint_Err_Easy("SQL exec failed");
         return -91;
     }
@@ -2644,7 +2644,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     sprintf(zSQLBuf, "DROP TABLE tmp%u", zTbNo);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
-        free(zpStageBuf);
+        free(zpStageBuf[0]);
 
         zPrint_Err_Easy("SQL exec err");
         return -91;
