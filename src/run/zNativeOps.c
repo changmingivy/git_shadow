@@ -808,14 +808,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 return -30;
             } else {  /* TO DEL: 兼容旧版本 */
                 /* 全局 libgit2 Handler 初始化 */
-                if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
+                if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler
+                            = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
                     zFree_Source();
                     zPrint_Err_Easy("");
                     return -46;
                 }
 
                 /* 不必关心执行结果 */
-                zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse);
+                zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                        "____servXXXXXXXX", "HEAD", zFalse);
 
                 /*
                  * 删除所有除 .git 之外的文件与目录

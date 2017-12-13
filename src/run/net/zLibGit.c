@@ -342,7 +342,8 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT __z1, git_repository *zpR
 /*
  * [ TEST: PASS ]
  * 创建新分支，若 zForceMark 指定为 true，则将覆盖已存在的同名分支
- * @param 可以指定为 “HEAD”、NULL、refs/heads/xxx  或者具体的 40 位 SHA1 commitSig
+ * @zpBranchName 将要创建的目标分支名称
+ * @zpBaseRev 可以指定为 “HEAD”、NULL、refs/heads/xxx  或者具体的 40 位 SHA1 commitSig
  */
 static _i
 zgit_branch_add_local(git_repository *zpRepo __z1, char *zpBranchName __z1, char *zpBaseRev, zbool_t zForceMark) {
@@ -356,7 +357,7 @@ zgit_branch_add_local(git_repository *zpRepo __z1, char *zpBranchName __z1, char
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
-    } else if (5 <= strlen(zpBaseRev) && 0 == strncmp("refs/", zpBaseRev, 5)) {
+    } else if (0 == strncmp("refs/", zpBaseRev, 5)) {
         if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, zpBaseRev)) {
             zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
@@ -525,6 +526,7 @@ zgit_branch_list_local(git_repository *zpRepo __z1, char *zpResBufOUT __z1, _i z
 
 
 /*
+ * [ TEST: PASS ]
  * git init .
  * zIsBare 置为 1/zTrue，则会初始化成 bare 库；否则就是普通库
  */
@@ -551,6 +553,7 @@ zgit_init(git_repository **zppRepoOUT __z1, const char *zpPath __z1, zbool_t zIs
 
 
 /*
+ * [ TEST: PASS ]
  * git clone URL/.git
  * @zpBranchName: clone 后使用的默认分支，置为 NULL 表示使用远程库的默认分支
  * @zIsBare 为 1/zTrue 表示要生成 bare 库，否则为普通带工作区的库
