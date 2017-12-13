@@ -795,6 +795,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     struct stat zS_;
     DIR *zpDIR = NULL;
     struct dirent *zpItem = NULL;
+    char zPathBuf[zRun_.p_repoVec[zRepoId]->maxPathLen];
     if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS_)) {
         /* 若是项目新建，则不允许存在同名路径 */
         if (0 > zSdToClose) {
@@ -831,7 +832,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                         if (0 != strcmp(".git", zpItem->d_name)
                                 && 0 != strcmp(".", zpItem->d_name)
                                 && 0 != strcmp("..", zpItem->d_name)) {
-                            if (0 != zNativeUtils_.path_del(zpItem->d_name)) {
+
+                            snprintf(zPathBuf, zRun_.p_repoVec[zRepoId]->maxPathLen, "%s/%s",
+                                    zRun_.p_repoVec[zRepoId]->p_repoPath, zpItem->d_name);
+                            if (0 != zNativeUtils_.path_del(zPathBuf)) {
                                 closedir(zpDIR);
                                 zFree_Source();
                                 zPrint_Err_Easy("");
@@ -839,7 +843,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                             }
                         }
                     } else {
-                        if (0 != unlink(zpItem->d_name)) {
+                        snprintf(zPathBuf, zRun_.p_repoVec[zRepoId]->maxPathLen, "%s/%s",
+                                zRun_.p_repoVec[zRepoId]->p_repoPath, zpItem->d_name);
+                        if (0 != unlink(zPathBuf)) {
                             closedir(zpDIR);
                             zFree_Source();
                             zPrint_Err_Easy_Sys();
