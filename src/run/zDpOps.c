@@ -2529,7 +2529,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_unlock(& (zRun_.commonLock));
 
     sprintf(zSQLBuf,
-            "CREATE TABLE tmp%d as SELECT host_ip,host_res,host_err,host_timespent FROM dp_log "
+            "CREATE TABLE tmp%d as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
             "WHERE proj_id = %d AND time_stamp > %ld",
             zTbNo,
             zRepoId, time(NULL) - 3600 * 24 * 30);
