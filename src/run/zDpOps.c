@@ -1497,7 +1497,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (0 != zLibGit_.add_and_commit(
                 zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                "____shadowXXXXXXXX", ".", "_")) {
+                "refs/heads/____shadowXXXXXXXX", ".", "_")) {
         zErrNo = -15;
         zPrint_Err_Easy("libgit2 err");
         goto zCleanMark;
