@@ -2524,10 +2524,8 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
      * 从 DB 中提取最近 30 天的记录
      * 首先生成一张临时表，以提高效率
      */
-    _i zTbNo = 0;
-
     pthread_mutex_lock(& (zRun_.commonLock));
-    zTbNo = ++zRun_.p_repoVec[zRepoId]->tempTableNo;
+    _i zTbNo = ++zRun_.p_repoVec[zRepoId]->tempTableNo;
     pthread_mutex_unlock(& (zRun_.commonLock));
 
     sprintf(zSQLBuf,
@@ -2536,18 +2534,35 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             zTbNo,
             zRepoId, time(NULL) - 3600 * 24 * 30);
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
-        zPgSQL_.conn_clear(zpPgConnHd_);
-        free(zpStageBuf[0]);
-        zPrint_Err_Easy("SQL exec failed");
-        return -91;
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
+        /*
+         * 执行失败，则尝试
+         * 删除可能存在的重名表
+         */
+        char zTmpBuf[64];
+        snprintf(zTmpBuf, 64, "DROP TABLE tmp%u", zTbNo);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zTmpBuf, zFalse))) {
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            free(zpStageBuf[0]);
+
+            zPrint_Err_Easy("SQL exec err");
+            return -91;
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+        }
+
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            free(zpStageBuf[0]);
+            zPrint_Err_Easy("SQL exec failed");
+            return -91;
+        }
+    } else {
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
-    zPgSQL_.res_clear(zpPgResHd_, NULL);
 
     /* 目标机总台次 */
-    sprintf(zSQLBuf,
-            "SELECT count(host_ip) FROM tmp%u",
-            zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
     zSQL_Exec();
 
     _f zTotalTimes = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
@@ -2642,15 +2657,16 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
 
     /* 删除临时表 */
     sprintf(zSQLBuf, "DROP TABLE tmp%u", zTbNo);
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zTrue))) {
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         free(zpStageBuf[0]);
 
         zPrint_Err_Easy("SQL exec err");
         return -91;
+    } else {
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
 
-    zPgSQL_.res_clear(zpPgResHd_, NULL);
     zPgSQL_.conn_clear(zpPgConnHd_);
 
     /****************
