@@ -2602,7 +2602,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             "sum(to_number(host_err[7], '9')),"
             "sum(to_number(host_err[8], '9')),"
             "sum(to_number(host_err[9], '9')),"
-            "sum(to_number(host_err[10], '9')) "
+            "sum(to_number(host_err[10], '9')),"
             "sum(to_number(host_err[11], '9')) "
             "FROM tmp%u", zTbNo);
     zSQL_Exec();
