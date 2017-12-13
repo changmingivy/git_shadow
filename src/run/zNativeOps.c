@@ -797,8 +797,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     struct dirent *zpItem = NULL;
     char zPathBuf[zRun_.p_repoVec[zRepoId]->maxPathLen];
     if (0 == stat(zRun_.p_repoVec[zRepoId]->p_repoPath, &zS_)) {
-        /* 若是项目新建，则不允许存在同名路径 */
-        if (0 > zSdToClose) {
+        /**
+         * 若是项目新建，则不允许存在同名路径
+         * 既有项目初始化会将 zSdToClose 置为 -1
+         */
+        if (0 < zSdToClose) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -36;
