@@ -74,6 +74,7 @@ if [[ 0 -eq $? ]]; then
         -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
         -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
         -DBUILD_SHARED_LIBS=ON \
+        -DTHREADSAFE=ON\
         -DBUILD_CLAR=OFF
     cmake --build . --target install
 fi
