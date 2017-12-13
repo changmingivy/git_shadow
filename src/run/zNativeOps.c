@@ -858,8 +858,14 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             }
         }
     } else {
-        /* git clone URL */
-        if (0 != zLibGit_.clone(zpRepoMeta_->pp_fields[2], zRun_.p_repoVec[zRepoId]->p_repoPath, NULL, zFalse)) {
+        /**
+         * git clone URL，内部会回调 git_init，
+         * 生成本项目 libgit2 Handler
+         */
+        if (0 != zLibGit_.clone(
+                    &zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zpRepoMeta_->pp_fields[2],
+                    zRun_.p_repoVec[zRepoId]->p_repoPath, NULL, zFalse)) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -42;
@@ -870,13 +876,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -43;
-        }
-
-        /* 全局 libgit2 Handler 初始化 */
-        if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath)) ) {
-            zFree_Source();
-            zPrint_Err_Easy("");
-            return -46;
         }
 
         /*

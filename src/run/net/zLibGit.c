@@ -19,7 +19,7 @@ static _i zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char
 static _i zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName);
 static _i zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i *zpResItemCnt);
 static _i zgit_init(git_repository **zppRepoOUT, const char *zpPath, zbool_t zIsBare);
-static git_repository * zgit_clone(char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
+static _i zgit_clone(git_repository **zppRepoOUT, char *zpRepoAddr, char *zpPath, char *zpBranchName, zbool_t zIsBare);
 static _i zgit_add_and_commit(git_repository *zpRepo, char *zpRefName, char *zpPath, char *zpCommitMsg);
 static _i zgit_config_name_and_email(char *zpRepoPath);
 
@@ -561,9 +561,9 @@ zgit_clone_cb_repo_init(git_repository **zppRepoOUT,
     return zgit_init(zppRepoOUT, zpPath, zIsBare);
 }
 
-static git_repository *
-zgit_clone(char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t zIsBare) {
-    git_repository *zpRepo = NULL;
+static _i
+zgit_clone(git_repository **zppRepoOUT, char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t zIsBare) {
+    _i zErrNo = 0;
 
     git_clone_options zOpt;  // = GIT_CLONE_OPTIONS_INIT;
     git_clone_init_options(&zOpt, GIT_CLONE_OPTIONS_VERSION);
@@ -576,12 +576,11 @@ zgit_clone(char *zpRepoAddr __z1, char *zpPath __z1, char *zpBranchName, zbool_t
         zOpt.checkout_branch = zpBranchName;
     }
 
-    if (0 != git_clone(&zpRepo, zpRepoAddr, zpPath, &zOpt)) {
+    if (0 != (zErrNo = git_clone(zppRepoOUT, zpRepoAddr, zpPath, &zOpt))) {
         zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
-        return NULL;
     }
 
-    return zpRepo;
+    return zErrNo;
 }
 
 

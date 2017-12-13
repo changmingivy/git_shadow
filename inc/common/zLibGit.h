@@ -34,7 +34,7 @@ struct zLibGit__ {
     _i (* branch_list_all) (git_repository *, char *, _i, _i *);
 
     _i (* init) (git_repository **, const char *, zbool_t);
-    git_repository * (* clone) (char *, char *, char *, zbool_t);
+    _i (* clone) (git_repository **, char *, char *, char *, zbool_t);
     _i (* add_and_commit) (git_repository *, char *, char *, char *);
 
     _i (* config_name_email) (char *);
