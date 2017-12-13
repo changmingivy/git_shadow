@@ -867,7 +867,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         }
 
         /*
-         * 既有项目，直接从DB中提取提取项目创建时间
+         * 既有项目，从 DB 中提取其创建时间
          * 项目新建时在 add_repo(...) 中处理
          */
         snprintf(zCommonBuf, zGlobCommonBufSiz,
@@ -926,7 +926,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * 创建 ____servXXXXXXXX 分支
          * 注：源库不能是空库，即：0 提交、0 分支
          */
-        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "HEAD", "____servXXXXXXXX", zFalse)) {
+        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____servXXXXXXXX", "HEAD", zFalse)) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -44;
@@ -948,7 +948,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 if (0 != strcmp(".git", zpItem->d_name)
                         && 0 != strcmp(".", zpItem->d_name)
                         && 0 != strcmp("..", zpItem->d_name)) {
-                    if (0 != zNativeUtils_.path_del(zpItem->d_name)) {
+
+                    snprintf(zPathBuf, zRun_.p_repoVec[zRepoId]->maxPathLen, "%s/%s",
+                            zRun_.p_repoVec[zRepoId]->p_repoPath, zpItem->d_name);
+                    if (0 != zNativeUtils_.path_del(zPathBuf)) {
                         closedir(zpDIR);
                         zFree_Source();
                         zPrint_Err_Easy("");
@@ -956,7 +959,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     }
                 }
             } else {
-                if (0 != unlink(zpItem->d_name)) {
+                snprintf(zPathBuf, zRun_.p_repoVec[zRepoId]->maxPathLen, "%s/%s",
+                        zRun_.p_repoVec[zRepoId]->p_repoPath, zpItem->d_name);
+                if (0 != unlink(zPathBuf)) {
                     closedir(zpDIR);
                     zFree_Source();
                     zPrint_Err_Easy("");
@@ -974,7 +979,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         closedir(zpDIR);
 
-        if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____baseXXXXXXXX", ".", "_")) {
+        if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -40;
