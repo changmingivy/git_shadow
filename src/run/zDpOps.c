@@ -1440,15 +1440,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * 检查项目是否被锁定，即：是否允许布署
-     */
-    if ('Y' != zRun_.p_repoVec[zRepoId]->allowDp) {
-        zErrNo = -6;
-        zPrint_Err_Easy("repo locked");
-        goto zCleanMark;
-    }
-
-    /*
      * 非强制指定版本号的情况下，
      * 检查布署请求中标记的 CacheId 是否有效
      */
@@ -2056,76 +2047,6 @@ zMarkEnd:
 
 
 /*
- * 2；拒绝(锁定)某个项目的 布署／撤销／更新ip数据库 功能，仅提供查询服务
- */
-static _i
-zlock_repo(cJSON *zpJRoot, _i zSd) {
-    _i zRepoId = -1;
-
-    /* 提取 value[key] */
-    cJSON *zpJ = NULL;
-
-    zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (! cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy("");
-        return -1;
-    }
-    zRepoId = zpJ->valueint;
-
-    /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId]
-            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        zPrint_Err_Easy("");
-        return -2;
-    }
-
-    pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
-    zRun_.p_repoVec[zRepoId]->allowDp = 'N';
-    pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpLock );
-
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}",
-            sizeof("{\"ErrNo\":0}") - 1);
-
-    return 0;
-}
-
-
-/*
- * 3：允许布署／撤销／更新ip数据库
- */
-static _i
-zunlock_repo(cJSON *zpJRoot, _i zSd) {
-    _i zRepoId = -1;
-
-    /* 提取 value[key] */
-    cJSON *zpJ = NULL;
-
-    zpJ = cJSON_V(zpJRoot, "ProjId");
-    if (! cJSON_IsNumber(zpJ)) {
-        zPrint_Err_Easy("");
-        return -1;
-    }
-    zRepoId = zpJ->valueint;
-
-    /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zRepoId]
-            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
-        zPrint_Err_Easy("");
-        return -2;
-    }
-
-    pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
-    zRun_.p_repoVec[zRepoId]->allowDp = 'Y';
-    pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpLock );
-
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}",
-            sizeof("{\"ErrNo\":0}") - 1);
-
-    return 0;
-}
-
-
-/*
  * 14: 向目标机传输指定的文件
  */
 static _i
@@ -2674,12 +2595,11 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
      ****************/
     char zResBuf[8192];
     _i zResSiz = snprintf(zResBuf, 8192,
-            "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\",\"PermitDp\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
+            "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
             zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
             zRun_.p_repoVec[zRepoId]->createdTime,
-            'Y' == zRun_.p_repoVec[zRepoId]->allowDp ? "Yes" : "No",
 
             zRun_.p_repoVec[zRepoId]->dpingSig,
             'S' == zGlobRes ? "success" : ('F' == zGlobRes ? "fail" : "in_process"),

@@ -302,12 +302,6 @@ typedef struct __zRepo__ {
     _i dpTaskFinCnt;
 
     /*
-     * 用于标识本项目是否处于锁定状态
-     * 即：可查询，但不允许布署
-     */
-    _c allowDp;
-
-    /*
      * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
      * 用于提示用户看到的信息可能不准确
      */

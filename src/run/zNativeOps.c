@@ -1154,9 +1154,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
 
-    /* 默认允许布署 */
-    zRun_.p_repoVec[zRepoId]->allowDp = 'Y';
-
     /******************************
      * 获取最近一次布署的相关信息 *
      ******************************/
