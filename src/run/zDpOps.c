@@ -592,8 +592,8 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_, zSd))) {
         _i zRepoId = strtol(zRepoMeta_.pp_fields[0], NULL, 10);
         /* 新项目元数据写入 DB */
-        char zSQLBuf[4096] = {'\0'};
-        snprintf(zSQLBuf, 4096, "INSERT INTO proj_meta "
+        char zCommonBuf[4096] = {'\0'};
+        snprintf(zCommonBuf, 4096, "INSERT INTO proj_meta "
                 "(proj_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
                 "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
                 zRepoMeta_.pp_fields[0],
@@ -607,7 +607,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
 
         zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(
                 zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
-                zSQLBuf,
+                zCommonBuf,
                 zFalse);
         if (NULL == zpPgResHd_) {
             /*
@@ -636,10 +636,27 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                     zpCreatedTM_->tm_sec);
         }
 
-        /* 状态预置 */
+        /* 状态预置: repoState/lastDpSig/dpingSig */
         zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
-        zRun_.p_repoVec[zRepoId]->lastDpSig[0] = '\0';
-        zRun_.p_repoVec[zRepoId]->dpingSig[0] = '\0';
+
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                "refs/heads/____baseXXXXXXXX",
+                0);
+        if (NULL != zpRevWalker
+                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf,
+                    zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zpRevWalker)) {
+            strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
+            zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
+
+            strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
+
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        } else {
+            zPrint_Err_Easy("");
+            exit(1);
+        }
 
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     }
