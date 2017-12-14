@@ -1283,6 +1283,7 @@ static _i
 zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     _i zErrNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
+    zPgResHd__ *zpPgResHd_ = NULL;
 
     _i zRepoId = -1,
        zCacheId = -1,
@@ -1413,7 +1414,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zpSSHPort,
                 zRepoId);
 
-        zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(
+        zpPgResHd_ = zPgSQL_.exec(
                 zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
                 zpCommonBuf,
                 zFalse);
@@ -1424,7 +1425,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                             zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
                             zpCommonBuf,
                             zFalse))) {
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
 
                 /* 数据库不可用，停止服务 ? */
@@ -1432,6 +1432,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 exit(1);
             }
         }
+
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
 
     /*
@@ -1588,7 +1590,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * ==========================
      */
     zbool_t zIsSameSig = zFalse;
-    if (0 == strcmp(zGet_OneCommitSig(zpTopVecWrap_, zCommitId),
+    if (0 == strcmp(zRun_.p_repoVec[zRepoId]->dpingSig,
                 zRun_.p_repoVec[zRepoId]->lastDpSig)) {
         zIsSameSig = zTrue;
     }
@@ -1792,17 +1794,42 @@ zSkipMark:;
 
             /*
              * 更新最新一次布署版本号
+             * 并写入 DB
              */
             strcpy(zRun_.p_repoVec[zRepoId]->lastDpSig,
-                    zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+                    zRun_.p_repoVec[zRepoId]->dpingSig);
+
+            sprintf(zpCommonBuf,
+                    "UPDATE proj_meta SET last_dp_sig = '%s' "
+                    "WHERE proj_id = %d",
+                    zRun_.p_repoVec[zRepoId]->dpingSig,
+                    zRepoId);
+
+            zpPgResHd_ = zPgSQL_.exec(
+                    zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+                    zpCommonBuf,
+                    zFalse);
+            if (NULL == zpPgResHd_) {
+                /* 长连接可能意外中断，失败重连，再试一次 */
+                zPgSQL_.conn_reset(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                                zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+                                zpCommonBuf,
+                                zFalse))) {
+                    zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+
+                    /* 数据库不可用，停止服务 ? */
+                    zPrint_Err_Easy("==== FATAL ====");
+                    exit(1);
+                }
+            }
+
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
 
             /*
              * 项目内存池复位
              */
             zReset_Mem_Pool_State( zRepoId );
-
-            /* update cacheId */
-            zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
 
             /* 刷新缓存 */
             zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
@@ -1812,6 +1839,9 @@ zSkipMark:;
 
             zSubMeta_.dataType = zIsDpDataType;
             zNativeOps_.get_revs(& zSubMeta_);
+
+            /* update cacheId */
+            zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
 
             /* 标记缓存为可用状态 */
             zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;

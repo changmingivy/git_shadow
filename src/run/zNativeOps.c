@@ -1128,7 +1128,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     if (0 > zSdToClose) {
         snprintf(zCommonBuf, zGlobCommonBufSiz,
-                "SELECT create_time FROM proj_meta WHERE proj_id = %d", zRepoId);
+                "SELECT create_time FROM proj_meta WHERE proj_id = %d",
+                zRepoId);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
@@ -1136,10 +1137,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             exit(1);
         }
 
-        /* DB err: 'create_time' miss or duplicate */
-        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))
-                || 1 != zpPgRes_->tupleCnt
-                || 1 != zpPgRes_->fieldCnt) {
+        /* DB err: 'create_time' miss */
+        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
             zPgSQL_.res_clear(zpPgResHd_, NULL);
             zPrint_Err_Easy("");
@@ -1154,9 +1153,53 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
 
-    /******************************
-     * 获取最近一次布署的相关信息 *
-     ******************************/
+    /**
+     * 获取最近一次成功布署的版本号
+     * lastDpSig
+     */
+    sprintf(zCommonBuf,
+            "SELECT last_dp_sig FROM proj_meta WHERE proj_id = %d",
+            zRepoId);
+    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
+        zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+        zPrint_Err_Easy("");
+        exit(1);
+    }
+
+    if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+        zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
+        zPrint_Err_Easy("");
+        exit(1);
+    }
+
+    if ('\0' ==zpPgRes_->tupleRes_[0].pp_fields[0][0]) {
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                "refs/heads/____baseXXXXXXXX",
+                0);
+        if (NULL != zpRevWalker
+                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
+            strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
+            zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
+
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        } else {
+            zPrint_Err_Easy("");
+            exit(1);
+        }
+    } else {
+        strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);
+        zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
+    }
+
+    /* clean... */
+    zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
+
+    /**
+     * 提取最近一次布署动作的版本号（无论成功或失败）及时间戳
+     * dpingSig
+     */
     sprintf(zCommonBuf,
             "SELECT rev_sig, time_stamp FROM dp_log "
             "WHERE proj_id = %d ORDER BY time_stamp DESC LIMIT 1",
@@ -1167,66 +1210,34 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         exit(1);
     }
 
-    /*
-     * 空库的情况，
-     * 以空分支的版本号作为最近一次布署的版本号...
-     */
     if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                "refs/heads/____baseXXXXXXXX",
-                0);
-        if (NULL != zpRevWalker
-                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
-            /* 提取最近一次布署的版本号 */
-            strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
-            zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
+        /* 此时一定与 lastDpSig 相同，不必再取一遍 */
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
 
-            /* 最近一次的布署结果置位 */
-            zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
-
-            zLibGit_.destroy_revwalker(zpRevWalker);
-        } else {
-            zPrint_Err_Easy("");
-            exit(1);
-        }
+        /* 预置为成功状态 */
+        zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
     } else {
-        /* 提取最近一次布署的版本号 */
-        strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);
+        strncpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);
         zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
 
-        /* 上一次布署的时间戳保存在 dpBaseTimeStamp 中 */
+        /* 复制上一次布署的时间戳 */
         zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
 
         /* clean... */
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
-        /* 取最近一次布署的最终结果 */
-        sprintf(zCommonBuf,
-                "SELECT host_res[4] FROM dp_log "
-                "WHERE proj_id = %d AND '0' != host_res[4] AND time_stamp = %ld LIMIT 1",
-                zRepoId,
-                zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
-            zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-            zPrint_Err_Easy("");
-            exit(1);
-        }
-
-        /* 查询失败条目，若无结果，则表示全部成功 */
-        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+        /* 比较最近一次尝试布署的版本号与最近一次成功布署的版本号是否相同 */
+        if (0 == strcmp(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig)) {
             zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
         } else {
             zRun_.p_repoVec[zRepoId]->repoState = zCacheDamaged;
         }
-
-        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
 
-    /* dpingSig 预署为 lastSig */
-    strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
-
-    /* 获取日志中记录的最近一次布署的 IP 列表 */
+    /**
+     * 获取日志中记录的最近一次布署的 IP 列表
+     * 及相关状态数据
+     */
     sprintf(zCommonBuf,
             "SELECT host_ip,"
             "host_res[1],host_res[2],host_res[3],host_res[4],"
@@ -1633,7 +1644,8 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "source_vcs_type char(1) NOT NULL,"  /* 'G': git, 'S': svn */
             "need_pull       char(1) NOT NULL,"
             "ssh_user_name   varchar NOT NULL,"
-            "ssh_port        varchar NOT NULL"
+            "ssh_port        varchar NOT NULL,"
+            "last_dp_sig     varchar DEFAULT NULL"  /* 最近一次成功布署的版本号 */
             ");"
 
             "CREATE TABLE IF NOT EXISTS dp_log "
