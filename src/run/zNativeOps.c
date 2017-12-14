@@ -1297,7 +1297,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 /* 恢复上一次布署的 errState */
                 for (_i j = 5; j < 16; j++) {
                     if ('1' == zpPgRes_->tupleRes_[i].pp_fields[j][0]) {
-                        zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, j);
+                        zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, j - 4);
                         break;
                     }
                 }

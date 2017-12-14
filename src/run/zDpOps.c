@@ -2367,15 +2367,16 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
 
     /* 一次性分配所需的全部空间 */
     zMem_Alloc(zpStageBuf[0], char, 4 * zStageBufLen + zErrClassNum * zErrBufLen);
+    zpStageBuf[0][1] = '\0';
 
     _i i, j;
-
     for (i = 1; i < 4; i++) {
         zpStageBuf[i] = zpStageBuf[i - 1] + zStageBufLen;
         zpStageBuf[i][1] = '\0';
     }
 
     zpErrBuf[0] = zpStageBuf[3] + zStageBufLen;
+    zpErrBuf[0][1] = '\0';
     for (i = 1; i < zErrClassNum; i++) {
         zpErrBuf[i] = zpErrBuf[i - 1] + zErrBufLen;
         zpErrBuf[i][1] = '\0';
