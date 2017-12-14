@@ -1734,7 +1734,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
              */
             if ( zIpVecCmp(zpTmp_->clientAddr,
                         zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
-                    && !zCheck_Bit(zpTmp_->resState, 1)) {
+                    && zCheck_Bit(zpTmp_->resState, 1)) {
 
                 /* 置为 NULL，则布署时就不会执行目标机初始化命令 */
                 zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = NULL;
