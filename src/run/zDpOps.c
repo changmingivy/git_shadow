@@ -55,9 +55,6 @@ struct zDpOps__ zDpOps_ = {
     .glob_res_confirm = zglob_res_confirm,
     .state_confirm = zstate_confirm,
 
-    .lock = zlock_repo,
-    .unlock = zunlock_repo,
-
     .req_file = zreq_file,
 
     .pang = zpang
