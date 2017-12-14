@@ -1233,7 +1233,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         sprintf(zCommonBuf,
                 "SELECT host_ip,"
                 "host_res[1],host_res[2],host_res[3],host_res[4],"
-                "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],"
+                "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],host_err[12],"
                 "host_detail "
                 "FROM dp_log "
                 "WHERE proj_id = %d AND time_stamp = %ld",
@@ -1296,7 +1296,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     // }
 
                     /* 恢复上一次布署的 errState */
-                    for (_i j = 5; j < 16; j++) {
+                    for (_i j = 5; j < 17; j++) {
                         if ('1' == zpPgRes_->tupleRes_[i].pp_fields[j][0]) {
                             zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, j - 4);
                             break;
@@ -1309,7 +1309,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     }
 
                     /* 错误详情 */
-                    strncpy(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg, zpPgRes_->tupleRes_[i].pp_fields[16], 255);
+                    strncpy(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg, zpPgRes_->tupleRes_[i].pp_fields[17], 255);
                     zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg[255] = '\0';
                 }
 

@@ -191,13 +191,9 @@ zssh_exec(
     zErrNo = -1;
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); }
     if(0 == zRet) {
-        zErrNo = libssh2_channel_get_exit_status(zChannel);
-        if (206 == zErrNo) {
-            zErrNo = -6;  /* 文件冲突 */
-        } else if (210 == zErrNo) {
-            zErrNo = -10;  /* host ==> server 网络不通 */
-        } else if (203 == zErrNo) {
-            zErrNo = -3;  /* 磁盘满 */
+        /* 自定义的 SHELL 错误码使用 201-255 范围 */
+        if (200 < (zErrNo = libssh2_channel_get_exit_status(zChannel))) {
+            zErrNo = -1 * (zErrNo - 200);
         } else {
             zErrNo = -1;  /* 未知错误 */
         }

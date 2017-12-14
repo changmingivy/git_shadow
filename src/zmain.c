@@ -21,8 +21,10 @@ extern struct zRun__ zRun_;
 _i
 main(_i zArgc, char **zppArgv) {
     _i zOpt = 0;
-    while (-1 != (zOpt = getopt(zArgc, zppArgv, "u:h:p:H:P:U:F:D:"))) {
+    while (-1 != (zOpt = getopt(zArgc, zppArgv, "x:u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
+            case 'x':
+                zRun_.p_servPath = optarg; break;
             case 'u':
                 zRun_.p_loginName = optarg; break;
             case 'h':
@@ -57,6 +59,7 @@ main(_i zArgc, char **zppArgv) {
                         "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
                         "Usage:\n"
                         "%s\n"
+                        "[-x serv_path]  /* server root path on master, usually /home/git/zgit_shadow2 */\n"
                         "[-u login_name]  /* username on server */\n"
                         "[-h host]  /* host name or domain name or host IPv4 address */\n"
                         "[-p tcp_port]  /* tcp serv port */\n"

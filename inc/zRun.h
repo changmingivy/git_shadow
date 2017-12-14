@@ -70,6 +70,7 @@ typedef struct __zDpRes__ {
      * err9 bit[8]: 目标机 IP 格式错误/无法解析
      * err10 bit[9]: host ==> server 网络不通
      * err11 bit[10]: 目标端负载过高
+     * err12 bit[11]: 目标机请求下载的文件路径在服务端找不到
      */
     _ui errState;
 
@@ -422,7 +423,7 @@ struct zRun__ {
     zRepo__ *p_repoVec[zGlobRepoIdLimit];
 
     /* 服务端主程序的启动根路径 */
-    char servPath[256];
+    char *p_servPath;
 
     /* 服务端所属用户的登陆名称与家路径 */
     char *p_loginName;

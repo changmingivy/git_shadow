@@ -761,7 +761,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "if [[ 0 -ne $? ]];then exit 1;fi;chmod 0755 ${zPath}/.git/post-update;"\
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/____req-deploy.sh\"}'>${HOME}/.____req-deploy.sh;"\
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/zhost_self_deploy.sh\"}'>${zPath}_SHADOW/zhost_self_deploy.sh;",\
-            zRun_.servPath,\
+            zRun_.p_servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
             zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port,\
             zRepoId, zRepoId, zRepoId, zRepoId);\
@@ -2361,7 +2361,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
  * err11 bit[10]: 目标端负载过高
  ********************************/
 /* 错误类别数量 */
-#define zErrClassNum 11
+#define zErrClassNum 12
 
 static _i
 zprint_dp_process(cJSON *zpJRoot, _i zSd) {
@@ -2574,11 +2574,12 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             "sum(to_number(host_err[8], '9')),"
             "sum(to_number(host_err[9], '9')),"
             "sum(to_number(host_err[10], '9')),"
-            "sum(to_number(host_err[11], '9')) "
+            "sum(to_number(host_err[11], '9')),"
+            "sum(to_number(host_err[12], '9')) "
             "FROM tmp%u", zTbNo);
     zSQL_Exec();
 
-    _c zErrCnt[11];
+    _c zErrCnt[zErrClassNum];
     zErrCnt[0] = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     zErrCnt[1] = strtol(zpPgRes_->tupleRes_[0].pp_fields[1], NULL, 10);
     zErrCnt[2] = strtol(zpPgRes_->tupleRes_[0].pp_fields[2], NULL, 10);
@@ -2590,6 +2591,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     zErrCnt[8] = strtol(zpPgRes_->tupleRes_[0].pp_fields[8], NULL, 10);
     zErrCnt[9] = strtol(zpPgRes_->tupleRes_[0].pp_fields[9], NULL, 10);
     zErrCnt[10] = strtol(zpPgRes_->tupleRes_[0].pp_fields[10], NULL, 10);
+    zErrCnt[11] = strtol(zpPgRes_->tupleRes_[0].pp_fields[11], NULL, 11);
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
     /* 全局布署结果 */
@@ -2645,7 +2647,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
      ****************/
     char zResBuf[8192];
     _i zResSiz = snprintf(zResBuf, 8192,
-            "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
+            "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s],\"ReqFileNotExist\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d,\"ReqFileNotExist\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
             zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
@@ -2669,6 +2671,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             zpErrBuf[8] + 1,
             zpErrBuf[9] + 1,
             zpErrBuf[10] + 1,
+            zpErrBuf[11] + 1,
             zWaitingCnt,
             zpStageBuf[0] + 1,
             zpStageBuf[1] + 1,
@@ -2678,7 +2681,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             (0 == zTotalTimes) ? 1.0 : zSuccessTimes / zTotalTimes,
             (0 == zSuccessTimes) ? 0 : zSuccessTimeSpentAll / zSuccessTimes,
 
-            zErrCnt[0] + zErrCnt[1] + zErrCnt[2] + zErrCnt[3] + zErrCnt[4] + zErrCnt[5] + zErrCnt[6] + zErrCnt[7] + zErrCnt[8] + zErrCnt[9] + zErrCnt[10],
+            zErrCnt[0] + zErrCnt[1] + zErrCnt[2] + zErrCnt[3] + zErrCnt[4] + zErrCnt[5] + zErrCnt[6] + zErrCnt[7] + zErrCnt[8] + zErrCnt[9] + zErrCnt[10] + zErrCnt[11],
             zErrCnt[0],
             zErrCnt[1],
             zErrCnt[2],
@@ -2690,6 +2693,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
             zErrCnt[8],
             zErrCnt[9],
             zErrCnt[10],
+            zErrCnt[11],
 
             /* TODO below all... */
             0.0,

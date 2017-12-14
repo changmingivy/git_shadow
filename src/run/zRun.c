@@ -23,6 +23,7 @@ struct zRun__ zRun_ = {
     .run = zstart_server,
     .route = zops_route,
     .ops = { NULL },
+    .p_servPath = NULL
 };
 
 static char *zpErrVec[128];
@@ -173,18 +174,20 @@ zexit_clean(void) {
 static void
 zstart_server() {
     /*
+     * 必须指定服务端的根路径
+     */
+    if (NULL == zRun_.p_servPath) {
+        zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
+    /*
      * 检查 pgSQL 运行环境是否是线程安全的
      */
     if (zFalse == zPgSQL_.thread_safe_check()) {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
-
-    /*
-     * 提取主程序自身的启动路径，
-     * 需要注意控制路径长度不超过 256
-     */
-    zCheck_Null_Exit( getcwd(zRun_.servPath, 256) );
 
     /*
      * 转换为后台守护进程
