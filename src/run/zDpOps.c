@@ -33,8 +33,6 @@ static _i zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
 static _i zbatch_deploy(cJSON *zpJRoot, _i zSd);
 static _i zprint_dp_process(cJSON *zpJRoot, _i zSd);
 static _i zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
-static _i zlock_repo(cJSON *zpJRoot, _i zSd);
-static _i zunlock_repo(cJSON *zpJRoot, _i zSd);
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
 static _i zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
 static _i zglob_res_confirm(cJSON *zpJRoot, _i zSd);
