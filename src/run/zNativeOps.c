@@ -1645,7 +1645,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "need_pull       char(1) NOT NULL,"
             "ssh_user_name   varchar NOT NULL,"
             "ssh_port        varchar NOT NULL,"
-            "last_dp_sig     varchar DEFAULT NULL"  /* 最近一次成功布署的版本号 */
+            "last_dp_sig     varchar DEFAULT ''"  /* 最近一次成功布署的版本号 */
             ");"
 
             "CREATE TABLE IF NOT EXISTS dp_log "
