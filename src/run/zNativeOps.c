@@ -1228,7 +1228,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 获取日志中记录的最近一次布署的 IP 列表 */
     sprintf(zCommonBuf,
-            "SELECT host_ip FROM dp_log "
+            "SELECT host_ip,"
+            "host_res[1],host_res[2],host_res[3],host_res[4],"
+            "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],"
+            "host_detail "
+            "FROM dp_log "
             "WHERE proj_id = %d AND time_stamp = %ld",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp);
@@ -1242,7 +1246,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zMem_C_Alloc(zRun_.p_repoVec[zRepoId]->p_dpResList_, zDpRes__, zpPgRes_->tupleCnt);
         // memset(zRun_.p_repoVec[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
 
-        zRun_.p_repoVec[zRepoId]->totalHost = zpPgRes_->tupleCnt;
+        /* needed by zDpOps_.show_dp_process */
+        zRun_.p_repoVec[zRepoId]->totalHost
+            = zRun_.p_repoVec[zRepoId]->dpTotalTask
+            = zRun_.p_repoVec[zRepoId]->dpTaskFinCnt
+            = zpPgRes_->tupleCnt;
         zRun_.p_repoVec[zRepoId]->resType = 0;
 
         zDpRes__ *zpTmpDpRes_ = NULL;
@@ -1254,6 +1262,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 continue;
             }
 
+
             /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
             if (0 != zConvert_IpStr_To_Num(zpPgRes_->tupleRes_[i].pp_fields[0],
                         zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
@@ -1261,9 +1270,49 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 exit(1);
             }
 
-            /* 使用 calloc 分配的清零空间，无需复位 */
-            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = 0;  /* 目标机状态复位 */
-            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState = 0;  /* 目标机状态复位 */
+            /* 恢复上一次布署的 resState 与全局 resType */
+            if ('1' == zpPgRes_->tupleRes_[i].pp_fields[4][0]) {
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 4);
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 3);
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 2);
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1);
+
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState = 0;
+            } else {
+                /* 布署环节：未成功即是失败 */
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 2);
+
+                /* 用不到，无须恢复... */
+                // if ('1' == zpPgRes_->tupleRes_[i].pp_fields[3][0]) {
+                //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 3);
+                // } else if ('1' == zpPgRes_->tupleRes_[i].pp_fields[2][0]) {
+                //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 2);
+                // } else if ('1' == zpPgRes_->tupleRes_[i].pp_fields[1][0]) {
+                //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1);
+                // } else {
+                //     /* 目标机初始化环节：未成功即是失败 */
+                //     zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 1);
+                // }
+
+                /* 恢复上一次布署的 errState */
+                for (_i j = 5; j < 16; j++) {
+                    if ('1' == zpPgRes_->tupleRes_[i].pp_fields[j][0]) {
+                        zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, j);
+                        break;
+                    }
+                }
+
+                if (0 == zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState) {
+                    /* 若未捕获到错误，一律置为服务端错误类别 */
+                    zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState, 1);
+                }
+
+                /* 错误详情 */
+                strncpy(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg, zpPgRes_->tupleRes_[i].pp_fields[16], 255);
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errMsg[255] = '\0';
+            }
+
+            /* 使用 calloc 分配的清零空间，此项无需复位 */
             // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].p_next = NULL;
 
             /*

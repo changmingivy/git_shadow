@@ -2395,10 +2395,8 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
                             zIpStrBuf)) {
                     zPrint_Err_Easy("IPConvert err");
                 } else {
-                    for (j = 0; j < 4; j++) {
-                        if (zCheck_Bit(
-                                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState,
-                                    j + 1)) {
+                    for (j = 2; j >= 0; j--) {
+                        if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, j + 1)) {
                             zStageOffSet[j] += snprintf(
                                     zpStageBuf[j] + zStageOffSet[j],
                                     zStageBufLen - zStageOffSet[j],
