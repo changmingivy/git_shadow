@@ -315,10 +315,10 @@ typedef struct __zRepo__ {
     _uc resType;
 
     /* 存放最近一次布署成功的版本号 */
-    char lastDpSig[44];
+    char lastDpSig[41];
 
     /* 正在布署过程中但尚未确定最终结果的版本号 */
-    char dpingSig[44];
+    char dpingSig[41];
 
     /* 同一个项目的所有目标机登陆认证方式必须完全相同 */
     char sshUserName[256];

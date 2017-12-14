@@ -590,6 +590,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     };
 
     if (0 == (zErrNo = zNativeOps_.proj_init(&zRepoMeta_, zSd))) {
+        _i zRepoId = strtol(zRepoMeta_.pp_fields[0], NULL, 10);
         /* 新项目元数据写入 DB */
         char zSQLBuf[4096] = {'\0'};
         snprintf(zSQLBuf, 4096, "INSERT INTO proj_meta "
@@ -605,7 +606,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                 zRepoMeta_.pp_fields[7]);
 
         zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(
-                zRun_.p_repoVec[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->p_pgConnHd_,
+                zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
                 zSQLBuf,
                 zFalse);
         if (NULL == zpPgResHd_) {
@@ -634,6 +635,11 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                     zpCreatedTM_->tm_min,
                     zpCreatedTM_->tm_sec);
         }
+
+        /* 状态预置 */
+        zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
+        zRun_.p_repoVec[zRepoId]->lastDpSig[0] = '\0';
+        zRun_.p_repoVec[zRepoId]->dpingSig[0] = '\0';
 
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     }
