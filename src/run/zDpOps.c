@@ -752,7 +752,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 \
             "if [[ 0 -eq `ls ${zPath}_SHADOW/notice|wc -l` ]];then\n"/* then 后直接跟 CMD，不能加分号 */\
                 "exec 777<>/dev/tcp/${zIP}/${zPort};"\
-                "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/notice\"}'>&777;"\
+                "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/notice\\\"}\">&777;"\
                 "cat<&777 >${zPath}_SHADOW/notice;"\
                 "exec 777>&-;exec 777<&-;"\
             "fi;"\
