@@ -45,6 +45,8 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
     # 预置为空
     zOldMasterSig=
+
+    # 预置为空
     zRecvContent=
 
     # 当前 hook 执行过程中要去掉执行权限，防止以下的 git 操作触发 hook 无限循环
@@ -58,7 +60,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         if [[ 0 -lt ${zTimeStamp} ]]; then
             exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
             printf "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&4
-            zRecvContent=`cat<&4`
+            zRecvContent=`cat<&4`  # bash tcp fd: 4
             exec 4<&-
             exec 4>&-
         fi

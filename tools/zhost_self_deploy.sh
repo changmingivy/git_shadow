@@ -4,7 +4,7 @@
 
 ##-- [分支格式]：meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr} --##
 
-zTcpSend() {
+zTcpSend() {  # bash tcp fd: 3
     exec 3<>/dev/tcp/${1}/${2}
     printf "${3}">&3
     exec 3<&-

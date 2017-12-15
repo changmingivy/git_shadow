@@ -735,11 +735,13 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGenerate_Ssh_Cmd(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
-            "bash;zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
-            "exec 777<>/dev/tcp/${zIP}/${zPort};"\
-            "printf '{\"OpsId\":0}'>&777;"\
-            "if [[ '!' != `cat<&777` ]];then exit 210;fi;"\
-            "exec 777>&-;exec 777<&-;"\
+            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
+\
+            "exec 5<>/dev/tcp/${zIP}/${zPort};"\
+            "printf '{\"OpsId\":0}'>&5;"\
+            "if [[ '!' != `cat<&5` ]];then exit 210;fi;"\
+            "exec 5>&-;exec 5<&-;"\
+\
             "for x in ${zPath} ${zPath}_SHADOW;"\
             "do\n"/* do 后直接跟 CMD，不能加分号 */\
                 "rm -f $x ${x}/.git/{index.lock,post-update};"\
@@ -750,24 +752,26 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
 \
-            "if [[ 0 -eq `ls ${zPath}_SHADOW/notice|wc -l` ]];then\n"/* then 后直接跟 CMD，不能加分号 */\
-                "exec 777<>/dev/tcp/${zIP}/${zPort};"\
-                "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/notice\\\"}\">&777;"\
-                "cat<&777 >${zPath}_SHADOW/notice;"\
-                "exec 777>&-;exec 777<&-;"\
-                "chmod 0755 ${zPath}_SHADOW/notice;"\
-            "fi;"\
+            "zTcpReq() { "/* bash tcp fd: 5 */\
+                "exec 5<>/dev/tcp/${1}/${2};"\
+                "printf \"${3}\">&5;"\
+                "cat<&5 >${4};"\
+                "exec 5<&-;exec 5>&-;"\
+            " }"\
 \
-            "${zPath}_SHADOW/notice ${zIP} ${zPort} \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\">${zPath}/.git/post-update;"\
-            "if [[ 0 -ne $? ]];then rm ${zPath}_SHADOW/notice;exit 212;fi;chmod 0755 ${zPath}/.git/post-update;"\
-            "${zPath}_SHADOW/notice ${zIP} ${zPort} \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\">${HOME}/.____req-deploy.sh;"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
-            "${zPath}_SHADOW/notice ${zIP} ${zPort} \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\">${zPath}_SHADOW/zhost_self_deploy.sh;"\
+            "chmod 0755 ${zPath}/.git/post-update;"\
+\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
+            "if [[ 0 -ne $? ]];then exit 212;fi;"\
+\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
             zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port,\
-            zRepoId, zRepoId, zRepoId, zRepoId);\
+            zRepoId, zRepoId, zRepoId);\
 } while(0)
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\
