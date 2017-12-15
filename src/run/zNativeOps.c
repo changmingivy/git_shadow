@@ -1283,17 +1283,19 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     /* 布署环节：未成功即是失败 */
                     zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 2);
 
-                    /* 用不到，无须恢复... */
+                    /* 非必要，无需恢复... */
                     // if ('1' == zpPgRes_->tupleRes_[i].pp_fields[3][0]) {
                     //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 3);
                     // } else if ('1' == zpPgRes_->tupleRes_[i].pp_fields[2][0]) {
                     //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 2);
-                    // } else if ('1' == zpPgRes_->tupleRes_[i].pp_fields[1][0]) {
-                    //     zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1);
-                    // } else {
-                    //     /* 目标机初始化环节：未成功即是失败 */
-                    //     zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 1);
                     // }
+
+                    /* 目标机初始化环节：未成功即是失败 */
+                    if ('1' == zpPgRes_->tupleRes_[i].pp_fields[1][0]) {
+                        zSet_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1);
+                    } else {
+                        zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 1);
+                    }
 
                     /* 恢复上一次布署的 errState */
                     for (_i j = 5; j < 17; j++) {
