@@ -755,10 +755,11 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "printf \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/notice\\\"}\">&777;"\
                 "cat<&777 >${zPath}_SHADOW/notice;"\
                 "exec 777>&-;exec 777<&-;"\
+                "chmod 0755 ${zPath}_SHADOW/notice;"\
             "fi;"\
 \
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/post-update\"}'>${zPath}/.git/post-update;"\
-            "if [[ 0 -ne $? ]];then exit 212;fi;chmod 0755 ${zPath}/.git/post-update;"\
+            "if [[ 0 -ne $? ]];then rm ${zPath}_SHADOW/notice;exit 212;fi;chmod 0755 ${zPath}/.git/post-update;"\
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/____req-deploy.sh\"}'>${HOME}/.____req-deploy.sh;"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/zhost_self_deploy.sh\"}'>${zPath}_SHADOW/zhost_self_deploy.sh;"\
