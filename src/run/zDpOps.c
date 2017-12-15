@@ -758,9 +758,11 @@ zssh_exec_simple(const char *zpSSHUserName,
             "fi;"\
 \
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/post-update\"}'>${zPath}/.git/post-update;"\
-            "if [[ 0 -ne $? ]];then exit 1;fi;chmod 0755 ${zPath}/.git/post-update;"\
+            "if [[ 0 -ne $? ]];then exit 212;fi;chmod 0755 ${zPath}/.git/post-update;"\
             "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/____req-deploy.sh\"}'>${HOME}/.____req-deploy.sh;"\
-            "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/zhost_self_deploy.sh\"}'>${zPath}_SHADOW/zhost_self_deploy.sh;",\
+            "if [[ 0 -ne $? ]];then exit 212;fi;"\
+            "${zPath}_SHADOW/notice ${zIP} ${zPort} '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/zhost_self_deploy.sh\"}'>${zPath}_SHADOW/zhost_self_deploy.sh;"\
+            "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
             zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port,\
@@ -1792,88 +1794,86 @@ zSkipMark:;
      * 还是返回全部的部署结果 ?
      */
     if (1 == zRun_.p_repoVec[zRepoId]->dpingMark) {
-        /* 判断是否布署成功 */
-        if (0 == zRun_.p_repoVec[zRepoId]->resType) {
+        /*
+         * 若布署成功且版本号与上一次成功布署的不同时
+         * 才需要刷新缓存
+         */
+        if (0 == zRun_.p_repoVec[zRepoId]->resType
+				&& ! zIsSameSig) {
             /*
-             * 当布署的版本号与上一次成功布署的不同时
-             * 才需要刷新缓存
+             * 获取写锁
+             * 此时将拒绝所有查询类请求
              */
-            if (! zIsSameSig) {
-                /*
-                 * 获取写锁
-                 * 此时将拒绝所有查询类请求
-                 */
-                pthread_rwlock_wrlock(&zRun_.p_repoVec[zRepoId]->rwLock);
+            pthread_rwlock_wrlock(&zRun_.p_repoVec[zRepoId]->rwLock);
 
-                /*
-                 * 以上一次成功布署的版本号为名称
-                 * 创建一个新分支，用于保证回撤的绝对可行性
-                 */
-                if (0 != zLibGit_.branch_add(
-                            zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                            zRun_.p_repoVec[zRepoId]->lastDpSig,
-                            zRun_.p_repoVec[zRepoId]->lastDpSig,
-                            zTrue)) {
-                    zPrint_Err_Easy("branch create err");
-                }
-
-                /*
-                 * 更新最新一次布署版本号
-                 * 并写入 DB
-                 */
-                strcpy(zRun_.p_repoVec[zRepoId]->lastDpSig,
-                        zRun_.p_repoVec[zRepoId]->dpingSig);
-
-                sprintf(zpCommonBuf,
-                        "UPDATE proj_meta SET last_dp_sig = '%s' "
-                        "WHERE proj_id = %d",
-                        zRun_.p_repoVec[zRepoId]->dpingSig,
-                        zRepoId);
-
-                zpPgResHd_ = zPgSQL_.exec(
-                        zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
-                        zpCommonBuf,
-                        zFalse);
-                if (NULL == zpPgResHd_) {
-                    /* 长连接可能意外中断，失败重连，再试一次 */
-                    zPgSQL_.conn_reset(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-                    if (NULL == (zpPgResHd_ = zPgSQL_.exec(
-                                    zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
-                                    zpCommonBuf,
-                                    zFalse))) {
-                        zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-
-                        /* 数据库不可用，停止服务 ? */
-                        zPrint_Err_Easy("==== FATAL ====");
-                        exit(1);
-                    }
-                }
-
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
-
-                /*
-                 * 项目内存池复位
-                 */
-                zReset_Mem_Pool_State( zRepoId );
-
-                /* 刷新缓存 */
-                zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
-
-                zSubMeta_.dataType = zIsCommitDataType;
-                zNativeOps_.get_revs(& zSubMeta_);
-
-                zSubMeta_.dataType = zIsDpDataType;
-                zNativeOps_.get_revs(& zSubMeta_);
-
-                /* update cacheId */
-                zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
-
-                /* 标记缓存为可用状态 */
-                zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
-
-                /* 释放缓存锁 */
-                pthread_rwlock_unlock(&zRun_.p_repoVec[zRepoId]->rwLock);
+            /*
+             * 以上一次成功布署的版本号为名称
+             * 创建一个新分支，用于保证回撤的绝对可行性
+             */
+            if (0 != zLibGit_.branch_add(
+                        zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                        zRun_.p_repoVec[zRepoId]->lastDpSig,
+                        zRun_.p_repoVec[zRepoId]->lastDpSig,
+                        zTrue)) {
+                zPrint_Err_Easy("branch create err");
             }
+
+            /*
+             * 更新最新一次布署版本号
+             * 并写入 DB
+             */
+            strcpy(zRun_.p_repoVec[zRepoId]->lastDpSig,
+                    zRun_.p_repoVec[zRepoId]->dpingSig);
+
+            sprintf(zpCommonBuf,
+                    "UPDATE proj_meta SET last_dp_sig = '%s' "
+                    "WHERE proj_id = %d",
+                    zRun_.p_repoVec[zRepoId]->dpingSig,
+                    zRepoId);
+
+            zpPgResHd_ = zPgSQL_.exec(
+                    zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+                    zpCommonBuf,
+                    zFalse);
+            if (NULL == zpPgResHd_) {
+                /* 长连接可能意外中断，失败重连，再试一次 */
+                zPgSQL_.conn_reset(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+                if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                                zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+                                zpCommonBuf,
+                                zFalse))) {
+                    zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+
+                    /* 数据库不可用，停止服务 ? */
+                    zPrint_Err_Easy("==== FATAL ====");
+                    exit(1);
+                }
+            }
+
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+
+            /*
+             * 项目内存池复位
+             */
+            zReset_Mem_Pool_State( zRepoId );
+
+            /* 刷新缓存 */
+            zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
+
+            zSubMeta_.dataType = zIsCommitDataType;
+            zNativeOps_.get_revs(& zSubMeta_);
+
+            zSubMeta_.dataType = zIsDpDataType;
+            zNativeOps_.get_revs(& zSubMeta_);
+
+            /* update cacheId */
+            zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
+
+            /* 标记缓存为可用状态 */
+            zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
+
+            /* 释放缓存锁 */
+            pthread_rwlock_unlock(&zRun_.p_repoVec[zRepoId]->rwLock);
         }
     } else {
         /*
