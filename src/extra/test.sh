@@ -1,7 +1,5 @@
 #/bin/sh
 
-zCmd="cargo run --release"
-
 # 列出单个项目元信息
 #zContent="{\"OpsId\":6,\"ProjId\":11}"
 
@@ -20,5 +18,12 @@ zContent="{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}"
 # 布署/撤销
 # zContent="{\"OpsId\":12,\"ProjId\":11,\"RevId\":${1},\"CacheId\":0,\"DataType\":0,\"IpList\":\"::1\",\"IpCnt\":1,\"SSHUserName\":\"git\",\"SSHPort\":\"22\"}"
 
-cd ./notice &&\
-	$zCmd '::1' '20000' "${zContent}"
+zTcpSend() {
+    exec 44<>/dev/tcp/${1}/${2}
+    printf "${3}">&44
+    cat<&44
+    exec 44<&-
+    exec 44>&-
+}
+
+zTcpSend '::1' '20000' "${zContent}"
