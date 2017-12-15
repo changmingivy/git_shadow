@@ -189,7 +189,9 @@ zssh_exec(
     }
 
     zErrNo = -1;
-    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) { zwait_socket(zSd, zSession); }
+    while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) {
+        zwait_socket(zSd, zSession);
+    }
     if(0 == zRet) {
         /* 自定义的 SHELL 错误码使用 201-255 范围 */
         if (200 < (zErrNo = libssh2_channel_get_exit_status(zChannel))) {
