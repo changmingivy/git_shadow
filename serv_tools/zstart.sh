@@ -92,7 +92,12 @@ cargo build --release
 cp target/release/notice ${zShadowPath}/tools/
 
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
-${zShadowPath}/bin/git_shadow -u `whoami` -h $zServAddr -p $zServPort -U `whoami` >> ${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
+${zShadowPath}/bin/git_shadow\
+    -x ${zShadowPath}\
+    -u `whoami`\
+    -h $zServAddr\
+    -p $zServPort\
+    -U `whoami` >> ${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 
 ##################################################################################################
