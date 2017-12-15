@@ -738,7 +738,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
             "exec 777<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"OpsId\":0}'>&777;"\
-            "if [[ \"!\" != `cat<&777` ]];then exit 210;fi;"\
+            "if [[ \"\!\" != `cat<&777` ]];then exit 210;fi;"\
             "exec 777>&-;exec 777<&-;"\
             "for x in ${zPath} ${zPath}_SHADOW;"\
             "do;"\
