@@ -1,29 +1,36 @@
 #!/usr/bin/env bash
 # 主机开机启动时，自动向中控机请求同步最新的已布署版本号
-# 入参是本机所有Ip地址，上层调用者必须已进入对应项目的 _SHADOW 目录
+# 上层调用者必须已进入对应项目的 _SHADOW 目录
 
-zSelfIpList=$1
+##-- [分支格式]：meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr} --##
 
-zCurPath=`pwd`
-zProjPath=`echo ${zCurPath} | sed -n 's/_SHADOW$//p'`
+zTcpSend() {
+    exec 3<>/dev/tcp/${1}/${2}
+    printf "${3}">&3
+    exec 3<&-
+    exec 3>&-
+}
 
-cd $zProjPath
-zProjId=`git branch | grep 'server[0-9]\+$' | grep -o '[0-9]\+$' | head -1`
-zMasterIpAddr=`git branch | grep -m 1 | awk -F@ '{print $2}'`
-zMasterPort=`git branch | grep -m 1 | awk -F@ '{print $3}'`
+zProjPath=`\`pwd\` | sed -n 's/_SHADOW$//p'`
 
 (
 while :
 do
-    zLocalSig=`git log -1 --format=%H`  # 必须放在循环中，取实时的最新版本号发送给布署系统
+    cd ${zProjPath}
+    zServBranch=`git branch | grep -m 1 'meta@'`
 
-    for zIpStrAddr in `echo ${zSelfIpList}`
-    do
-        ${zCurPath}/tools/notice\
-            "${zMasterIpAddr}"\
-            "${zMasterPort}"\
-            "{\"OpsId\":13,\"ProjId\":${zProjId},\"HostAddr\":\"${zIpStrAddr}\",\"RevSig\":\"${zLocalSig}\"}"
-    done
+    zProjId=`echo ${zServBranch} | awk -F@ '{print $4}'`
+    zMasterPort=`echo ${zServBranch} | awk -F@ '{print $3}'`
+
+    # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
+    zMasterAddr=`echo ${zServBranch} | awk -F@ '{print $2}' | sed 's/_/:/g'`
+    zSelfIp=`echo ${zServBranch} | awk -F@ '{print $5}' | sed 's/_/:/g'`
+
+    zLocalSig=`git log -1 --format=%H`
+
+    zTcpSend "${zMasterIpAddr}" "${zMasterPort}" \
+        "{\"OpsId\":13,\"ProjId\":${zProjId},\"HostAddr\":\"${zIpStrAddr}\",\"RevSig\":\"${zLocalSig}\"}"
+
     sleep 60
 done
 ) &

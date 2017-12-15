@@ -55,19 +55,12 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 'EN': 错误信息上报
     zTcpReply() {
         # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
-        # 若 notice 工具不存在，则使用 bash 发送 tcp 请求
         if [[ 0 -lt ${zTimeStamp} ]]; then
-            zRecvContent=`${zPathOnHost}_SHADOW/notice\
-                "${zMasterAddr}"\
-                "${zMasterPort}"\
-                "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}"`
-            if [[ 0 -ne $? ]];then
-                exec 555<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-                printf "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&555
-                zRecvContent=`cat<&555`
-                exec 555<&-
-                exec 555>&-
-            fi
+            exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
+            printf "{\"OpsId\":${1},\"ProjId\":${zProjId},\"HostAddr\":\"${zSelfIpStrAddr}\",\"RevSig\":\"${2}\",\"TimeStamp\":${zTimeStamp},\"ReplyType\":\"${3}\",\"content\":\"${4}\"}">&4
+            zRecvContent=`cat<&4`
+            exec 4<&-
+            exec 4>&-
         fi
     }
 
@@ -99,7 +92,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
         # 清理分支
         git branch -D ${zServBranch}
-        git branch -D ${zShadowBranch}
+        git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
 
         # 退出之前还原权限
         chmod 0755 ${zPathOnHost}/.git/hooks/post-update
@@ -155,7 +148,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             git branch -D `head -4 /tmp/.${zProjId}_pid_post-update | tail -1`
         else
             git branch -D ${zServBranch}
-            git branch -D ${zShadowBranch}
+            git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update
             exit 0
         fi
@@ -275,7 +268,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             fi
 
             git branch -D ${zServBranch}
-            git branch -D ${zShadowBranch}
+            git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
             exit 255
         else
             # 继续等待
@@ -286,7 +279,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 删除自身 pid 文件及已用完的分支
     rm /tmp/.${zProjId}_pid_post-update
     git branch -D ${zServBranch}
-    git branch -D ${zShadowBranch}
+    git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
 
     # 清理可能存在的旧版布署系统的遗留文件
     rm -rf ${zProjOnLinePath}_SHADOW

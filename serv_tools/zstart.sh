@@ -87,10 +87,6 @@ cd ${zShadowPath}/src &&
     make clean
 strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
-cd ${zShadowPath}/src/extra/notice
-cargo build --release
-cp target/release/notice ${zShadowPath}/tools/
-
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow\
     -x ${zShadowPath}\
