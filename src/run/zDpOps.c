@@ -741,7 +741,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "if [[ '!' != `cat<&777` ]];then exit 210;fi;"\
             "exec 777>&-;exec 777<&-;"\
             "for x in ${zPath} ${zPath}_SHADOW;"\
-            "do"/* do 后直接跟 CMD，不能加分号 */\
+            "do\n"/* do 后直接跟 CMD，不能加分号 */\
                 "rm -f $x ${x}/.git/{index.lock,post-update};"\
                 "mkdir -p $x;"\
                 "cd $x;"\
@@ -750,7 +750,7 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
 \
-            "if [[ 0 -eq `ls ${zPath}_SHADOW/notice|wc -l` ]];then"/* then 后直接跟 CMD，不能加分号 */\
+            "if [[ 0 -eq `ls ${zPath}_SHADOW/notice|wc -l` ]];then\n"/* then 后直接跟 CMD，不能加分号 */\
                 "exec 777<>/dev/tcp/${zIP}/${zPort};"\
                 "printf '{\"OpsId\":14,\"ProjId\":%d,\"Path\":\"${zServPath}/tools/notice\"}'>&777;"\
                 "cat<&777 >${zPath}_SHADOW/notice;"\
