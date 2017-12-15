@@ -1800,7 +1800,7 @@ zSkipMark:;
          * 才需要刷新缓存
          */
         if (0 == zRun_.p_repoVec[zRepoId]->resType
-				&& ! zIsSameSig) {
+                && ! zIsSameSig) {
             /*
              * 获取写锁
              * 此时将拒绝所有查询类请求
@@ -2116,13 +2116,19 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
         return -1;
     }
 
-    zCheck_Negative_Return(
-            zFd = open(zpJ->valuestring, O_RDONLY),
-            -80);
+    if (0 > (zFd = open(zpJ->valuestring, O_RDONLY))) {
+        shutdown(zSd, SHUT_RDWR);
+
+        zPrint_Err_Easy_Sys();
+        return -80;
+    }
 
     /* 此处并未保证传输过程的绝对可靠性 */
     while (0 < (zDataLen = read(zFd, zDataBuf, 4096))) {
         if (zDataLen != zNetUtils_.send_nosignal(zSd, zDataBuf, zDataLen)) {
+            close(zFd);
+            shutdown(zSd, SHUT_RDWR);
+
             zPrint_Err_Easy("file trans err");
             return -126;
         }

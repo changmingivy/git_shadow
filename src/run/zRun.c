@@ -330,8 +330,10 @@ zops_route(void *zpParam) {
             fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
         }
 
-        zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-        zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
+        if (14 != zOpsId) {
+            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+            zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
+        }
     }
 
 zMarkEnd:
