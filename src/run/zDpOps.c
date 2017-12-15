@@ -735,14 +735,14 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGenerate_Ssh_Cmd(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
-            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
+            "bash;zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
             "exec 777<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"OpsId\":0}'>&777;"\
-            "if [[ \"!\" != `cat<&777` ]];then exit 210;fi;"\
+            "if [[ '!' != `cat<&777` ]];then exit 210;fi;"\
             "exec 777>&-;exec 777<&-;"\
             "for x in ${zPath} ${zPath}_SHADOW;"\
             "do;"\
-                "rm -f $x ${x}/.git/{index.lock,post-update}"\
+                "rm -f $x ${x}/.git/{index.lock,post-update};"\
                 "mkdir -p $x;"\
                 "cd $x;"\
                 "if [[ 0 -ne $? ]];then exit 206;fi;"\
