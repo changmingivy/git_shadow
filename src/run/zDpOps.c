@@ -2082,7 +2082,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 zSet_Bit(zpTmp_->resState, zRetBit);
 
                 /* 最终成功的状态到达时，才需要递增全局计数并记录布署耗时 */
-                if ('5' == zpReplyType[2]) {
+                if ('4' == zpReplyType[2]) {
                     /*
                      * 全局计数原子性+1
                      * 若任务计数已满，则通知上层调度者
