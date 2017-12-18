@@ -76,7 +76,7 @@ zssh_exec(
     _i zSd, zRet, zErrNo;
     LIBSSH2_SESSION *zSession;
     LIBSSH2_CHANNEL *zChannel;
-    //char *zpExitSingal=(char *) -1;
+    char *zpExitSingal=(char *) -1;
 
     pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
@@ -193,17 +193,22 @@ zssh_exec(
         zwait_socket(zSd, zSession);
     }
     if(0 == zRet) {
-        /* 自定义的 SHELL 错误码使用 201-255 范围 */
         if (200 < (zErrNo = libssh2_channel_get_exit_status(zChannel))) {
+            /* 自定义的 SHELL 错误码使用 201-255 范围 */
             zErrNo = -1 * (zErrNo - 200);
+        } else if (0 < zErrNo) {
+            /* 未知错误/目标机系统生民的错误码 */
+            zErrNo = -1;
         } else {
-            zErrNo = -1;  /* 未知错误 */
+            //zErrNo = 0;
         }
-        //libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
+
+        libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
     }
-    //if (NULL != zpExitSingal) {
-    //    zErrNo = -1;
-    //}
+
+    if (NULL != zpExitSingal) {
+        zErrNo = -1;
+    }
 
     libssh2_channel_free(zChannel);
     zChannel= NULL;
