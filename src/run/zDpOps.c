@@ -775,9 +775,9 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             "\n};"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/post-update\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
-            "chmod 0755 ${zPath}/.git/post-update;"\
+            "chmod 0755 ${zPath}/.git/hooks/post-update;"\
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
