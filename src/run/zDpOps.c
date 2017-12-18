@@ -1031,7 +1031,7 @@ zdp_ccur(void *zp) {
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
 
     /* 向目标机 push 布署内容 */
-    if (0 == (zpDpCcur_->errNo = zLibGit_.remote_push(zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, NULL))) {
+    if (0 == (zpDpCcur_->errNo = zLibGit_.remote_push(zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
     } else {
         /*
