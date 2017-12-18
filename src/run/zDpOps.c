@@ -857,7 +857,7 @@ zdp_ccur(void *zp) {
 
     char zRemoteRepoAddrBuf[64 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen];
 
-    char zGitRefsBuf[2][64 + 2 * sizeof("refs/heads/:")] = {{0}},
+    char zGitRefsBuf[2][256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen],
          *zpGitRefs[2] = {
              zGitRefsBuf[0],
              zGitRefsBuf[1]
@@ -1008,7 +1008,9 @@ zdp_ccur(void *zp) {
     }
 
     /* push TWO branchs together */
-    sprintf(zpGitRefs[0], "+refs/heads/____servXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+    snprintf(zpGitRefs[0],
+            256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
+            "+refs/heads/____servXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
@@ -1017,7 +1019,9 @@ zdp_ccur(void *zp) {
             zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
 
-    sprintf(zpGitRefs[1], "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
+    snprintf(zpGitRefs[1],
+            256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
+            "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
