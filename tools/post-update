@@ -17,7 +17,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 # err7 :目标端路径不存在
 
 (
-    zPathOnHost=`dirname \`pwd\``
+    zPathOnHost=`pwd`
 
     # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
     zMasterAddr=`echo $1 | awk -F@ '{print $2}' | sed 's/_/:/g'`
