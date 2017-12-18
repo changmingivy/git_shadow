@@ -264,6 +264,8 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
         zPrint_Err_Easy("");
         return -71;
+    } else {
+        pthread_mutex_unlock(& zRun_.commonLock);
     }
 
     /*
@@ -395,9 +397,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_lock(& zRun_.commonLock);
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
+        pthread_mutex_unlock(& zRun_.commonLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
-            pthread_mutex_unlock(& zRun_.commonLock);
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
             zPrint_Err_Easy("");
             return -71;
@@ -414,8 +416,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
         zPrint_Err_Easy("");
         return -71;
+    } else {
+        pthread_mutex_unlock(& zRun_.commonLock);
     }
-    pthread_mutex_unlock(& zRun_.commonLock);
 
     if ((0 > zMeta_.fileId)
             || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_subVecWrap_)
@@ -427,9 +430,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_lock(& zRun_.commonLock);
     if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId) = (void *) 1;
+        pthread_mutex_unlock(& zRun_.commonLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_contents(&zMeta_)) {
-            pthread_mutex_unlock(& zRun_.commonLock);
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
             zPrint_Err_Easy("");
             return -72;
@@ -446,8 +449,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
         zPrint_Err_Easy("");
         return -72;
+    } else {
+        pthread_mutex_unlock(& zRun_.commonLock);
     }
-    pthread_mutex_unlock(& zRun_.commonLock);
 
     /*
      * send msg
