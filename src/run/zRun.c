@@ -327,7 +327,7 @@ zops_route(void *zpParam) {
     if (0 > zErrNo) {
         /* 无法解析的数据，打印出其原始信息 */
         if (-1 == zErrNo) {
-            fprintf(stderr, "\033[31;01m[OrigMsg]:\033[00m %s\n\342\224\224\342\224\200\342\224\200", zpDataBuf);
+            fprintf(stderr, "\342\224\224\342\224\200\342\224\200\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
         }
 
         if (14 != zOpsId) {

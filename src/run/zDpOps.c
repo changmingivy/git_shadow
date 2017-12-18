@@ -768,12 +768,12 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "git init .;git config user.name _;git config user.email _;"\
             "done;"\
 \
-            "zTcpReq() { "/* bash tcp fd: 5 */\
+            "zTcpReq() {\n"/* bash tcp fd: 5 */\
                 "exec 5<>/dev/tcp/${1}/${2};"\
                 "printf \"${3}\">&5;"\
                 "cat<&5 >${4};"\
                 "exec 5<&-;exec 5>&-;"\
-            " }"\
+            "\n};"\
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
