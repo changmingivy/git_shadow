@@ -148,7 +148,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             git branch -D `head -4 /tmp/.${zProjId}_pid_post-update | tail -1`
         else
             git branch -D ${zServBranch}
-            git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
+            git branch -D ${zShadowBranch}
             chmod 0755 ${zPathOnHost}/.git/hooks/post-update
             exit 0
         fi
@@ -244,7 +244,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 等待确认服务端的全局结果
     # 若全局结果不是成功，则执行回退
     # 全局成功，服务端回复 "S"，失败回复 "F"，尚未确定最终结果回复 "W"
-    sleep 10
+    sleep 5
     while :
     do
         zTcpReply 7 "" "" ""
@@ -269,7 +269,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
             exit 255
         else
             # 继续等待
-            sleep 5
+            sleep 2
         fi
     done
 
