@@ -175,7 +175,8 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     zMeta_.repoId = zpJ->valueint;
 
     /* 检查项目存在性 */
-    if (NULL == zRun_.p_repoVec[zMeta_.repoId] || 'Y' != zRun_.p_repoVec[zMeta_.repoId]->initFinished) {
+    if (NULL == zRun_.p_repoVec[zMeta_.repoId]
+            || 'Y' != zRun_.p_repoVec[zMeta_.repoId]->initFinished) {
         zPrint_Err_Easy("");
         return -2;
     }
@@ -266,7 +267,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * SEND MSG
+     * send msg
      */
     zSendVecWrap_.vecSiz = 0;
     zSendVecWrap_.p_vec_ = zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)->p_vec_;
@@ -394,9 +395,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_lock(& zRun_.commonLock);
     if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
         zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
-        pthread_mutex_unlock(& zRun_.commonLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
+            pthread_mutex_unlock(& zRun_.commonLock);
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
             zPrint_Err_Easy("");
             return -71;
@@ -414,6 +415,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         zPrint_Err_Easy("");
         return -71;
     }
+    pthread_mutex_unlock(& zRun_.commonLock);
 
     if ((0 > zMeta_.fileId)
             || (NULL == zpTopVecWrap_->p_refData_[zMeta_.commitId].p_subVecWrap_)
@@ -425,9 +427,9 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_lock(& zRun_.commonLock);
     if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId) = (void *) 1;
-        pthread_mutex_unlock(& zRun_.commonLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_contents(&zMeta_)) {
+            pthread_mutex_unlock(& zRun_.commonLock);
             pthread_rwlock_unlock(& zRun_.p_repoVec[zMeta_.repoId]->rwLock);
             zPrint_Err_Easy("");
             return -72;
@@ -445,9 +447,10 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         zPrint_Err_Easy("");
         return -72;
     }
+    pthread_mutex_unlock(& zRun_.commonLock);
 
     /*
-     * SEND MSG
+     * send msg
      */
     zSendVecWrap_.vecSiz = 0;
     zSendVecWrap_.p_vec_ = zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->p_vec_;
