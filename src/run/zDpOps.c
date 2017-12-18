@@ -181,6 +181,15 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         return -2;
     }
 
+    /*
+     * 若上一次布署结果失败或正在布署过程中
+     * 不允许查看文件差异内容
+     */
+    if (zCacheDamaged == zRun_.p_repoVec[zMeta_.repoId]->repoState) {
+        zPrint_Err_Easy("");
+        return -13;
+    }
+
     zpJ = cJSON_V(zpJRoot, "DataType");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
@@ -201,15 +210,6 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         return -1;
     }
     zMeta_.cacheId = zpJ->valueint;
-
-    /*
-     * 若上一次布署结果失败或正在布署过程中
-     * 不允许查看文件差异内容
-     */
-    if (zCacheDamaged == zRun_.p_repoVec[zMeta_.repoId]->repoState) {
-        zPrint_Err_Easy("");
-        return -13;
-    }
 
     if (zIsCommitDataType == zMeta_.dataType) {
         zpTopVecWrap_= & zRun_.p_repoVec[zMeta_.repoId]->commitVecWrap_;
@@ -336,6 +336,15 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     if (NULL == zRun_.p_repoVec[zMeta_.repoId] || 'Y' != zRun_.p_repoVec[zMeta_.repoId]->initFinished) {
         zPrint_Err_Easy("");
         return -2;
+    }
+
+    /*
+     * 若上一次布署结果失败或正在布署过程中
+     * 不允许查看文件差异内容
+     */
+    if (zCacheDamaged == zRun_.p_repoVec[zMeta_.repoId]->repoState) {
+        zPrint_Err_Easy("");
+        return -13;
     }
 
     zpJ = cJSON_V(zpJRoot, "DataType");
