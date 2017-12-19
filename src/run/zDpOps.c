@@ -765,7 +765,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "exec 5>&-;exec 5<&-;"\
 \
             "for x in ${zPath} ${zPath}_SHADOW;"\
-            "do\n"/* do 后直接跟 CMD，不能加分号 */\
+            "do "/* do 后直接跟 CMD，不能加分号或 \n */\
                 "rm -f $x ${x}/.git/{index.lock,post-update};"\
                 "mkdir -p $x;"\
                 "cd $x;"\
@@ -774,12 +774,12 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "git init .;git config user.name _;git config user.email _;git commit --allow-empty -m _;"\
             "done;"\
 \
-            "zTcpReq() {\n"/* bash tcp fd: 5 */\
+            "zTcpReq() { "/* bash tcp fd: 5 */\
                 "exec 5<>/dev/tcp/${1}/${2};"\
                 "printf \"${3}\">&5;"\
                 "cat<&5 >${4};"\
                 "exec 5<&-;exec 5>&-;"\
-            "\n};"\
+            " };"\
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
