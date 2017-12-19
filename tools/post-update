@@ -49,9 +49,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 预置为空
     zRecvContent=
 
-    # 当前 hook 执行过程中要去掉执行权限，防止以下的 git 操作触发 hook 无限循环
-    chmod 0444 ${zPathOnHost}/.git/hooks/post-update
-
 
     # 'SN': 阶段性成功上报
     # 'EN': 错误信息上报
@@ -89,9 +86,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
         # 反馈错误信息至服务端
         zTcpReply 8 ${zDpingSig} $1 $2
 
-        # 删除错误日志文件与自身 pid 文件
-        rm ${zErrLogPath} /tmp/.${zProjId}_pid_post-update
-
         # 清理分支
         git branch -D ${zServBranch}
         git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
@@ -121,7 +115,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     ##################
     # 进入项目代码库 #
     ##################
-    cd $zPathOnHost 2>${zErrLogPath}
+    cd ${zPathOnHost} 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
         zExitClean "E7" "cd $zPathOnHost: `cat ${zErrLogPath}`"
     fi
@@ -133,41 +127,29 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 保留旧的版本号，在布署失败时自动回滚
     zOldMasterSig=`git log master -1 --format=%H`
 
-    # 检测是否存在重复布署动作
-    if [[ 0 -ne `\ls /tmp/.${zProjId}_pid_post-update | wc -l` ]]; then
-        zOldTimeStamp=`tail -1 /tmp/.${zProjId}_pid_post-update`
-
-        # 同一版本，返回错误
-        # 比正在进行的版本更新，kill 之，并清理其创建的分支
-        # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
-        if [[ ${zTimeStamp} -eq ${zOldTimeStamp} ]]; then
-            zExitClean "E8" "duplicate deploy：${zSelfIpStrAddr} `head -2 /tmp/.${zProjId}_pid_post-update | tail -1`"
-        elif [[ ${zTimeStamp} -gt ${zOldTimeStamp} ]]; then
-            kill -9 `head -1 /tmp/.${zProjId}_pid_post-update`
-            git branch -D `head -3 /tmp/.${zProjId}_pid_post-update | tail -1`
-            git branch -D `head -4 /tmp/.${zProjId}_pid_post-update | tail -1`
+    # ==== 检测是否存在重复布署动作 ====
+    # 比正在进行的版本更新，kill 之，并清理其创建的分支
+    # 同一版本，返回错误
+    # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
+    for x in `ps ax -o pid,cmd|fgrep 'post-update'|fgrep "@${zProjId}@"|fgrep -v 'grep'`
+    do
+        if [[ ${zTimeStamp} -gt `echo ${x}|awk -F@ '{print $6}'` ]]; then
+            kill -9 `echo ${x}|grep -o '^[0-9]\+'`
+            cd .git && rm `echo ${x}|grep -o 'refs/heads/.*'`
+            cd ${zPathOnHost}
+        elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
+            zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $2}|sed -i 's/_/:/g''`"
         else
-            git branch -D ${zServBranch}
-            git branch -D ${zShadowBranch}
-            chmod 0755 ${zPathOnHost}/.git/hooks/post-update
+            git branch -D ${zServBranch} ${zShadowBranch}
             exit 0
         fi
-    fi
+    done
 
-    # 运行期间将自身 Pid、Ip、TimeStamp 等存入文件
-    # 用于防止同一项目的多个 post-update 进程并行带来混乱
-    # 同时用于清理资源占用
-    echo "$$" > /tmp/.${zProjId}_pid_post-update
-    echo "${zSelfIpStrAddr}" >> /tmp/.${zProjId}_pid_post-update
-
-    echo "${zServBranch}" >> /tmp/.${zProjId}_pid_post-update
-    echo "${zShadowBranch}" >> /tmp/.${zProjId}_pid_post-update
-
-    echo "${zTimeStamp}" >> /tmp/.${zProjId}_pid_post-update
+    # 当前 hook 执行过程中要去掉执行权限，防止以下的 git 操作触发 hook 无限循环
+    chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 
     # 清除可能存在的由于 git 崩溃残留的锁文件
-    rm -f ${zPathOnHost}/.git/index.lock
-    rm -f ${zPathOnHost}_SHADOW/.git/index.lock
+    rm -f ${zPathOnHost}/.git/index.lock ${zPathOnHost}_SHADOW/.git/index.lock
 
     # 通知服务端已收到代码：上报阶段性成果
     zTcpReply 8 "${zDpingSig}" "S3" "" &
@@ -274,7 +256,6 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     done
 
     # 删除自身 pid 文件及已用完的分支
-    rm /tmp/.${zProjId}_pid_post-update
     git branch -D ${zServBranch}
     git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
 
