@@ -2488,14 +2488,22 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
                             zIpStrBuf)) {
                     zPrint_Err_Easy("IPConvert err");
                 } else {
-                    for (j = 2; j >= 0; j--) {
-                        if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, j + 1)) {
-                            zStageOffSet[j] += snprintf(
-                                    zpStageBuf[j] + zStageOffSet[j],
-                                    zStageBufLen - zStageOffSet[j],
-                                    ",\"%s\"",
-                                    zIpStrBuf);
-                            break;
+                    if (! zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, 1)) {
+                        zStageOffSet[1] += snprintf(
+                                zpStageBuf[1] + zStageOffSet[1],
+                                zStageBufLen - zStageOffSet[1],
+                                ",\"%s\"",
+                                zIpStrBuf);
+                    } else {
+                        for (j = 4; j > 1; j--) {
+                            if (zCheck_Bit(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState, j - 1)) {
+                                zStageOffSet[j] += snprintf(
+                                        zpStageBuf[j] + zStageOffSet[j],
+                                        zStageBufLen - zStageOffSet[j],
+                                        ",\"%s\"",
+                                        zIpStrBuf);
+                                break;
+                            }
                         }
                     }
                 }

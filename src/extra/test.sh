@@ -18,6 +18,9 @@ zContent="{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}"
 # 布署/撤销
 # zContent="{\"OpsId\":12,\"ProjId\":11,\"RevId\":${1},\"CacheId\":0,\"DataType\":0,\"IpList\":\"::1\",\"IpCnt\":1,\"SSHUserName\":\"git\",\"SSHPort\":\"22\"}"
 
+# 实时进度查询
+# zContent="{\"OpsId\":15,\"ProjId\":11}"
+
 zTcpSend() {
     exec 44<>/dev/tcp/${1}/${2}
     printf "${3}">&44
