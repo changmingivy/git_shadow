@@ -791,9 +791,9 @@ zssh_exec_simple(const char *zpSSHUserName,
 } while(0)
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {\
+    if (NULL == (zpDpCcur_->p_pgResHd_ = zPgSQL_.exec(zpDpCcur_->p_pgConnHd_, zSQLBuf, zFalse))) {\
         zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );\
-        zPgSQL_.conn_clear(zpPgConnHd_);\
+        zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);\
         zPrint_Err_Easy("");\
 \
         zpDpCcur_->errNo = -91;\
@@ -863,9 +863,6 @@ zdp_ccur(void *zp) {
              zGitRefsBuf[1]
          };
 
-    zPgConnHd__ *zpPgConnHd_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
-
     /*
      * 并发布署窗口控制
      */
@@ -885,7 +882,7 @@ zdp_ccur(void *zp) {
     pthread_mutex_unlock(& (zRun_.commonLock));
 
     /* 预置本次动作的日志 */
-    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
+    if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
         zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );
         zpDpCcur_->errNo = -90;
 
@@ -975,8 +972,8 @@ zdp_ccur(void *zp) {
             zCheck_Negative_Exit(
                     sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl));
 
-            zPgSQL_.conn_clear(zpPgConnHd_);
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
+            zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
 
             zpDpCcur_->errNo = -23;
             goto zEndMark;
@@ -1069,8 +1066,8 @@ zdp_ccur(void *zp) {
                     zCheck_Negative_Exit(
                             sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl));
 
-                    zPgSQL_.conn_clear(zpPgConnHd_);
-                    zPgSQL_.res_clear(zpPgResHd_, NULL);
+                    zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
+                    zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
@@ -1080,8 +1077,8 @@ zdp_ccur(void *zp) {
                 zNative_Fail_Confirm();
 
                 zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );
-                zPgSQL_.conn_clear(zpPgConnHd_);
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
+                zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
+                zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
@@ -1091,8 +1088,8 @@ zdp_ccur(void *zp) {
             zNative_Fail_Confirm();
 
             zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );
-            zPgSQL_.conn_clear(zpPgConnHd_);
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
+            zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
@@ -1102,8 +1099,8 @@ zdp_ccur(void *zp) {
 
     /* clean resource... */
     zCheck_Negative_Exit( sem_post(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpTraficControl) );
-    zPgSQL_.conn_clear(zpPgConnHd_);
-    zPgSQL_.res_clear(zpPgResHd_, NULL);
+    zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
+    zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
 
     /*
      * ==== 非核心功能 ====
@@ -1698,6 +1695,10 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
 
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
+        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
+
         /*
          * 如下两项最终的值由工作线程填写，此处置 0
          */
@@ -1910,6 +1911,10 @@ zSkipMark:;
 
         for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
             if (0 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+                zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
+                        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
+                zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_);
+
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
             }
         }
