@@ -765,7 +765,7 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "cd $x;"\
                 "if [[ 0 -ne $? ]];then exit 206;fi;"\
                 "if [[ 97 -lt `df .|grep -oP '\\d+(?=%%)'` ]];then exit 203;fi;"\
-                "git init .;git config user.name _;git config user.email _;"\
+                "git init .;git config user.name _;git config user.email _;git commit --allow-empty -m _"\
             "done;"\
 \
             "zTcpReq() {\n"/* bash tcp fd: 5 */\
