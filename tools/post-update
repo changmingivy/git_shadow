@@ -5,6 +5,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
 # [ DEBUG ]
 printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
+printf "\n${1}" >> /tmp/.____post-deploy.log 2>&1
 
 # 由于 git push 会一直等待该 hook 执行完毕才会返回，因此放在后台子进程中执行，以缩短两端连接的时间
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
