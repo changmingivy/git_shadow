@@ -5,7 +5,7 @@ export HOME=`cat /etc/passwd | grep "^\`whoami\`:" | awk -F: '{print $6}'`
 
 # [ DEBUG ]
 printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
-printf "\n${#}" >> /tmp/.____post-deploy.log 2>&1
+printf "\n${@}" >> /tmp/.____post-deploy.log 2>&1
 
 # git push 完成之后传给 post-update 的参数数量与同批次推送的分支数量相同，
 # 参数格式类似：refs/heads/s refs/heads/S
@@ -33,6 +33,10 @@ zDpingSig=`echo $1 | awk -F@ '{print $7}'`
 
 # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
 zProjAliasPath=`echo $1 | awk -F@ '{print $8}'`
+if [[ "" == ${zProjAliasPath} ]]; then
+    zProjAliasPath=${zPathOnHost}  # 未指定时，不能留空，否则接下的 chown 测试将失败
+fi
+
 zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
 # 当次布署的活动分支，仅用于所有动作完成后，进行清理
@@ -83,7 +87,7 @@ zExitClean() {
     sed -i "s/\n/;/g" ${zErrLogPath}
 
     # 反馈错误信息至服务端
-    zTcpReply 8 ${zDpingSig} $1 $2
+    zTcpReply 8 ${zDpingSig} "${1}" "${2}"
 
     # 清理分支
     git branch -D ${zServBranch}
