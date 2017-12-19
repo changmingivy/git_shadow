@@ -807,6 +807,15 @@ zssh_exec_simple(const char *zpSSHUserName,
     }\
 } while(0)
 
+#define zDelSingleQuotation(zpStr) {\
+    _i zLen = strlen(zpStr);\
+    for (_i i = 0; i < zLen; i++) {\
+        if ('\'' == zpStr[i]) {\
+            zpStr[i] = ' ';\
+        }\
+    }\
+}
+
 #define zNative_Fail_Confirm() do {\
     if (-1 != zpDpCcur_->id) {\
         pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);\
@@ -821,6 +830,7 @@ zssh_exec_simple(const char *zpSSHUserName,
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 2);  /* 出错则置位 bit[1] */\
         zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zpDpCcur_->errNo);  /* 错误码置位 */\
         strcpy(zpDpCcur_->p_selfNode->errMsg, zErrBuf);\
+        zDelSingleQuotation(zpDpCcur_->p_selfNode->errMsg);  /* 需要清除单引号 */\
 \
         snprintf(zSQLBuf, zGlobCommonBufSiz,\
                 "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "\
@@ -955,8 +965,9 @@ zdp_ccur(void *zp) {
              */
             zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zpDpCcur_->errNo);
 
-            /* 留存错误信息 */
+            /* 留存错误信息，并清除单引号 */
             strcpy(zpDpCcur_->p_selfNode->errMsg, zErrBuf);
+            zDelSingleQuotation(zpDpCcur_->p_selfNode->errMsg);
 
             /* 错误信息写入 DB */
             snprintf(zSQLBuf, zGlobCommonBufSiz,
@@ -2046,6 +2057,9 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 zpJ = cJSON_V(zpJRoot, "content");
                 strncpy(zpTmp_->errMsg, zpJ->valuestring, 255);
                 zpTmp_->errMsg[255] = '\0';
+
+                /* 需要清除单引号 */
+                zDelSingleQuotation(zpTmp_->errMsg);
 
                 /* postgreSQL 的数组下标是从 1 开始的 */
                 snprintf(zCmdBuf, zGlobCommonBufSiz,

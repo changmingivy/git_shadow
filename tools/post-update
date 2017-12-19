@@ -79,7 +79,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
 
         # 处理掉错误日志可能存在会与服务端 SQL 日志冲突的字符
         sed -i 's/[[:blank:]]\+/ /g' ${zErrLogPath}
-        sed -i "s/\'/|/g" ${zErrLogPath}
+        sed -i "s/\'/ /g" ${zErrLogPath}
         sed -i 's/"/|/g' ${zErrLogPath}
         sed -i "s/\n/;/g" ${zErrLogPath}
 
