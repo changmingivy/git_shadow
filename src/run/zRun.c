@@ -240,7 +240,7 @@ zstart_server() {
     zRun_.ops[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
     zRun_.ops[1] = zDpOps_.creat;  /* 创建新项目 */
     zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
-    zRun_.ops[3] = NULL;
+    zRun_.ops[3] = zDpOps_.SB_update;  /* 源库分支切换，即：与源库的哪个分支同步代码 */
     zRun_.ops[4] = NULL;
     zRun_.ops[5] = NULL;
     zRun_.ops[6] = NULL;
