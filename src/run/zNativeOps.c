@@ -694,7 +694,7 @@ zgenerate_cache(void *zp) {
 
 #define zErr_Return_Or_Exit(zErrNo) do {\
     zPrint_Err_Easy("");\
-    if (0 > zSdToClose) {\
+    if (0 <= zSdToClose) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zRun_.p_repoVec[zRepoId]->p_repoPath);\
     }\
     if (0 < zErrNo) {\
@@ -820,7 +820,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * 若是项目新建，则不允许存在同名路径
          * 既有项目初始化会将 zSdToClose 置为 -1
          */
-        if (0 < zSdToClose) {
+        if (0 <= zSdToClose) {
             zFree_Source();
             zPrint_Err_Easy("");
             return -36;
@@ -1107,19 +1107,20 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     _i zBaseId = time(NULL) / 86400 + 2;
 
     /*
-     * 若第一条 SQL 执行失败，
-     * 说明是服务器重启，而非是新建项目，第二条 SQL 不会被执行，
-     * 故不会影响到之后的错误检查逻辑中
+     * 新建项目时需要执行一次
+     * 后续不需要再执行
      */
-    sprintf(zCommonBuf,
-            "CREATE TABLE IF NOT EXISTS dp_log_%d "
-            "PARTITION OF dp_log FOR VALUES IN (%d) "
-            "PARTITION BY RANGE (time_stamp);"
+    if (0 <= zSdToClose) {
+        sprintf(zCommonBuf,
+                "CREATE TABLE IF NOT EXISTS dp_log_%d "
+                "PARTITION OF dp_log FOR VALUES IN (%d) "
+                "PARTITION BY RANGE (time_stamp);"
 
-            "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-            "PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
-        zRepoId, zRepoId,
-        zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
+                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
+                "PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
+            zRepoId, zRepoId,
+            zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
+    }
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
         zErr_Return_Or_Exit(1);
