@@ -36,6 +36,7 @@ static _i zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
 static _i zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
 static _i zglob_res_confirm(cJSON *zpJRoot, _i zSd);
+static _i zsys_update(cJSON *zpJRoot, _i zSd);
 
 /*
  * Public Interface
@@ -57,7 +58,9 @@ struct zDpOps__ zDpOps_ = {
 
     .req_file = zreq_file,
 
-    .pang = zpang
+    .pang = zpang,
+
+    .sys_update = zsys_update,
 };
 
 
@@ -1649,20 +1652,24 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = time(NULL);
     }
 
+    /* get sys_update_lock */
+    pthread_rwlock_rdlock(& zRun_.p_sysUpdateLock);
+
     zDpRes__ *zpTmp_ = NULL;
     for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
         /*
          * 检测是否存在重复IP
          */
-        if (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
-                || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1]) {
+        // if (NULL != zpOldDpResHash_[zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0] % zDpHashSiz]
+        //         && (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+        //             || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1])) {
 
-            /* 总任务计数递减 */
-            zRun_.p_repoVec[zRepoId]->totalHost--;
+        //     /* 总任务计数递减 */
+        //     zRun_.p_repoVec[zRepoId]->totalHost--;
 
-            zPrint_Err_Easy("same IP");
-            continue;
-        }
+        //     zPrint_Err_Easy("same IP");
+        //     continue;
+        // }
 
         /*
          * IPnum 链表赋值
@@ -1793,6 +1800,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
 zSkipMark:;
     }
+
+    /* release sys_update_lock */
+    pthread_rwlock_unlock(& zRun_.p_sysUpdateLock);
 
     /*
      * 释放旧的资源占用
@@ -2762,6 +2772,33 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     return 0;
 }
 #undef zErrClassNum
+
+
+/*
+ * IP_HASH 清零，保证下一次布署动作会初始化所有目标机
+ */
+static _i
+zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((__unused__))) {
+    pthread_rwlock_wrlock(& zRun_.p_sysUpdateLock);
+
+    _i i, j;
+    for (i = 0; i <= zRun_.maxRepoId; i++) {
+        if (NULL != zRun_.p_repoVec[i]
+                && 'Y' == zRun_.p_repoVec[i]->initFinished) {
+
+            for (j = 0; j < zDpHashSiz; j++) {
+                zRun_.p_repoVec[i]->p_dpResHash_[j] = NULL;
+            }
+
+            /* 使用上述的循环方式赋值，因为并不是所有平台上的 NULL 均被声明为 (void *)0 */
+            // memset(zRun_.p_repoVec[i]->p_dpResHash_, 0, zDpHashSiz * sizeof(void *));
+        }
+    }
+
+    pthread_rwlock_unlock(& zRun_.p_sysUpdateLock);
+
+    return 0;
+}
 
 
 #undef cJSON_V

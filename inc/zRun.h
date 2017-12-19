@@ -402,8 +402,6 @@ typedef struct __zRepo__ {
 } zRepo__;
 
 
-
-
 struct zRun__ {
     void (* run) ();
     void * (* route) (void *);
@@ -446,6 +444,9 @@ struct zRun__ {
     /* postgreSQL 全局认证信息 */
     zPgLogin__ pgLogin_;
     char pgConnInfo[2048];
+
+    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
+    pthread_rwlock_t p_sysUpdateLock;
 };
 
 

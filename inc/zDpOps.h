@@ -54,6 +54,8 @@ struct zDpOps__ {
     _i (* req_file) (cJSON *, _i);
 
     _i (* pang) (cJSON *, _i);
+
+    _i (* sys_update) (cJSON *, _i);
 };
 
 

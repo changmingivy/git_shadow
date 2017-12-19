@@ -1712,5 +1712,8 @@ zMarkNotFound:
 
     zThreadPool_.add(zcode_sync, NULL);
 
+    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
+    zCheck_Pthread_Func_Exit( pthread_rwlock_init(& zRun_.p_sysUpdateLock, NULL) );
+
     return NULL;
 }
