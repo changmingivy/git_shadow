@@ -23,7 +23,8 @@ struct zRun__ zRun_ = {
     .run = zstart_server,
     .route = zops_route,
     .ops = { NULL },
-    .p_servPath = NULL
+    .p_servPath = NULL,
+    .dpTraficLimit = 296,
 };
 
 static char *zpErrVec[128];
@@ -188,6 +189,9 @@ zstart_server() {
         zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
+
+    /* 全局并发控制的信号量 */
+    zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
 
     /*
      * 转换为后台守护进程

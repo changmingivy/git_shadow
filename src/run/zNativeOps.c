@@ -1064,9 +1064,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 读写锁生成之后，立刻取写锁 */
     pthread_rwlock_wrlock(& zRun_.p_repoVec[zRepoId]->rwLock);
 
-    /* 布署并发流量控制 */
-    zCheck_Negative_Exit( sem_init(& zRun_.p_repoVec[zRepoId]->dpTraficControl, 0, zDpTraficLimit) );
-
     /* 缓存版本初始化 */
     zRun_.p_repoVec[zRepoId]->cacheId = time(NULL);
 

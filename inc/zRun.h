@@ -22,7 +22,6 @@ typedef struct {
 
 
 #define zGlobRepoIdLimit 1024
-#define zDpTraficLimit 256  // 同一项目可同时发出的 push 连接数量上限
 
 #define zCacheSiz 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
 #define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
@@ -281,12 +280,6 @@ typedef struct __zRepo__ {
     zPgConnHd__ *p_pgConnHd_;
 
     /*
-     * 用于控制并发流量的信号量
-     * 防止并发超载
-     */
-    sem_t dpTraficControl;
-
-    /*
      * 用于任务完成计数的原子性统计
      * 及通知调度线程任务已完成
      */
@@ -440,6 +433,13 @@ struct zRun__ {
 
     /* 布署系统自身服务连接信息 */
     zNetSrv__ netSrv_;
+
+    /*
+     * 用于控制并发流量的信号量
+     * 防止并发超载，限制为 296
+     */
+    sem_t dpTraficControl;
+    _s dpTraficLimit;
 
     /* postgreSQL 全局认证信息 */
     zPgLogin__ pgLogin_;
