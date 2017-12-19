@@ -1121,13 +1121,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
 
     /*
-     * ====  提取项目创建时间 ====
+     * ====  提取项目创建时间与路径别名 ====
      * 既有项目，从 DB 中提取其创建时间
      * 项目新建时在 add_repo(...) 中处理
      */
     if (0 > zSdToClose) {
         snprintf(zCommonBuf, zGlobCommonBufSiz,
-                "SELECT create_time FROM proj_meta WHERE proj_id = %d",
+                "SELECT create_time,alias_path FROM proj_meta WHERE proj_id = %d",
                 zRepoId);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
@@ -1142,9 +1142,15 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zErr_Return_Or_Exit(1);
         }
 
-        /* strncpy 不会自动追加 '\0' */
-        strncpy(zRun_.p_repoVec[zRepoId]->createdTime, zpPgRes_->tupleRes_[0].pp_fields[0], 23);
-        zRun_.p_repoVec[zRepoId]->createdTime[23] = '\0';
+        /* copy... */
+        snprintf(zRun_.p_repoVec[zRepoId]->createdTime,
+                24,
+                "%s",
+                zpPgRes_->tupleRes_[0].pp_fields[0]);
+        snprintf(zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
+                zRun_.p_repoVec[zRepoId]->maxPathLen,
+                "%s",
+                zpPgRes_->tupleRes_[0].pp_fields[1]);
 
         /* clean... */
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
@@ -1639,6 +1645,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "need_pull       char(1) NOT NULL,"
             "ssh_user_name   varchar NOT NULL,"
             "ssh_port        varchar NOT NULL,"
+            "alias_path      varchar DEFAULT ''"  /* 最近一次成功布署指定的路径别名 */
             "last_dp_sig     varchar DEFAULT ''"  /* 最近一次成功布署的版本号 */
             ");"
 

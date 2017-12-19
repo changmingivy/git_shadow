@@ -1852,9 +1852,10 @@ zSkipMark:;
                     zRun_.p_repoVec[zRepoId]->dpingSig);
 
             sprintf(zpCommonBuf,
-                    "UPDATE proj_meta SET last_dp_sig = '%s' "
+                    "UPDATE proj_meta SET last_dp_sig = '%s',alias_path = '%s' "
                     "WHERE proj_id = %d",
                     zRun_.p_repoVec[zRepoId]->dpingSig,
+                    zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
                     zRepoId);
 
             zpPgResHd_ = zPgSQL_.exec(
