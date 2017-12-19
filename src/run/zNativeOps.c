@@ -556,8 +556,10 @@ static void
 zgenerate_cache(void *zp) {
     char *zpRevSig[zCacheSiz] = { NULL };
     char zTimeStampVec[16 * zCacheSiz];
+
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zCacheMeta__ *zpMeta_ = (zCacheMeta__ *) zp;
+
     time_t zTimeStamp = 0;
     _i zVecDataLen = 0,
        i = 0;
@@ -568,11 +570,13 @@ zgenerate_cache(void *zp) {
     if (zIsCommitDataType == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_;
 
-        /* use: refs/remotes/origin/____servXXXXXXXX ??? */
+        /* use: refs/remotes/origin/%sXXXXXXXX ??? */
         zGitRevWalk__ *zpRevWalker = NULL;
+        sprintf(zCommonBuf, "refs/heads/%sXXXXXXXX",
+                zRun_.p_repoVec[zpMeta_->repoId]->codeSyncBranch);
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(
                         zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
-                        "refs/heads/____servXXXXXXXX",
+                        zCommonBuf,
                         0))) {
             zPrint_Err_Easy("");
             exit(1);
@@ -793,6 +797,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zRun_.p_repoVec[zRepoId]->maxPathLen =
         pathconf(zRun_.p_repoVec[zRepoId]->p_repoPath, _PC_PATH_MAX);
 
+    /* 更新源库的对接分支的名称 */
+    snprintf(zRun_.p_repoVec[zRepoId]->codeSyncBranch, 256, "%s", zpRepoMeta_->pp_fields[3]);
+
     /*
      * 项目别名路径，由用户每次布署时指定
      * 长度限制为 maxPathLen
@@ -832,8 +839,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 }
 
                 /* 不必关心执行结果 */
+                sprintf(zCommonBuf, "%sXXXXXXXX", zRun_.p_repoVec[zRepoId]->codeSyncBranch);
                 zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                        "____servXXXXXXXX", "HEAD", zFalse);
+                        zCommonBuf, "HEAD", zFalse);
 
                 /*
                  * 删除所有除 .git 之外的文件与目录
@@ -900,10 +908,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         }
 
         /*
-         * 创建 ____servXXXXXXXX 分支
+         * 创建 {源分支名称}XXXXXXXX 分支
          * 注：源库不能是空库，即：0 提交、0 分支
          */
-        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____servXXXXXXXX", "HEAD", zFalse)) {
+        sprintf(zCommonBuf, "%sXXXXXXXX", zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zCommonBuf, "HEAD", zFalse)) {
             zFree_Source();
             zErr_Return_Or_Exit(-44);
         }
@@ -970,6 +979,21 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     strcpy(zRun_.p_repoVec[zRepoId]->sshUserName, zpRepoMeta_->pp_fields[6]);
     strcpy(zRun_.p_repoVec[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
 
+    /* mmap 父子进程间共享的 refs对 缓存区，空间大小 560 */
+    if (MAP_FAILED ==
+            (zRun_.p_repoVec[zRepoId]->p_codeSyncRefs =
+             mmap(NULL, 560, PROT_WRITE|PROT_READ, MAP_ANONYMOUS|MAP_SHARED, -1, 0))) {
+        zErr_Return_Or_Exit(1);
+    }
+
+    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 560,
+            "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+            zRun_.p_repoVec[zRepoId]->codeSyncBranch,
+            zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+
+    zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
+        zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
+
     /* ============================================================================ */
     /* ============================================================================ */
     /* ============================================================================ */
@@ -997,23 +1021,23 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
 
             /* keep git fetch refs... */
-            _i zLen = strlen(zpRepoMeta_->pp_fields[3]);
+            char *zpCodeSyncRefs = zRun_.p_repoVec[zRepoId]->p_codeSyncRefs;
 
-            char zFetchRefs[sizeof("+refs/heads/%s:refs/heads/____servXXXXXXXX") + zLen];
-            char *zpFetchRefs = zFetchRefs;
-            sprintf(zFetchRefs,
-                    "+refs/heads/%s:refs/heads/____servXXXXXXXX",
-                    zpRepoMeta_->pp_fields[3]);
+            /* 1、留存 git 句柄 */
+            git_repository *zpGitRepoHandler = zRun_.p_repoVec[zRepoId]->p_gitRepoHandler;
 
-            git_repository *zpGitRepoHandler = zRun_.p_repoVec[zRepoId]->p_gitRepoHandler;  /* 1、留存 git 句柄 */
-            chdir(zRun_.p_repoVec[zRepoId]->p_repoPath);  /* 2、切换至项目路径下 */
-            zFree_Source();  /* 3、之后，释放掉子进程不再需要的资源 */
+            /* 2、切换至项目路径下 */
+            chdir(zRun_.p_repoVec[zRepoId]->p_repoPath);
+
+            /* 3、之后，释放掉子进程不再需要的资源 */
+            zFree_Source();
 
             _i zCnter = 0;
             while (1) {
-                if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpFetchRefs, 1, NULL)) {
+                /* 使用 shared mmap 区域存储，可以随时响应父进程的动态改变 */
+                if (0 > zLibGit_.remote_fetch(zpGitRepoHandler, zSourceUrl, &zpCodeSyncRefs, 1, NULL)) {
                     zCnter++;
-                    if (5 < zCnter) {  /* 连续失败超过 5 次，删除本地分支，重新拉取 */
+                    if (10 < zCnter) {  /* 连续失败超过 10 次，删除本地分支，重新拉取 */
                         zLibGit_.branch_del(zpGitRepoHandler, "serv");
                     }
 
@@ -1461,7 +1485,7 @@ zLoop:
             /* get new revs */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                     zRun_.p_repoVec[i]->p_gitRepoHandler,
-                    "refs/heads/____servXXXXXXXX",
+                    zRun_.p_repoVec[i]->p_singleLocalRefs,
                     0);
 
             if (NULL == zpRevWalker) {

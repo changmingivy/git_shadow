@@ -77,7 +77,7 @@ zerr_vec_init(void) {
     zpErrVec[44] = "git branch 错误";
     zpErrVec[45] = "git add and commit 错误";
     zpErrVec[46] = "libgit2 初始化错误";
-    zpErrVec[47] = "";
+    zpErrVec[47] = "指定的源库分支名称太长(>255)";
     zpErrVec[48] = "";
     zpErrVec[49] = "";
     zpErrVec[50] = "";

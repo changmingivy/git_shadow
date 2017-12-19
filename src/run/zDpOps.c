@@ -36,7 +36,9 @@ static _i zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
 static _i zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
 static _i zglob_res_confirm(cJSON *zpJRoot, _i zSd);
+
 static _i zsys_update(cJSON *zpJRoot, _i zSd);
+static _i zsource_branch_update(cJSON *zpJRoot, _i zSd);
 
 /*
  * Public Interface
@@ -61,6 +63,7 @@ struct zDpOps__ zDpOps_ = {
     .pang = zpang,
 
     .sys_update = zsys_update,
+    .SB_update = zsource_branch_update,
 };
 
 
@@ -1008,7 +1011,8 @@ zdp_ccur(void *zp) {
     /* push TWO branchs together */
     snprintf(zpGitRefs[0],
             256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
-            "+refs/heads/____servXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+            "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+            zRun_.p_repoVec[zpDpCcur_->repoId]->codeSyncBranch,
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
@@ -1892,7 +1896,8 @@ zSkipMark:;
             zReset_Mem_Pool_State( zRepoId );
 
             /* 刷新缓存 */
-            zCacheMeta__ zSubMeta_ = { .repoId = zRepoId };
+            zCacheMeta__ zSubMeta_;
+            zSubMeta_.repoId = zRepoId;
 
             zSubMeta_.dataType = zIsCommitDataType;
             zNativeOps_.get_revs(& zSubMeta_);
@@ -2804,6 +2809,68 @@ zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((
 
     pthread_rwlock_unlock(& zRun_.p_sysUpdateLock);
 
+    return 0;
+}
+
+
+/*
+ * 更新源库的代码同步分支名称
+ */
+static _i
+zsource_branch_update(cJSON *zpJRoot, _i zSd) {
+    _i zRepoId = 0;
+    char *zpNewBranch = NULL;
+
+    cJSON *zpJ = NULL;
+
+    /* 提取项目 ID */
+    zpJ = cJSON_V(zpJRoot, "ProjId");
+    if (! cJSON_IsNumber(zpJ)) {
+        zPrint_Err_Easy("");
+        return -1;
+    }
+    zRepoId = zpJ->valueint;
+
+    /* 检查项目存在性 */
+    if (NULL == zRun_.p_repoVec[zRepoId]
+            || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
+        zPrint_Err_Easy("");
+        return -2;
+    }
+
+    zpJ= cJSON_V(zpJRoot, "CodeSyncBranch");
+    if (! cJSON_IsString(zpJ)
+            || '\0' == zpJ->valuestring[0]) {
+        zPrint_Err_Easy("");
+        return -1;
+    }
+    zpNewBranch = zpJ->valuestring;
+
+    if (255 < strlen(zpNewBranch)) {
+        zPrint_Err_Easy("");
+        return -47;
+    }
+
+    /* 取 rwLock 执行更新 */
+    if (0 != pthread_rwlock_trywrlock(& zRun_.p_repoVec[zRepoId]->rwLock)) {
+        zPrint_Err_Easy("");
+        return -11;
+    }
+
+    /* 更新源库对接分支相关的数据 */
+    snprintf(zRun_.p_repoVec[zRepoId]->codeSyncBranch, 256, "%s", zpNewBranch);
+
+    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 560,
+            "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+            zRun_.p_repoVec[zRepoId]->codeSyncBranch,
+            zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+
+    zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
+        zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
+
+    pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
+
+    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     return 0;
 }
 
