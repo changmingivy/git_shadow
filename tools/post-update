@@ -131,7 +131,7 @@ printf "\n\n[`date '+%F %H:%M:%S'`]" >> /tmp/.____post-deploy.log 2>&1
     # 比正在进行的版本更新，kill 之，并清理其创建的分支
     # 同一版本，返回错误
     # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
-    for x in `ps ax -o pid,cmd|fgrep 'post-update'|fgrep "@${zProjId}@"|fgrep -v 'grep'`
+    for x in `ps ax -o pid,cmd|fgrep "post-update"|fgrep "@${zProjId}@"|fgrep -v "grep"|grep -v "^$$"`
     do
         if [[ ${zTimeStamp} -gt `echo ${x}|awk -F@ '{print $6}'` ]]; then
             kill -9 `echo ${x}|grep -o '^[0-9]\+'`
