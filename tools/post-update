@@ -140,8 +140,8 @@ do
         kill -9 `echo ${x}|grep -o '^[0-9]\+'`
         cd .git && rm `echo ${x}|grep -o 'refs/heads/.*'`
         cd ${zPathOnHost}
-    elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
-        zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $2}'|sed -i 's/_/:/g'`"
+#    elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
+#        zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $2}'|sed 's/_/:/g'`"
     else
         git branch -D ${zServBranch} ${zShadowBranch}
         exit 0
