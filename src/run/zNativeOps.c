@@ -805,6 +805,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 长度限制为 maxPathLen
      */
     zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, char, zRun_.p_repoVec[zRepoId]->maxPathLen);
+    zRun_.p_repoVec[zRepoId]->p_repoAliasPath[0] = '\0';
 
     /*
      * ================
@@ -1120,12 +1121,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 "PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
             zRepoId, zRepoId,
             zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
-    }
 
-    if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
-        zErr_Return_Or_Exit(1);
-    } else {
-        zPgSQL_.res_clear(zpPgResHd_, NULL);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zFalse))) {
+            zErr_Return_Or_Exit(1);
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+        }
     }
 
     for (_i zId = 0; zId < 10; zId++) {
