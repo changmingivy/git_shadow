@@ -2214,7 +2214,7 @@ zpang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
      * 目标机发送 "?"
      * 服务端回复 "!"
      */
-    zNetUtils_.send_nosignal(zSd, "!", sizeof('!'));
+    zNetUtils_.send_nosignal(zSd, "!", zBytes(1));
 
     return 0;
 }
