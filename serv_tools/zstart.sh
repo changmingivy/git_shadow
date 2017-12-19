@@ -45,6 +45,9 @@ zPgLibPath=${zPgPath}/lib
 zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
 
+sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
+echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
+
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/createdb -O `whoami` dpDB
