@@ -145,7 +145,7 @@ do
         cd .git && rm `echo ${x}|grep -o 'refs/heads/.*'`
         cd ${zPathOnHost}
     elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
-        zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $4}'|sed 's/_/:/g'`"
+        zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $5}'|sed 's/_/:/g'`"
     else
         git branch -D ${zServBranch} ${zShadowBranch}
         exit 0
@@ -220,7 +220,7 @@ if [[ "" != ${zProjAliasPath} ]]; then
         fi
     elif [[ ('l' != `ls -l ${zProjAliasPath} | grep -o '^l'`)
         || ((${zPathOnHost} != `readlink -q ${zProjAliasPath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjAliasPath}`)) ]]; then
-        zExitClean "E6" "路径冲突: ${zProjAliasPath}"
+        zExitClean "E6" "path confilict: ${zProjAliasPath}"
     fi
 fi
 
