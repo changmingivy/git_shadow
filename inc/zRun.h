@@ -399,26 +399,24 @@ typedef struct __zRepo__ {
     pid_t codeSyncPid;
 
     /*
-     * 如下 4 项使用带 shared 标志的 mmap，在父子进程间共享
      * 同步远程代码时对接的源库URL与分支名称
      * 之后用户可以改变
      */
-    char *p_codeSyncURL;
-    char *p_codeSyncBranch;
+    char codeSyncURL[512];
+    char codeSyncBranch[128];
 
     /*
      * 同步远程代码时对接的源库URL 与 refs对
      * 服务端对应的分支名称在源库分支名称之后添加 8 个 X 为后缀
      * 格式：refs/heads/master:refs/heads/masterXXXXXXXX
-     * 空间大小 1024
      */
-    char *p_codeSyncRefs;
+    char codeSyncRefs[32 + 128 * 2];  // size: 288
 
     /*
      * 本地分支的完整名称：refs/heads/masterXXXXXXXX
      * 结果 == p_codeSyncRefs + (strlen(p_codeSyncRefs) - 8) / 2 + 1
      */
-    char *p_singleLocalRefs;
+    char singleLocalRefs[128];
 } zRepo__;
 
 

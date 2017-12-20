@@ -1028,7 +1028,7 @@ zdp_ccur(void *zp) {
     snprintf(zpGitRefs[0],
             256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
             "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
-            zRun_.p_repoVec[zpDpCcur_->repoId]->codeSyncBranch,
+            zRun_.p_repoVec[zpDpCcur_->repoId]->p_codeSyncBranch,
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,

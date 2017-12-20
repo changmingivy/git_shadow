@@ -573,7 +573,7 @@ zgenerate_cache(void *zp) {
         /* use: refs/remotes/origin/%sXXXXXXXX ??? */
         zGitRevWalk__ *zpRevWalker = NULL;
         sprintf(zCommonBuf, "refs/heads/%sXXXXXXXX",
-                zRun_.p_repoVec[zpMeta_->repoId]->codeSyncBranch);
+                zRun_.p_repoVec[zpMeta_->repoId]->p_codeSyncBranch);
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(
                         zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
                         zCommonBuf,
