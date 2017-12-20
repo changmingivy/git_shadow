@@ -394,17 +394,23 @@ typedef struct __zRepo__ {
     _ui tempTableNo;
 
     /*
-     * 同步远程代码时对接的源库分支名称
-     * 之后用户可以改变
+     * SYNC 子进程 pid
      */
-    char codeSyncBranch[256];
+    pid_t codeSyncPid;
 
     /*
-     * 同步远程代码时对接的源库refs
+     * 如下 4 项使用带 shared 标志的 mmap，在父子进程间共享
+     * 同步远程代码时对接的源库URL与分支名称
+     * 之后用户可以改变
+     */
+    char *p_codeSyncURL;
+    char *p_codeSyncBranch;
+
+    /*
+     * 同步远程代码时对接的源库URL 与 refs对
      * 服务端对应的分支名称在源库分支名称之后添加 8 个 X 为后缀
      * 格式：refs/heads/master:refs/heads/masterXXXXXXXX
-     * 使用带 shared 标志的 mmap，在父子进程间共享
-     * 空间大小 560
+     * 空间大小 1024
      */
     char *p_codeSyncRefs;
 

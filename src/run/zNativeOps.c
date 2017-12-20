@@ -797,9 +797,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zRun_.p_repoVec[zRepoId]->maxPathLen =
         pathconf(zRun_.p_repoVec[zRepoId]->p_repoPath, _PC_PATH_MAX);
 
-    /* 更新源库的对接分支的名称 */
-    snprintf(zRun_.p_repoVec[zRepoId]->codeSyncBranch, 256, "%s", zpRepoMeta_->pp_fields[3]);
-
     /*
      * 项目别名路径，由用户每次布署时指定
      * 长度限制为 maxPathLen
@@ -840,7 +837,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 }
 
                 /* 不必关心执行结果 */
-                sprintf(zCommonBuf, "%sXXXXXXXX", zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+                sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
                 zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
                         zCommonBuf, "HEAD", zFalse);
 
@@ -912,7 +909,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * 创建 {源分支名称}XXXXXXXX 分支
          * 注：源库不能是空库，即：0 提交、0 分支
          */
-        sprintf(zCommonBuf, "%sXXXXXXXX", zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+        sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
         if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zCommonBuf, "HEAD", zFalse)) {
             zFree_Source();
             zErr_Return_Or_Exit(-44);
@@ -969,7 +966,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /*
      * PostgreSQL 中以 char(1) 类型存储
-     * 'G' 代表 git，'S' 代表 svn，目前不支持 svn
+     * 'G' 代表 git，'S' 代表 svn
+     * 历史遗留问题，实质已不支持 SVN
      */
     if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
         zFree_Source();
@@ -980,17 +978,34 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     strcpy(zRun_.p_repoVec[zRepoId]->sshUserName, zpRepoMeta_->pp_fields[6]);
     strcpy(zRun_.p_repoVec[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
 
-    /* mmap 父子进程间共享的 refs对 缓存区，空间大小 560 */
+    /*
+     * mmap 父子进程间共享的缓存区
+     * p_codeSyncURL 占 2048，p_codeSyncBranch 名称占 512，p_codeSyncRefs 占 1024 + 512，合计4k
+     * p_singleLocalRefs 指向 refs 的后半段，本身不占用空间
+     */
     if (MAP_FAILED ==
-            (zRun_.p_repoVec[zRepoId]->p_codeSyncRefs =
-             mmap(NULL, 560, PROT_WRITE|PROT_READ, MAP_ANONYMOUS|MAP_SHARED, -1, 0))) {
+            (zRun_.p_repoVec[zRepoId]->p_codeSyncURL=
+             mmap(NULL, 4096, PROT_WRITE|PROT_READ, MAP_ANONYMOUS|MAP_SHARED, -1, 0))) {
         zErr_Return_Or_Exit(1);
     }
 
-    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 560,
+    zRun_.p_repoVec[zRepoId]->p_codeSyncBranch =
+        zRun_.p_repoVec[zRepoId]->p_codeSyncURL + 2048;
+
+    zRun_.p_repoVec[zRepoId]->p_codeSyncRefs =
+        zRun_.p_repoVec[zRepoId]->p_codeSyncBranch + 512;
+
+    /* data copy... */
+    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 2048,
+            "%s", zpRepoMeta_->pp_fields[2]);
+
+    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, 512,
+            "%s", zpRepoMeta_->pp_fields[3]);
+
+    snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1024 + 512,
             "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-            zRun_.p_repoVec[zRepoId]->codeSyncBranch,
-            zRun_.p_repoVec[zRepoId]->codeSyncBranch);
+            zRun_.p_repoVec[zRepoId]->p_codeSyncBranch,
+            zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
 
     zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
         zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
@@ -1002,7 +1017,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /*
      * 启动独立的进程负责定时拉取远程代码
      * OpenSSL 默认不是多线程安全的，此处必须使用多进程模型
-     * 在尽可能靠前的位置启动子进程，以减少资源带入
      */
     if ('Y' == zNeedPull) {
         pid_t zPid = -1;
@@ -1050,6 +1064,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
                 sleep(2);
             }
+        } else {
+            zRun_.p_repoVec[zRepoId]->codeSyncPid = zPid;
         }
     }
 

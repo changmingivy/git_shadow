@@ -21,6 +21,12 @@ zContent="{\"OpsId\":9,\"ProjId\":11,\"DataType\":0}"
 # 实时进度查询
 # zContent="{\"OpsId\":15,\"ProjId\":11}"
 
+# 系统升级更新
+# zContent="{\"OpsId\":2}"
+
+# 更换源库分支
+# zContent="{\"OpsId\":3,\"ProjId\":11,\"CodeSyncBranch\":\"master2\"}"
+
 zTcpSend() {
     exec 44<>/dev/tcp/${1}/${2}
     printf "${3}">&44
