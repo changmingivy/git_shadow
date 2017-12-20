@@ -134,9 +134,8 @@ git branch master
 zOldMasterSig=`git log master -1 --format=%H`
 
 # ==== 检测是否存在重复布署动作 ====
-# !!! 同时要检测父进程号 !!!
 # 比正在进行的版本更新，kill 之，并清理其创建的分支
-# 同一版本，返回错误
+# 同一版本，返回错误，同时要检测父进程号[BUG: 筛选结果不准确]
 # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
 for x in `ps ax -o pid,ppid,cmd|fgrep "post-update"|fgrep "@${zProjId}@"|fgrep -v "grep"|sed 's/[[:blank:]]/-/g'|grep -vE "(${$}|${zWrapPid})-"`
 do
@@ -144,8 +143,8 @@ do
         kill -9 `echo ${x}|grep -o '^[0-9]\+'`
         cd .git && rm `echo ${x}|grep -o 'refs/heads/.*'`
         cd ${zPathOnHost}
-    elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
-        zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $5}'|sed 's/_/:/g'`"
+    # elif [[ ${zTimeStamp} -eq `echo ${x}|awk -F@ '{print $6}'` ]]; then
+    #     zExitClean "E8" "duplicate deploy：[IP1] ${zSelfIpStrAddr} [IP2] `echo ${x}|awk -F@ '{print $5}'|sed 's/_/:/g'`"
     else
         git branch -D ${zServBranch} ${zShadowBranch}
         exit 0
