@@ -692,15 +692,15 @@ zgenerate_cache(void *zp) {
     zRun_.p_repoVec[zRepoId] = NULL;\
 } while(0)
 
-#define zErr_Return_Or_Exit(zErrNo) do {\
+#define zErr_Return_Or_Exit(zResNo) do {\
     zPrint_Err_Easy("");\
     if (0 <= zSdToClose) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zRun_.p_repoVec[zRepoId]->p_repoPath);\
     }\
-    if (0 < zErrNo) {\
+    if (0 < zResNo) {\
         exit(1);\
     } else {\
-        return zErrNo;\
+        return zResNo;\
     }\
 } while(0)
 
@@ -726,9 +726,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     char zCommonBuf[zGlobCommonBufSiz];
 
-    _s zSourceUrlLen = strlen(zpRepoMeta_->pp_fields[2]);
-    _s zSourceBranchLen = strlen(zpRepoMeta_->pp_fields[3]);
-    _s zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
+    _us zSourceUrlLen = strlen(zpRepoMeta_->pp_fields[2]),
+        zSourceBranchLen = strlen(zpRepoMeta_->pp_fields[3]),
+        zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
     /* 提取项目ID */
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
@@ -808,7 +808,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, char, zRun_.p_repoVec[zRepoId]->maxPathLen);
     zRun_.p_repoVec[zRepoId]->p_repoAliasPath[0] = '\0';
 
-{////
+    {////
     /*
      * ================
      *  服务端创建项目
@@ -968,7 +968,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zErr_Return_Or_Exit(-40);
         }
     }
-}////
+    }////
 
     /*
      * PostgreSQL 中以 char(1) 类型存储
@@ -1312,20 +1312,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /*
      * 源库相关信息留存
      */
-    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char,
-            zSourceUrlLen + zSourceBranchLen + zSyncRefsLen + 3);
+    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
+    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
+    zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
 
-    zRun_.p_repoVec[zRepoId]->p_codeSyncBranch =
-        zRun_.p_repoVec[zRepoId]->p_codeSyncURL + 1 + zSourceUrlLen;
-
-    zRun_.p_repoVec[zRepoId]->p_codeSyncRefs =
-        zRun_.p_repoVec[zRepoId]->p_codeSyncBranch + 1 + zSourceBranchLen;
-
-    sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncURL,
-            "%s", zpRepoMeta_->pp_fields[2]);
-
-    sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch,
-            "%s", zpRepoMeta_->pp_fields[3]);
+    strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, zpRepoMeta_->pp_fields[2]);
+    strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpRepoMeta_->pp_fields[3]);
 
     sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
             "+refs/heads/%s:refs/heads/%sXXXXXXXX",

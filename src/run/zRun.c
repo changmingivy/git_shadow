@@ -182,16 +182,16 @@ zcode_fetch_ops(void *zp) {
          *zpURL = NULL,
          *zpRefs = NULL;
 
-    pid_t zNewPid = 0;
+    pid_t zResId = 0;
     git_repository *zpGit = NULL;
 
     /* thread detach... */
     pthread_detach( pthread_self() );
 
     if (sizeof(zCodeFetch__) != recv(zSd, &zOps_, sizeof(zCodeFetch__), 0)) {
-        zNewPid = -1;
+        zResId = -1;
 
-        zNetUtils_.send_nosignal(zSd, &zNewPid, sizeof(pid_t));
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
         close(zSd);
 
         pthread_exit(NULL);
@@ -201,7 +201,7 @@ zcode_fetch_ops(void *zp) {
     char zDataBuf[zOps_.refsEndOffSet];
 
     if (zOps_.refsEndOffSet != recv(zSd, zDataBuf, zOps_.refsEndOffSet, 0)) {
-        zNewPid = -1;
+        zResId = -1;
         goto zMarkEnd;
     }
 
@@ -215,24 +215,24 @@ zcode_fetch_ops(void *zp) {
         kill(zOps_.oldPid, SIGUSR1);
         waitpid(zOps_.oldPid, NULL, 0);
 
-        zNewPid = 0;
+        zResId = 0;
         goto zMarkEnd;
     }
 
     /* Ops Option[1]: 启动新进程 */
     if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
-        zNewPid = -1;
+        zResId = -1;
         goto zMarkEnd;
     }
 
-    if (0 > (zNewPid = fork())) {
+    if (0 > (zResId = fork())) {
         zLibGit_.env_clean(zpGit);
 
-        zNewPid = -1;
+        zResId = -1;
         goto zMarkEnd;
     }
 
-    if (0 == zNewPid) {
+    if (0 == zResId) {
         /* 子进程中关闭 socket */
          close(zSd);
 
@@ -264,7 +264,7 @@ zcode_fetch_ops(void *zp) {
     }
 
 zMarkEnd:
-    zNetUtils_.send_nosignal(zSd, &zNewPid, sizeof(pid_t));
+    zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
     close(zSd);
 
     return NULL;
