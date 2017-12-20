@@ -2880,69 +2880,82 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
                 || 0 == strcmp(zpNewBranch, zRun_.p_repoVec[zRepoId]->p_codeSyncBranch))
             && (NULL == zpNewURL
                 || 0 == strcmp(zpNewURL, zRun_.p_repoVec[zRepoId]->p_codeSyncURL))) {
-        goto zMarkNoChg;
-    }
-
-    if (NULL == zpNewURL) {
-        zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
+        // do nothing...
     } else {
-        /* 检测长度是否超限 */
-        if (2047 < strlen(zpNewURL)) {
-            zPrint_Err_Easy("");
-            return -48;
+        if (NULL == zpNewURL) {
+            zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
+        } else {
+            /* 检测长度是否超限 */
+            if (2047 < strlen(zpNewURL)) {
+                zPrint_Err_Easy("");
+                return -48;
+            }
         }
-    }
 
-    if (NULL == zpNewBranch) {
-        zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
-    } else {
-        /* 检测长度是否超限 */
-        if (511 < strlen(zpNewBranch)) {
-            zPrint_Err_Easy("");
-            return -47;
+        if (NULL == zpNewBranch) {
+            zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
+        } else {
+            /* 检测长度是否超限 */
+            if (511 < strlen(zpNewBranch)) {
+                zPrint_Err_Easy("");
+                return -47;
+            }
         }
+
+        /* Test if new_info is available... */
+        char zErrBuf[256] = {'\0'};
+        char zTmpRefs[sizeof("+refs/heads/%s:refs/heads/%sXXXXXXXX") + 2 * strlen(zpNewBranch)],
+             *zpTmpRefs = zTmpRefs;
+        sprintf(zTmpRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+                zpNewBranch,
+                zpNewBranch);
+        if (0 > zLibGit_.remote_fetch(
+                    zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zpNewURL,
+                    &zpTmpRefs, 1,
+                    zErrBuf)) {
+                zPrint_Err_Easy(zErrBuf);
+                return -49;
+        }
+
+        /* 取 rwLock 执行更新 */
+        if (0 != pthread_rwlock_trywrlock(& zRun_.p_repoVec[zRepoId]->rwLock)) {
+            zPrint_Err_Easy("");
+            return -11;
+        }
+
+        /*
+         * kill code_sync_process and wait it stop...
+         * no need to care final result!
+         */
+        kill(zRun_.p_repoVec[zRepoId]->codeSyncPid, SIGUSR1);
+        waitpid(zRun_.p_repoVec[zRepoId]->codeSyncPid, NULL, 0);
+
+        /* update... */
+        if (NULL != zpNewURL) {
+            snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 2048,
+                    "%s", zpNewURL);
+        }
+
+        /* update... */
+        if (NULL != zpNewBranch) {
+            snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, 512,
+                    "%s", zpNewBranch);
+
+            snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1024 + 512,
+                    "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+                    zRun_.p_repoVec[zRepoId]->p_codeSyncBranch,
+                    zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
+
+            zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
+                zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
+        }
+
+        /* TODO restart code_sync_process... */
+
+        pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
     }
 
-    /* TODO test if new_info is available... */
-
-    /* 取 rwLock 执行更新 */
-    if (0 != pthread_rwlock_trywrlock(& zRun_.p_repoVec[zRepoId]->rwLock)) {
-        zPrint_Err_Easy("");
-        return -11;
-    }
-
-    /* 
-     * kill code_sync_process and wait it stop...
-     * no need to care final result!
-     */
-    kill(zRun_.p_repoVec[zRepoId]->codeSyncPid, SIGUSR1);
-    waitpid(zRun_.p_repoVec[zRepoId]->codeSyncPid, NULL, 0);
-
-    /* update... */
-    if (NULL != zpNewURL) {
-        snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 2048,
-                "%s", zpNewURL);
-    }
-
-    /* update... */
-    if (NULL != zpNewBranch) {
-        snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, 512,
-                "%s", zpNewBranch);
-
-        snprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1024 + 512,
-                "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-                zRun_.p_repoVec[zRepoId]->p_codeSyncBranch,
-                zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-
-        zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
-            zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
-    }
-
-    /* TODO restart code_sync_process... */
-
-    pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
-
-zMarkNoChg:
     zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     return 0;
 }

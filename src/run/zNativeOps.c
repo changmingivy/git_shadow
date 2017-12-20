@@ -1032,8 +1032,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             }
 
             /* keep sourceUrl */
-            char zSourceUrl[1 + strlen(zpRepoMeta_->pp_fields[2])];
-            strcpy(zSourceUrl, zpRepoMeta_->pp_fields[2]);
+            char zSourceUrl[1 + strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncURL)];
+            strcpy(zSourceUrl, zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
 
             /* keep git fetch refs... */
             char *zpCodeSyncRefs = zRun_.p_repoVec[zRepoId]->p_codeSyncRefs;
@@ -1045,7 +1045,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             chdir(zRun_.p_repoVec[zRepoId]->p_repoPath);
 
             /* 3、之后，释放掉子进程不再需要的资源 */
-            zFree_Source();
+            free(zRun_.p_repoVec[zRepoId]->p_repoPath);
+            free(zRun_.p_repoVec[zRepoId]);
+            zRun_.p_repoVec[zRepoId] = NULL;
 
             _i zCnter = 0;
             while (1) {
