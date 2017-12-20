@@ -796,7 +796,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             zRun_.p_servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
             zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port,\
-            zRepoId, zRepoId, zRepoId);\
+            zRepoId, zRepoId, zRepoId, zRepoId);\
 } while(0)
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\
