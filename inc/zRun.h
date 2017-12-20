@@ -402,21 +402,21 @@ typedef struct __zRepo__ {
      * 同步远程代码时对接的源库URL与分支名称
      * 之后用户可以改变
      */
-    char codeSyncURL[512];
-    char codeSyncBranch[128];
+    char *p_codeSyncURL;
+    char *p_codeSyncBranch;
 
     /*
      * 同步远程代码时对接的源库URL 与 refs对
      * 服务端对应的分支名称在源库分支名称之后添加 8 个 X 为后缀
      * 格式：refs/heads/master:refs/heads/masterXXXXXXXX
      */
-    char codeSyncRefs[32 + 128 * 2];  // size: 288
+    char *p_codeSyncRefs;
 
     /*
      * 本地分支的完整名称：refs/heads/masterXXXXXXXX
      * 结果 == p_codeSyncRefs + (strlen(p_codeSyncRefs) - 8) / 2 + 1
      */
-    char singleLocalRefs[128];
+    char *p_localRef;
 } zRepo__;
 
 
@@ -474,5 +474,12 @@ struct zRun__ {
     pthread_rwlock_t p_sysUpdateLock;
 };
 
+
+typedef struct __zCodeFetch__ {
+    pid_t oldPid;
+    _s pathEndOffSet;
+    _s urlEndOffSet;
+    _s refsEndOffSet;
+} zCodeFetch__;
 
 #endif  // #ifndef ZRUN_H

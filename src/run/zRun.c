@@ -15,6 +15,7 @@ extern struct zNativeUtils__ zNativeUtils_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
+extern struct zLibGit__ zLibGit_;
 
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
 static void * zops_route (void *zpParam);
@@ -77,8 +78,8 @@ zerr_vec_init(void) {
     zpErrVec[44] = "git branch 错误";
     zpErrVec[45] = "git add and commit 错误";
     zpErrVec[46] = "libgit2 初始化错误";
-    zpErrVec[47] = "指定的源库分支名称太长(>511)";
-    zpErrVec[48] = "指定的源库URL太长(>2047)";
+    zpErrVec[47] = "";
+    zpErrVec[48] = "";
     zpErrVec[49] = "指定的源库分支无效/同步失败";
     zpErrVec[50] = "";
     zpErrVec[51] = "";
@@ -163,13 +164,139 @@ zerr_vec_init(void) {
 /************
  * 网络服务 *
  ************/
-void
+static void
 zexit_clean(void) {
     /*
      * 进程退出时
      * 清理同一进程组的所有进程
      */
     kill(0, SIGUSR1);
+}
+
+static void *
+zcode_fetch_ops(void *zp) {
+    _i zSd = * ((_i *) zp);
+
+    zCodeFetch__ zOps_;
+    char *zpPath = NULL,
+         *zpURL = NULL,
+         *zpRefs = NULL;
+
+    pid_t zNewPid = 0;
+    git_repository *zpGit = NULL;
+
+    /* thread detach... */
+    pthread_detach( pthread_self() );
+
+    if (sizeof(zCodeFetch__) != recv(zSd, &zOps_, sizeof(zCodeFetch__), 0)) {
+        zNewPid = -1;
+
+        zNetUtils_.send_nosignal(zSd, &zNewPid, sizeof(pid_t));
+        close(zSd);
+
+        pthread_exit(NULL);
+    }
+
+    /* 动态栈空间 */
+    char zDataBuf[zOps_.refsEndOffSet];
+
+    if (zOps_.refsEndOffSet != recv(zSd, zDataBuf, zOps_.refsEndOffSet, 0)) {
+        zNewPid = -1;
+        goto zMarkEnd;
+    }
+
+    /* info for fetch... */
+    zpPath = zDataBuf;
+    zpURL = zDataBuf + zOps_.pathEndOffSet;
+    zpRefs = zDataBuf + zOps_.urlEndOffSet;
+
+    /* Ops Option[0]: 停止旧进程 */
+    if (0 < zOps_.oldPid) {
+        kill(zOps_.oldPid, SIGUSR1);
+        waitpid(zOps_.oldPid, NULL, 0);
+
+        zNewPid = 0;
+        goto zMarkEnd;
+    }
+
+    /* Ops Option[1]: 启动新进程 */
+    if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
+        zNewPid = -1;
+        goto zMarkEnd;
+    }
+
+    if (0 > (zNewPid = fork())) {
+        zLibGit_.env_clean(zpGit);
+
+        zNewPid = -1;
+        goto zMarkEnd;
+    }
+
+    if (0 == zNewPid) {
+        /* 子进程中关闭 socket */
+         close(zSd);
+
+        /*
+         * 子进程无限循环，fetch...
+         * 二进制项目场景必要：
+         *     连续失败超过 10 次
+         *     删除本地分支，重新拉取
+         */
+        _i zCnter = 0;
+        while (1) {
+            if (0 > zLibGit_.remote_fetch(zpGit, zpURL, &zpRefs, 1, NULL)) {
+                zCnter++;
+
+                if (10 < zCnter) {
+                    zLibGit_.branch_del(zpGit, zpRefs + (strlen(zpRefs) - 9) / 2 + 1);
+                }
+
+                /* try clean rubbish... */
+                unlink(".git/index.lock");
+            } else {
+                zCnter = 0;
+            }
+
+            sleep(2);
+        }
+    } else {
+        zLibGit_.env_clean(zpGit);
+    }
+
+zMarkEnd:
+    zNetUtils_.send_nosignal(zSd, &zNewPid, sizeof(pid_t));
+    close(zSd);
+
+    return NULL;
+}
+
+static void
+zcode_fetch_daemon(void) {
+    pthread_t zTid;
+    _i zMajorSd = -1;
+
+    atexit(zexit_clean);
+
+    /* 返回的 socket 已经做完 bind 和 listen */
+    if (0 > (zMajorSd = zNetUtils_.gen_serv_sd("::1", "20001", zProtoTcp))) {
+        zPrint_Err_Easy("");
+        exit(1);
+    }
+
+    /*
+     * 会传向新线程，使用静态变量
+     * 使用数组防止负载高时造成线程参数混乱
+     */
+    static _i zSd[64] = {0};
+    for (_ui zCnter = 0;; zCnter++) {
+        if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
+            zPrint_Err_Easy_Sys();
+        } else {
+            zCheck_NotZero_Exit(
+                    errno = pthread_create(&zTid, NULL, zcode_fetch_ops, & (zSd[zCnter % 64]))
+                    );
+        }
+    }
 }
 
 static void
@@ -190,83 +317,94 @@ zstart_server() {
         exit(1);
     }
 
-    /* 全局并发控制的信号量 */
-    zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
-
     /*
      * 转换为后台守护进程
      */
     zNativeUtils_.daemonize("/");
 
-    /*
-     * 主服务停止时，需要清理所有影子进程
-     * 例如：定时同步远程代码的子进程
-     */
-    atexit(zexit_clean);
+    pid_t zPid = -1;
+    zCheck_Negative_Exit( zPid = fork() );
 
-    /* 初始化错误信息HashMap */
-    zerr_vec_init();
+    if (0 == zPid) {
+        zcode_fetch_daemon();
+    } else {
+        /* 全局并发控制的信号量 */
+        zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
 
-    /* 提取用户名称 */
-    if (NULL == zRun_.p_loginName) {
-        zRun_.p_loginName = "git";
-    }
+        /*
+         * 主服务停止时，需要清理所有影子进程
+         * 例如：定时同步远程代码的子进程
+         */
+        atexit(zexit_clean);
 
-    /* 提取 $HOME */
-    struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
-    zCheck_Null_Exit(zRun_.p_homePath = zpPWD->pw_dir);
+        /* 初始化错误信息HashMap */
+        zerr_vec_init();
 
-    zRun_.homePathLen = strlen(zRun_.p_homePath);
+        /* 提取用户名称 */
+        if (NULL == zRun_.p_loginName) {
+            zRun_.p_loginName = "git";
+        }
 
-    zMem_Alloc(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
-    sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
+        /* 提取 $HOME */
+        struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
+        zCheck_Null_Exit(zRun_.p_homePath = zpPWD->pw_dir);
 
-    zMem_Alloc(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
-    sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
+        zRun_.homePathLen = strlen(zRun_.p_homePath);
 
-    /* 线程池初始化 */
-    zThreadPool_.init();
+        zMem_Alloc(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
+        sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
 
-    /* 扫描所有项目库并初始化之 */
-    zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
+        zMem_Alloc(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
+        sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
 
-    /*
-     * 定时扩展新的 pgSQL 日志分区表
-     * 及清理旧的分区表
-     */
-    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+        /* 线程池初始化 */
+        zThreadPool_.init();
 
-    /* 索引范围：0 至 zServHashSiz - 1 */
-    zRun_.ops[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
-    zRun_.ops[1] = zDpOps_.creat;  /* 创建新项目 */
-    zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
-    zRun_.ops[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
-    zRun_.ops[4] = NULL;
-    zRun_.ops[5] = NULL;
-    zRun_.ops[6] = NULL;
-    zRun_.ops[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
-    zRun_.ops[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
-    zRun_.ops[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
-    zRun_.ops[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
-    zRun_.ops[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
-    zRun_.ops[12] = zDpOps_.dp;  /* 批量布署或撤销 */
-    zRun_.ops[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
-    zRun_.ops[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
-    zRun_.ops[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
+        /* 扫描所有项目库并初始化之 */
+        zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
 
-    /* 返回的 socket 已经做完 bind 和 listen */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
+        /*
+         * 定时扩展新的 pgSQL 日志分区表
+         * 及清理旧的分区表
+         */
+        zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
-    /*
-     * 会传向新线程，使用静态变量
-     * 使用数组防止负载高时造成线程参数混乱
-     */
-    static _i zSd[64] = {0};
-    for (_ui zCnter = 0;; zCnter++) {
-        if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
-            zPrint_Err(errno, "-1 == accept(...)", NULL);
-        } else {
-            zThreadPool_.add(zops_route, & (zSd[zCnter % 64]));
+        /* 索引范围：0 至 zServHashSiz - 1 */
+        zRun_.ops[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
+        zRun_.ops[1] = zDpOps_.creat;  /* 创建新项目 */
+        zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
+        zRun_.ops[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
+        zRun_.ops[4] = NULL;
+        zRun_.ops[5] = NULL;
+        zRun_.ops[6] = NULL;
+        zRun_.ops[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
+        zRun_.ops[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
+        zRun_.ops[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
+        zRun_.ops[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
+        zRun_.ops[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
+        zRun_.ops[12] = zDpOps_.dp;  /* 批量布署或撤销 */
+        zRun_.ops[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
+        zRun_.ops[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
+        zRun_.ops[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
+
+        /* 返回的 socket 已经做完 bind 和 listen */
+        _i zMajorSd = -1;
+        if (0 > (zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp))) {
+            zPrint_Err_Easy("");
+            exit(1);
+        }
+
+        /*
+         * 会传向新线程，使用静态变量
+         * 使用数组防止负载高时造成线程参数混乱
+         */
+        static _i zSd[64] = {0};
+        for (_ui zCnter = 0;; zCnter++) {
+            if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
+                zPrint_Err_Easy_Sys();
+            } else {
+                zThreadPool_.add(zops_route, & (zSd[zCnter % 64]));
+            }
         }
     }
 }
@@ -345,5 +483,6 @@ zMarkEnd:
     if (zpDataBuf != &(zDataBuf[0])) {
         free(zpDataBuf);
     }
+
     return NULL;
 }

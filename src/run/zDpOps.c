@@ -2884,39 +2884,29 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
     } else {
         if (NULL == zpNewURL) {
             zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
-        } else {
-            /* 检测长度是否超限 */
-            if (2047 < strlen(zpNewURL)) {
-                zPrint_Err_Easy("");
-                return -48;
-            }
         }
 
         if (NULL == zpNewBranch) {
             zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
-        } else {
-            /* 检测长度是否超限 */
-            if (511 < strlen(zpNewBranch)) {
-                zPrint_Err_Easy("");
-                return -47;
-            }
         }
 
-        /* Test if new_info is available... */
+{////
+        /* 测试新的信息是否有效... */
         char zErrBuf[256] = {'\0'};
-        char zTmpRefs[sizeof("+refs/heads/%s:refs/heads/%sXXXXXXXX") + 2 * strlen(zpNewBranch)],
-             *zpTmpRefs = zTmpRefs;
-        sprintf(zTmpRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+        char zRefs[sizeof("+refs/heads/%s:refs/heads/%sXXXXXXXX") + 2 * strlen(zpNewBranch)],
+             *zpRefs = zRefs;
+        sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
                 zpNewBranch,
                 zpNewBranch);
         if (0 > zLibGit_.remote_fetch(
                     zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
                     zpNewURL,
-                    &zpTmpRefs, 1,
+                    &zpRefs, 1,
                     zErrBuf)) {
                 zPrint_Err_Easy(zErrBuf);
                 return -49;
         }
+}////
 
         /* 取 rwLock 执行更新 */
         if (0 != pthread_rwlock_trywrlock(& zRun_.p_repoVec[zRepoId]->rwLock)) {
@@ -2947,7 +2937,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
                     zRun_.p_repoVec[zRepoId]->p_codeSyncBranch,
                     zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
 
-            zRun_.p_repoVec[zRepoId]->p_singleLocalRefs =
+            zRun_.p_repoVec[zRepoId]->p_localRef =
                 zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + (strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs) - 8) / 2 + 1;
         }
 
