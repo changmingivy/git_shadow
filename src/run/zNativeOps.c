@@ -1475,7 +1475,7 @@ zLoop:
             /* get new revs */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                     zRun_.p_repoVec[i]->p_gitRepoHandler,
-                    zRun_.p_repoVec[i]->p_singleLocalRefs,
+                    zRun_.p_repoVec[i]->p_localRef,
                     0);
 
             if (NULL == zpRevWalker) {
