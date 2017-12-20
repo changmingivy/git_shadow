@@ -264,7 +264,7 @@ zTcpReply 8 "${zDpingSig}" "S3" "" &
         fi
     done
 
-    # 删除自身 pid 文件及已用完的分支
+    # 删除已用完的分支
     git branch -D ${zServBranch}
     git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
 
@@ -279,3 +279,5 @@ zTcpReply 8 "${zDpingSig}" "S3" "" &
         git gc --aggressive --prune=all
     fi
 ) &
+
+exit 0

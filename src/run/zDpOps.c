@@ -1044,7 +1044,11 @@ zdp_ccur(void *zp) {
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
 
     /* 向目标机 push 布署内容 */
-    if (0 == (zpDpCcur_->errNo = zLibGit_.remote_push(zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler, zRemoteRepoAddrBuf, zpGitRefs, 2, zErrBuf))) {
+    if (0 == (zpDpCcur_->errNo =
+                zLibGit_.remote_push(
+                    zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler,
+                    zRemoteRepoAddrBuf,
+                    zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
     } else {
         /*
@@ -2256,26 +2260,25 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
 
     if (zTimeStamp < zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp) {
         /*
-         * 若已有新的布署动作产生，统一返回失身标识，
-         * 避免目标机端无谓的执行已经过期的布署后动作
+         * 若已有新的布署动作产生，统一返回成功标识，
          */
-        zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+        zNetUtils_.send_nosignal(zSd, "S", zBytes(1));
     } else {
         if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
             if (0 == zRun_.p_repoVec[zRepoId]->resType) {
                 /* 确定成功 */
-                zNetUtils_.send_nosignal(zSd, "S", sizeof('S'));
+                zNetUtils_.send_nosignal(zSd, "S", zBytes(1));
             } else {
                 /* 确定失败 */
-                zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+                zNetUtils_.send_nosignal(zSd, "F", zBytes(1));
             }
         } else {
             if (0 == zRun_.p_repoVec[zRepoId]->resType) {
                 /* 结果尚未确定，正在 waiting... */
-                zNetUtils_.send_nosignal(zSd, "W", sizeof('W'));
+                zNetUtils_.send_nosignal(zSd, "W", zBytes(1));
             } else {
                 /* 确定失败 */
-                zNetUtils_.send_nosignal(zSd, "F", sizeof('F'));
+                zNetUtils_.send_nosignal(zSd, "F", zBytes(1));
             }
         }
     }
