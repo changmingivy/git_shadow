@@ -1201,7 +1201,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
          * callback 更换为非 NULL 值
          * 则后续的 free_res 就不会试图释放不存在的内存
          */
-        zR_.alloc_fn = (void *) -1;
+        zR_.alloc_fn = (NULL == (void *) 1) ? (void *) 2 : (void *) 1;
     } else {
         zPosixReg_.str_split(&zR_, zpIpList, zpDelim);
         if (zIpCnt != zR_.cnt) {

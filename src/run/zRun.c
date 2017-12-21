@@ -307,6 +307,60 @@ zcode_fetch_daemon(void) {
     }
 }
 
+
+/**************************************************************
+ * 临时接口，用于导入旧版布署系统的项目信息及已产生的布署日志 *
+ **************************************************************/
+extern struct zPosixReg__ zPosixReg_;
+static _i
+zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
+    char *zpConfPath="/home/git/zgit_shadow2/conf/master.conf";
+    char zLogPathBuf[4096];
+
+    char zDataBuf[4096];
+    char zSQLBuf[1024];
+
+    FILE *zpH0 = fopen(zpConfPath, "r");
+    FILE *zpH1 = NULL;
+
+    zPgResTuple__ zRepoMeta_ = {
+        .p_taskCnt = NULL
+    };
+
+    zRegRes__ zR_ = {
+        .alloc_fn = NULL
+    };
+
+    while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH0)) {
+        zPosixReg_.str_split(&zR_, zDataBuf, " ");
+
+        zRepoMeta_.pp_fields = zR_.pp_rets;
+        zNativeOps_.proj_init(&zRepoMeta_, -1);
+
+        sprintf(zLogPathBuf,
+                "/home/git/home/git/.____DpSystem/%s_SHADOW/log/deploy/meta",
+                zR_.pp_rets[1] + sizeof("/home/git/") -1);
+
+        zpH1 = fopen(zLogPathBuf, "r");
+        while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH1)) {
+            zDataBuf[40] = '\0';
+            sprintf(zSQLBuf,
+                    "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
+                    "VALUES (%ld,%s,'%s','%s')",
+                    strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
+                    zDataBuf,
+                    "::1");
+            zPgSQL_.exec_once(zRun_.pgConnInfo, zSQLBuf, NULL);
+        }
+
+        zPosixReg_.free_res(&zR_);
+    }
+
+    zNetUtils_.send_nosignal(zSd, "==== Import Success ====" ,sizeof("==== Import Success ====") - 1);
+    return 0;
+}
+
+
 static void
 zstart_server() {
     /*
@@ -385,7 +439,7 @@ zstart_server() {
         zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
         zRun_.ops[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
         zRun_.ops[4] = NULL;
-        zRun_.ops[5] = NULL;
+        zRun_.ops[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
         zRun_.ops[6] = NULL;
         zRun_.ops[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
         zRun_.ops[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
