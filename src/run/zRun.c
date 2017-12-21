@@ -217,9 +217,15 @@ zcode_fetch_ops(void *zp) {
      * ==== 启动新进程 ====
      */
     char zDataBuf[zOps_.refsEndOffSet];
+    _s zTotalLen = 0,
+       zLen = 0;
 
-    if (zOps_.refsEndOffSet != recv(zSd, zDataBuf, zOps_.refsEndOffSet, 0)) {
-        zResId = -1;
+    while (0 < (zLen = recv(zSd, zDataBuf, zOps_.refsEndOffSet - zTotalLen, 0))) {
+        zTotalLen += zLen;
+    }
+
+    if (zOps_.refsEndOffSet != zTotalLen) {
+        zResId = -2;
         goto zMarkEnd;
     }
 
@@ -229,14 +235,14 @@ zcode_fetch_ops(void *zp) {
     zpRefs = zDataBuf + zOps_.urlEndOffSet;
 
     if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
-        zResId = -1;
+        zResId = -3;
         goto zMarkEnd;
     }
 
     if (0 > (zResId = fork())) {
         zLibGit_.env_clean(zpGit);
 
-        zResId = -1;
+        zResId = -4;
         goto zMarkEnd;
     }
 

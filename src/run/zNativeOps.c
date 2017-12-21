@@ -1349,7 +1349,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         }
 
         if (0 >= zRun_.p_repoVec[zRepoId]->codeSyncPid) {
-            zPrint_Err_Easy("!!! FATAL !!!");
+            sprintf(zCommonBuf, "errNo ==> %d", zRun_.p_repoVec[zRepoId]->codeSyncPid);
+            zPrint_Err_Easy(zCommonBuf);
             exit(1);
         }
 

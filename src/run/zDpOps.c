@@ -2842,6 +2842,8 @@ zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((
  */
 static _i
 zsource_info_update(cJSON *zpJRoot, _i zSd) {
+    char zErrBuf[256] = {'\0'};
+
     char *zpNewURL = NULL;
     char *zpNewBranch = NULL;
 
@@ -2913,7 +2915,8 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.send_nosignal(zInnerSd, &zCodeFetch_, sizeof(zCodeFetch__));
 
         if (sizeof(pid_t) != recv(zInnerSd, & zResNo, sizeof(pid_t), 0)) {
-            zPrint_Err_Easy("!!! FATAL !!!");
+            sprintf(zErrBuf, "errNo ==> %d", zResNo);
+            zPrint_Err_Easy(zErrBuf);
             exit(1);
         }
 
@@ -2927,7 +2930,6 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         {////
         /* 测试新的信息是否有效... */
-        char zErrBuf[256] = {'\0'};
         char zRefs[sizeof("+refs/heads/%s:refs/heads/%sXXXXXXXX") + 2 * strlen(zpNewBranch)],
              *zpRefs = zRefs;
         sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
@@ -3015,7 +3017,8 @@ zMarkRestart:
         }
 
         if (0 >= zRun_.p_repoVec[zRepoId]->codeSyncPid) {
-            zPrint_Err_Easy("!!! FATAL !!!");
+            sprintf(zErrBuf, "errNo ==> %d", zRun_.p_repoVec[zRepoId]->codeSyncPid);
+            zPrint_Err_Easy(zErrBuf);
             exit(1);
         }
 
