@@ -1473,6 +1473,7 @@ zLoop:
                     0);
 
             if (NULL == zpRevWalker) {
+                zPrint_Err_Easy("");
                 continue;
             } else {
                 zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[i]->p_gitRepoHandler, zpRevWalker);

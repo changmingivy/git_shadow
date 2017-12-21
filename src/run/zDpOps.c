@@ -2995,8 +2995,6 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
 
-        zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
-
 zMarkRestart:
         {////
         /* restart code_sync_process */
@@ -3031,6 +3029,10 @@ zMarkRestart:
 
         close(zInnerSd);
         }////
+
+        if (0 == zResNo) {
+            zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+        }
     }
 
     return zResNo;
