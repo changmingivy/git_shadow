@@ -1480,7 +1480,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
         /* 更新 DB */
         sprintf(zpCommonBuf,
-                "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s, WHERE proj_id = %d",
+                "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s WHERE proj_id = %d",
                 zpSSHUserName,
                 zpSSHPort,
                 zRepoId);
@@ -2840,6 +2840,39 @@ zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((
  * NO.3
  * 更新源库的代码同步分支名称及源库的 URL
  */
+#define zProcessStart() {\
+        _i zInnerSd = -1;\
+        zCodeFetch__ zCodeFetch_;\
+\
+        zCodeFetch_.oldPid = -1;\
+        zCodeFetch_.pathEndOffSet = 1 + zRun_.p_repoVec[zRepoId]->repoPathLen;\
+        zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;\
+        zCodeFetch_.refsEndOffSet = zCodeFetch_.urlEndOffSet + 1 + zSyncRefsLen;\
+\
+        if (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {\
+            zPrint_Err_Easy("!!! FATAL !!!");\
+            exit(1);\
+        }\
+\
+        zNetUtils_.send_nosignal(zInnerSd, &zCodeFetch_, sizeof(zCodeFetch__));\
+        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_repoPath, 1 + zRun_.p_repoVec[zRepoId]->repoPathLen);\
+        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 1 + zSourceUrlLen);\
+        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1 + zSyncRefsLen);\
+\
+        if (sizeof(pid_t) != recv(zInnerSd, & zRun_.p_repoVec[zRepoId]->codeSyncPid, sizeof(pid_t), 0)) {\
+            zPrint_Err_Easy("!!! FATAL !!!");\
+            exit(1);\
+        }\
+\
+        if (0 >= zRun_.p_repoVec[zRepoId]->codeSyncPid) {\
+            sprintf(zErrBuf, "errNo ==> %d", zRun_.p_repoVec[zRepoId]->codeSyncPid);\
+            zPrint_Err_Easy(zErrBuf);\
+            exit(1);\
+        }\
+\
+        close(zInnerSd);\
+}
+
 static _i
 zsource_info_update(cJSON *zpJRoot, _i zSd) {
     char zErrBuf[256] = {'\0'};
@@ -2847,8 +2880,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
     char *zpNewURL = NULL;
     char *zpNewBranch = NULL;
 
-     _i zResNo = 0,
-        zRepoId = 0;
+     _i zRepoId = 0;
 
     _us zSourceUrlLen = 0,
         zSourceBranchLen = 0,
@@ -2892,17 +2924,15 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     } else {
         if (NULL == zpNewURL) {
-            zSourceUrlLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
-        } else {
-            zSourceUrlLen = strlen(zpNewURL);
+            zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
         }
 
         if (NULL == zpNewBranch) {
-            zSourceBranchLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-        } else {
-            zSourceBranchLen = strlen(zpNewBranch);
+            zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
         }
 
+        zSourceUrlLen = strlen(zpNewURL);
+        zSourceBranchLen = strlen(zpNewBranch);
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
         {////
@@ -2939,17 +2969,16 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         char zRefs[sizeof("+refs/heads/:refs/heads/XXXXXXXX") + 2 * strlen(zpNewBranch)],
              *zpRefs = zRefs;
         sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-                NULL == zpNewBranch ? zRun_.p_repoVec[zRepoId]->p_codeSyncBranch : zpNewBranch,
-                NULL == zpNewBranch ? zRun_.p_repoVec[zRepoId]->p_codeSyncBranch : zpNewBranch);
+                zpNewBranch, zpNewBranch);
         if (0 > zLibGit_.remote_fetch(
                     zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                    NULL == zpNewURL ? zRun_.p_repoVec[zRepoId]->p_codeSyncURL : zpNewURL,
+                    zpNewURL,
                     &zpRefs, 1,
                     zErrBuf)) {
                 zPrint_Err_Easy(zErrBuf);
 
-                zResNo = -49;
-                goto zMarkRestart;
+                zProcessStart();
+                return -49;
         }
 
         /*
@@ -2961,8 +2990,10 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
                 zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
                 0);
         if (NULL == zpRevWalker) {
-            zResNo = -49;
-            goto zMarkRestart;
+            zPrint_Err_Easy("");
+
+            zProcessStart();
+            return -49;
         } else {
             zLibGit_.destroy_revwalker(zpRevWalker);
         }
@@ -2971,75 +3002,55 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         /* 取 rwLock 执行更新 */
         pthread_rwlock_wrlock(& zRun_.p_repoVec[zRepoId]->rwLock);
 
-        /* update... */
-        if (NULL != zpNewURL) {
-            free(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
-            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
-
-            strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, zpNewURL);
-        }
-
-        /* update... */
-        if (NULL != zpNewBranch) {
-            free(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
-            strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpNewBranch);
-
-            free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
-            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
-            sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
-                    "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-                    zpNewBranch,
-                    zpNewBranch);
-
-            zRun_.p_repoVec[zRepoId]->p_localRef =
-                zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
-        }
-
-        pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
-
-zMarkRestart:
         {////
-        /* restart code_sync_process */
-        _i zInnerSd = -1;
-        zCodeFetch__ zCodeFetch_;
+        char zSQLBuf[128 + zSourceUrlLen + zSourceBranchLen];
+        _i zResNo = -1;
 
-        zCodeFetch_.oldPid = -1;
-        zCodeFetch_.pathEndOffSet = 1 + zRun_.p_repoVec[zRepoId]->repoPathLen;
-        zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;
-        zCodeFetch_.refsEndOffSet = zCodeFetch_.urlEndOffSet + 1 + zSyncRefsLen;
+        /* 首先更新 DB，无错则继续之后的动作 */
+        sprintf(zSQLBuf,
+                "UPDATE proj_meta SET source_url = %s, source_branch = %s WHERE proj_id = %d",
+                zpNewURL,
+                zpNewBranch,
+                zRepoId);
 
-        if (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {
-            zPrint_Err_Easy("!!! FATAL !!!");
-            exit(1);
+        if (0 != (zResNo = zPgSQL_.exec_once(zRun_.pgConnInfo, zSQLBuf, NULL))) {
+            zProcessStart();
+            pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
+
+            return zResNo;
         }
-
-        zNetUtils_.send_nosignal(zInnerSd, &zCodeFetch_, sizeof(zCodeFetch__));
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_repoPath, 1 + zRun_.p_repoVec[zRepoId]->repoPathLen);
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 1 + zSourceUrlLen);
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1 + zSyncRefsLen);
-
-        if (sizeof(pid_t) != recv(zInnerSd, & zRun_.p_repoVec[zRepoId]->codeSyncPid, sizeof(pid_t), 0)) {
-            zPrint_Err_Easy("!!! FATAL !!!");
-            exit(1);
-        }
-
-        if (0 >= zRun_.p_repoVec[zRepoId]->codeSyncPid) {
-            sprintf(zErrBuf, "errNo ==> %d", zRun_.p_repoVec[zRepoId]->codeSyncPid);
-            zPrint_Err_Easy(zErrBuf);
-            exit(1);
-        }
-
-        close(zInnerSd);
         }////
 
-        if (0 == zResNo) {
-            zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
-        }
+        /* update... */
+        free(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
+        free(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
+        free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
+
+        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
+        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
+        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
+
+        strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, zpNewURL);
+
+        strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpNewBranch);
+
+        sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
+                "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+                zpNewBranch,
+                zpNewBranch);
+
+        zRun_.p_repoVec[zRepoId]->p_localRef =
+            zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
+
+        zProcessStart();
+        pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
+
+        zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     }
 
-    return zResNo;
+    return 0;
 }
+#undef zProcessStart
 
 
 #undef cJSON_V
