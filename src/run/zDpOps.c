@@ -2944,7 +2944,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
          */
         zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                 zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                zRefs,
+                zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
                 0);
         if (NULL == zpRevWalker) {
             zResNo = -49;
