@@ -2910,6 +2910,8 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
             exit(1);
         }
 
+        zNetUtils_.send_nosignal(zInnerSd, &zCodeFetch_, sizeof(zCodeFetch__));
+
         if (sizeof(pid_t) != recv(zInnerSd, & zResNo, sizeof(pid_t), 0)) {
             zPrint_Err_Easy("!!! FATAL !!!");
             exit(1);
