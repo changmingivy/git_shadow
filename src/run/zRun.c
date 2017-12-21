@@ -261,11 +261,11 @@ zcode_fetch_ops(void *zp) {
         }
     } else {
         zLibGit_.env_clean(zpGit);
-    }
 
 zMarkEnd:
-    zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
-    close(zSd);
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
+        close(zSd);
+    }
 
     return NULL;
 }

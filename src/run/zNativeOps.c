@@ -1299,16 +1299,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     zRun_.p_repoVec[zRepoId]->p_dpCcur_ = zRun_.p_repoVec[zRepoId]->dpCcur_;
 
-    /* 生成缓存 */
-    zCacheMeta__ zMeta_;
-    zMeta_.repoId = zRepoId;
-
-    zMeta_.dataType = zIsCommitDataType;
-    zgenerate_cache(&zMeta_);
-
-    zMeta_.dataType = zIsDpDataType;
-    zgenerate_cache(&zMeta_);
-
     /*
      * 源库相关信息留存
      */
@@ -1365,6 +1355,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         close(zInnerSd);
     }
+
+    /* 生成缓存 */
+    zCacheMeta__ zMeta_;
+    zMeta_.repoId = zRepoId;
+
+    zMeta_.dataType = zIsCommitDataType;
+    zgenerate_cache(&zMeta_);
+
+    zMeta_.dataType = zIsDpDataType;
+    zgenerate_cache(&zMeta_);
 
     /* 释放锁 */
     pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
