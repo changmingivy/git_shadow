@@ -1343,7 +1343,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 1 + zSourceUrlLen);
         zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1 + zSyncRefsLen);
 
-        if (sizeof(pid_t) != recv(zInnerSd, & zRun_.p_repoVec[zRepoId]->codeSyncPid, sizeof(pid_t), 0)) {
+        if (sizeof(pid_t) !=
+                recv(zInnerSd, & zRun_.p_repoVec[zRepoId]->codeSyncPid, sizeof(pid_t), MSG_WAITALL)) {
             zPrint_Err_Easy("!!! FATAL !!!");
             exit(1);
         }

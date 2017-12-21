@@ -188,7 +188,8 @@ zcode_fetch_ops(void *zp) {
     /* thread detach... */
     pthread_detach( pthread_self() );
 
-    if (sizeof(zCodeFetch__) != recv(zSd, &zOps_, sizeof(zCodeFetch__), 0)) {
+    if (sizeof(zCodeFetch__) !=
+            recv(zSd, &zOps_, sizeof(zCodeFetch__), MSG_WAITALL)) {
         zResId = -1;
 
         zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
@@ -217,14 +218,9 @@ zcode_fetch_ops(void *zp) {
      * ==== 启动新进程 ====
      */
     char zDataBuf[zOps_.refsEndOffSet];
-    _s zTotalLen = 0,
-       zLen = 0;
 
-    while (0 < (zLen = recv(zSd, zDataBuf, zOps_.refsEndOffSet - zTotalLen, 0))) {
-        zTotalLen += zLen;
-    }
-
-    if (zOps_.refsEndOffSet != zTotalLen) {
+    if (zOps_.refsEndOffSet !=
+            recv(zSd, zDataBuf, zOps_.refsEndOffSet, MSG_WAITALL)) {
         zResId = -2;
         goto zMarkEnd;
     }
