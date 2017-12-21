@@ -169,7 +169,10 @@ zTcpReply 8 "${zDpingSig}" "S3" "" &
 # 还原代码到工作区
 git reset -q --hard ${zDpingSig}
 if [[ 0 -ne $? ]]; then
-    # \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
+    if [[ "Y" == ${zForceDpMark} ]]; then
+        \ls -a | grep -vE '^(\.|\.\.|\.git)$' | xargs rm -rf
+    fi
+
     git stash
     git stash clear
     git reset -q --hard ${zDpingSig} 2>${zErrLogPath}
