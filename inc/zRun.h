@@ -270,6 +270,12 @@ typedef struct __zRepo__ {
     time_t  dpBaseTimeStamp;
 
     /*
+     * 'Y'：允许强制清除有冲穾的文件或路径
+     * 'N'：不允许
+     */
+    char forceDpMark;
+
+    /*
      * 本项目全局 git handler
      */
     git_repository *p_gitRepoHandler;

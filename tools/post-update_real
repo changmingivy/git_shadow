@@ -41,15 +41,12 @@ if [[ "" == ${zProjAliasPath} ]]; then
 fi
 
 zForceDpMark=`echo $1 | awk -F@ '{print $9}'`
-if [[ "Y" != ${zForceDpMark} ]]; then
-    zForceDpMark="N"
-fi
 
 zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
 # 当次布署的活动分支，仅用于所有动作完成后，进行清理
-zServBranch="s@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
-zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}"
+zServBranch="s@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}@${zForceDpMark}"
+zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}@${zForceDpMark}"
 
 # 临时保存错误信息的位置
 zErrLogPath="/tmp/.${zProjId}_${zTimeStamp}_errlog"

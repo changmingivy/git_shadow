@@ -81,7 +81,7 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -95,7 +95,7 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
         return -2;
     }
 
-    zpJ = cJSON_V(zpJRoot, "DataType");
+    zpJ = cJSON_V(zpJRoot, "dataType");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -175,7 +175,7 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -198,21 +198,21 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
         return -13;
     }
 
-    zpJ = cJSON_V(zpJRoot, "DataType");
+    zpJ = cJSON_V(zpJRoot, "dataType");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.dataType = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "RevId");
+    zpJ = cJSON_V(zpJRoot, "revId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.commitId = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "CacheId");
+    zpJ = cJSON_V(zpJRoot, "cacheId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -333,7 +333,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -355,28 +355,28 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
         return -13;
     }
 
-    zpJ = cJSON_V(zpJRoot, "DataType");
+    zpJ = cJSON_V(zpJRoot, "dataType");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.dataType = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "RevId");
+    zpJ = cJSON_V(zpJRoot, "revId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.commitId = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "FileId");
+    zpJ = cJSON_V(zpJRoot, "fileId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zMeta_.fileId = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "CacheId");
+    zpJ = cJSON_V(zpJRoot, "cacheId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -522,7 +522,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPrint_Err_Easy("");
@@ -530,7 +530,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     }
     zpProjInfo[0] = zpJ->valuestring;
 
-    zpJ = cJSON_V(zpJRoot, "PathOnHost");
+    zpJ = cJSON_V(zpJRoot, "pathOnHost");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPrint_Err_Easy("");
@@ -538,7 +538,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     }
     zpProjInfo[1] = zpJ->valuestring;
 
-    zpJ = cJSON_V(zpJRoot, "NeedPull");
+    zpJ = cJSON_V(zpJRoot, "needPull");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPrint_Err_Easy("");
@@ -546,7 +546,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     }
     zpProjInfo[5] = zpJ->valuestring;
 
-    zpJ = cJSON_V(zpJRoot, "SSHUserName");
+    zpJ = cJSON_V(zpJRoot, "sshUserName");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPrint_Err_Easy("");
@@ -559,7 +559,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     }
     zpProjInfo[6] = zpJ->valuestring;
 
-    zpJ = cJSON_V(zpJRoot, "SSHPort");
+    zpJ = cJSON_V(zpJRoot, "sshPort");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPrint_Err_Easy("");
@@ -574,7 +574,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     zpProjInfo[7] = zpJ->valuestring;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
-        zpJ = cJSON_V(zpJRoot, "SourceUrl");
+        zpJ = cJSON_V(zpJRoot, "sourceUrl");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zResNo = -34;
             zPrint_Err_Easy("");
@@ -582,7 +582,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         }
         zpProjInfo[2] = zpJ->valuestring;
 
-        zpJ = cJSON_V(zpJRoot, "SourceBranch");
+        zpJ = cJSON_V(zpJRoot, "sourceBranch");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zResNo = -34;
             zPrint_Err_Easy("");
@@ -590,7 +590,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         }
         zpProjInfo[3] = zpJ->valuestring;
 
-        zpJ = cJSON_V(zpJRoot, "SourceVcsType");
+        zpJ = cJSON_V(zpJRoot, "sourceVcsType");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zResNo = -34;
             zPrint_Err_Easy("");
@@ -1027,7 +1027,7 @@ zdp_ccur(void *zp) {
     /* push TWO branchs together */
     snprintf(zpGitRefs[0],
             256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
-            "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s",
+            "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s@%c",
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_codeSyncBranch,
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
@@ -1035,18 +1035,20 @@ zdp_ccur(void *zp) {
             zHostAddrBuf,
             zpDpCcur_->id,
             zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
-            zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
+            zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath,
+            zRun_.p_repoVec[zpDpCcur_->repoId]->forceDpMark);
 
     snprintf(zpGitRefs[1],
             256 + zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen,
-            "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s",
+            "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s@%c",
             zRun_.netSrv_.specStrForGit,
             zRun_.netSrv_.p_port,
             zpDpCcur_->repoId,
             zHostAddrBuf,
             zpDpCcur_->id,
             zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
-            zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath);
+            zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoAliasPath,
+            zRun_.p_repoVec[zpDpCcur_->repoId]->forceDpMark);
 
     /* 向目标机 push 布署内容 */
     if (0 == (zpDpCcur_->errNo =
@@ -1162,21 +1164,21 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zRepoId = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "IpCnt");
+    zpJ = cJSON_V(zpJRoot, "ipCnt");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zIpCnt = zpJ->valueint;
 
-    zpJ = cJSON_V(zpJRoot, "IpList");
+    zpJ = cJSON_V(zpJRoot, "ipList");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zPrint_Err_Easy("");
         return -1;
@@ -1209,7 +1211,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         }
     }
 
-    zpJ = cJSON_V(zpJRoot, "RevSig");
+    zpJ = cJSON_V(zpJRoot, "revSig");
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {
         zpRevSig = zpJ->valuestring;
     }
@@ -1262,11 +1264,11 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 #define zJson_Parse() do {  /* json 解析 */\
-    zpJ = cJSON_V(zpJRoot, "ForceRev");\
+    zpJ = cJSON_V(zpJRoot, "forceRev");\
     if (cJSON_IsString(zpJ) && 40 == strlen(zpJ->valuestring)) {\
         zpForceSig = zpJ->valuestring;\
     } else {\
-        zpJ = cJSON_V(zpJRoot, "CacheId");\
+        zpJ = cJSON_V(zpJRoot, "cacheId");\
         if (! cJSON_IsNumber(zpJ)) {\
             zResNo = -1;\
             zPrint_Err_Easy("");\
@@ -1275,7 +1277,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         zCacheId = zpJ->valueint;\
     }\
 \
-    zpJ = cJSON_V(zpJRoot, "RevId");\
+    zpJ = cJSON_V(zpJRoot, "revId");\
     if (! cJSON_IsNumber(zpJ)) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1283,7 +1285,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }\
     zCommitId = zpJ->valueint;\
 \
-    zpJ = cJSON_V(zpJRoot, "DataType");\
+    zpJ = cJSON_V(zpJRoot, "dataType");\
     if (! cJSON_IsNumber(zpJ)) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1291,7 +1293,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }\
     zDataType = zpJ->valueint;\
 \
-    zpJ = cJSON_V(zpJRoot, "IpList");\
+    zpJ = cJSON_V(zpJRoot, "ipList");\
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1300,7 +1302,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpIpList = zpJ->valuestring;\
     zIpListStrLen = strlen(zpIpList);\
 \
-    zpJ = cJSON_V(zpJRoot, "IpCnt");\
+    zpJ = cJSON_V(zpJRoot, "ipCnt");\
     if (! cJSON_IsNumber(zpJ)) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1309,7 +1311,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zIpCnt = zpJ->valueint;\
 \
     /* 同一项目所有目标机的 ssh 用户名必须相同 */\
-    zpJ = cJSON_V(zpJRoot, "SSHUserName");\
+    zpJ = cJSON_V(zpJRoot, "sshUserName");\
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1318,7 +1320,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpSSHUserName = zpJ->valuestring;\
 \
     /* 同一项目所有目标机的 sshd 端口必须相同 */\
-    zpJ = cJSON_V(zpJRoot, "SSHPort");\
+    zpJ = cJSON_V(zpJRoot, "sshPort");\
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
         zResNo = -1;\
         zPrint_Err_Easy("");\
@@ -1326,7 +1328,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }\
     zpSSHPort = zpJ->valuestring;\
 \
-    zpJ = cJSON_V(zpJRoot, "PostDpCmd");\
+    zpJ = cJSON_V(zpJRoot, "postDpCmd");\
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
         zpPostDpCmd = zNativeOps_.alloc(zRepoId,\
                 sizeof("cd  && ()")\
@@ -1337,7 +1339,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 zpJ->valuestring);\
     }\
 \
-    zpJ = cJSON_V(zpJRoot, "AliasPath");\
+    zpJ = cJSON_V(zpJRoot, "aliasPath");\
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
         snprintf(zRun_.p_repoVec[zRepoId]->p_repoAliasPath, zRun_.p_repoVec[zRepoId]->maxPathLen, "%s", zpJ->valuestring);\
     } else {\
@@ -1347,6 +1349,11 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpJ = cJSON_V(zpJRoot, "delim");\
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
         zpDelim = zpJ->valuestring;\
+    }\
+\
+    zpJ = cJSON_V(zpJRoot, "forceDp");\
+    if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
+        zForceDpMark = toupper(zpJ->valuestring[0]);\
     }\
 } while(0)
 
@@ -1369,6 +1376,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          *zpSSHPort = NULL;
 
     /*
+     * 强制布署标志：是否可直接删除有冲穾的文件或路径
+     */
+    char zForceDpMark = 'N';
+
+    /*
      * IP 字符串的分割符
      * 若没有明确指定，则默认为空格
      */
@@ -1378,7 +1390,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zResNo = -1;
         zPrint_Err_Easy("");
@@ -1672,6 +1684,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (! zIsSameSig) {
         zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = time(NULL);
     }
+
+    /* 于此处更新项目结构中的强制布署标志 */
+    zRun_.p_repoVec[zRepoId]->forceDpMark = zForceDpMark;
 
     /* get sys_update_lock */
     pthread_rwlock_rdlock(& zRun_.p_sysUpdateLock);
@@ -1996,7 +2011,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -2009,14 +2024,14 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         return -2;
     }
 
-    zpJ = cJSON_V(zpJRoot, "TimeStamp");
+    zpJ = cJSON_V(zpJRoot, "timeStamp");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
     }
     zTimeStamp = (time_t)zpJ->valuedouble;
 
-    zpJ = cJSON_V(zpJRoot, "HostAddr");
+    zpJ = cJSON_V(zpJRoot, "hostAddr");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zPrint_Err_Easy("");
         return -1;
@@ -2027,7 +2042,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         return -18;
     }
 
-    zpJ = cJSON_V(zpJRoot, "RevSig");
+    zpJ = cJSON_V(zpJRoot, "revSig");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zPrint_Err_Easy("");
         return -1;
@@ -2035,7 +2050,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     zpRevSig = zpJ->valuestring;
 
     /* 格式，SN: S1..S9，EN: E3..E8 */
-    zpJ = cJSON_V(zpJRoot, "ReplyType");
+    zpJ = cJSON_V(zpJRoot, "replyType");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]
             || 2 > strlen(zpJ->valuestring)) {
         zPrint_Err_Easy("");
@@ -2185,7 +2200,7 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     /* 提取 value[key] */
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "Path");
+    zpJ = cJSON_V(zpJRoot, "path");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zPrint_Err_Easy("");
         return -1;
@@ -2241,7 +2256,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
     /* 提取 value[key] */
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -2256,7 +2271,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
         return -2;
     }
 
-    zpJ = cJSON_V(zpJRoot, "TimeStamp");
+    zpJ = cJSON_V(zpJRoot, "timeStamp");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -2468,7 +2483,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
     _c zGlobRes = 'W';
 
     /* 提取项目 ID */
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -2894,7 +2909,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
     cJSON *zpJ = NULL;
 
     /* 提取项目 ID */
-    zpJ = cJSON_V(zpJRoot, "ProjId");
+    zpJ = cJSON_V(zpJRoot, "projId");
     if (! cJSON_IsNumber(zpJ)) {
         zPrint_Err_Easy("");
         return -1;
@@ -2908,13 +2923,13 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         return -2;
     }
 
-    zpJ= cJSON_V(zpJRoot, "SourceURL");
+    zpJ= cJSON_V(zpJRoot, "sourceURL");
     if (cJSON_IsString(zpJ)
             && '\0' != zpJ->valuestring[0]) {
         zpNewURL = zpJ->valuestring;
     }
 
-    zpJ= cJSON_V(zpJRoot, "SourceBranch");
+    zpJ= cJSON_V(zpJRoot, "sourceBranch");
     if (cJSON_IsString(zpJ)
             && '\0' != zpJ->valuestring[0]) {
         zpNewBranch = zpJ->valuestring;
