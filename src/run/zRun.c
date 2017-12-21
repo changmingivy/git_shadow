@@ -275,8 +275,6 @@ zcode_fetch_daemon(void) {
     pthread_t zTid;
     _i zMajorSd = -1;
 
-    atexit(zexit_clean);
-
     /* 返回的 socket 已经做完 bind 和 listen */
     if (0 > (zMajorSd = zNetUtils_.gen_serv_sd("::1", "20001", zProtoTcp))) {
         zPrint_Err_Easy("");
@@ -326,16 +324,18 @@ zstart_server() {
     zCheck_Negative_Exit( zPid = fork() );
 
     if (0 == zPid) {
-        zcode_fetch_daemon();
-    } else {
-        /* 全局并发控制的信号量 */
-        zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
-
         /*
-         * 主服务停止时，需要清理所有影子进程
-         * 例如：定时同步远程代码的子进程
+         * 既有与新建项目的 fetch 源库代码的任务
+         * 分离出来，作为独立的服务
          */
         atexit(zexit_clean);
+
+        zcode_fetch_daemon();
+    } else {
+        atexit(zexit_clean);
+
+        /* 全局并发控制的信号量 */
+        zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
 
         /* 初始化错误信息HashMap */
         zerr_vec_init();
