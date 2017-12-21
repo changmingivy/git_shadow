@@ -2891,6 +2891,20 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     } else {
+        if (NULL == zpNewURL) {
+            zSourceUrlLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
+        } else {
+            zSourceUrlLen = strlen(zpNewURL);
+        }
+
+        if (NULL == zpNewBranch) {
+            zSourceBranchLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
+        } else {
+            zSourceBranchLen = strlen(zpNewBranch);
+        }
+
+        zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
+
         {////
         /* kill code_fetch_process */
         pid_t zResNo = -1;
@@ -2958,11 +2972,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         pthread_rwlock_wrlock(& zRun_.p_repoVec[zRepoId]->rwLock);
 
         /* update... */
-        if (NULL == zpNewURL) {
-            zSourceUrlLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
-        } else {
-            zSourceUrlLen = strlen(zpNewURL);
-
+        if (NULL != zpNewURL) {
             free(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
             zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
 
@@ -2970,20 +2980,13 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         }
 
         /* update... */
-        if (NULL == zpNewBranch) {
-            zSourceBranchLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-            zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
-        } else {
-            zSourceBranchLen = strlen(zpNewBranch);
-            zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
-
+        if (NULL != zpNewBranch) {
             free(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-            free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
             zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
-            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
-
             strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpNewBranch);
 
+            free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
+            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
             sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
                     "+refs/heads/%s:refs/heads/%sXXXXXXXX",
                     zpNewBranch,
