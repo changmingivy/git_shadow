@@ -1480,7 +1480,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
         /* 更新 DB */
         sprintf(zpCommonBuf,
-                "UPDATE proj_meta SET ssh_user_name = %s, ssh_port = %s WHERE proj_id = %d",
+                "UPDATE proj_meta SET ssh_user_name = '%s', ssh_port = '%s' WHERE proj_id = %d",
                 zpSSHUserName,
                 zpSSHPort,
                 zRepoId);
@@ -3008,7 +3008,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         /* 首先更新 DB，无错则继续之后的动作 */
         sprintf(zSQLBuf,
-                "UPDATE proj_meta SET source_url = %s, source_branch = %s WHERE proj_id = %d",
+                "UPDATE proj_meta SET source_url = '%s', source_branch = '%s' WHERE proj_id = %d",
                 zpNewURL,
                 zpNewBranch,
                 zRepoId);
