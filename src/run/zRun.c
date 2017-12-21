@@ -275,11 +275,11 @@ zcode_fetch_daemon(void) {
     pthread_t zTid;
     _i zMajorSd = -1;
 
-    /* 返回的 socket 已经做完 bind 和 listen */
-    if (0 > (zMajorSd = zNetUtils_.gen_serv_sd("::1", "20001", zProtoTcp))) {
-        zPrint_Err_Easy("");
-        exit(1);
-    }
+    /*
+     * 返回的 socket 已经做完 bind 和 listen
+     * 若出错，其内部会 exit
+     */
+    zMajorSd = zNetUtils_.gen_serv_sd("::1", "20001", zProtoTcp);
 
     /*
      * 会传向新线程，使用静态变量
@@ -387,12 +387,12 @@ zstart_server() {
         zRun_.ops[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
         zRun_.ops[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
 
-        /* 返回的 socket 已经做完 bind 和 listen */
+        /*
+         * 返回的 socket 已经做完 bind 和 listen
+         * 若出错，其内部会 exit
+         */
         _i zMajorSd = -1;
-        if (0 > (zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp))) {
-            zPrint_Err_Easy("");
-            exit(1);
-        }
+        zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
 
         /*
          * 会传向新线程，使用静态变量

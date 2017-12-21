@@ -124,7 +124,7 @@ typedef enum {
 #define zCheck_Null_Exit(zRes) do{\
     if (NULL == (zRes)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
@@ -138,14 +138,14 @@ typedef enum {
 #define zCheck_Negative_Exit(zRes) do{\
     if (0 > (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
 #define zCheck_NotZero_Exit(zRes) do{\
     if (0 != (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
@@ -161,7 +161,7 @@ typedef enum {
     _i zX = (zRet);\
     if (0 != zX) {\
         zPrint_Err(zX, #zRet " != 0", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
@@ -189,7 +189,7 @@ typedef enum {
 #define zMap_Alloc(zpRet, zType, zCnt) do {\
     if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
         zPrint_Err(0, NULL, "mmap failed!");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 

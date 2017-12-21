@@ -7,6 +7,7 @@
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -48,7 +49,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
 
     if (0 != (zErrNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
         zPrint_Err(errno, NULL, gai_strerror(zErrNo));
-        _exit(1);
+        exit(1);
     }
 
     for (zpAddrInfo_ = zpRes_; NULL != zpAddrInfo_; zpAddrInfo_ = zpAddrInfo_->ai_next) {
@@ -56,6 +57,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
             break;
         }
     }
+
     zCheck_Negative_Exit(zSd);
 
     /* 不等待，直接重用地址与端口 */
