@@ -2905,6 +2905,11 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zCodeFetch__ zCodeFetch_;
         zCodeFetch_.oldPid = zRun_.p_repoVec[zRepoId]->codeSyncPid;
 
+        if (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {
+            zPrint_Err_Easy("!!! FATAL !!!");
+            exit(1);
+        }
+
         if (sizeof(pid_t) != recv(zInnerSd, & zResNo, sizeof(pid_t), 0)) {
             zPrint_Err_Easy("!!! FATAL !!!");
             exit(1);
