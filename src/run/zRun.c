@@ -194,10 +194,28 @@ zcode_fetch_ops(void *zp) {
         zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
         close(zSd);
 
-        pthread_exit(NULL);
+        return (void *) -1;
     }
 
-    /* 动态栈空间 */
+    /*
+     * [OPS: 0]
+     * ==== 停止旧进程 ====
+     */
+    if (0 < zOps_.oldPid) {
+        kill(zOps_.oldPid, SIGUSR1);
+        waitpid(zOps_.oldPid, NULL, 0);
+
+        zResId = 0;
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
+        close(zSd);
+
+        return NULL;
+    }
+
+    /*
+     * [OPS: 1]
+     * ==== 启动新进程 ====
+     */
     char zDataBuf[zOps_.refsEndOffSet];
 
     if (zOps_.refsEndOffSet != recv(zSd, zDataBuf, zOps_.refsEndOffSet, 0)) {
@@ -210,16 +228,6 @@ zcode_fetch_ops(void *zp) {
     zpURL = zDataBuf + zOps_.pathEndOffSet;
     zpRefs = zDataBuf + zOps_.urlEndOffSet;
 
-    /* Ops Option[0]: 停止旧进程 */
-    if (0 < zOps_.oldPid) {
-        kill(zOps_.oldPid, SIGUSR1);
-        waitpid(zOps_.oldPid, NULL, 0);
-
-        zResId = 0;
-        goto zMarkEnd;
-    }
-
-    /* Ops Option[1]: 启动新进程 */
     if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
         zResId = -1;
         goto zMarkEnd;
