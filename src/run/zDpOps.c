@@ -2844,6 +2844,10 @@ zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((
         _i zInnerSd = -1;\
         zCodeFetch__ zCodeFetch_;\
 \
+        zSourceUrlLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);\
+        zSourceBranchLen = strlen(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);\
+        zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;\
+\
         zCodeFetch_.oldPid = -1;\
         zCodeFetch_.pathEndOffSet = 1 + zRun_.p_repoVec[zRepoId]->repoPathLen;\
         zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;\
