@@ -2974,7 +2974,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
                     zpNewBranch);
 
             zRun_.p_repoVec[zRepoId]->p_localRef =
-                zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("refs/heads/:") - 1 + zSourceBranchLen;
+                zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
         }
 
         pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);

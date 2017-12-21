@@ -1316,7 +1316,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* p_localRef 指向 refs 的后半段，本身不占用空间 */
     zRun_.p_repoVec[zRepoId]->p_localRef =
-        zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("refs/heads/:") - 1 + zSourceBranchLen;
+        zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
 
     strcpy(zRun_.p_repoVec[zRepoId]->sshUserName, zpRepoMeta_->pp_fields[6]);
     strcpy(zRun_.p_repoVec[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
