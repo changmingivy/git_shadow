@@ -140,8 +140,7 @@ zgit_remote_fetch(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char
     git_fetch_init_options(&zFetchOpts, GIT_FETCH_OPTIONS_VERSION);
 
     /* do the fetch */
-    //if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, NULL)) {
-    if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "pull")) {
+    if (0 != git_remote_fetch(zRemote, &zGitRefsArray, &zFetchOpts, "fetch")) {
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {

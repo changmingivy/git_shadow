@@ -2922,7 +2922,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         {////
         /* 测试新的信息是否有效... */
-        char zRefs[sizeof("+refs/heads/%s:refs/heads/%sXXXXXXXX") + 2 * strlen(zpNewBranch)],
+        char zRefs[sizeof("+refs/heads/:refs/heads/XXXXXXXX") + 2 * strlen(zpNewBranch)],
              *zpRefs = zRefs;
         sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
                 NULL == zpNewBranch ? zRun_.p_repoVec[zRepoId]->p_codeSyncBranch : zpNewBranch,
@@ -2936,6 +2936,21 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
                 zResNo = -49;
                 goto zMarkRestart;
+        }
+
+        /*
+         * 若源库分支不存在，上述的 fetch 动作检测不到，
+         * 依然会返回 0，故需要此步进一步检测
+         */
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                zRefs,
+                0);
+        if (NULL == zpRevWalker) {
+            zResNo = -49;
+            goto zMarkRestart;
+        } else {
+            zLibGit_.destroy_revwalker(zpRevWalker);
         }
         }////
 

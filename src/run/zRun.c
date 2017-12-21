@@ -258,7 +258,7 @@ zcode_fetch_ops(void *zp) {
                 zCnter++;
 
                 if (10 < zCnter) {
-                    zLibGit_.branch_del(zpGit, zpRefs + (strlen(zpRefs) - 9) / 2 + 1);
+                    zLibGit_.branch_del(zpGit, zpRefs + (strlen(zpRefs) - 8) / 2 + 1);
                 }
 
                 /* try clean rubbish... */
