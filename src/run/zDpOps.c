@@ -2885,6 +2885,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
     char *zpNewBranch = NULL;
 
      _i zRepoId = 0;
+     _uc zNullMark = 0;
 
     _us zSourceUrlLen = 0,
         zSourceBranchLen = 0,
@@ -2928,10 +2929,12 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     } else {
         if (NULL == zpNewURL) {
+            zSet_Bit(zNullMark, 1);
             zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
         }
 
         if (NULL == zpNewBranch) {
+            zSet_Bit(zNullMark, 2);
             zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
         }
 
@@ -3025,23 +3028,28 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         }
         }////
 
-        /* update... */
-        free(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
-        free(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
-        free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
+        /*
+         * update...
+         * 值为 NULL 的项已被置位
+         */
+        if (! zCheck_Bit(zNullMark, 1)) {
+            free(zRun_.p_repoVec[zRepoId]->p_codeSyncURL);
+            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
+            strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, zpNewURL);
+        }
 
-        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, char, 1 + zSourceUrlLen);
-        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
-        zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
+        if (! zCheck_Bit(zNullMark, 2)) {
+            free(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch);
+            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, char, 1 + zSourceBranchLen);
+            strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpNewBranch);
 
-        strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncURL, zpNewURL);
-
-        strcpy(zRun_.p_repoVec[zRepoId]->p_codeSyncBranch, zpNewBranch);
-
-        sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
-                "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-                zpNewBranch,
-                zpNewBranch);
+            free(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs);
+            zMem_Alloc(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, char, 1 + zSyncRefsLen);
+            sprintf(zRun_.p_repoVec[zRepoId]->p_codeSyncRefs,
+                    "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+                    zpNewBranch,
+                    zpNewBranch);
+        }
 
         zRun_.p_repoVec[zRepoId]->p_localRef =
             zRun_.p_repoVec[zRepoId]->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
