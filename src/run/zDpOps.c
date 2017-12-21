@@ -2891,14 +2891,6 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
     } else {
-        if (NULL == zpNewURL) {
-            zpNewURL = zRun_.p_repoVec[zRepoId]->p_codeSyncURL;
-        }
-
-        if (NULL == zpNewBranch) {
-            zpNewBranch = zRun_.p_repoVec[zRepoId]->p_codeSyncBranch;
-        }
-
         {////
         /* kill code_fetch_process */
         pid_t zResNo = -1;
