@@ -26,7 +26,7 @@
     - [-P]  PostgreSQL host serv port, default '5432'
     - [-U]  PostgreSQL login name, default 'git'
     - [-F]  PostgreSQL pass file, default '$HOME/.pgpass'
-    - [-D]  which database to login, default 'dpDB'
+    - [-D]  which database to login, default 'dpDB'    
 # 二、服务接口
 #### 查询类接口
 1. 打印版本号列表
