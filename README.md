@@ -78,7 +78,7 @@
 &emsp;&emsp;运行示例截图，非必须。
 - qemu_kvm/
 &emsp;&emsp;一组 qemu/kvm 虚拟机 shell 脚本，用于快速启动测试环境，非必须。
-- log/
+- log/    
 &emsp;&emsp;shell 重定向产生的日志信息，非必须。
 # 五、宏观架构图    
 ![](http://upload-images.jianshu.io/upload_images/5142096-5210e75b9bd13380.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
