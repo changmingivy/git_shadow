@@ -1256,6 +1256,8 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }
 
     zPosixReg_.free_res(&zR_);
+
+    zNetUtils_.send_nosignal(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
     return 0;
 }
 

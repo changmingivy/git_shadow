@@ -537,7 +537,7 @@ zops_route(void *zpParam) {
         }
 
         if (14 != zOpsId) {
-            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"ErrNo\":%d,\"content\":\"[OpsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
             zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
         }
     }
