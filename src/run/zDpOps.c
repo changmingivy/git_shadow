@@ -126,9 +126,9 @@ zprint_record(cJSON *zpJRoot, _i zSd) {
         /*
          * json 前缀
          */
-        char zJsonPrefix[sizeof("{\"ErrNo\":0,\"CacheId\":%ld,\"data\":") + 16];
+        char zJsonPrefix[sizeof("{\"errNo\":0,\"cacheId\":%ld,\"data\":") + 16];
         _i zLen = sprintf(zJsonPrefix,
-                "{\"ErrNo\":0,\"CacheId\":%ld,\"data\":",
+                "{\"errNo\":0,\"cacheId\":%ld,\"data\":",
                 zRun_.p_repoVec[zRepoId]->cacheId);
 
         zNetUtils_.send_nosignal(zSd, zJsonPrefix, zLen);
@@ -286,8 +286,8 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     /*
      * json 前缀
      */
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0,\"data\":",
-            sizeof("{\"ErrNo\":0,\"data\":") - 1);
+    zNetUtils_.send_nosignal(zSd, "{\"errNo\":0,\"data\":",
+            sizeof("{\"errNo\":0,\"data\":") - 1);
 
     /*
      * 正文
@@ -482,8 +482,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
      * 差异内容的 data 是纯文本，没有 json 结构
      * 此处添加 data 对应的二维 json
      */
-    zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0,\"data\":[{\"content\":\"",
-            sizeof("{\"ErrNo\":0,\"data\":[{\"content\":\"") - 1);
+    zNetUtils_.send_nosignal(zSd, "{\"errNo\":0,\"data\":[{\"content\":\"",
+            sizeof("{\"errNo\":0,\"data\":[{\"content\":\"") - 1);
 
     /*
      * 正文
@@ -682,7 +682,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             exit(1);
         }
 
-        zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+        zNetUtils_.send_nosignal(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
     }
 
 zEndMark:
@@ -762,7 +762,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
-            "printf '{\"OpsId\":0}'>&5;"\
+            "printf '{\"opsId\":0}'>&5;"\
             "if [[ '!' != `cat<&5` ]];then exit 210;fi;"\
             "exec 5>&-;exec 5<&-;"\
 \
@@ -783,17 +783,17 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             " };"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
             "chmod 0755 ${zPath}/.git/hooks/post-update;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"OpsId\\\":14,\\\"ProjId\\\":%d,\\\"Path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_servPath,\
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,\
@@ -2751,7 +2751,7 @@ zprint_dp_process(cJSON *zpJRoot, _i zSd) {
      ****************/
     char zResBuf[8192];
     _i zResSiz = snprintf(zResBuf, 8192,
-            "{\"ErrNo\":0,\"ProjMeta\":{\"id\":%d,\"path\":\"%s\",\"AliasPath\":\"%s\",\"CreatedTime\":\"%s\"},\"RecentDpInfo\":{\"RevSig\":\"%s\",\"result\":\"%s\",\"TimeStamp\":%ld,\"TimeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"ServErr\":[%s],\"NetServToHost\":[%s],\"SSHAuth\":[%s],\"HostDisk\":[%s],\"HostPermission\":[%s],\"HostFileConflict\":[%s],\"HostPathNotExist\":[%s],\"HostDupDeploy\":[%s],\"HostAddrInvalid\":[%s],\"NetHostToServ\":[%s],\"HostLoad\":[%s],\"ReqFileNotExist\":[%s]}},\"InProcess\":{\"cnt\":%d,\"stage\":{\"HostInit\":[%s],\"ServDpOps\":[%s],\"HostRecvWaiting\":[%s],\"HostConfirmWaiting\":[%s]}}}},\"DpDataAnalysis\":{\"SuccessRate\":%.2f,\"AvgTimeSpent\":%.2f,\"ErrClassification\":{\"total\":%d,\"ServErr\":%d,\"NetServToHost\":%d,\"SSHAuth\":%d,\"HostDisk\":%d,\"HostPermission\":%d,\"HostFileConflict\":%d,\"HostPathNotExist\":%d,\"HostDupDeploy\":%d,\"HostAddrInvalid\":%d,\"NetHostToServ\":%d,\"HostLoad\":%d,\"ReqFileNotExist\":%d}},\"HostDataAnalysis\":{\"cpu\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"mem\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Net\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"IO/Disk\":{\"AvgLoad\":%.2f,\"LoadBalance\":%.2f},\"DiskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
+            "{\"errNo\":0,\"projMeta\":{\"id\":%d,\"path\":\"%s\",\"aliasPath\":\"%s\",\"createdTime\":\"%s\"},\"recentDpInfo\":{\"revSig\":\"%s\",\"result\":\"%s\",\"timeStamp\":%ld,\"timeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"servErr\":[%s],\"netServToHost\":[%s],\"sshAuth\":[%s],\"hostDisk\":[%s],\"hostPermission\":[%s],\"hostFileConflict\":[%s],\"hostPathNotExist\":[%s],\"hostDupDeploy\":[%s],\"hostAddrInvalid\":[%s],\"netHostToServ\":[%s],\"hostLoad\":[%s],\"reqFileNotExist\":[%s]}},\"inProcess\":{\"cnt\":%d,\"stage\":{\"hostInit\":[%s],\"servDpOps\":[%s],\"hostRecvWaiting\":[%s],\"hostConfirmWaiting\":[%s]}}}},\"dpDataAnalysis\":{\"successRate\":%.2f,\"avgTimeSpent\":%.2f,\"errClassification\":{\"total\":%d,\"servErr\":%d,\"netServToHost\":%d,\"sshAuth\":%d,\"hostDisk\":%d,\"hostPermission\":%d,\"hostFileConflict\":%d,\"hostPathNotExist\":%d,\"hostDupDeploy\":%d,\"hostAddrInvalid\":%d,\"netHostToServ\":%d,\"hostLoad\":%d,\"reqFileNotExist\":%d}},\"hostDataAnalysis\":{\"cpu\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"mem\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Net\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Disk\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"diskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
             zRepoId,
             zRun_.p_repoVec[zRepoId]->p_repoPath + zRun_.homePathLen,
             zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
@@ -2941,7 +2941,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
             && (NULL == zpNewURL
                 || 0 == strcmp(zpNewURL, zRun_.p_repoVec[zRepoId]->p_codeSyncURL))) {
 
-        zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+        zNetUtils_.send_nosignal(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
     } else {
         if (NULL == zpNewURL) {
             zSet_Bit(zNullMark, 1);
@@ -3072,7 +3072,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zProcessStart();
         pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
 
-        zNetUtils_.send_nosignal(zSd, "{\"ErrNo\":0}", sizeof("{\"ErrNo\":0}") - 1);
+        zNetUtils_.send_nosignal(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
     }
 
     return 0;
