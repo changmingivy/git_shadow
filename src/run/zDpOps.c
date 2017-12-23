@@ -1277,15 +1277,15 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
             goto zEndMark;\
         }\
         zCacheId = zpJ->valueint;\
-    }\
 \
-    zpJ = cJSON_V(zpJRoot, "revId");\
-    if (! cJSON_IsNumber(zpJ)) {\
-        zResNo = -1;\
-        zPrint_Err_Easy("");\
-        goto zEndMark;\
+        zpJ = cJSON_V(zpJRoot, "revId");\
+        if (! cJSON_IsNumber(zpJ)) {\
+            zResNo = -1;\
+            zPrint_Err_Easy("");\
+            goto zEndMark;\
+        }\
+        zCommitId = zpJ->valueint;\
     }\
-    zCommitId = zpJ->valueint;\
 \
     zpJ = cJSON_V(zpJRoot, "dataType");\
     if (! cJSON_IsNumber(zpJ)) {\
@@ -1548,9 +1548,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /*
      * 检查指定的版本号是否有效
      */
-    if ((0 > zCommitId)
-            || ((zCacheSiz - 1) < zCommitId)
-            || (NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data)) {
+    if (NULL == zpForceSig
+            && (0 > zCommitId
+            || (zCacheSiz - 1) < zCommitId
+            || NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data)
+            ) {
         zResNo = -3;
         zPrint_Err_Easy("commitId invalid");
         goto zCleanMark;
