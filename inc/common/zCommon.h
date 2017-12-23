@@ -4,31 +4,39 @@
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
+#define __z1 __attribute__ ((__nonnull__))
+
 typedef enum {
     zProtoTcp = 0,
     zProtoUdp = 1,
     zProtoSctp = 3,
-    zProtoNone
-} zProtoType__;
+    zProtoNone = 4
+} znet_proto_t;
 
 typedef enum {
     zIpTypeV4 = 4,
     zIpTypeV6 = 6,
-    zIpTypeNone
-} zIpType__;
+    zIpTypeNone = 9
+} zip_t;
 
 typedef enum {
     zFalse = 0,
-    zTrue = 1,
-} zBool__;
+    zTrue = 1
+} zbool_t;
+
+typedef enum {
+    zPubKeyAuth = 0,
+    zPassWordAuth = 1,
+    zNoneAuth = 3
+} znet_auth_t;
 
 typedef enum {
     zStr = 0,
     zI32 = 1,
-    zI64,
-    zF32,
-    zF64
-} zJsonValueType__;
+    zI64 = 2,
+    zF32 = 3,
+    zF64 = 4
+} zjson_value_t;
 
 
 /*
@@ -72,23 +80,22 @@ typedef enum {
 /*
  * =>>> Print Current Time <<<=
  */
-#define zPrint_Time() do {\
-    time_t ____zMarkNow = time(NULL);  /* Mark the time when this process start */\
-    struct tm *____zpCurrentTimeIf = localtime(&____zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
+#define /*_i*/ zPrint_Time(/*void*/) {\
+    time_t zMarkNow = time(NULL);  /* Mark the time when this process start */\
+    struct tm *zpCurrentTime_ = localtime(&zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
     fprintf(stderr, "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
-            ____zpCurrentTimeIf->tm_year + 1900,\
-            ____zpCurrentTimeIf->tm_mon + 1,  /* Month (0-11) */\
-            ____zpCurrentTimeIf->tm_mday,\
-            ____zpCurrentTimeIf->tm_hour,\
-            ____zpCurrentTimeIf->tm_min,\
-            ____zpCurrentTimeIf->tm_sec\
-            );\
-} while(0)
+            zpCurrentTime_->tm_year + 1900,\
+            zpCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
+            zpCurrentTime_->tm_mday,\
+            zpCurrentTime_->tm_hour,\
+            zpCurrentTime_->tm_min,\
+            zpCurrentTime_->tm_sec);\
+}
 
 /*
  * =>>> Error Management <<<=
  */
-#define zPrint_Err(zErrNo, zCause, zCustomContents) do {\
+#define zPrint_Err(zErrNo, zCause, zMsg) do {\
     zPrint_Time();\
     fprintf(stderr,\
     "\033[31;01m[ ERROR ] \033[00m"\
@@ -100,54 +107,52 @@ typedef enum {
     __FILE__,\
     __LINE__,\
     __func__,\
-    zCause == NULL? "" : zCause,\
-    (NULL == zCause) ? zCustomContents : strerror(zErrNo));\
+    NULL == (zCause) ? "" : (zCause),\
+    NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 } while(0)
 
+#define zPrint_Err_Easy(zMsg) zPrint_Err(0, NULL, (zMsg))
+#define zPrint_Err_Easy_Sys() zPrint_Err(errno, "", NULL)
+
 #define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
-    void *zpMiddleTmpPoint = zRes;\
-    if (NULL == (zpMiddleTmpPoint)) {\
+    if (NULL == (zRes)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
 #define zCheck_Null_Exit(zRes) do{\
-    void *zpMiddleTmpPoint = (zRes);\
-    if (NULL == (zpMiddleTmpPoint)) {\
+    if (NULL == (zRes)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
 #define zCheck_Negative_Return(zRes, __VA_ARGS__) do{\
-    _i zX = (zRes);\
-    if (0 > zX) {\
+    if (0 > (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
 #define zCheck_Negative_Exit(zRes) do{\
-    _i zX = (zRes);\
-    if (0 > zX) {\
+    if (0 > (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
 #define zCheck_NotZero_Exit(zRes) do{\
-    _i zX = (zRes);\
-    if (0 != zX) {\
+    if (0 != (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
 #define zCheck_Pthread_Func_Return(zRet, __VA_ARGS__) do{\
     _i zX = (zRet);\
     if (0 != zX) {\
-        zPrint_Err(zRet, #zRet " != 0", "");\
+        zPrint_Err(zX, #zRet " != 0", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
@@ -155,8 +160,8 @@ typedef enum {
 #define zCheck_Pthread_Func_Exit(zRet) do{\
     _i zX = (zRet);\
     if (0 != zX) {\
-        zPrint_Err(zRet, #zRet " != 0", "");\
-        _exit(1);\
+        zPrint_Err(zX, #zRet " != 0", "");\
+        exit(1);\
     }\
 } while(0)
 
@@ -180,20 +185,11 @@ typedef enum {
     zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
-#define zFree_Memory_Common(zpObjToFree, zpBridgePointer) do {\
-    while (NULL != zpObjToFree) {\
-        zpBridgePointer = zpObjToFree->p_next;\
-        free(zpObjToFree);\
-        zpObjToFree = zpBridgePointer;\
-    }\
-    zpObjToFree = zpBridgePointer = NULL;\
-} while(0)
-
 /*
 #define zMap_Alloc(zpRet, zType, zCnt) do {\
     if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
         zPrint_Err(0, NULL, "mmap failed!");\
-        _exit(1);\
+        exit(1);\
     }\
 } while(0)
 
@@ -203,47 +199,45 @@ typedef enum {
 */
 
 /*
- * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD 之外的所有信号，合计 26 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 24 种
  */
-#define zIgnoreAllSignal() do {\
-    _i ____zSigSet[26] = {\
+#define /*void*/ zIgnoreAllSignal(/*void*/) {\
+    _i zSigSet[24] = {\
         SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
-        SIGTERM, SIGBUS, SIGHUP, SIGUSR1, SIGSYS, SIGUSR2,\
+        SIGTERM, SIGBUS, SIGHUP, SIGSYS,\
         SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,\
         SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO\
     };\
 \
-    struct sigaction zSigActionIf;\
-    zSigActionIf.sa_handler = SIG_IGN;\
-    sigfillset(&zSigActionIf.sa_mask);\
-    zSigActionIf.sa_flags = 0;\
+    struct sigaction zSigAction_;\
+    zSigAction_.sa_handler = SIG_IGN;\
+    sigfillset(&zSigAction_.sa_mask);\
+    zSigAction_.sa_flags = 0;\
 \
-    sigaction(____zSigSet[0], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[1], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[2], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[3], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[4], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[5], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[6], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[7], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[8], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[9], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[10], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[11], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[12], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[13], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[14], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[15], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[16], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[17], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[18], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[19], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[20], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[21], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[22], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[23], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[24], &zSigActionIf, NULL);\
-    sigaction(____zSigSet[25], &zSigActionIf, NULL);\
-} while(0)
+    sigaction(zSigSet[0], &zSigAction_, NULL);\
+    sigaction(zSigSet[1], &zSigAction_, NULL);\
+    sigaction(zSigSet[2], &zSigAction_, NULL);\
+    sigaction(zSigSet[3], &zSigAction_, NULL);\
+    sigaction(zSigSet[4], &zSigAction_, NULL);\
+    sigaction(zSigSet[5], &zSigAction_, NULL);\
+    sigaction(zSigSet[6], &zSigAction_, NULL);\
+    sigaction(zSigSet[7], &zSigAction_, NULL);\
+    sigaction(zSigSet[8], &zSigAction_, NULL);\
+    sigaction(zSigSet[9], &zSigAction_, NULL);\
+    sigaction(zSigSet[10], &zSigAction_, NULL);\
+    sigaction(zSigSet[11], &zSigAction_, NULL);\
+    sigaction(zSigSet[12], &zSigAction_, NULL);\
+    sigaction(zSigSet[13], &zSigAction_, NULL);\
+    sigaction(zSigSet[14], &zSigAction_, NULL);\
+    sigaction(zSigSet[15], &zSigAction_, NULL);\
+    sigaction(zSigSet[16], &zSigAction_, NULL);\
+    sigaction(zSigSet[17], &zSigAction_, NULL);\
+    sigaction(zSigSet[18], &zSigAction_, NULL);\
+    sigaction(zSigSet[19], &zSigAction_, NULL);\
+    sigaction(zSigSet[20], &zSigAction_, NULL);\
+    sigaction(zSigSet[21], &zSigAction_, NULL);\
+    sigaction(zSigSet[22], &zSigAction_, NULL);\
+    sigaction(zSigSet[23], &zSigAction_, NULL);\
+}
 
 #endif  //  #ifndef ZCOMMON_H

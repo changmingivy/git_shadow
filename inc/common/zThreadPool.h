@@ -9,7 +9,15 @@
     #endif
 #endif
 
+#include <pthread.h>
 #include "zCommon.h"
+
+typedef struct zThreadTask__ {
+    pthread_cond_t condVar;
+
+    void * (* func) (void *);
+    void *p_param;
+} zThreadTask__ ;
 
 struct zThreadPool__ {
     void (* init) (void);

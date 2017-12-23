@@ -12,6 +12,9 @@
 #include <dirent.h>
 #include <signal.h>
 
+#include <ftw.h>
+#include <pthread.h>
+
 #ifdef _Z_BSD
     #include <netinet/in.h>
 #endif
@@ -19,23 +22,14 @@
 #include <time.h>
 #include <errno.h>
 
-static void
-zdaemonize(const char *zpWorkDir);
-
-static void *
-zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
-
-static _i
-zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
-
-static void
-zsleep(_d zSecs);
-
-static void *
-zthread_system(void *zpCmd);
-
-static _i
-zdel_linebreak(char *zpStr);
+static void zdaemonize(const char *zpWorkDir);
+static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
+static _i zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
+static void zsleep(_d zSecs);
+static void * zthread_system(void *zpCmd);
+static _i zdel_linebreak(char *zpStr);
+static _i zpath_del(char *zpPath);
+static _i zpath_cp(char *zpDestpath, char *zpSrcPath);
 
 struct zNativeUtils__ zNativeUtils_ = {
     .daemonize = zdaemonize,
@@ -47,6 +41,9 @@ struct zNativeUtils__ zNativeUtils_ = {
     .read_hunk = zget_str_content,
 
     .del_lb = zdel_linebreak,
+
+    .path_del = zpath_del,
+    .path_cp = zpath_cp
 };
 
 // /*
@@ -239,29 +236,6 @@ zthread_system(void *zpCmd) {
 }
 
 // /*
-//  * 用途：
-//  *   从字符串取按指定分割符逐一取出每个字段
-//  * 返回值:
-//  *   下一个字段的第一个字符在源字符串中的下标（index）
-//  * 参数：
-//  *   zpOffSet：定义一个整型变量赋值为0，之后循环传入此同一个变量即可
-//  *   zpBufOUT：每一次循环后，存放的是取出的字段（子字符串，将原分割符替换为了'\0'）
-//  *   zStrLen：是使用 strlen() 函数获得的源字符串的长度（不含 '\0'）
-//  * 取值完毕判断条件：
-//  *   以返回值大于 (zStrLen + 1) 为条件终止循环取字段
-//  */
-// _i
-// zget_str_field(char *zpBufOUT, char *zpStr, _i zStrLen, char zDelimiter, _i *zpOffSet) {
-//     _i i = 0;
-//     for (; (*zpOffSet < zStrLen) && (zpStr[*zpOffSet] != zDelimiter); (*zpOffSet)++) {
-//         zpBufOUT[i++] = zpStr[*zpOffSet];
-//     }
-//     zpBufOUT[i] = '\0';
-//     (*zpOffSet)++;
-//     return *zpOffSet;
-// }
-
-// /*
 //  *  检查一个目录是否已存在
 //  *  返回：1表示已存在，0表示不存在，-1表示出错
 //  */
@@ -292,4 +266,124 @@ zdel_linebreak(char *zpStr) {
     zpStrPtr[zStrLen] = '\0';
 
     return zStrLen;
+}
+
+
+/*
+ * 递归删除指定路径及其下所有子路径与文件
+ */
+static _i
+zpath_del_cb(const char *zpPath, const struct stat *zpS __attribute__ ((__unused__)),
+        int zType, struct FTW *zpF __attribute__ ((__unused__))) {
+    _c zErrNo = 0;
+
+    if (FTW_F == zType || FTW_SL == zType || FTW_SLN == zType) {
+        if (0 != unlink(zpPath)) {
+            zPrint_Err(errno, zpPath, NULL);
+            zErrNo = -1;
+        }
+    } else if (FTW_DP == zType) {
+        if (0 != rmdir(zpPath)) {
+            zPrint_Err(errno, zpPath, NULL);
+            zErrNo = -1;
+        }
+    } else {
+        zPrint_Err(0, NULL, "Unknown file type");
+    }
+
+    return zErrNo;
+}
+
+static _i
+zpath_del(char *zpPath) {
+    return nftw(zpPath, zpath_del_cb, 124, FTW_PHYS | FTW_DEPTH);
+}
+
+
+/*
+ * 递归复制指定路径自身及其下所有子路径、文件到新的位置
+ * 多线程环境必须持锁
+ */
+static pthread_mutex_t zPathCopyLock = PTHREAD_MUTEX_INITIALIZER;
+static _i zDestFd;
+static _i zRdFd, zWrFd;
+static _i zRdLen;
+static char zCopyBuf[4096];
+
+static _i
+zpath_copy_cb(const char *zpPath, const struct stat *zpS,
+        int zType, struct FTW *zpF __attribute__ ((__unused__))) {
+    if (FTW_D == zType || FTW_DNR == zType) {
+        /* 排除 '.' */
+        if ('\0' != zpPath[1]) {
+            return 0;
+        }
+
+        zCheck_Negative_Return(mkdirat(zDestFd, zpPath + 2, zpS->st_mode), -1);
+    } else if (FTW_F == zType) {
+        zCheck_Negative_Return(zRdFd = open(zpPath, O_RDONLY), -1);
+
+        if (0 > (zWrFd = openat(zDestFd, zpPath + 2,
+                        O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, zpS->st_mode))) {
+            close(zRdFd);
+            zPrint_Err(errno, zpPath + 2, NULL);
+            return -1;
+        }
+
+        while (0 < (zRdLen = read(zRdFd, zCopyBuf, 4096))) {
+            if (zRdLen != write(zWrFd, zCopyBuf, zRdLen)) {
+                close(zRdFd);
+                close(zWrFd);
+                zPrint_Err(errno, zpPath + 2, NULL);
+                return -1;
+            }
+        }
+
+        close(zRdFd);
+        close(zWrFd);
+    } else if (FTW_SL == zType || FTW_SLN == zType) {
+        zCheck_Negative_Return(zRdLen = readlink(zpPath, zCopyBuf, 4096), -1);
+        zCopyBuf[zRdLen] = '\0';
+
+        zCheck_Negative_Return(symlinkat(zCopyBuf, zDestFd, zpPath + 2), -1);
+    } else {
+        /* 文件类型无法识别 */
+        zPrint_Err(0, NULL, zpPath);
+        return -1;
+    }
+
+    return 0;
+}
+
+static _i
+zpath_cp(char *zpDestpath, char *zpSrcPath) {
+    _i zErrNo = 0;
+
+    /* 首先切换至源路径 */
+    zCheck_Negative_Return(chdir(zpSrcPath), -1);
+
+    /* 尝试创建目标路径，不必关心结果 */
+    mkdir(zpDestpath, 0755);
+
+    /*
+     * 取得目标路径的 fd
+     * 使用了全局变量，需要加锁，直到路径完全复制完成
+     */
+    pthread_mutex_lock( & zPathCopyLock );
+    if (0 > (zDestFd = open(zpDestpath, O_RDONLY|O_DIRECTORY))) {
+        zErrNo = -1;
+        zPrint_Err(errno, "", NULL);
+    } else {
+        /* 此处必须使用相对路径 "." */
+        if (0 != nftw(".", zpath_copy_cb, 124, FTW_PHYS)) {
+            zErrNo = -1;
+            zPrint_Err(errno, "", NULL);
+        }
+
+        close(zDestFd);
+    }
+
+    pthread_mutex_unlock( & zPathCopyLock );
+
+    return zErrNo;
 }

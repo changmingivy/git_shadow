@@ -17,11 +17,6 @@ cd $zShadowPath
 #git stash
 #git pull  # 有时候不希望更新到最新代码
 
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/post-update
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/post-update
-eval sed -i 's%__MASTER_ADDR%${zServAddr}%g' ./tools/zhost_self_deploy.sh
-eval sed -i 's%__MASTER_PORT%${zServPort}%g' ./tools/zhost_self_deploy.sh
-
 # killall -SIGTERM postgres
 kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+\w*\s*${zShadowPath}/tools/zauto_restart.sh)"`
 kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/bin/git_shadow)"`
@@ -50,9 +45,12 @@ zPgLibPath=${zPgPath}/lib
 zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
 
+sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
+echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
+
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
-${zPgBinPath}/createdb -O git dpDB
+${zPgBinPath}/createdb -O `whoami` dpDB
 
 # 需要 root 权限，防止 postgresql 主进程被 linux OOM_killer 杀掉
 # zPgPid=`head -1 ${zPgDataPath}/postmaster.pid`
@@ -79,6 +77,7 @@ if [[ 0 -eq $? ]]; then
         -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
         -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
         -DBUILD_SHARED_LIBS=ON \
+        -DTHREADSAFE=ON\
         -DBUILD_CLAR=OFF
     cmake --build . --target install
 fi
@@ -89,14 +88,15 @@ if [[ 0 -eq  `\ls ${zLibGitPath} | wc -l` ]]; then zLibGitPath=${zShadowPath}/li
 cd ${zShadowPath}/src &&
     make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install &&
     make clean
-# strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
+strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
-${zShadowPath}/bin/git_shadow -h $zServAddr -p $zServPort >>${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
-
-# 后台进入退出重启机制
-# ${zShadowPath}/serv_tools/zauto_restart.sh $zServAddr $zServPort &
-
+${zShadowPath}/bin/git_shadow\
+    -x ${zShadowPath}\
+    -u `whoami`\
+    -h $zServAddr\
+    -p $zServPort\
+    -U `whoami` >> ${zShadowPath}/log/ops.log 2>>${zShadowPath}/log/err.log
 
 
 ##################################################################################################

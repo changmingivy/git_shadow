@@ -13,6 +13,9 @@ struct zNativeUtils__ {
     _i (* read_hunk) (char *, size_t, FILE *);
 
     _i (* del_lb) (char *);
+
+    _i (* path_del) (char *);
+    _i (* path_cp) (char *, char *);
 };
 
 #endif  // #ifndef ZLOCALUTILS_H
