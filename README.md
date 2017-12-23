@@ -20,9 +20,9 @@
 &emsp;&emsp;- 用户无须手动配置上述 3、4 步所述需求；    
 &emsp;&emsp;- 暂不提供 rpm、deb 等预编译包。       
 
-    ---- 如下所示，将使用默认配置启动 git_shadow，监听在本地 20000 端口 ----       
-    git clone https://github.com/kt10/zgit_shadow.git /tmp/zgit_shadow2
-    sh /tmp/zgit_shadow2/serv_tools/zstart.sh ::1 20000        
+    **如下所示，将使用默认配置启动 git_shadow，监听在本地 20000 端口**              
+    git clone https://github.com/kt10/zgit_shadow.git /tmp/zgit_shadow2        
+    sh /tmp/zgit_shadow2/serv_tools/zstart.sh ::1 20000          
 #### 7. 命令行参数          
 |选项|描述|
 | :-: | :- |
@@ -59,26 +59,65 @@
 |**14**|-|
 |**15**|查询项目元信息与最近一次布署的实时状态|
 ## A、项目管理类接口    
-1. **新建项目**    
+#### [opsId 1] 新建项目    
+>1. **功能描述**       
+        
+    - 创建新项目。    
 
-2. **删除项目**    
+>2. **json 请求示例**    
+```
+{
+    "opsId": 1,
+    "projId": 9,
+    "pathOnHost": "/home/git/zgit_shadow2",
+    "sshUserName": "john",
+    "sshPort": "22",
+    "needPull": "Yes",
+    "sourceUrl": "https://github.com/kt10/zgit_shadow.git",
+    "sourceBranch": "master",
+    "sourceVcsType": "git"
+}
+```
+|字段|描述|
+| :- | :- |
+|**projId**|将要创建的项目 ID|
+|**pathOnHost**|新项目文件在目标机上的存放路径|
+|**sshUserName**|中控机使用哪个用户身份登陆该项目的所有目标机|
+|**sshPort**|本项目所有目标机的 SSH 服务端口|
+|**needPull**|[可选] 是否需要中控机主动同步源库的文件更新，可使用 "Y" "yes" "N" "no" 等，只要保证首字母为 Y 或 N 即可，不区分大小写|
+|**sourceUrl**|[条件可选] 若 needPull 为 "Y"，则必须提供源库的地址|
+|**sourceBranch**|[条件可选] 若 needPull 为 "Y"，则必须提供与源库对接的分支名称|
+|**sourceVcsType**|[条件可选] 若 needPull 为 "Y"，则必须指定源库的 VCS 类型，可使用 "G" "git" 等，以首字母判断，不区分大小写|
+>3. **json 返回示例**    
+```
+{
+    "errNo": 0,
+    "content": "..."
+}
+```
+|字段|描述|
+| :- | :- |
+|**errNo**|0 表示成功；否则表示出错|
+|**content**|errNo 非 0 时，存放错误信息|
+>4. **注意事项**       
+    - 返回成功仅表示中控机端所有动作执行成功，各项信息确认无误并写入数据库。       
+#### [opsId 4] 删除项目    
 &emsp;&emsp;暂无
 ## B、查询类接口    
-- **打印版本号列表**
+#### [opsId 9] 打印版本号列表
 
-- **打印两个版本之间的差异文件列表**
+#### [opsId 10] 打印两个版本之间的差异文件列表
 
-- **打印两个版本之间的同一个文件的差异内容**
+#### [opsId 11] 打印两个版本之间的同一个文件的差异内容
 
 ## C、布署类接口
-- #### 源库 URL 或分支名称更新    
+#### [opsId 3] 源库 URL 或分支名称更新    
 
-- #### 核心布署接口    
+#### [opsId 12] 常规布署    
 
-- #### 辅助布署接口    
+#### [opsId 13] 特殊布署    
 >1. **功能描述**       
-
-    - [opsId 13]     
+  
     - 布署到单台或少量的临时目标机;    
     - 应对特殊场景的灵活布署需求，通常用于临时测试场景；
     - 或目标机重启后，主动请求同步。     
@@ -113,8 +152,8 @@
 |**errNo**|0 表示成功；否则表示出错|
 |**content**|errNo 非 0 时，存放错误信息|
 >4. **注意事项**       
-    - 无法返回失败的目标机名单及对应的具体原因；
-    - 接口的调用会并发执行，但单次调用内部，无论指定了多少目标机，均是串行执行，无并发；
+    - 无法返回失败的目标机名单及对应的具体原因；         
+    - 接口的调用会并发执行，但单次调用内部，无论指定了多少目标机，均是串行执行，无并发；              
     - 执行结果不包含在实时进度查询接口返回的信息中。
 ## D、系统内部接口    
 **!!! ==== 仅供了解，用户无需调用 ==== !!!**      
@@ -151,3 +190,7 @@
 >- log/：shell 重定向产生的日志信息，非必须。
 # 五、宏观架构图    
 >![](http://upload-images.jianshu.io/upload_images/5142096-5210e75b9bd13380.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+
+
+
