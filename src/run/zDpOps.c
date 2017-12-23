@@ -574,7 +574,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     zpProjInfo[7] = zpJ->valuestring;
 
     if ('Y' == toupper(zpProjInfo[5][0])) {
-        zpJ = cJSON_V(zpJRoot, "sourceUrl");
+        zpJ = cJSON_V(zpJRoot, "sourceURL");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zResNo = -34;
             zPrint_Err_Easy("");
@@ -1266,7 +1266,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
  * 12：布署／撤销
  */
 #define zJson_Parse() do {  /* json 解析 */\
-    zpJ = cJSON_V(zpJRoot, "forceRev");\
+    zpJ = cJSON_V(zpJRoot, "revSig");\
     if (cJSON_IsString(zpJ) && 40 == strlen(zpJ->valuestring)) {\
         zpForceSig = zpJ->valuestring;\
     } else {\

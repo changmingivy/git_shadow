@@ -397,7 +397,7 @@ zget_file_list(void *zp) {
 
                 /* 转换为 JSON 字符串 */
                 zVecDataLen = sprintf(zCommonBuf,
-                        ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
+                        ",{\"fileId\":%d,\"filePath\":\"%s\"}",
                         i,
                         zpTmpBaseData_[2]->p_data);
 
@@ -498,7 +498,7 @@ zMarkOuter:;
 
         /* 转换为 JSON 文本 */
         zVecDataLen = sprintf(zCommonBuf,
-                "[{\"FileId\":-1,\"FilePath\":\"%s\"}",
+                "[{\"fileId\":-1,\"filePath\":\"%s\"}",
                 (0 == strcmp(zRun_.p_repoVec[zpMeta_->repoId]->lastDpSig,
                              zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ?
                 "===> 最新的已布署版本 <===" : "=> 无差异 <=");
@@ -522,7 +522,7 @@ zMarkOuter:;
 
         for (_i i = 0; i < zLineCnter; i++) {
             /* 转换为 json 文本 */
-            zVecDataLen = sprintf(zCommonBuf, ",{\"FileId\":%d,\"FilePath\":\"%s\"}",
+            zVecDataLen = sprintf(zCommonBuf, ",{\"fileId\":%d,\"filePath\":\"%s\"}",
                     zpRootNode_->pp_resHash[i]->fileId,
                     zpRootNode_->pp_resHash[i]->p_treeData);
 
@@ -653,7 +653,7 @@ zgenerate_cache(void *zp) {
         for (i = 0; i < zCacheSiz && NULL != zpRevSig[i]; i++) {
             /* 转换为JSON 文本 */
             zVecDataLen = sprintf(zCommonBuf,
-                    ",{\"RevId\":%d,\"RevSig\":\"%s\",\"RevTimeStamp\":\"%s\"}",
+                    ",{\"revId\":%d,\"revSig\":\"%s\",\"revTimeStamp\":\"%s\"}",
                     i,
                     zpRevSig[i],
                     zTimeStampVec + 16 * i);
@@ -707,7 +707,7 @@ zgenerate_cache(void *zp) {
 /*
  * 参数：项目基本信息
  * @zSdToClose 作用一：子进程凭此决定是否需要关闭此套接字；作用二：用以识别是项目载入还是项目新建
- * zpRepoMeta_->pp_field[i]: [0 repoId] [1 pathOnHost] [2 sourceUrl] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
+ * zpRepoMeta_->pp_field[i]: [0 repoId] [1 pathOnHost] [2 sourceURL] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 static _i
 zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
