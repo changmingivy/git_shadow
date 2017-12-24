@@ -1476,10 +1476,45 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zRun_.p_repoVec[zRepoId]->repoState = zCacheDamaged;
 
     /*
+     * 判断是新版本布署，还是旧版本回撤
+     */
+    if (zIsCommitDataType == zDataType) {
+        zpTopVecWrap_= & zRun_.p_repoVec[zRepoId]->commitVecWrap_;
+    } else if (zIsDpDataType == zDataType) {
+        zpTopVecWrap_ = & zRun_.p_repoVec[zRepoId]->dpVecWrap_;
+    } else {
+        zResNo = -10;  /* 无法识别 */
+        zPrint_Err_Easy("==== BUG ====");
+        goto zCleanMark;
+    }
+
+    /*
+     * 非强制指定版本号的情况下，
+     * 检查布署请求中标记的 CacheId 是否有效
+     * 检查指定的版本号是否有效
+     */
+    if (NULL == zpForceSig) {
+        if (zCacheId != zRun_.p_repoVec[zRepoId]->cacheId) {
+            zResNo = -8;
+            zPrint_Err_Easy("cacheId invalid");
+            goto zCleanMark;
+        }
+
+        if (0 > zCommitId
+                || (zCacheSiz - 1) < zCommitId
+                || NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data) {
+            zResNo = -3;
+            zPrint_Err_Easy("commitId invalid");
+            goto zCleanMark;
+        }
+    }
+
+    /*
      * 转存正在布署的版本号
      */
     if (NULL == zpForceSig) {
-        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig,
+                zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
     } else {
         strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpForceSig);
     }
@@ -1539,43 +1574,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     zPgSQL_.res_clear(zpPgResHd_, NULL);
     }////
-
-    /*
-     * 非强制指定版本号的情况下，
-     * 检查布署请求中标记的 CacheId 是否有效
-     */
-    if (NULL == zpForceSig
-            && zCacheId != zRun_.p_repoVec[zRepoId]->cacheId) {
-        zResNo = -8;
-        zPrint_Err_Easy("cacheId invalid");
-        goto zCleanMark;
-    }
-
-    /*
-     * 判断是新版本布署，还是旧版本回撤
-     */
-    if (zIsCommitDataType == zDataType) {
-        zpTopVecWrap_= & zRun_.p_repoVec[zRepoId]->commitVecWrap_;
-    } else if (zIsDpDataType == zDataType) {
-        zpTopVecWrap_ = & zRun_.p_repoVec[zRepoId]->dpVecWrap_;
-    } else {
-        zResNo = -10;  /* 无法识别 */
-        zPrint_Err_Easy("==== BUG ====");
-        goto zCleanMark;
-    }
-
-    /*
-     * 检查指定的版本号是否有效
-     */
-    if (NULL == zpForceSig
-            && (0 > zCommitId
-            || (zCacheSiz - 1) < zCommitId
-            || NULL == zpTopVecWrap_->p_refData_[zCommitId].p_data)
-            ) {
-        zResNo = -3;
-        zPrint_Err_Easy("commitId invalid");
-        goto zCleanMark;
-    }
 
     /*
      * 每次尝试将 ____shadowXXXXXXXX 分支删除
