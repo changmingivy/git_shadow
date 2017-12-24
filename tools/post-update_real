@@ -36,9 +36,6 @@ zDpingSig=`echo $1 | awk -F@ '{print $7}'`
 
 # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
 zProjAliasPath=`echo $1 | awk -F@ '{print $8}'`
-if [[ "" == ${zProjAliasPath} ]]; then
-    zProjAliasPath=${zPathOnHost}  # 未指定时，不能留空，否则接下的 chown 测试将失败
-fi
 
 zForceDpMark=`echo $1 | awk -F@ '{print $9}'`
 
@@ -112,9 +109,16 @@ fi
 
 # 检测必要的路径下是存在权限异常的文件
 mkdir -p ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-chown `whoami` ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
+chown `whoami` ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
 if [[ 0 -ne $? ]]; then
     zExitClean "E5" "`cat ${zErrLogPath}`"
+fi
+
+if [[ "" != ${zProjAliasPath} ]]; then
+    chown `whoami` ${zProjAliasPath}
+    if [[ 0 -ne $? ]]; then
+        zExitClean "E5" "`cat ${zErrLogPath}`"
+    fi
 fi
 
 # 权限无误，清除可能被创建的空目录
