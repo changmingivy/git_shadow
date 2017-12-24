@@ -1314,21 +1314,15 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 \
     /* 同一项目所有目标机的 ssh 用户名必须相同 */\
     zpJ = cJSON_V(zpJRoot, "sshUserName");\
-    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
-        zResNo = -1;\
-        zPrint_Err_Easy("");\
-        goto zEndMark;\
+    if (cJSON_IsString(zpJ) || '\0' != zpJ->valuestring[0]) {\
+        zpSSHUserName = zpJ->valuestring;\
     }\
-    zpSSHUserName = zpJ->valuestring;\
 \
     /* 同一项目所有目标机的 sshd 端口必须相同 */\
     zpJ = cJSON_V(zpJRoot, "sshPort");\
-    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {\
-        zResNo = -1;\
-        zPrint_Err_Easy("");\
-        goto zEndMark;\
+    if (cJSON_IsString(zpJ) || '\0' != zpJ->valuestring[0]) {\
+        zpSSHPort = zpJ->valuestring;\
     }\
-    zpSSHPort = zpJ->valuestring;\
 \
     zpJ = cJSON_V(zpJRoot, "postDpCmd");\
     if (cJSON_IsString(zpJ) && '\0' != zpJ->valuestring[0]) {\
@@ -1482,44 +1476,69 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zRun_.p_repoVec[zRepoId]->repoState = zCacheDamaged;
 
     /*
-     * 若 SSH 认证信息有变动，则更新之
-     * 包括项目元信息与 DB 信息
+     * 转存正在布署的版本号
      */
-    if (0 != strcmp(zpSSHUserName, zRun_.p_repoVec[zRepoId]->sshUserName)
-            || 0 != strcmp(zpSSHPort, zRun_.p_repoVec[zRepoId]->sshPort)) {
-
-        /* 更新元信息 */
-        snprintf(zRun_.p_repoVec[zRepoId]->sshUserName, 256, "%s", zpSSHUserName);
-        snprintf(zRun_.p_repoVec[zRepoId]->sshPort, 6, "%s", zpSSHPort);
-
-        /* 更新 DB */
-        sprintf(zpCommonBuf,
-                "UPDATE proj_meta SET ssh_user_name = '%s', ssh_port = '%s' WHERE proj_id = %d",
-                zpSSHUserName,
-                zpSSHPort,
-                zRepoId);
-
-        zpPgResHd_ = zPgSQL_.exec(
-                zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
-                zpCommonBuf,
-                zFalse);
-        if (NULL == zpPgResHd_) {
-            /* 长连接可能意外中断，失败重连，再试一次 */
-            zPgSQL_.conn_reset(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(
-                            zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
-                            zpCommonBuf,
-                            zFalse))) {
-                zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
-
-                /* 数据库不可用，停止服务 ? */
-                zPrint_Err_Easy("==== FATAL ====");
-                exit(1);
-            }
-        }
-
-        zPgSQL_.res_clear(zpPgResHd_, NULL);
+    if (NULL == zpForceSig) {
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+    } else {
+        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpForceSig);
     }
+
+    {////
+    /*
+     * 更新最近一次布署尝试的版本号
+     * 若 SSH 认证信息有变动，亦更新之
+     */
+    _i zLen = 0;
+    zLen = sprintf(zpCommonBuf,
+            "UPDATE proj_meta SET last_try_sig = '%s'"
+            zRun_.p_repoVec[zRepoId]->dpingSig);
+
+    if (NULL != zpSSHUserName
+            && 0 != strcmp(zpSSHUserName, zRun_.p_repoVec[zRepoId]->sshUserName)) {
+        snprintf(zRun_.p_repoVec[zRepoId]->sshUserName, 256,
+                "%s", zpSSHUserName);
+
+        zLen += sprintf(zpCommonBuf + zLen,
+                ",ssh_user_name = '%s'",
+                zpSSHUserName);
+    }
+
+    if (NULL != zpSSHPort
+            && 0 != strcmp(zpSSHPort, zRun_.p_repoVec[zRepoId]->sshPort)) {
+        snprintf(zRun_.p_repoVec[zRepoId]->sshPort, 6,
+                "%s", zpSSHPort);
+
+        zLen += sprintf(zpCommonBuf + zLen,
+                ",ssh_port = '%s'",
+                zpSSHPort);
+    }
+
+    sprintf(zpCommonBuf + zLen,
+            " WHERE proj_id = %d",
+            zRepoId);
+
+    zpPgResHd_ = zPgSQL_.exec(
+            zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+            zpCommonBuf,
+            zFalse);
+    if (NULL == zpPgResHd_) {
+        /* 长连接可能意外中断，失败重连，再试一次 */
+        zPgSQL_.conn_reset(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                        zRun_.p_repoVec[zRepoId]->p_pgConnHd_,
+                        zpCommonBuf,
+                        zFalse))) {
+            zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
+
+            /* 数据库不可用，停止服务 ? */
+            zPrint_Err_Easy("==== FATAL ====");
+            exit(1);
+        }
+    }
+
+    zPgSQL_.res_clear(zpPgResHd_, NULL);
+    }////
 
     /*
      * 非强制指定版本号的情况下，
@@ -1622,15 +1641,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 布署环节出错置位 bit[1]
      */
     zRun_.p_repoVec[zRepoId]->resType = 0;
-
-    /*
-     * 转存正在布署的版本号
-     */
-    if (NULL == zpForceSig) {
-        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
-    } else {
-        strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpForceSig);
-    }
 
     /*
      * 若目标机数量超限，则另行分配内存
@@ -2026,7 +2036,7 @@ zSkipMark:;
             sprintf(zpCommonBuf,
                     "UPDATE proj_meta SET last_dp_sig = '%s',alias_path = '%s' "
                     "WHERE proj_id = %d",
-                    zRun_.p_repoVec[zRepoId]->dpingSig,
+                    zRun_.p_repoVec[zRepoId]->lastDpSig,
                     zRun_.p_repoVec[zRepoId]->p_repoAliasPath,
                     zRepoId);
 
