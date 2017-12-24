@@ -1106,7 +1106,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * lastDpSig
          */
         sprintf(zCommonBuf,
-                "SELECT last_dp_sig,last_try_sig FROM proj_meta WHERE proj_id = %d",
+                "SELECT last_dp_sig,last_try_sig FROM proj_meta "
+                "WHERE proj_id = %d",
                 zRepoId);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_pgConnHd_);
@@ -1164,7 +1165,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          */
         sprintf(zCommonBuf,
                 "SELECT time_stamp FROM dp_log "
-                "WHERE proj_id = %d AND rev_sig = '%s' LIMIT 1"
+                "WHERE proj_id = %d AND rev_sig = '%s' LIMIT 1",
                 zRepoId,
                 zRun_.p_repoVec[zRepoId]->dpingSig);
 
