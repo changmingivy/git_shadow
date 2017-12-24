@@ -511,7 +511,7 @@ zops_route(void *zpParam) {
 
     /* 提取 value[OpsId] */
     cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
-    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "OpsId");
+    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
     if (cJSON_IsNumber(zpOpsId)) {
         zOpsId = zpOpsId->valueint;
 
