@@ -1677,16 +1677,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * ==========================
      */
     zbool_t zIsSameSig = zFalse;
+    zDpRes__ *zpTmp_ = NULL;
+
     if (0 == strcmp(zRun_.p_repoVec[zRepoId]->dpingSig,
                 zRun_.p_repoVec[zRepoId]->lastDpSig)) {
         zIsSameSig = zTrue;
-    }
-
-    /*
-     * 布署耗时基准：相同版本号重复布署时不更新
-     */
-    if (! zIsSameSig) {
-        zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = time(NULL);
     }
 
     /* 于此处更新项目结构中的强制布署标志 */
@@ -1695,151 +1690,278 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* get sys_update_lock */
     pthread_rwlock_rdlock(& zRun_.p_sysUpdateLock);
 
-    zDpRes__ *zpTmp_ = NULL;
-    for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
-        /*
-         * 检测是否存在重复IP
-         */
-        // if (NULL != zpOldDpResHash_[zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0] % zDpHashSiz]
-        //         && (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
-        //             || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1])) {
+    if (zIsSameSig) {
+        for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
+            /*
+             * 检测是否存在重复IP
+             */
+            if (NULL != zpOldDpResHash_[zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0] % zDpHashSiz]
+                    && (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                        || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1])) {
 
-        //     /* 总任务计数递减 */
-        //     zRun_.p_repoVec[zRepoId]->totalHost--;
+                /* 总任务计数递减 */
+                zRun_.p_repoVec[zRepoId]->dpTotalTask--;
 
-        //     zPrint_Err_Easy("same IP");
-        //     continue;
-        // }
-
-        /*
-         * IPnum 链表赋值
-         * 转换字符串格式的 IPaddr 为数组 _ull[2]
-         */
-        if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[i],
-                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
-
-            /* 此种错误信息记录到哪里 ??? */
-            zPrint_Err_Easy("Invalid IP");
-            continue;
-        }
-
-        /*
-         * 所在空间是使用 calloc 分配的，此处不必再手动置零
-         */
-        // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = 0;  /* 成功状态 */
-        // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState = 0;  /* 错误状态 */
-        // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].p_next = NULL;
-
-        /*
-         * 生成工作线程参数
-         */
-
-        /* 此项用作每次布署动的唯一标识 */
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].id = zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
-
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
-
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
-
-        /*
-         * 如下两项最终的值由工作线程填写，此处置 0
-         */
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
-
-        /* 目标机初始化与布署后执行命令 */
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_postDpCmd = zpPostDpCmd;
-
-        /*
-         * 清理线程时需要保持即时的状态不变
-         * 另，libssh2 部分环节需要持锁才能安全并发
-         */
-        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock =
-            & zRun_.p_repoVec[zRepoId]->dpSyncLock;
-
-        /*
-         * 更新 HashMap
-         */
-        zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[
-            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
-                % zDpHashSiz
-        ];
-
-        /*
-         * 若 HashMap 顶层为空，直接指向链表中对应的位置
-         */
-        if (NULL == zpTmp_) {
-            zRun_.p_repoVec[zRepoId]->p_dpResHash_[
-                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
-                    % zDpHashSiz
-            ] = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
-
-            /* 生成工作线程参数 */
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
-        } else {
-            while (NULL != zpTmp_->p_next) {
-                zpTmp_ = zpTmp_->p_next;
+                zPrint_Err_Easy("same IP");
+                continue;
             }
 
-            zpTmp_->p_next = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
-
-            /* 生成工作线程参数 */
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = zpTmp_->p_next;
-        }
-
-        /*
-         * 基于旧的 HashMap 检测是否是新加入的目标机
-         */
-        zpTmp_ = zpOldDpResHash_[
-            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
-                % zDpHashSiz
-        ];
-
-        while (NULL != zpTmp_) {
             /*
-             * 若目标机 IPaddr 已存在
-             * 且初始化结果是成功的
-             * 则跳过远程初始化环节
+             * IPnum 链表赋值
+             * 转换字符串格式的 IPaddr 为数组 _ull[2]
              */
-            if ( zIpVecCmp(zpTmp_->clientAddr,
-                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
-                    && zCheck_Bit(zpTmp_->resState, 1)) {
+            if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[i],
+                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
 
-                /* 置为 NULL，则布署时就不会执行目标机初始化命令 */
-                zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = NULL;
+                /* 此种错误信息记录到哪里 ??? */
+                zPrint_Err_Easy("Invalid IP");
+                continue;
+            }
 
+            /*
+             * 所在空间是使用 calloc 分配的，此处不必再手动置零
+             */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = 0;  /* 成功状态 */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState = 0;  /* 错误状态 */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].p_next = NULL;
+
+            /*
+             * 生成工作线程参数
+             */
+
+            /* 此项用作每次布署动的唯一标识 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].id = zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
+
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
+
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
+
+            /*
+             * 如下两项最终的值由工作线程填写，此处置 0
+             */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
+
+            /* 目标机初始化与布署后执行命令 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_postDpCmd = zpPostDpCmd;
+
+            /*
+             * 清理线程时需要保持即时的状态不变
+             * 另，libssh2 部分环节需要持锁才能安全并发
+             */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock =
+                & zRun_.p_repoVec[zRepoId]->dpSyncLock;
+
+            /*
+             * 更新 HashMap
+             */
+            zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                    % zDpHashSiz
+            ];
+
+            /*
+             * 若 HashMap 顶层为空，直接指向链表中对应的位置
+             */
+            if (NULL == zpTmp_) {
+                zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                        % zDpHashSiz
+                ] = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+
+                /* 生成工作线程参数 */
+                zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+            } else {
+                while (NULL != zpTmp_->p_next) {
+                    zpTmp_ = zpTmp_->p_next;
+                }
+
+                zpTmp_->p_next = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+
+                /* 生成工作线程参数 */
+                zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = zpTmp_->p_next;
+            }
+
+            /*
+             * 基于旧的 HashMap 检测是否是新加入的目标机
+             */
+            zpTmp_ = zpOldDpResHash_[
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                    % zDpHashSiz
+            ];
+
+            while (NULL != zpTmp_) {
                 /*
-                 * 若是相同版本号重复布署
-                 * 且上一次布署的结果成功，则不需要执行布署
-                 * ==== 此处的执行效率有待优化 ====
+                 * 若目标机 IPaddr 已存在
+                 * 且初始化结果是成功的
+                 * 则跳过远程初始化环节
                  */
-                if (zIsSameSig && zCheck_Bit(zpTmp_->resState, 4)) {
+                if ( zIpVecCmp(zpTmp_->clientAddr,
+                            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
+                        && zCheck_Bit(zpTmp_->resState, 4)) {
+
+                    /* 置为 NULL，则布署时就不会执行目标机初始化命令 */
+                    // zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = NULL;
+
                     /* 复制上一次的全部状态位 */
                     zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = zpTmp_->resState;
 
                     /* 总任务数递减 */
                     zRun_.p_repoVec[zRepoId]->dpTotalTask--;
+
                     goto zSkipMark;
                 }
 
-                break;
+                zpTmp_ = zpTmp_->p_next;
             }
 
-            zpTmp_ = zpTmp_->p_next;
+            /*
+             * 执行布署
+             */
+            zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
+zSki    pMark:;
         }
+    } else {
+        /* 布署耗时基准：版本号与最新的已布署版本不同时才更新 */
+        zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp = time(NULL);
 
-        /*
-         * 执行布署
-         */
-        zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
-zSkipMark:;
+        for (_i i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
+            /*
+             * 检测是否存在重复IP
+             */
+            if (NULL != zpOldDpResHash_[zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0] % zDpHashSiz]
+                    && (0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                        || 0 != zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[1])) {
+
+                /* 总任务计数递减 */
+                zRun_.p_repoVec[zRepoId]->dpTotalTask--;
+
+                zPrint_Err_Easy("same IP");
+                continue;
+            }
+
+            /*
+             * IPnum 链表赋值
+             * 转换字符串格式的 IPaddr 为数组 _ull[2]
+             */
+            if (0 != zConvert_IpStr_To_Num(zRegRes_.pp_rets[i],
+                        zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
+
+                /* 此种错误信息记录到哪里 ??? */
+                zPrint_Err_Easy("Invalid IP");
+                continue;
+            }
+
+            /*
+             * 所在空间是使用 calloc 分配的，此处不必再手动置零
+             */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].resState = 0;  /* 成功状态 */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].errState = 0;  /* 错误状态 */
+            // zRun_.p_repoVec[zRepoId]->p_dpResList_[i].p_next = NULL;
+
+            /*
+             * 生成工作线程参数
+             */
+
+            /* 此项用作每次布署动的唯一标识 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].id = zRun_.p_repoVec[zRepoId]->dpBaseTimeStamp;
+
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
+
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
+
+            /*
+             * 如下两项最终的值由工作线程填写，此处置 0
+             */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
+
+            /* 目标机初始化与布署后执行命令 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_postDpCmd = zpPostDpCmd;
+
+            /*
+             * 清理线程时需要保持即时的状态不变
+             * 另，libssh2 部分环节需要持锁才能安全并发
+             */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_ccurLock =
+                & zRun_.p_repoVec[zRepoId]->dpSyncLock;
+
+            /*
+             * 更新 HashMap
+             */
+            zpTmp_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                    % zDpHashSiz
+            ];
+
+            /*
+             * 若 HashMap 顶层为空，直接指向链表中对应的位置
+             */
+            if (NULL == zpTmp_) {
+                zRun_.p_repoVec[zRepoId]->p_dpResHash_[
+                    zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                        % zDpHashSiz
+                ] = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+
+                /* 生成工作线程参数 */
+                zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+            } else {
+                while (NULL != zpTmp_->p_next) {
+                    zpTmp_ = zpTmp_->p_next;
+                }
+
+                zpTmp_->p_next = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
+
+                /* 生成工作线程参数 */
+                zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_selfNode = zpTmp_->p_next;
+            }
+
+            /*
+             * 基于旧的 HashMap 检测是否是新加入的目标机
+             */
+            zpTmp_ = zpOldDpResHash_[
+                zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]
+                    % zDpHashSiz
+            ];
+
+            while (NULL != zpTmp_) {
+                /*
+                 * 若目标机 IPaddr 已存在
+                 * 且初始化结果是成功的
+                 * 则跳过远程初始化环节
+                 */
+                if ( zIpVecCmp(zpTmp_->clientAddr,
+                            zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)
+                        && zCheck_Bit(zpTmp_->resState, 4)) {
+
+                    /* 置为 NULL，则布署时就不会执行目标机初始化命令 */
+                    zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = NULL;
+
+                    break;
+                }
+
+                zpTmp_ = zpTmp_->p_next;
+            }
+
+            /*
+             * 执行布署
+             */
+            zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
+        }
     }
+
 
     /* release sys_update_lock */
     pthread_rwlock_unlock(& zRun_.p_sysUpdateLock);
