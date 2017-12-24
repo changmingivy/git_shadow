@@ -1825,7 +1825,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
              * 执行布署
              */
             zThreadPool_.add(zdp_ccur, & zRun_.p_repoVec[zRepoId]->p_dpCcur_[i]);
-zSki    pMark:;
+zSkipMark:;
         }
     } else {
         /* 布署耗时基准：版本号与最新的已布署版本不同时才更新 */
