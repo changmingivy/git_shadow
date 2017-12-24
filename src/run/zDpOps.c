@@ -1491,7 +1491,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     _i zLen = 0;
     zLen = sprintf(zpCommonBuf,
-            "UPDATE proj_meta SET last_try_sig = '%s'"
+            "UPDATE proj_meta SET last_try_sig = '%s'",
             zRun_.p_repoVec[zRepoId]->dpingSig);
 
     if (NULL != zpSSHUserName
