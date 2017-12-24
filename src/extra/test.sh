@@ -1,7 +1,7 @@
 #/bin/sh
 
 # 创建新项目
-# zContent="{\"opsId\":1,\"projId\":\"11\",\"pathOnHost\":\"/home/git/11_Y\",\"sourceUrl\":\"https://git.coding.net/kt10/zgit_shadow.git\",\"sourceBranch\":\"master\",\"sourceVcsType\":\"git\",\"needPull\":\"Y\",\"sshUserName\":\"git\",\"sshPort\":\"22\"}"
+# zContent="{\"opsId\":1,\"projId\":\"11\",\"pathOnHost\":\"/home/git/11_Y\",\"sourceURL\":\"https://git.coding.net/kt10/zgit_shadow.git\",\"sourceBranch\":\"master\",\"sourceVcsType\":\"git\",\"needPull\":\"Y\",\"sshUserName\":\"git\",\"sshPort\":\"22\"}"
 
 # 查询版本号列表
 zContent="{\"opsId\":9,\"projId\":11,\"dataType\":0}"
