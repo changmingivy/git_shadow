@@ -1009,7 +1009,7 @@ zdp_ccur(void *zp) {
 
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
-            zPgSQL_.res_clear(zpKeepToFree);
+            zPgSQL_.res_clear(zpKeepToFree, NULL);
 
             zpDpCcur_->errNo = -23;
             goto zEndMark;
@@ -1114,7 +1114,7 @@ zdp_ccur(void *zp) {
 
                     zpKeepToFree = zpDpCcur_->p_pgResHd_;
                     zpDpCcur_->p_pgResHd_ = NULL;
-                    zPgSQL_.res_clear(zpKeepToFree);
+                    zPgSQL_.res_clear(zpKeepToFree, NULL);
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
@@ -1131,7 +1131,7 @@ zdp_ccur(void *zp) {
 
                 zpKeepToFree = zpDpCcur_->p_pgResHd_;
                 zpDpCcur_->p_pgResHd_ = NULL;
-                zPgSQL_.res_clear(zpKeepToFree);
+                zPgSQL_.res_clear(zpKeepToFree, NULL);
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
@@ -1148,7 +1148,7 @@ zdp_ccur(void *zp) {
 
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
-            zPgSQL_.res_clear(zpKeepToFree);
+            zPgSQL_.res_clear(zpKeepToFree, NULL);
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
@@ -1165,7 +1165,7 @@ zdp_ccur(void *zp) {
 
     zpKeepToFree = zpDpCcur_->p_pgResHd_;
     zpDpCcur_->p_pgResHd_ = NULL;
-    zPgSQL_.res_clear(zpKeepToFree);
+    zPgSQL_.res_clear(zpKeepToFree, NULL);
 
     /*
      * ==== 非核心功能 ====
