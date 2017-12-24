@@ -804,7 +804,11 @@ zssh_exec_simple(const char *zpSSHUserName,
 #define zDB_Update_OR_Return(zSQLBuf) do {\
     if (NULL == (zpDpCcur_->p_pgResHd_ = zPgSQL_.exec(zpDpCcur_->p_pgConnHd_, zSQLBuf, zFalse))) {\
         zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );\
-        zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);\
+\
+        zpKeepToFree = zpDpCcur_->p_pgConnHd_;\
+        zpDpCcur_->p_pgConnHd_ = NULL;\
+        zPgSQL_.conn_clear(zpKeepToFree);\
+\
         zPrint_Err_Easy("");\
 \
         zpDpCcur_->errNo = -91;\
@@ -883,6 +887,13 @@ zdp_ccur(void *zp) {
              zGitRefsBuf[0],
              zGitRefsBuf[1]
          };
+
+    /*
+     * 执行 pg_clear 前，使用此指针替换源指针，
+     * 之后将源指针置为 NULL
+     * 防止多线程乱序执行导致崩溃
+     */
+    void *zpKeepToFree = NULL;
 
     /*
      * 并发布署窗口控制
@@ -992,8 +1003,13 @@ zdp_ccur(void *zp) {
              */
             zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
 
-            zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
-            zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
+            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+            zpDpCcur_->p_pgConnHd_ = NULL;
+            zPgSQL_.conn_clear(zpKeepToFree);
+
+            zpKeepToFree = zpDpCcur_->p_pgResHd_;
+            zpDpCcur_->p_pgResHd_ = NULL;
+            zPgSQL_.res_clear(zpKeepToFree);
 
             zpDpCcur_->errNo = -23;
             goto zEndMark;
@@ -1092,8 +1108,13 @@ zdp_ccur(void *zp) {
 
                     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
 
-                    zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
-                    zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
+                    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+                    zpDpCcur_->p_pgConnHd_ = NULL;
+                    zPgSQL_.conn_clear(zpKeepToFree);
+
+                    zpKeepToFree = zpDpCcur_->p_pgResHd_;
+                    zpDpCcur_->p_pgResHd_ = NULL;
+                    zPgSQL_.res_clear(zpKeepToFree);
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
@@ -1103,8 +1124,14 @@ zdp_ccur(void *zp) {
                 zNative_Fail_Confirm();
 
                 zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-                zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
-                zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
+
+                zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+                zpDpCcur_->p_pgConnHd_ = NULL;
+                zPgSQL_.conn_clear(zpKeepToFree);
+
+                zpKeepToFree = zpDpCcur_->p_pgResHd_;
+                zpDpCcur_->p_pgResHd_ = NULL;
+                zPgSQL_.res_clear(zpKeepToFree);
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
@@ -1114,8 +1141,14 @@ zdp_ccur(void *zp) {
             zNative_Fail_Confirm();
 
             zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-            zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
-            zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
+
+            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+            zpDpCcur_->p_pgConnHd_ = NULL;
+            zPgSQL_.conn_clear(zpKeepToFree);
+
+            zpKeepToFree = zpDpCcur_->p_pgResHd_;
+            zpDpCcur_->p_pgResHd_ = NULL;
+            zPgSQL_.res_clear(zpKeepToFree);
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
@@ -1125,8 +1158,14 @@ zdp_ccur(void *zp) {
 
     /* clean resource... */
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-    zPgSQL_.conn_clear(zpDpCcur_->p_pgConnHd_);
-    zPgSQL_.res_clear(zpDpCcur_->p_pgResHd_, NULL);
+
+    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+    zpDpCcur_->p_pgConnHd_ = NULL;
+    zPgSQL_.conn_clear(zpKeepToFree);
+
+    zpKeepToFree = zpDpCcur_->p_pgResHd_;
+    zpDpCcur_->p_pgResHd_ = NULL;
+    zPgSQL_.res_clear(zpKeepToFree);
 
     /*
      * ==== 非核心功能 ====
@@ -2087,7 +2126,7 @@ zSkipMark:;
         /*
          * 若是被新布署请求打断
          * 则清理所有尚未退出的工作线程
-         * 所有线程使的同一把锁，故而循环外统一持锁／放锁即可
+         * 所有线程使用的同一把锁，故而循环外统一持锁／放锁即可
          */
         pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
 

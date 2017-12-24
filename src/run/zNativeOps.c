@@ -603,10 +603,8 @@ zgenerate_cache(void *zp) {
         zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = i;
 
     } else if (zIsDpDataType == zpMeta_->dataType) {
-        zPgResHd__ *zpPgResHd_ = NULL;
-        zPgRes__ *zpPgRes_ = NULL;
-
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
+        zPgRes__ *zpPgRes_ = NULL;
 
         /* 须使用 DISTINCT 关键字去重 */
         sprintf(zCommonBuf,
@@ -614,18 +612,14 @@ zgenerate_cache(void *zp) {
                 "WHERE proj_id = %d ORDER BY time_stamp DESC LIMIT %d",
                 zpMeta_->repoId,
                 zCacheSiz);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
-            zPgSQL_.conn_reset(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_, zCommonBuf, zTrue))) {
-                zPgSQL_.conn_clear(zRun_.p_repoVec[zpMeta_->repoId]->p_pgConnHd_);
-                zPrint_Err_Easy("");
-                exit(1);
-            }
+        if (0 != zPgSQL_.exec_once(zRun_.pgConnInfo, zCommonBuf, & zpPgRes_)) {
+            zPrint_Err_Easy("");
+            exit(1);
         }
 
         /* 存储的是实际的对象数量 */
-        if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+        if (NULL == zpPgRes_) {
             zpTopVecWrap_->vecSiz = 0;
         } else {
             zpTopVecWrap_->vecSiz = (zCacheSiz < zpPgRes_->tupleCnt) ? zCacheSiz : zpPgRes_->tupleCnt;
@@ -642,7 +636,7 @@ zgenerate_cache(void *zp) {
             strcpy(zTimeStampVec + 16 * i, zpPgRes_->tupleRes_[i].pp_fields[1]);
         }
 
-        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
+        zPgSQL_.res_clear(NULL, zpPgRes_);
     } else {
         /* BUG! */
         zPrint_Err_Easy("");
@@ -1538,7 +1532,8 @@ zLoop:
     _i zBaseId = time(NULL) / 86400,
        zId = 0;
     for (_i zRepoId = 0; zRepoId <= zRun_.maxRepoId; zRepoId++) {
-        if (NULL == zRun_.p_repoVec[zRepoId] || 'N' == zRun_.p_repoVec[zRepoId]->initFinished) {
+        if (NULL == zRun_.p_repoVec[zRepoId]
+                || 'Y' != zRun_.p_repoVec[zRepoId]->initFinished) {
             continue;
         }
 
@@ -1549,7 +1544,7 @@ zLoop:
                     "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                     zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
                 zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
                 continue;
             } else {
@@ -1563,7 +1558,7 @@ zLoop:
                     "DROP TABLE IF EXISTS dp_log_%d_%d",
                     zRepoId, zBaseId - zId - 30);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zRun_.p_repoVec[zRepoId]->p_pgConnHd_, zCmdBuf, zFalse))) {
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
                 zPrint_Err(0, NULL, "(errno: -91) pgSQL exec failed");
                 continue;
             } else {
