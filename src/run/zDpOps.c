@@ -2145,14 +2145,14 @@ zSkipMark:;
                     // continue;
                 }
 
-                /* 此时工作线程，一定是没有释放信号量的 */
-                zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-
                 /*
                  * 终止尚未退出的线程，
                  * 之后再释放相关资源，防止 double free 错误
                  */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
+
+                /* 此时工作线程，一定是没有释放信号量的 */
+                zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
                 /* 清理未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
