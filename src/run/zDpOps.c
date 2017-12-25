@@ -902,18 +902,6 @@ zdp_ccur(void *zp) {
      */
     zCheck_Negative_Exit( sem_wait(& zRun_.dpTraficControl) );
 
-    /*
-     * when memory load > 80%
-     * waiting ...
-     */
-    pthread_mutex_lock(& (zRun_.commonLock));
-
-    while (80 < zRun_.memLoad) {
-        pthread_cond_wait(& (zRun_.commonCond), & (zRun_.commonLock));
-    }
-
-    pthread_mutex_unlock(& (zRun_.commonLock));
-
     /* 预置本次动作的日志 */
     if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
         zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
