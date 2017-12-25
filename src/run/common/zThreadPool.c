@@ -44,8 +44,6 @@ zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
 
     zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
 
-    pthread_detach( pthread_self() );
-
     /* 线程可被cancel，且cancel属性设置为立即退出 */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
@@ -72,9 +70,11 @@ zMark:
         goto zMark;
     } else {  /* 太多空闲线程时，回收资源 */
         pthread_mutex_unlock(&zStackHeaderLock);
-        pthread_cond_destroy(&(zpSelfTask->condVar));
 
+        pthread_detach( pthread_self() );
+        pthread_cond_destroy(&(zpSelfTask->condVar));
         free(zpSelfTask);
+
         return (void *) -1;
     }
 }
