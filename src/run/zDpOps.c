@@ -1179,9 +1179,9 @@ zdp_ccur(void *zp) {
     }
 
 zEndMark:
-    pthread_mutex_lock(zpDpCcur_->p_ccurLock);
+    pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
     zpDpCcur_->finMark = 1;
-    pthread_mutex_unlock(zpDpCcur_->p_ccurLock);
+    pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
 
     return NULL;
 }
@@ -1477,11 +1477,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
+     * 由于 totalHost >= dpTotalTask 永远成立，
+     * 故赋此值确保中断有效
      * dpTaskFinCnt == dpTotalTask 表示正常结束，
      * dpTaskFinCnt > dpTotalTask 表示布署被中断
      */
     zRun_.p_repoVec[zRepoId]->dpTaskFinCnt =
-        1 + zRun_.p_repoVec[zRepoId]->dpTotalTask;
+        1 + zRun_.p_repoVec[zRepoId]->totalHost;
 
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
     pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );

@@ -69,6 +69,7 @@ zLibSshPath=${zShadowPath}/lib/libssh2/lib64
 if [[ 0 -eq  `\ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib; fi
 
 # build libgit2
+# 线程安全由调度者保证，不需要此库自身保证
 mkdir ${zShadowPath}/lib/libgit2_source/____build
 if [[ 0 -eq $? ]]; then
     cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*
@@ -77,7 +78,7 @@ if [[ 0 -eq $? ]]; then
         -DLIBSSH2_INCLUDEDIR=${zShadowPath}/lib/libssh2/include \
         -DLIBSSH2_LIBDIR=`dirname ${zLibSshPath}` \
         -DBUILD_SHARED_LIBS=ON \
-        -DTHREADSAFE=ON\
+        -DTHREADSAFE=OFF\
         -DBUILD_CLAR=OFF
     cmake --build . --target install
 fi
