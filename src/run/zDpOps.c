@@ -2133,7 +2133,7 @@ zSkipMark:;
         _i i;
         for (i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
             if (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
-                while (-1 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid) {
+                while (-1 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
                     // continue;
                 }
 
