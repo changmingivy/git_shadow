@@ -1467,47 +1467,30 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * 必须首先取得 dpWaitLock，才能改变 dpingMark 的值
-     * 保证不会同时有多个线程将 dpingMark 置 0
+     * 通知可能存在的旧的布署动作终止：
+     * 阻塞等待布署主锁，用于保证同一时间，只有一个布署动作在运行
      */
-    if (0 != pthread_mutex_trylock( & zRun_.p_repoVec[zRepoId]->dpWaitLock )) {
+    if (0 != pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock))) {
         zResNo = -11;
         zPrint_Err_Easy("");
         goto zEndMark;
     }
 
-    /*
-     * 预算本函数用到的最大 BufSiz
-     * 置于取得 dpWaitLock 之后，避免取不到锁浪费内存
-     */
+    /* 预算本函数用到的最大 BufSiz */
     char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
             2048 + 4 * zRun_.p_repoVec[zRepoId]->repoPathLen + 2 * zIpListStrLen);
 
     /*
-     * ==== 布署过程标志 ====
-     * 每个布署动作开始后，会将此值置为 1，新布署请求到来，会将此值置为 0
-     * 旧的布署流程在此值不再为 1 时，会主动退出，并清理相关的工作线程
+     * dpTaskFinCnt == dpTotalTask 表示正常结束，
+     * dpTaskFinCnt > dpTotalTask 表示布署被中断
      */
-    pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-    zRun_.p_repoVec[zRepoId]->dpingMark = 0;
-    pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
+    zRun_.p_repoVec[zRepoId]->dpTaskFinCnt =
+        1 + zRun_.p_repoVec[zRepoId]->dpTotalTask;
 
-    /*
-     * 通知可能存在的旧的布署动作终止
-     */
-    pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
-
-    /*
-     * 阻塞等待布署锁：==== 主锁 ====
-     * 此锁用于保证同一时间，只有一个布署动作在运行
-     */
     pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
 
-    /*
-     * dpingMark 置 1 之后，释放 dpWaitLock
-     */
-    zRun_.p_repoVec[zRepoId]->dpingMark = 1;
-    pthread_mutex_unlock( & zRun_.p_repoVec[zRepoId]->dpWaitLock );
+    pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
+    pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
 
     /*
      * 布署过程中，标记缓存状态为 Damaged
@@ -2025,9 +2008,7 @@ zSkipMark:;
      * 或新的布署请求到达
      */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-    while (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask
-            && 1 == zRun_.p_repoVec[zRepoId]->dpingMark) {
-
+    while (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask) {
         pthread_cond_wait(
                 & zRun_.p_repoVec[zRepoId]->dpSyncCond,
                 & zRun_.p_repoVec[zRepoId]->dpSyncLock);
@@ -2037,8 +2018,11 @@ zSkipMark:;
     /*
      * 运行至此，首先要判断：是被新的布署请求中断 ？
      * 还是返回全部的部署结果 ?
+     *     dpTaskFinCnt == dpTotalTask 表示正常结束，
+     *     dpTaskFinCnt > dpTotalTask 表示布署被中断
      */
-    if (1 == zRun_.p_repoVec[zRepoId]->dpingMark) {
+    if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt
+            == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
         /*
          * 若布署成功且版本号与上一次成功布署的不同时
          * 才需要刷新缓存

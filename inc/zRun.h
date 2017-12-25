@@ -259,11 +259,6 @@ typedef struct __zRepo__ {
     char initFinished;
 
     /*
-     * 新布署请求通过改变此变量的值 (1 ===> 0) 打断旧的布署动作
-     */
-    _i dpingMark;
-
-    /*
      * 每次布署的开始时间
      * 每台目标机的耗时均基于此计算
      */
@@ -344,12 +339,6 @@ typedef struct __zRepo__ {
      */
     zDpRes__ *p_dpResList_;
     zDpRes__ *p_dpResHash_[zDpHashSiz];
-
-    /*
-     * 拿到此锁的线程才有权中止正在进行的布署动作
-     * 用于确保同一时间不会有多个中断请求
-     */
-    pthread_mutex_t dpWaitLock;
 
     /*
      * 布署主锁：同一项目同一时间只允许一套布署流程在运行
