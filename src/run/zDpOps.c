@@ -2153,7 +2153,6 @@ zSkipMark:;
                  * 之后再释放相关资源，防止 double free 错误
                  */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
-                // ??? pthread_join(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid, NULL);
 
                 /* 清理未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
