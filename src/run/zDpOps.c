@@ -875,6 +875,7 @@ zdp_ccur(void *zp) {
      */
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
     zpDpCcur_->tid = pthread_self();
+    zpDpCcur_->finMark = 0;
 
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
@@ -1179,6 +1180,7 @@ zdp_ccur(void *zp) {
     }
 
 zEndMark:
+    /* 上层调度者清理线程时，不允许线程自身主动退出 */
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
     zpDpCcur_->finMark = 1;
     pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
@@ -1785,11 +1787,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
 
-            /*
-             * 如下两项最终的值由工作线程填写，此处置 0
-             */
+            /* 工作线程返回的错误码 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
+
+            /* 预置为 -1，工作线程将自身 tid 写出后，会将其置为 0 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = -1;
 
             /* 目标机初始化与布署后执行命令 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
@@ -2130,7 +2132,11 @@ zSkipMark:;
 
         _i i;
         for (i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
-            if (0 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+            if (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+                while (-1 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid) {
+                    // continue;
+                }
+
                 /* 清理清理可能未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
                         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
