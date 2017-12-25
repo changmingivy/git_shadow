@@ -1476,10 +1476,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
-    /* 预算本函数用到的最大 BufSiz */
-    char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
-            2048 + 4 * zRun_.p_repoVec[zRepoId]->repoPathLen + 2 * zIpListStrLen);
-
     /*
      * dpTaskFinCnt == dpTotalTask 表示正常结束，
      * dpTaskFinCnt > dpTotalTask 表示布署被中断
@@ -1487,10 +1483,18 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zRun_.p_repoVec[zRepoId]->dpTaskFinCnt =
         1 + zRun_.p_repoVec[zRepoId]->dpTotalTask;
 
-    pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpLock );
-
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
     pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
+
+    if (0 != pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpLock))) {
+        zResNo = -11;
+        zPrint_Err_Easy("");
+        goto zEndMark;
+    }
+
+    /* 预算本函数用到的最大 BufSiz */
+    char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
+            2048 + 4 * zRun_.p_repoVec[zRepoId]->repoPathLen + 2 * zIpListStrLen);
 
     /*
      * 布署过程中，标记缓存状态为 Damaged
