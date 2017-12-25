@@ -137,7 +137,7 @@ typedef struct __zDpCcur__ {
     pthread_mutex_t *p_ccurLock;
 
     /* --------------------------------------
-     * 如下三项由工作线程填写，调度者不必赋值
+     * 如下多项由工作线程填写，调度者不必赋值
      * -------------------------------------- */
 
     /*
@@ -164,6 +164,12 @@ typedef struct __zDpCcur__ {
     zPgConnHd__ *p_pgConnHd_;
     zPgResHd__ *p_pgResHd_;
     zPgRes__ *p_pgRes_;
+
+
+    /*
+     * 工作线程专属的 git 句柄
+     */
+    git_repository *p_gitHandler;
 } zDpCcur__;
 
 
@@ -310,9 +316,9 @@ typedef struct __zRepo__ {
     _c repoState;
 
     /*
-     * 用于标识收集齐的结果是全部成功，还是其中有异常返回而增加的计数
-     * bit[0] 置位表示目标机初始化过程中发生错误
-     * bit[1] 置位表示布署过程中发生错误
+     * 用于标识收集齐的结果是全部成功，
+     * 还是其中有异常返回而增加的计数
+     * bit[0] 置位表示有异常
      */
     _uc resType;
 

@@ -105,9 +105,9 @@ zgit_remote_fetch(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char
     //git_remote_lookup( &zRemote, zpRepo, "origin" );  // 使用已命名分支时，调用此函数
     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
-            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
 
@@ -122,9 +122,9 @@ zgit_remote_fetch(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
-            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
 
@@ -144,9 +144,9 @@ zgit_remote_fetch(git_repository *zpRepo __z1, char *zpRemoteRepoAddr __z1, char
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
-            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
+            strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
         }
 

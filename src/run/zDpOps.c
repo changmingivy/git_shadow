@@ -835,15 +835,15 @@ zssh_exec_simple(const char *zpSSHUserName,
             pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);\
         }\
 \
-        zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 2);  /* 出错则置位 bit[1] */\
-        zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zpDpCcur_->errNo);  /* 错误码置位 */\
+        zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);  /* 出错则置位 */\
+        zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zErrNo);  /* 错误码置位 */\
         strcpy(zpDpCcur_->p_selfNode->errMsg, zErrBuf);\
         zDelSingleQuotation(zpDpCcur_->p_selfNode->errMsg);  /* 需要清除单引号 */\
 \
         snprintf(zSQLBuf, zGlobCommonBufSiz,\
                 "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "\
                 "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
-                -1 * zpDpCcur_->errNo, zpDpCcur_->p_selfNode->errMsg,\
+                -1 * zErrNo, zpDpCcur_->p_selfNode->errMsg,\
                 zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,\
                 zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig);\
 \
@@ -870,6 +870,7 @@ static void *
 zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
+    _i zErrNo = 0;
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
          zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
@@ -892,15 +893,62 @@ zdp_ccur(void *zp) {
     /* 并发布署窗口控制 */
     zCheck_Negative_Exit( sem_wait(& zRun_.dpTraficControl) );
 
+    /*
+     * 可能会被中途打断，不能释放 libgit2 内部的锁，
+     * 因此不能使用全局句柄
+     */
+    if (NULL == (zpDpCcur_->p_gitHandler
+                = zLibGit_.env_init(zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath))) {
+        /*
+         * 已确定结果为失败，全局任务完成计数 +1
+         * 若计数已满，则发出完工通知
+         */
+        pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
+        pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+
+        if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
+                == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+            pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+        }
+
+        /* 标记有错误发生，置位 */
+        zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
+
+        /* 置位为服务端错误 err1/bit[0] */
+        zSet_Bit(zpDpCcur_->p_selfNode->errState, 1);
+
+        zpDpCcur_->errNo = -46;
+        zPrint_Err_Easy("");
+        goto zEndMark;
+    }
+
     /* 提供给上层调度者的参数 */
     zpDpCcur_->tid = pthread_self();
     zpDpCcur_->finMark = 0;
 
     /* 预置本次动作的日志 */
     if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-        zpDpCcur_->errNo = -90;
+        /*
+         * 已确定结果为失败，全局任务完成计数 +1
+         * 若计数已满，则发出完工通知
+         */
+        pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
+        pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
 
+        if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
+                == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+            pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+        }
+
+        /* 标记有错误发生，置位 */
+        zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
+
+        /* 置位为服务端错误 err1/bit[0] */
+        zSet_Bit(zpDpCcur_->p_selfNode->errState, 1);
+
+        zpDpCcur_->errNo = -90;
         zPrint_Err_Easy("");
         goto zEndMark;
     } else {
@@ -918,13 +966,11 @@ zdp_ccur(void *zp) {
      * 若 SSH 命令不为 NULL，则需要执行目标机初始化环节
      */
     if (NULL != zpDpCcur_->p_cmd) {
-        if (0 == (zpDpCcur_->errNo = zssh_exec_simple(zpDpCcur_->p_userName,
+        if (0 == (zErrNo = zssh_exec_simple(zpDpCcur_->p_userName,
                         zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort, zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock, zErrBuf))) {
 
-            /*
-             * 置位 resState  bit[0]
-             */
+            /* 置位 resState  bit[0] */
             zSet_Bit(zpDpCcur_->p_selfNode->resState, 1);
 
             /*
@@ -954,17 +1000,14 @@ zdp_ccur(void *zp) {
                 pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
             }
 
-            /*
-             * 标记有错误发生
-             * 置位 resType  bit[0]
-             */
+            /* 标记有错误发生 */
             zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
 
             /*
              * 返回的错误码是负数
              * 其绝对值与错误位一一对应
              */
-            zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zpDpCcur_->errNo);
+            zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zErrNo);
 
             /* 留存错误信息，并清除单引号 */
             strcpy(zpDpCcur_->p_selfNode->errMsg, zErrBuf);
@@ -974,7 +1017,7 @@ zdp_ccur(void *zp) {
             snprintf(zSQLBuf, zGlobCommonBufSiz,
                     "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "
                     "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
-                    -1 * zpDpCcur_->errNo,
+                    -1 * zErrNo,
                     zpDpCcur_->p_selfNode->errMsg,
                     zpDpCcur_->repoId,
                     zpDpCcur_->p_hostIpStrAddr,
@@ -1048,9 +1091,9 @@ zdp_ccur(void *zp) {
             zRun_.p_repoVec[zpDpCcur_->repoId]->forceDpMark);
 
     /* 向目标机 push 布署内容 */
-    if (0 == (zpDpCcur_->errNo =
+    if (0 == (zErrNo =
                 zLibGit_.remote_push(
-                    zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler,
+                    zpDpCcur_->p_gitHandler,
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
@@ -1060,7 +1103,7 @@ zdp_ccur(void *zp) {
          * 表示未完全确定是不可恢复错误，需要重试
          * 否则可确定此台目标机布署失败
          */
-        if (-1 == zpDpCcur_->errNo) {
+        if (-1 == zErrNo) {
             char zCmdBuf[1024 + 2 * zRun_.p_repoVec[zpDpCcur_->repoId]->repoPathLen];
             if (NULL == zpDpCcur_->p_cmd) {
                 zpDpCcur_->p_cmd = zCmdBuf;
@@ -1070,15 +1113,15 @@ zdp_ccur(void *zp) {
             /*
              * 重试布署时，一律重新初始化目标机环境
              */
-            if (0 == (zpDpCcur_->errNo = zssh_exec_simple(zpDpCcur_->p_userName,
+            if (0 == (zErrNo = zssh_exec_simple(zpDpCcur_->p_userName,
                             zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
                             zCmdBuf,
                             & zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock,
                             zErrBuf))) {
 
                 /* if init-ops success, then try deploy once more... */
-                if (0 == (zpDpCcur_->errNo = zLibGit_.remote_push(
-                                zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitRepoHandler,
+                if (0 == (zErrNo = zLibGit_.remote_push(
+                                zpDpCcur_->p_gitHandler,
                                 zRemoteRepoAddrBuf,
                                 zpGitRefs, 2,
                                 zErrBuf))) {
@@ -1158,6 +1201,7 @@ zEndMark:
 
     /* clean resource... */
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
+    zLibGit_.env_clean(zpDpCcur_->p_gitHandler);
 
     return NULL;
 }
@@ -1893,11 +1937,11 @@ zSkipMark:;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
 
-            /*
-             * 如下两项最终的值由工作线程填写，此处置 0
-             */
+            /* 工作线程返回的错误码 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 0;
+
+            /* 预置为 -1，工作线程将自身 tid 写出后，会将其置为 0 */
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = -1;
 
             /* 目标机初始化与布署后执行命令 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_cmd = zpCommonBuf;
@@ -2114,10 +2158,13 @@ zSkipMark:;
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
                 pthread_join(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid, NULL);
 
-                /* 清理清理可能未释放的 PostgreSQL 资源 */
+                /* 清理未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
                         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_);
+
+                /* 清理未释放的 libgit2 资源 */
+                zLibGit_.env_clean(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_gitHandler);
             }
         }
 
@@ -2252,8 +2299,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 
                 zSet_Bit(zpTmp_->errState, zRetBit);
 
-                /* 发生错误，bit[1] 置位表示目标机布署出错返回 */
-                zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 2);
+                /* 发生错误，置位表示出错返回 */
+                zSet_Bit(zRun_.p_repoVec[zRepoId]->resType, 1);
 
                 /*
                  * 确认此台目标机会布署失败
