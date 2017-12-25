@@ -804,8 +804,6 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\
     if (NULL == (zpDpCcur_->p_pgResHd_ = zPgSQL_.exec(zpDpCcur_->p_pgConnHd_, zSQLBuf, zFalse))) {\
-        zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );\
-\
         zpKeepToFree = zpDpCcur_->p_pgConnHd_;\
         zpDpCcur_->p_pgConnHd_ = NULL;\
         zPgSQL_.conn_clear(zpKeepToFree);\
@@ -870,13 +868,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 static void *
 zdp_ccur(void *zp) {
-    /*
-     * 使上层调度者可中止本任务
-     * 必须第一时间赋值
-     */
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
-    zpDpCcur_->tid = pthread_self();
-    zpDpCcur_->finMark = 0;
 
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
@@ -897,10 +889,12 @@ zdp_ccur(void *zp) {
      */
     void *zpKeepToFree = NULL;
 
-    /*
-     * 并发布署窗口控制
-     */
+    /* 并发布署窗口控制 */
     zCheck_Negative_Exit( sem_wait(& zRun_.dpTraficControl) );
+
+    /* 提供给上层调度者的参数 */
+    zpDpCcur_->tid = pthread_self();
+    zpDpCcur_->finMark = 0;
 
     /* 预置本次动作的日志 */
     if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
@@ -955,7 +949,8 @@ zdp_ccur(void *zp) {
             /*
              * 若计数已满，则发出完工通知
              */
-            if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+            if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
+                    == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
                 pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
             }
 
@@ -988,11 +983,7 @@ zdp_ccur(void *zp) {
 
             zDB_Update_OR_Return(zSQLBuf);
 
-            /*
-             * 若初始化环节失败，则退出
-             */
-            zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
-
+            /* 若初始化环节失败，则退出 */
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
             zPgSQL_.res_clear(zpKeepToFree, NULL);
@@ -1096,8 +1087,6 @@ zdp_ccur(void *zp) {
                 } else {
                     zNative_Fail_Confirm();
 
-                    zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
-
                     zpKeepToFree = zpDpCcur_->p_pgResHd_;
                     zpDpCcur_->p_pgResHd_ = NULL;
                     zPgSQL_.res_clear(zpKeepToFree, NULL);
@@ -1112,8 +1101,6 @@ zdp_ccur(void *zp) {
                 }
             } else {
                 zNative_Fail_Confirm();
-
-                zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
                 zpKeepToFree = zpDpCcur_->p_pgResHd_;
                 zpDpCcur_->p_pgResHd_ = NULL;
@@ -1130,8 +1117,6 @@ zdp_ccur(void *zp) {
         } else {
             zNative_Fail_Confirm();
 
-            zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
             zPgSQL_.res_clear(zpKeepToFree, NULL);
@@ -1145,9 +1130,6 @@ zdp_ccur(void *zp) {
             goto zEndMark;
         }
     }
-
-    /* clean resource... */
-    zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
     zpKeepToFree = zpDpCcur_->p_pgResHd_;
     zpDpCcur_->p_pgResHd_ = NULL;
@@ -1173,6 +1155,9 @@ zEndMark:
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
     zpDpCcur_->finMark = 1;
     pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+
+    /* clean resource... */
+    zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
     return NULL;
 }
@@ -1458,28 +1443,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     /*
-     * 通知可能存在的旧的布署动作终止：
-     * 阻塞等待布署主锁，用于保证同一时间，只有一个布署动作在运行
-     */
-    if (0 != pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock))) {
-        zResNo = -11;
-        zPrint_Err_Easy("");
-        goto zEndMark;
-    }
-
-    /*
-     * 由于 totalHost >= dpTotalTask 永远成立，
-     * 故赋此值确保中断有效
-     * dpTaskFinCnt == dpTotalTask 表示正常结束，
-     * dpTaskFinCnt > dpTotalTask 表示布署被中断
-     */
-    zRun_.p_repoVec[zRepoId]->dpTaskFinCnt =
-        1 + zRun_.p_repoVec[zRepoId]->totalHost;
-
-    pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-    pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
-
-    /*
      * dpWaitLock 用于确保同一时间不会有多个新布署请求阻塞排队，
      * 避免拥塞持续布署的混乱情况
      */
@@ -1489,7 +1452,21 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
+    /*
+     * 通知可能存在的旧的布署动作终止：
+     * 阻塞等待布署主锁，用于保证同一时间，只有一个布署动作在运行
+     */
+    pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
+    zRun_.p_repoVec[zRepoId]->dpWaitMark = 1;
+    pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
+    pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
+
+    /*
+     * 持有 dpLock 的布署动作，
+     * 将 dpWaitMark 置 1
+     */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpLock));
+    zRun_.p_repoVec[zRepoId]->dpWaitMark = 0;
 
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpWaitLock));
 
@@ -2013,7 +1990,8 @@ zSkipMark:;
      * 或新的布署请求到达
      */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
-    while (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+    while (0 == zRun_.p_repoVec[zRepoId]->dpWaitMark
+            && zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask) {
         pthread_cond_wait(
                 & zRun_.p_repoVec[zRepoId]->dpSyncCond,
                 & zRun_.p_repoVec[zRepoId]->dpSyncLock);
@@ -2023,11 +2001,8 @@ zSkipMark:;
     /*
      * 运行至此，首先要判断：是被新的布署请求中断 ？
      * 还是返回全部的部署结果 ?
-     *     dpTaskFinCnt == dpTotalTask 表示正常结束，
-     *     dpTaskFinCnt > dpTotalTask 表示布署被中断
      */
-    if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt
-            == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+    if (0 == zRun_.p_repoVec[zRepoId]->dpWaitMark) {
         /*
          * 若布署成功且版本号与上一次成功布署的不同时
          * 才需要刷新缓存
@@ -2126,23 +2101,24 @@ zSkipMark:;
                     // continue;
                 }
 
+                /* 此时工作线程，一定是没有释放信号量的 */
+                zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
+
+                /*
+                 * 终止尚未退出的线程，
+                 * 线程收到 cancel 可能并不会立即终止，
+                 * 而是运行完当前的最基本单元后再终止，
+                 * 故必须要 pthread_join 等待其退出，
+                 * 之后再释放相关资源，防止 double free 错误
+                 */
+                pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
+                pthread_join(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid, NULL);
+
                 /* 清理清理可能未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
                         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_);
-
-                /* 终止线程 */
-                pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
             }
-        }
-
-        /* 被清理的线程可能没来得及释放信号量 */
-        zCheck_Negative_Exit( sem_getvalue(& zRun_.dpTraficControl, &i) );
-        i = zRun_.dpTraficLimit - i;
-
-        while(i > 0) {
-            zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-            i--;
         }
 
         pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));

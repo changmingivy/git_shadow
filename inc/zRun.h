@@ -347,6 +347,12 @@ typedef struct __zRepo__ {
     pthread_mutex_t dpWaitLock;
 
     /*
+     * 正在进行的布署会将期置为 0，
+     * 后来到达的新布署通过将其置为 1，通知旧布署终止
+     */
+    _c dpWaitMark;
+
+    /*
      * 布署主锁：同一项目同一时间只允许一套布署流程在运行
      */
     pthread_mutex_t dpLock;
