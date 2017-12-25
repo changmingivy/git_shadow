@@ -1003,13 +1003,13 @@ zdp_ccur(void *zp) {
              */
             zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
 
-            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-            zpDpCcur_->p_pgConnHd_ = NULL;
-            zPgSQL_.conn_clear(zpKeepToFree);
-
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
             zPgSQL_.res_clear(zpKeepToFree, NULL);
+
+            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+            zpDpCcur_->p_pgConnHd_ = NULL;
+            zPgSQL_.conn_clear(zpKeepToFree);
 
             zpDpCcur_->errNo = -23;
             goto zEndMark;
@@ -1108,13 +1108,13 @@ zdp_ccur(void *zp) {
 
                     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl));
 
-                    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-                    zpDpCcur_->p_pgConnHd_ = NULL;
-                    zPgSQL_.conn_clear(zpKeepToFree);
-
                     zpKeepToFree = zpDpCcur_->p_pgResHd_;
                     zpDpCcur_->p_pgResHd_ = NULL;
                     zPgSQL_.res_clear(zpKeepToFree, NULL);
+
+                    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+                    zpDpCcur_->p_pgConnHd_ = NULL;
+                    zPgSQL_.conn_clear(zpKeepToFree);
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
@@ -1125,13 +1125,13 @@ zdp_ccur(void *zp) {
 
                 zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
-                zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-                zpDpCcur_->p_pgConnHd_ = NULL;
-                zPgSQL_.conn_clear(zpKeepToFree);
-
                 zpKeepToFree = zpDpCcur_->p_pgResHd_;
                 zpDpCcur_->p_pgResHd_ = NULL;
                 zPgSQL_.res_clear(zpKeepToFree, NULL);
+
+                zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+                zpDpCcur_->p_pgConnHd_ = NULL;
+                zPgSQL_.conn_clear(zpKeepToFree);
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
@@ -1142,13 +1142,13 @@ zdp_ccur(void *zp) {
 
             zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
-            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-            zpDpCcur_->p_pgConnHd_ = NULL;
-            zPgSQL_.conn_clear(zpKeepToFree);
-
             zpKeepToFree = zpDpCcur_->p_pgResHd_;
             zpDpCcur_->p_pgResHd_ = NULL;
             zPgSQL_.res_clear(zpKeepToFree, NULL);
+
+            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+            zpDpCcur_->p_pgConnHd_ = NULL;
+            zPgSQL_.conn_clear(zpKeepToFree);
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
@@ -1159,13 +1159,13 @@ zdp_ccur(void *zp) {
     /* clean resource... */
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
-    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-    zpDpCcur_->p_pgConnHd_ = NULL;
-    zPgSQL_.conn_clear(zpKeepToFree);
-
     zpKeepToFree = zpDpCcur_->p_pgResHd_;
     zpDpCcur_->p_pgResHd_ = NULL;
     zPgSQL_.res_clear(zpKeepToFree, NULL);
+
+    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
+    zpDpCcur_->p_pgConnHd_ = NULL;
+    zPgSQL_.conn_clear(zpKeepToFree);
 
     /*
      * ==== 非核心功能 ====
@@ -1486,11 +1486,19 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
     pthread_cond_signal( &zRun_.p_repoVec[zRepoId]->dpSyncCond );
 
-    if (0 != pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpLock))) {
+    /*
+     * dpWaitLock 用于确保同一时间不会有多个新布署请求阻塞排队，
+     * 避免拥塞持续布署的混乱情况
+     */
+    if (0 != pthread_mutex_trylock(& (zRun_.p_repoVec[zRepoId]->dpWaitLock))) {
         zResNo = -11;
         zPrint_Err_Easy("");
         goto zEndMark;
     }
+
+    pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpLock));
+
+    pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpWaitLock));
 
     /* 预算本函数用到的最大 BufSiz */
     char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
@@ -2121,10 +2129,12 @@ zSkipMark:;
         _i i;
         for (i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
             if (0 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+                /* 清理清理可能未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
                         zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
                 zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_);
 
+                /* 终止线程 */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
             }
         }

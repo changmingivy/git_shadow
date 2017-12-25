@@ -341,6 +341,12 @@ typedef struct __zRepo__ {
     zDpRes__ *p_dpResHash_[zDpHashSiz];
 
     /*
+     * 用于确保同一时间不会有多个新布署请求阻塞排队，
+     * 避免拥塞持续布署的情况
+     */
+    pthread_mutex_t dpWaitLock;
+
+    /*
      * 布署主锁：同一项目同一时间只允许一套布署流程在运行
      */
     pthread_mutex_t dpLock;
