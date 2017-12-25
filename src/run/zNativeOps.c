@@ -990,7 +990,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 布署锁与布署等待锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->dpLock, NULL) );
-    zCheck_Pthread_Func_Exit( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->dpWaitLock, NULL) );
 
     /* libssh2/libgit2 等布署相关的并发锁 */
     zCheck_Pthread_Func_Exit( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->dpSyncLock, NULL) );
