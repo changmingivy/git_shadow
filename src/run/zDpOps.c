@@ -760,7 +760,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 #define zGenerate_Ssh_Cmd(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
             "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
-            "kill `ps ax -o pid,ppid,cmd | grep -oP \"^.*(?=git-receive-pack\\s+${zPathOnHost}/.git)\"`;"\
+            "kill `ps ax -o pid,ppid,cmd | grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"opsId\":0}'>&5;"\
@@ -2150,13 +2150,10 @@ zSkipMark:;
 
                 /*
                  * 终止尚未退出的线程，
-                 * 线程收到 cancel 可能并不会立即终止，
-                 * 而是运行完当前的最基本单元后再终止，
-                 * 故必须要 pthread_join 等待其退出，
                  * 之后再释放相关资源，防止 double free 错误
                  */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
-                pthread_join(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid, NULL);
+                // ??? pthread_join(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid, NULL);
 
                 /* 清理未释放的 PostgreSQL 资源 */
                 zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
