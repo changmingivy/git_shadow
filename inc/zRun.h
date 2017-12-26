@@ -157,19 +157,6 @@ typedef struct __zDpCcur__ {
      * 工作线程将自身的 Tid 写入此值
      */
     pthread_t tid;
-
-    /*
-     * 为 postgreSQL 分配的资源
-     */
-    zPgConnHd__ *p_pgConnHd_;
-    zPgResHd__ *p_pgResHd_;
-    zPgRes__ *p_pgRes_;
-
-
-    /*
-     * 工作线程专属的 git 句柄
-     */
-    git_repository *p_gitHandler;
 } zDpCcur__;
 
 

@@ -803,10 +803,8 @@ zssh_exec_simple(const char *zpSSHUserName,
 } while(0)
 
 #define zDB_Update_OR_Return(zSQLBuf) do {\
-    if (NULL == (zpDpCcur_->p_pgResHd_ = zPgSQL_.exec(zpDpCcur_->p_pgConnHd_, zSQLBuf, zFalse))) {\
-        zpKeepToFree = zpDpCcur_->p_pgConnHd_;\
-        zpDpCcur_->p_pgConnHd_ = NULL;\
-        zPgSQL_.conn_clear(zpKeepToFree);\
+    if (NULL == (zDpSource_.p_pgResHd_ = zPgSQL_.exec(zDpSource_.p_pgConnHd_, zSQLBuf, zFalse))) {\
+        zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);\
 \
         zPrint_Err_Easy("");\
 \
@@ -857,11 +855,35 @@ zssh_exec_simple(const char *zpSSHUserName,
     }\
 } while(0)
 
+struct zDpSource__ {
+    zPgConnHd__ *p_pgConnHd_;
+    zPgResHd__ *p_pgResHd_;
+
+    git_repository *p_gitHandler;
+};
+
+/*
+ * 只有被cancel时才会被触发
+ */
+static void
+zdp_canceled_cleanup(void *zp) {
+    struct zDpSource__ *zpSource_ = zp;
+
+    zPgSQL_.res_clear(zpSource_->p_pgResHd_, NULL);
+    zPgSQL_.conn_clear(zpSource_->p_pgConnHd_);
+
+    zLibGit_.env_clean(zpSource_->p_gitHandler);
+
+    zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
+}
+
 static void *
 zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
     _i zErrNo = 0;
+    struct zDpSource__ zDpSource_ = { NULL, NULL, NULL };
+
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
          zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
@@ -874,13 +896,6 @@ zdp_ccur(void *zp) {
              zGitRefsBuf[1]
          };
 
-    /*
-     * 执行 pg_clear 前，使用此指针替换源指针，
-     * 之后将源指针置为 NULL
-     * 防止多线程乱序执行导致崩溃
-     */
-    void *zpKeepToFree = NULL;
-
     /* 并发布署窗口控制 */
     zCheck_Negative_Exit( sem_wait(& zRun_.dpTraficControl) );
 
@@ -888,7 +903,7 @@ zdp_ccur(void *zp) {
      * 可能会被中途打断，不能释放 libgit2 内部的锁，
      * 因此不能使用全局句柄
      */
-    if (NULL == (zpDpCcur_->p_gitHandler
+    if (NULL == (zDpSource_.p_gitHandler
                 = zLibGit_.env_init(zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath))) {
         /* 标记有错误发生，置位 */
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
@@ -903,10 +918,15 @@ zdp_ccur(void *zp) {
 
     /* 提供给上层调度者的参数 */
     zpDpCcur_->tid = pthread_self();
+
+    /* push-pop */
+    pthread_cleanup_push(zdp_canceled_cleanup, &zDpSource_);
+
+    /* 预准备完毕，在此之前不允许被 cancel */
     zpDpCcur_->finMark = 0;
 
     /* 预置本次动作的日志 */
-    if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
+    if (NULL == (zDpSource_.p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
         /* 标记有错误发生，置位 */
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
 
@@ -991,14 +1011,8 @@ zdp_ccur(void *zp) {
 
             zDB_Update_OR_Return(zSQLBuf);
 
-            /* 若初始化环节失败，则退出 */
-            zpKeepToFree = zpDpCcur_->p_pgResHd_;
-            zpDpCcur_->p_pgResHd_ = NULL;
-            zPgSQL_.res_clear(zpKeepToFree, NULL);
-
-            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-            zpDpCcur_->p_pgConnHd_ = NULL;
-            zPgSQL_.conn_clear(zpKeepToFree);
+            zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+            zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
             zpDpCcur_->errNo = -23;
             goto zEndMark;
@@ -1058,7 +1072,7 @@ zdp_ccur(void *zp) {
     /* 向目标机 push 布署内容 */
     if (0 == (zErrNo =
                 zLibGit_.remote_push(
-                    zpDpCcur_->p_gitHandler,
+                    zDpSource_.p_gitHandler,
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
@@ -1086,7 +1100,7 @@ zdp_ccur(void *zp) {
 
                 /* if init-ops success, then try deploy once more... */
                 if (0 == (zErrNo = zLibGit_.remote_push(
-                                zpDpCcur_->p_gitHandler,
+                                zDpSource_.p_gitHandler,
                                 zRemoteRepoAddrBuf,
                                 zpGitRefs, 2,
                                 zErrBuf))) {
@@ -1095,13 +1109,8 @@ zdp_ccur(void *zp) {
                 } else {
                     zNative_Fail_Confirm();
 
-                    zpKeepToFree = zpDpCcur_->p_pgResHd_;
-                    zpDpCcur_->p_pgResHd_ = NULL;
-                    zPgSQL_.res_clear(zpKeepToFree, NULL);
-
-                    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-                    zpDpCcur_->p_pgConnHd_ = NULL;
-                    zPgSQL_.conn_clear(zpKeepToFree);
+                    zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+                    zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
@@ -1110,13 +1119,8 @@ zdp_ccur(void *zp) {
             } else {
                 zNative_Fail_Confirm();
 
-                zpKeepToFree = zpDpCcur_->p_pgResHd_;
-                zpDpCcur_->p_pgResHd_ = NULL;
-                zPgSQL_.res_clear(zpKeepToFree, NULL);
-
-                zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-                zpDpCcur_->p_pgConnHd_ = NULL;
-                zPgSQL_.conn_clear(zpKeepToFree);
+                zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+                zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
@@ -1125,13 +1129,8 @@ zdp_ccur(void *zp) {
         } else {
             zNative_Fail_Confirm();
 
-            zpKeepToFree = zpDpCcur_->p_pgResHd_;
-            zpDpCcur_->p_pgResHd_ = NULL;
-            zPgSQL_.res_clear(zpKeepToFree, NULL);
-
-            zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-            zpDpCcur_->p_pgConnHd_ = NULL;
-            zPgSQL_.conn_clear(zpKeepToFree);
+            zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+            zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
@@ -1139,13 +1138,8 @@ zdp_ccur(void *zp) {
         }
     }
 
-    zpKeepToFree = zpDpCcur_->p_pgResHd_;
-    zpDpCcur_->p_pgResHd_ = NULL;
-    zPgSQL_.res_clear(zpKeepToFree, NULL);
-
-    zpKeepToFree = zpDpCcur_->p_pgConnHd_;
-    zpDpCcur_->p_pgConnHd_ = NULL;
-    zPgSQL_.conn_clear(zpKeepToFree);
+    zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+    zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
     /*
      * ==== 非核心功能 ====
@@ -1164,9 +1158,12 @@ zEndMark:
     zpDpCcur_->finMark = 1;
     pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
 
+    /* push-pop */
+    pthread_cleanup_pop(0);
+
     /* clean resource... */
+    zLibGit_.env_clean(zDpSource_.p_gitHandler);
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-    zLibGit_.env_clean(zpDpCcur_->p_gitHandler);
 
     /* 完工计数 */
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
@@ -1768,10 +1765,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
 
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
-
             /* 工作线程返回的错误码 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
 
@@ -1907,10 +1900,6 @@ zSkipMark:;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
-
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_ = NULL;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_ = NULL;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_ = NULL;
 
             /* 工作线程返回的错误码 */
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].errNo = 0;
@@ -2120,22 +2109,8 @@ zSkipMark:;
                     // continue;
                 }
 
-                /*
-                 * 终止尚未退出的线程，
-                 * 之后再释放相关资源，防止 double free 错误
-                 */
+                /* 终止尚未退出的线程 */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
-
-                /* 此时工作线程，一定是没有释放信号量的 */
-                zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-
-                /* 清理未释放的 PostgreSQL 资源 */
-                zPgSQL_.res_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgResHd_,
-                        zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgRes_);
-                zPgSQL_.conn_clear(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_pgConnHd_);
-
-                /* 清理未释放的 libgit2 资源 */
-                zLibGit_.env_clean(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_gitHandler);
             }
         }
 
