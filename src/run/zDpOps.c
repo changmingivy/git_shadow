@@ -1847,6 +1847,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     /* 总任务数递减 */
                     zRun_.p_repoVec[zRepoId]->dpTotalTask--;
 
+                    /* 务必置为 1 */
+                    zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark = 1;
+
                     goto zSkipMark;
                 }
 
