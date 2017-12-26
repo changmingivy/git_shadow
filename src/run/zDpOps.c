@@ -695,7 +695,7 @@ zEndMark:
 //     char zErrBuf[256] = {'\0'};
 //     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 //
-//     zLibSsh_.exec(zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+//     zLibSsh_.exec(zpDpCcur_->p_hostAddr, zpDpCcur_->p_hostServPort,
 //             zpDpCcur_->p_cmd,
 //             zpDpCcur_->p_userName, zpDpCcur_->p_pubKeyPath, zpDpCcur_->p_privateKeyPath, zpDpCcur_->p_passWd, zpDpCcur_->authType,
 //             zpDpCcur_->p_remoteOutPutBuf, zpDpCcur_->remoteOutPutBufSiz,
@@ -742,7 +742,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 //
 //     zssh_exec_simple(
 //             zpDpCcur_->p_userName,
-//             zpDpCcur_->p_hostIpStrAddr,
+//             zpDpCcur_->p_hostAddr,
 //             zpDpCcur_->p_hostServPort,
 //             zpDpCcur_->p_cmd,
 //             zpDpCcur_->p_ccurLock,
@@ -809,7 +809,7 @@ zssh_exec_simple(const char *zpSSHUserName,
         zPrint_Err_Easy("");\
 \
         zpDpCcur_->errNo = -91;\
-        goto zEndMark;\
+        goto zFailMark;\
     }\
 } while(0)
 
@@ -833,7 +833,7 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "\
                 "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
                 -1 * zErrNo, zpDpCcur_->p_selfNode->errMsg,\
-                zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,\
+                zpDpCcur_->repoId, zpDpCcur_->p_hostAddr, zpDpCcur_->id,\
                 zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig);\
 \
         zDB_Update_OR_Return(zSQLBuf);\
@@ -848,7 +848,7 @@ zssh_exec_simple(const char *zpSSHUserName,
         snprintf(zSQLBuf, zGlobCommonBufSiz,\
                 "UPDATE dp_log SET host_res[2] = '1' "\
                 "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",\
-                zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,\
+                zpDpCcur_->repoId, zpDpCcur_->p_hostAddr, zpDpCcur_->id,\
                 zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig);\
 \
         zDB_Update_OR_Return(zSQLBuf);\
@@ -913,7 +913,7 @@ zdp_ccur(void *zp) {
 
         zpDpCcur_->errNo = -46;
         zPrint_Err_Easy("");
-        goto zEndMark;
+        goto zFailMark;
     }
 
     /* 提供给上层调度者的参数 */
@@ -935,14 +935,14 @@ zdp_ccur(void *zp) {
 
         zpDpCcur_->errNo = -90;
         zPrint_Err_Easy("");
-        goto zEndMark;
+        goto zFailMark;
     } else {
         snprintf(zSQLBuf, zGlobCommonBufSiz,
                 "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
                 "VALUES (%d,%ld,'%s','%s')",
                 zpDpCcur_->repoId, zpDpCcur_->id,
                 zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig,
-                zpDpCcur_->p_hostIpStrAddr);
+                zpDpCcur_->p_hostAddr);
 
         zDB_Update_OR_Return(zSQLBuf);
     }
@@ -952,7 +952,7 @@ zdp_ccur(void *zp) {
      */
     if (NULL != zpDpCcur_->p_cmd) {
         if (0 == (zErrNo = zssh_exec_simple(zpDpCcur_->p_userName,
-                        zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort, zpDpCcur_->p_cmd,
+                        zpDpCcur_->p_hostAddr, zpDpCcur_->p_hostServPort, zpDpCcur_->p_cmd,
                         zpDpCcur_->p_ccurLock, zErrBuf))) {
 
             /* 置位 resState  bit[0] */
@@ -965,26 +965,11 @@ zdp_ccur(void *zp) {
             snprintf(zSQLBuf, zGlobCommonBufSiz,
                     "UPDATE dp_log SET host_res[1] = '1' "
                     "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
-                    zpDpCcur_->repoId, zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->id,
+                    zpDpCcur_->repoId, zpDpCcur_->p_hostAddr, zpDpCcur_->id,
                     zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig);
 
             zDB_Update_OR_Return(zSQLBuf);
         } else {
-            /*
-             * 已确定结果为失败，全局任务完成计数 +1
-             */
-            pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-            zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
-            pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-
-            /*
-             * 若计数已满，则发出完工通知
-             */
-            if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
-                    == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
-                pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
-            }
-
             /* 标记有错误发生 */
             zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
 
@@ -1005,7 +990,7 @@ zdp_ccur(void *zp) {
                     -1 * zErrNo,
                     zpDpCcur_->p_selfNode->errMsg,
                     zpDpCcur_->repoId,
-                    zpDpCcur_->p_hostIpStrAddr,
+                    zpDpCcur_->p_hostAddr,
                     zpDpCcur_->id,
                     zRun_.p_repoVec[zpDpCcur_->repoId]->dpingSig);
 
@@ -1015,7 +1000,7 @@ zdp_ccur(void *zp) {
             zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
             zpDpCcur_->errNo = -23;
-            goto zEndMark;
+            goto zFailMark;
         }
     }
 
@@ -1026,7 +1011,7 @@ zdp_ccur(void *zp) {
      */
     sprintf(zRemoteRepoAddrBuf, "ssh://%s@[%s]:%s%s%s/.git",
             zpDpCcur_->p_userName,
-            zpDpCcur_->p_hostIpStrAddr,
+            zpDpCcur_->p_hostAddr,
             zpDpCcur_->p_hostServPort,
             '/' == zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath[0]? "" : "/",
             zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath + zRun_.homePathLen);
@@ -1036,7 +1021,7 @@ zdp_ccur(void *zp) {
      * 之后将其附加到分支名称上去
      * 分支名称的一个重要用途是用于捎带信息至目标机
      */
-    strcpy(zHostAddrBuf, zpDpCcur_->p_hostIpStrAddr);
+    strcpy(zHostAddrBuf, zpDpCcur_->p_hostAddr);
     for (_i i = 0; '\0' != zHostAddrBuf[i]; i++) {
         if (':' == zHostAddrBuf[i]) {
             zHostAddrBuf[i] = '_';
@@ -1076,6 +1061,10 @@ zdp_ccur(void *zp) {
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
+
+        zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+        zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
+        goto zCleanMark;
     } else {
         /*
          * 错误码为 -1 时，
@@ -1093,7 +1082,7 @@ zdp_ccur(void *zp) {
              * 重试布署时，一律重新初始化目标机环境
              */
             if (0 == (zErrNo = zssh_exec_simple(zpDpCcur_->p_userName,
-                            zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+                            zpDpCcur_->p_hostAddr, zpDpCcur_->p_hostServPort,
                             zCmdBuf,
                             zpDpCcur_->p_ccurLock,
                             zErrBuf))) {
@@ -1106,6 +1095,10 @@ zdp_ccur(void *zp) {
                                 zErrBuf))) {
 
                     zNative_Success_Confirm();
+
+                    zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
+                    zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
+                    goto zCleanMark;
                 } else {
                     zNative_Fail_Confirm();
 
@@ -1114,7 +1107,7 @@ zdp_ccur(void *zp) {
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
-                    goto zEndMark;
+                    goto zFailMark;
                 }
             } else {
                 zNative_Fail_Confirm();
@@ -1124,7 +1117,7 @@ zdp_ccur(void *zp) {
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
-                goto zEndMark;
+                goto zFailMark;
             }
         } else {
             zNative_Fail_Confirm();
@@ -1134,12 +1127,9 @@ zdp_ccur(void *zp) {
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
-            goto zEndMark;
+            goto zFailMark;
         }
     }
-
-    zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
-    zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
     /*
      * ==== 非核心功能 ====
@@ -1147,12 +1137,23 @@ zdp_ccur(void *zp) {
      */
     if (NULL != zpDpCcur_->p_postDpCmd) {
         zssh_exec_simple(zpDpCcur_->p_userName,
-                zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
+                zpDpCcur_->p_hostAddr, zpDpCcur_->p_hostServPort,
                 zpDpCcur_->p_postDpCmd,
                 zpDpCcur_->p_ccurLock, NULL);
     }
 
-zEndMark:
+zFailMark:
+    /* 完工计数 */
+    pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+    zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
+    pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+
+    if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
+            == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+        pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+    }
+
+zCleanMark:
     /* 上层调度者清理线程时，不允许线程自身主动退出 */
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
     zpDpCcur_->finMark = 1;
@@ -1164,16 +1165,6 @@ zEndMark:
     /* clean resource... */
     zLibGit_.env_clean(zDpSource_.p_gitHandler);
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
-
-    /* 完工计数 */
-    pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-    zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
-    pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-
-    if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
-            == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
-        pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
-    }
 
     return NULL;
 }

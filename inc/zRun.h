@@ -91,7 +91,7 @@ typedef struct __zDpCcur__ {
     _l id;
 
     /* 单个目标机 Ip，如："10.0.0.1" "::1" */
-    char *p_hostIpStrAddr;
+    char *p_hostAddr;
 
     /* 字符串形式的端口号，如："22" */
     char *p_hostServPort;
