@@ -1095,7 +1095,7 @@ zdp_ccur(void *zp) {
             if (0 == (zErrNo = zssh_exec_simple(zpDpCcur_->p_userName,
                             zpDpCcur_->p_hostIpStrAddr, zpDpCcur_->p_hostServPort,
                             zCmdBuf,
-                            & zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock,
+                            zpDpCcur_->p_ccurLock,
                             zErrBuf))) {
 
                 /* if init-ops success, then try deploy once more... */
