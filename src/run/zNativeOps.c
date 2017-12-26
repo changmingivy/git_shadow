@@ -575,7 +575,7 @@ zgenerate_cache(void *zp) {
         sprintf(zCommonBuf, "refs/heads/%sXXXXXXXX",
                 zRun_.p_repoVec[zpMeta_->repoId]->p_codeSyncBranch);
         if (NULL == (zpRevWalker = zLibGit_.generate_revwalker(
-                        zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
+                        zRun_.p_repoVec[zpMeta_->repoId]->p_gitCommHandler,
                         zCommonBuf,
                         0))) {
             zPrint_Err_Easy("");
@@ -585,7 +585,7 @@ zgenerate_cache(void *zp) {
                 zpRevSig[i] = zalloc_cache(zpMeta_->repoId, zBytes(44));
                 if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(
                                 zpRevSig[i],
-                                zRun_.p_repoVec[zpMeta_->repoId]->p_gitRepoHandler,
+                                zRun_.p_repoVec[zpMeta_->repoId]->p_gitCommHandler,
                                 zpRevWalker))
                         &&
                         0 != strcmp(zRun_.p_repoVec[zpMeta_->repoId]->lastDpSig, zpRevSig[i])) {
@@ -828,7 +828,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 return -30;
             } else {  /* TO DEL: 兼容旧版本 */
                 /* 全局 libgit2 Handler 初始化 */
-                if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitRepoHandler
+                if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitCommHandler
                             = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
                     zFree_Source();
                     zPrint_Err_Easy("");
@@ -837,7 +837,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
                 /* 不必关心执行结果 */
                 sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
-                zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                         zCommonBuf, "HEAD", zFalse);
 
                 /*
@@ -877,8 +877,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zCheck_NotZero_Exit( errno );
                 closedir(zpDIR);
 
-                if (0 != zLibGit_.branch_rename(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "____base.XXXXXXXX", "____baseXXXXXXXX", zTrue)) {
-                    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
+                if (0 != zLibGit_.branch_rename(zRun_.p_repoVec[zRepoId]->p_gitCommHandler, "____base.XXXXXXXX", "____baseXXXXXXXX", zTrue)) {
+                    if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitCommHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
                         zPrint_Err_Easy("");
                         return -45;
                     }
@@ -891,7 +891,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * 生成本项目 libgit2 Handler
          */
         if (0 != zLibGit_.clone(
-                    &zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    &zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                     zpRepoMeta_->pp_fields[2],
                     zRun_.p_repoVec[zRepoId]->p_repoPath, NULL, zFalse)) {
             zFree_Source();
@@ -909,7 +909,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          * 注：源库不能是空库，即：0 提交、0 分支
          */
         sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
-        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zCommonBuf, "HEAD", zFalse)) {
+        if (0 != zLibGit_.branch_add(zRun_.p_repoVec[zRepoId]->p_gitCommHandler, zCommonBuf, "HEAD", zFalse)) {
             zFree_Source();
             zErr_Return_Or_Exit(-44);
         }
@@ -957,7 +957,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         closedir(zpDIR);
 
-        if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
+        if (0 != zLibGit_.add_and_commit(zRun_.p_repoVec[zRepoId]->p_gitCommHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
             zFree_Source();
             zErr_Return_Or_Exit(-40);
         }
@@ -1116,11 +1116,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         if ('\0' == zpPgRes_->tupleRes_[0].pp_fields[0][0]) {
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                    zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                     "refs/heads/____baseXXXXXXXX",
                     0);
             if (NULL != zpRevWalker
-                    && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitRepoHandler, zpRevWalker)) {
+                    && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[zRepoId]->p_gitCommHandler, zpRevWalker)) {
                 strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
                 zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
 
@@ -1471,7 +1471,7 @@ zLoop:
                 && 'Y' == zRun_.p_repoVec[i]->initFinished) {
             /* get new revs */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                    zRun_.p_repoVec[i]->p_gitRepoHandler,
+                    zRun_.p_repoVec[i]->p_gitCommHandler,
                     zRun_.p_repoVec[i]->p_localRef,
                     0);
 
@@ -1479,7 +1479,7 @@ zLoop:
                 zPrint_Err_Easy("");
                 continue;
             } else {
-                zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[i]->p_gitRepoHandler, zpRevWalker);
+                zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf, zRun_.p_repoVec[i]->p_gitCommHandler, zpRevWalker);
                 zLibGit_.destroy_revwalker(zpRevWalker);
             }
 

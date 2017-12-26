@@ -664,12 +664,12 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
 
         zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                 "refs/heads/____baseXXXXXXXX",
                 0);
         if (NULL != zpRevWalker
                 && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf,
-                    zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                     zpRevWalker)) {
             strncpy(zRun_.p_repoVec[zRepoId]->lastDpSig, zCommonBuf, 40);
             zRun_.p_repoVec[zRepoId]->lastDpSig[40] = '\0';
@@ -859,7 +859,7 @@ struct zDpSource__ {
     zPgConnHd__ *p_pgConnHd_;
     zPgResHd__ *p_pgResHd_;
 
-    git_repository *p_gitHandler;
+    _c finMark;
 };
 
 /*
@@ -872,9 +872,9 @@ zdp_canceled_cleanup(void *zp) {
     zPgSQL_.res_clear(zpSource_->p_pgResHd_, NULL);
     zPgSQL_.conn_clear(zpSource_->p_pgConnHd_);
 
-    zLibGit_.env_clean(zpSource_->p_gitHandler);
-
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
+
+    zpSource_->finMark = 1;
 }
 
 static void *
@@ -884,7 +884,9 @@ zdp_ccur(void *zp) {
     _i zErrNo = 0;
     zpDpCcur_->errNo = 0;
 
-    struct zDpSource__ zDpSource_ = { NULL, NULL, NULL };
+    struct zDpSource__ zDpSource_;
+    zDpSource_.p_pgConnHd_ = NULL;
+    zDpSource_.p_pgResHd_ = NULL;
 
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
@@ -900,24 +902,6 @@ zdp_ccur(void *zp) {
 
     /* 并发布署窗口控制 */
     zCheck_Negative_Exit( sem_wait(& zRun_.dpTraficControl) );
-
-    /*
-     * 可能会被中途打断，不能释放 libgit2 内部的锁，
-     * 因此不能使用全局句柄
-     */
-    if (NULL == (zDpSource_.p_gitHandler
-                = zLibGit_.env_init(zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath))) {
-        /* 标记有错误发生，置位 */
-        zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
-
-        /* 置位为服务端错误 err1/bit[0] */
-        zSet_Bit(zpDpCcur_->p_selfNode->errState, 1);
-
-        zpDpCcur_->errNo = -46;
-        zPrint_Err_Easy("");
-
-        goto zEndMark;
-    }
 
     /* 提供给上层调度者的参数 */
     zpDpCcur_->tid = pthread_self();
@@ -1062,7 +1046,7 @@ zdp_ccur(void *zp) {
     /* 向目标机 push 布署内容 */
     if (0 == (zErrNo =
                 zLibGit_.remote_push(
-                    zDpSource_.p_gitHandler,
+                    zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitDpHandler,
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2, zErrBuf))) {
         zNative_Success_Confirm();
@@ -1095,7 +1079,7 @@ zdp_ccur(void *zp) {
 
                 /* if init-ops success, then try deploy once more... */
                 if (0 == (zErrNo = zLibGit_.remote_push(
-                                zDpSource_.p_gitHandler,
+                                zRun_.p_repoVec[zpDpCcur_->repoId]->p_gitDpHandler,
                                 zRemoteRepoAddrBuf,
                                 zpGitRefs, 2,
                                 zErrBuf))) {
@@ -1155,7 +1139,11 @@ zdp_ccur(void *zp) {
 zEndMark:
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
 
-    /* 上层调度者清理线程时，不允许线程自身主动退出 */
+    /*
+     * 上层调度者清理线程时，
+     * 不允许线程自身主动退出
+     * 故要在锁内赋值
+     */
     zpDpCcur_->finMark = 1;
 
     /* 任务完工计数 */
@@ -1176,7 +1164,6 @@ zEndMark:
     pthread_cleanup_pop(0);
 
     /* clean resource... */
-    zLibGit_.env_clean(zDpSource_.p_gitHandler);
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
     return NULL;
@@ -1490,10 +1477,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     pthread_mutex_unlock(& (zRun_.p_repoVec[zRepoId]->dpWaitLock));
 
-    /* 预算本函数用到的最大 BufSiz */
-    char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
-            2048 + 4 * zRun_.p_repoVec[zRepoId]->repoPathLen + 2 * zIpListStrLen);
-
     /*
      * 布署过程中，标记缓存状态为 Damaged
      */
@@ -1542,6 +1525,63 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     } else {
         strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpForceSig);
     }
+
+    /*
+     * 每次尝试将 ____shadowXXXXXXXX 分支删除
+     * 避免该分支体积过大，不必关心执行结果
+     */
+    zLibGit_.branch_del(
+            zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
+            "____shadowXXXXXXXX");
+
+    /*
+     * 执行一次空提交到 ____shadowXXXXXXXX 分支
+     * 确保每次 push 都能触发 post-update 勾子
+     */
+    if (0 != zLibGit_.add_and_commit(
+                zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
+                "refs/heads/____shadowXXXXXXXX", ".", "_")) {
+        zResNo = -15;
+        zPrint_Err_Easy("libgit2 err");
+        goto zCleanMark;
+    }
+
+    /*
+     * 目标机 IP 列表处理
+     * 使用定制的 alloc 函数，从项目内存池中分配内存
+     * 需要检查目标机集合是否为空，或数量不符
+     */
+    zRegRes__ zRegRes_ = {
+        .alloc_fn = zNativeOps_.alloc,
+        .repoId = zRepoId
+    };
+
+    zPosixReg_.str_split(&zRegRes_, zpIpList, zpDelim);
+
+    if (0 == zRegRes_.cnt || zIpCnt != zRegRes_.cnt) {
+        zPrint_Err_Easy("host IPs'cnt err");
+        zResNo = -28;
+        goto zCleanMark;
+    }
+
+    /*
+     * 工作线程可能会被中途打断，
+     * 不能释放 libgit2 内部的锁，
+     * 因此不能使用全局公用 handler
+     */
+    if (NULL == (zRun_.p_repoVec[zRepoId]->p_gitDpHandler
+                = zLibGit_.env_init(zRun_.p_repoVec[zRepoId]->p_repoPath))) {
+        zPrint_Err_Easy("libgit2 env_init err");
+        zResNo = -46;
+        goto zCleanMark;
+    }
+
+    /*
+     * 预算本函数用到的最大 BufSiz
+     * 在所有同步错误检查通过之后分配
+     */
+    char *zpCommonBuf = zNativeOps_.alloc(zRepoId,
+            2048 + 4 * zRun_.p_repoVec[zRepoId]->repoPathLen + 2 * zIpListStrLen);
 
     {////
     /*
@@ -1598,44 +1638,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     zPgSQL_.res_clear(zpPgResHd_, NULL);
     }////
-
-    /*
-     * 每次尝试将 ____shadowXXXXXXXX 分支删除
-     * 避免该分支体积过大，不必关心执行结果
-     */
-    zLibGit_.branch_del(
-            zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-            "____shadowXXXXXXXX");
-
-    /*
-     * 执行一次空提交到 ____shadowXXXXXXXX 分支
-     * 确保每次 push 都能触发 post-update 勾子
-     */
-    if (0 != zLibGit_.add_and_commit(
-                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
-                "refs/heads/____shadowXXXXXXXX", ".", "_")) {
-        zResNo = -15;
-        zPrint_Err_Easy("libgit2 err");
-        goto zCleanMark;
-    }
-
-    /*
-     * 目标机 IP 列表处理
-     * 使用定制的 alloc 函数，从项目内存池中分配内存
-     * 需要检查目标机集合是否为空，或数量不符
-     */
-    zRegRes__ zRegRes_ = {
-        .alloc_fn = zNativeOps_.alloc,
-        .repoId = zRepoId
-    };
-
-    zPosixReg_.str_split(&zRegRes_, zpIpList, zpDelim);
-
-    if (0 == zRegRes_.cnt || zIpCnt != zRegRes_.cnt) {
-        zPrint_Err_Easy("host IPs'cnt err");
-        zResNo = -28;
-        goto zCleanMark;
-    }
 
     /*
      * 布署环境检测无误
@@ -1699,11 +1701,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             0, zDpHashSiz * sizeof(zDpRes__ *));
 
     /*
-     * 生成目标机初始化的命令
-     */
-    zGenerate_Ssh_Cmd(zpCommonBuf, zRepoId);
-
-    /*
      * ==========================
      * ==== 正式开始布署动作 ====
      * ==========================
@@ -1715,6 +1712,11 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zRun_.p_repoVec[zRepoId]->lastDpSig)) {
         zIsSameSig = zTrue;
     }
+
+    /*
+     * 生成目标机初始化的命令
+     */
+    zGenerate_Ssh_Cmd(zpCommonBuf, zRepoId);
 
     /* 于此处更新项目结构中的强制布署标志 */
     zRun_.p_repoVec[zRepoId]->forceDpMark = zForceDpMark;
@@ -2033,7 +2035,7 @@ zSkipMark:;
              * 创建一个新分支，用于保证回撤的绝对可行性
              */
             if (0 != zLibGit_.branch_add(
-                        zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                        zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                         zRun_.p_repoVec[zRepoId]->lastDpSig,
                         zRun_.p_repoVec[zRepoId]->lastDpSig,
                         zTrue)) {
@@ -2111,11 +2113,21 @@ zSkipMark:;
         for (i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
             if (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
                 while (-1 == zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
-                    // continue;
+                    // 等待工作线程准备工作完成;
                 }
 
                 /* 终止尚未退出的线程 */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
+
+                while (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+                    // 等待工作线程执行完 pthread_cleanup_push/pop 注册的动作
+                }
+            }
+        }
+
+        for (i = 0; i < zRun_.p_repoVec[zRepoId]->totalHost; i++) {
+            while (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
+                // 等待工作线程执行完 pthread_cleanup_push/pop 注册的动作
             }
         }
 
@@ -2124,6 +2136,9 @@ zSkipMark:;
         zResNo = -127;
         zPrint_Err_Easy("Deploy interrupted");
     }
+
+    /* 清理本次布署新开启的 handler */
+    zLibGit_.env_clean(zRun_.p_repoVec[zRepoId]->p_gitDpHandler);
 
 zCleanMark:
     /* ==== 释放布署主锁 ==== */
@@ -3137,7 +3152,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
                 zpNewBranch, zpNewBranch);
         if (0 > zLibGit_.remote_fetch(
-                    zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                    zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                     zpNewURL,
                     &zpRefs, 1,
                     zErrBuf)) {
@@ -3152,7 +3167,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
          * 依然会返回 0，故需要此步进一步检测
          */
         zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                zRun_.p_repoVec[zRepoId]->p_gitRepoHandler,
+                zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
                 zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
                 0);
         if (NULL == zpRevWalker) {

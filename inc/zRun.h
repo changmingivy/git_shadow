@@ -266,7 +266,12 @@ typedef struct __zRepo__ {
     /*
      * 本项目全局 git handler
      */
-    git_repository *p_gitRepoHandler;
+    git_repository *p_gitCommHandler;
+
+    /*
+     * 每次布署动作都要新开启一个 handler
+     */
+    git_repository *p_gitDpHandler;
 
     /*
      * 本项目全局 postgreSQL handler
