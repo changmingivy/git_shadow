@@ -2003,7 +2003,8 @@ zSkipMark:;
      */
     pthread_mutex_lock(& (zRun_.p_repoVec[zRepoId]->dpSyncLock));
     while (0 == zRun_.p_repoVec[zRepoId]->dpWaitMark
-            && zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+            && (zRun_.p_repoVec[zRepoId]->dpOpsFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask
+            || zRun_.p_repoVec[zRepoId]->dpTaskFinCnt < zRun_.p_repoVec[zRepoId]->dpTotalTask)) {
         pthread_cond_wait(
                 & zRun_.p_repoVec[zRepoId]->dpSyncCond,
                 & zRun_.p_repoVec[zRepoId]->dpSyncLock);
