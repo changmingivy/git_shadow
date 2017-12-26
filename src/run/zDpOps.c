@@ -859,7 +859,7 @@ struct zDpSource__ {
     zPgConnHd__ *p_pgConnHd_;
     zPgResHd__ *p_pgResHd_;
 
-    _c finMark;
+    _c *p_finMark;
 };
 
 /*
@@ -874,7 +874,7 @@ zdp_canceled_cleanup(void *zp) {
 
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
 
-    zpSource_->finMark = 1;
+    * zpSource_->p_finMark = 1;
 }
 
 static void *
@@ -884,9 +884,11 @@ zdp_ccur(void *zp) {
     _i zErrNo = 0;
     zpDpCcur_->errNo = 0;
 
-    struct zDpSource__ zDpSource_;
-    zDpSource_.p_pgConnHd_ = NULL;
-    zDpSource_.p_pgResHd_ = NULL;
+    struct zDpSource__ zDpSource_ = {
+        NULL,
+        NULL,
+        & zpDpCcur_->finMark
+    };
 
     char zErrBuf[256] = {'\0'},
          zSQLBuf[zGlobCommonBufSiz] = {'\0'},
@@ -2118,10 +2120,6 @@ zSkipMark:;
 
                 /* 终止尚未退出的线程 */
                 pthread_cancel(zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].tid);
-
-                while (1 != zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].finMark) {
-                    // 等待工作线程执行完 pthread_cleanup_push/pop 注册的动作
-                }
             }
         }
 
