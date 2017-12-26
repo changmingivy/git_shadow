@@ -1275,7 +1275,7 @@ zspec_deploy(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
          * 此处串行布署即可
          */
         for (_i i = 0; i < zR_.cnt; i++) {
-            zDp_.p_hostIpStrAddr = zR_.pp_rets[i];
+            zDp_.p_hostAddr = zR_.pp_rets[i];
 
             /*
              * 执行布署
@@ -1766,7 +1766,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostAddr = zRegRes_.pp_rets[i];
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
 
             /* 工作线程返回的错误码 */
@@ -1902,7 +1902,7 @@ zSkipMark:;
 
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].repoId = zRepoId;
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_userName = zRun_.p_repoVec[zRepoId]->sshUserName;
-            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostIpStrAddr = zRegRes_.pp_rets[i];
+            zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostAddr = zRegRes_.pp_rets[i];
             zRun_.p_repoVec[zRepoId]->p_dpCcur_[i].p_hostServPort = zRun_.p_repoVec[zRepoId]->sshPort;
 
             /* 工作线程返回的错误码 */
