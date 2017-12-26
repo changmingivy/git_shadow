@@ -826,15 +826,6 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zNative_Fail_Confirm() do {\
     if (-1 != zpDpCcur_->id) {\
-        pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);\
-\
-        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;\
-\
-        pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);\
-        if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {\
-            pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);\
-        }\
-\
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);  /* 出错则置位 */\
         zSet_Bit(zpDpCcur_->p_selfNode->errState, -1 * zErrNo);  /* 错误码置位 */\
         strcpy(zpDpCcur_->p_selfNode->errMsg, zErrBuf);\
@@ -899,19 +890,6 @@ zdp_ccur(void *zp) {
      */
     if (NULL == (zpDpCcur_->p_gitHandler
                 = zLibGit_.env_init(zRun_.p_repoVec[zpDpCcur_->repoId]->p_repoPath))) {
-        /*
-         * 已确定结果为失败，全局任务完成计数 +1
-         * 若计数已满，则发出完工通知
-         */
-        pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
-        pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-
-        if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
-                == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
-            pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
-        }
-
         /* 标记有错误发生，置位 */
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
 
@@ -929,19 +907,6 @@ zdp_ccur(void *zp) {
 
     /* 预置本次动作的日志 */
     if (NULL == (zpDpCcur_->p_pgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
-        /*
-         * 已确定结果为失败，全局任务完成计数 +1
-         * 若计数已满，则发出完工通知
-         */
-        pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
-        pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-
-        if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
-                == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
-            pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
-        }
-
         /* 标记有错误发生，置位 */
         zSet_Bit(zRun_.p_repoVec[zpDpCcur_->repoId]->resType, 1);
 
@@ -1202,6 +1167,16 @@ zEndMark:
     /* clean resource... */
     zCheck_Negative_Exit( sem_post(& zRun_.dpTraficControl) );
     zLibGit_.env_clean(zpDpCcur_->p_gitHandler);
+
+    /* 完工计数 */
+    pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+    zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
+    pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+
+    if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
+            == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+        pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+    }
 
     return NULL;
 }
