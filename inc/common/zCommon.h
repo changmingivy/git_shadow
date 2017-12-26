@@ -4,8 +4,6 @@
 #define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSizeOf(zObj) ((_i)sizeof(zObj))
 
-#define __z1 __attribute__ ((__nonnull__))
-
 typedef enum {
     zProtoTcp = 0,
     zProtoUdp = 1,

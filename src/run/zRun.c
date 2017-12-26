@@ -289,7 +289,7 @@ zcode_fetch_daemon(void) {
      * 返回的 socket 已经做完 bind 和 listen
      * 若出错，其内部会 exit
      */
-    zMajorSd = zNetUtils_.gen_serv_sd("::1", "20001", zProtoTcp);
+    zMajorSd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoTcp);
 
     /*
      * 会传向新线程，使用静态变量
