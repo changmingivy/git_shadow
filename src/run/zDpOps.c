@@ -807,9 +807,9 @@ zssh_exec_simple(const char *zpSSHUserName,
         zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);\
 \
         zPrint_Err_Easy("");\
-\
         zpDpCcur_->errNo = -91;\
-        goto zFailMark;\
+\
+        goto zEndMark;\
     }\
 } while(0)
 
@@ -882,6 +882,8 @@ zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
     _i zErrNo = 0;
+    zpDpCcur_->errNo = 0;
+
     struct zDpSource__ zDpSource_ = { NULL, NULL, NULL };
 
     char zErrBuf[256] = {'\0'},
@@ -913,7 +915,8 @@ zdp_ccur(void *zp) {
 
         zpDpCcur_->errNo = -46;
         zPrint_Err_Easy("");
-        goto zFailMark;
+
+        goto zEndMark;
     }
 
     /* 提供给上层调度者的参数 */
@@ -935,7 +938,8 @@ zdp_ccur(void *zp) {
 
         zpDpCcur_->errNo = -90;
         zPrint_Err_Easy("");
-        goto zFailMark;
+
+        goto zEndMark;
     } else {
         snprintf(zSQLBuf, zGlobCommonBufSiz,
                 "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
@@ -1000,7 +1004,8 @@ zdp_ccur(void *zp) {
             zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
 
             zpDpCcur_->errNo = -23;
-            goto zFailMark;
+
+            goto zEndMark;
         }
     }
 
@@ -1064,7 +1069,8 @@ zdp_ccur(void *zp) {
 
         zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
         zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
-        goto zCleanMark;
+
+        goto zEndMark;
     } else {
         /*
          * 错误码为 -1 时，
@@ -1098,7 +1104,8 @@ zdp_ccur(void *zp) {
 
                     zPgSQL_.res_clear(zDpSource_.p_pgResHd_, NULL);
                     zPgSQL_.conn_clear(zDpSource_.p_pgConnHd_);
-                    goto zCleanMark;
+
+                    goto zEndMark;
                 } else {
                     zNative_Fail_Confirm();
 
@@ -1107,7 +1114,8 @@ zdp_ccur(void *zp) {
 
                     zpDpCcur_->errNo = -12;
                     zPrint_Err_Easy("");
-                    goto zFailMark;
+
+                    goto zEndMark;
                 }
             } else {
                 zNative_Fail_Confirm();
@@ -1117,7 +1125,8 @@ zdp_ccur(void *zp) {
 
                 zpDpCcur_->errNo = -23;
                 zPrint_Err_Easy("");
-                goto zFailMark;
+
+                goto zEndMark;
             }
         } else {
             zNative_Fail_Confirm();
@@ -1127,7 +1136,8 @@ zdp_ccur(void *zp) {
 
             zpDpCcur_->errNo = -12;
             zPrint_Err_Easy("");
-            goto zFailMark;
+
+            goto zEndMark;
         }
     }
 
@@ -1142,22 +1152,25 @@ zdp_ccur(void *zp) {
                 zpDpCcur_->p_ccurLock, NULL);
     }
 
-zFailMark:
-    /* 完工计数 */
+zEndMark:
     pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-    zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
-    pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
 
-    if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt
-            == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
-        pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+    /* 上层调度者清理线程时，不允许线程自身主动退出 */
+    zpDpCcur_->finMark = 1;
+
+    /* 任务完工计数 */
+    zRun_.p_repoVec[zpDpCcur_->repoId]->dpOpsFinCnt++;
+    if (0 != zpDpCcur_->errNo) {
+        zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt++;
     }
 
-zCleanMark:
-    /* 上层调度者清理线程时，不允许线程自身主动退出 */
-    pthread_mutex_lock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
-    zpDpCcur_->finMark = 1;
     pthread_mutex_unlock(& zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncLock);
+
+    /* 若两个计数毕满，则通知调度者 */
+    if (zRun_.p_repoVec[zpDpCcur_->repoId]->dpOpsFinCnt == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask
+            && zRun_.p_repoVec[zpDpCcur_->repoId]->dpTaskFinCnt == zRun_.p_repoVec[zpDpCcur_->repoId]->dpTotalTask) {
+        pthread_cond_signal(&zRun_.p_repoVec[zpDpCcur_->repoId]->dpSyncCond);
+    }
 
     /* push-pop */
     pthread_cleanup_pop(0);
@@ -2247,7 +2260,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                 pthread_mutex_lock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
                 zRun_.p_repoVec[zRepoId]->dpTaskFinCnt++;
                 pthread_mutex_unlock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
-                if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+                if (zRun_.p_repoVec[zRepoId]->dpOpsFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask
+                        && zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
                     pthread_cond_signal(&zRun_.p_repoVec[zRepoId]->dpSyncCond);
                 }
 
@@ -2284,7 +2298,8 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
                     pthread_mutex_lock( & zRun_.p_repoVec[zRepoId]->dpSyncLock );
                     zRun_.p_repoVec[zRepoId]->dpTaskFinCnt++;
                     pthread_mutex_unlock(& zRun_.p_repoVec[zRepoId]->dpSyncLock);
-                    if (zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
+                    if (zRun_.p_repoVec[zRepoId]->dpOpsFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask
+                            && zRun_.p_repoVec[zRepoId]->dpTaskFinCnt == zRun_.p_repoVec[zRepoId]->dpTotalTask) {
                         pthread_cond_signal(&zRun_.p_repoVec[zRepoId]->dpSyncCond);
                     }
 

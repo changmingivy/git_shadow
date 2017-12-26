@@ -291,10 +291,14 @@ typedef struct __zRepo__ {
     _i dpTotalTask;
 
     /*
-     * 任务完成数：此值与 dpTotalTask 相等时，即代表所有动作已完成
-     * 但不代表全部成功，其中可能存在因发生错误而返回的结果
+     * dpTaskFinCnt：
+     *     此值与 dpTotalTask 相等时，即代表完成所有任务
+     *     但不代表全部成功，其中可能存在因发生错误而返回的结果
+     * dpOpsFinCnt：
+     *     表示本地动作执行完毕的计数，不代表布署动作的最终结果
      */
     _i dpTaskFinCnt;
+    _i dpOpsFinCnt;
 
     /*
      * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
