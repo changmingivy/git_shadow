@@ -10,7 +10,7 @@
 #include "cJSON.h"
 
 #define zTCP_SERV_HASH_SIZ 16
-#define zUDP_SERV_HASH_SIZ 8
+#define zUDP_SERV_HASH_SIZ 4
 
 
 /* 服务端自身的 IP 地址与端口 */
@@ -474,6 +474,9 @@ struct zRun__ {
 
     /* 布署系统自身服务连接信息 */
     zNetSrv__ netSrv_;
+
+    /* UDP 服务器套接字 */
+    _i zUdpServSd;
 
     /*
      * 用于控制并发流量的信号量

@@ -1219,7 +1219,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
 
                 /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
-                if (0 != zConvert_IpStr_To_Num(zpPgRes_->tupleRes_[i].pp_fields[0],
+                if (0 != zCONVERT_IPSTR_TO_NUM(zpPgRes_->tupleRes_[i].pp_fields[0],
                             zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr)) {
                     zERR_RETURN_OR_EXIT(1);
                 }

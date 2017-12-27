@@ -36,6 +36,18 @@
 #include "cJSON.h"
 
 
+struct zDpState__ {
+    char *p_replyType;
+
+    _s repoId;
+    time_t timeStamp;
+
+    char *p_hostAddr;
+    char *p_revSig;
+    char *p_errContent;
+};
+
+
 struct zDpOps__ {
     _i (* show_dp_process) (cJSON *, _i);
 
@@ -49,11 +61,13 @@ struct zDpOps__ {
     _i (* req_dp) (cJSON *, _i);
 
     _i (* glob_res_confirm) (cJSON *, _i);
-    _i (* state_confirm) (cJSON *, _i);
+    _i (* state_confirm_wraper) (cJSON *, _i);
+    _i (* state_confirm) (void *);
 
     _i (* req_file) (cJSON *, _i);
 
-    _i (* pang) (cJSON *, _i);
+    _i (* tcp_pang) (cJSON *, _i);
+    _i (* udp_pang) (void *);
 
     _i (* sys_update) (cJSON *, _i);
 
@@ -61,9 +75,9 @@ struct zDpOps__ {
 };
 
 
-#define zIpVecCmp(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
+#define zIPVEC_CMP(zVec0, zVec1) ((zVec0)[0] == (zVec1)[0] && (zVec0)[1] == (zVec1)[1])
 
-#define /*_i*/ zConvert_IpStr_To_Num(/*|_ull [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
+#define /*_i*/ zCONVERT_IPSTR_TO_NUM(/*|_ull [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
     _i zErrNo = 0;\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
         zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIPTypeV4, zpNumVec);\
@@ -73,7 +87,7 @@ struct zDpOps__ {
     zErrNo;  /* 宏返回值 */\
 })
 
-#define /*_i*/ zConvert_IpNum_To_Str(/*|_ull [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
+#define /*_i*/ zCONVERT_IPNUM_TO_STR(/*|_ull [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
     _i zErrNo = 0;\
     if (0xff == zpNumVec[1] /* IPv4 */) {\
         zErrNo = zNetUtils_.to_straddr(zpNumVec, zIPTypeV4, zpIpStr);\

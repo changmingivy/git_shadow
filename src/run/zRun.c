@@ -266,7 +266,7 @@ zstart_server() {
     zRun_.ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
     zRun_.ops_tcp[6] = NULL;
     zRun_.ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
-    zRun_.ops_tcp[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
+    zRun_.ops_tcp[8] = zDpOps_.state_confirm_wraper;  /* 远程主机初始经状态、布署结果状态、错误信息 */
     zRun_.ops_tcp[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
     zRun_.ops_tcp[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
     zRun_.ops_tcp[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
@@ -387,7 +387,13 @@ zMarkEnd:
  */
 static void *
 zudp_daemon(void *zp __attribute__ ((__unused__))) {
-    _i zsd = zNetUtils_.gen_serv_sd(
+    /* UDP serv vec */
+    zRun_.ops_udp[0] = zDpOps_.udp_pang;
+    zRun_.ops_udp[1] = zDpOps_.state_confirm;
+    zRun_.ops_udp[2] = NULL;
+    zRun_.ops_udp[3] = NULL;
+
+    zRun_.zUdpServSd = zNetUtils_.gen_serv_sd(
             zRun_.netSrv_.p_ipAddr,
             zRun_.netSrv_.p_port,
             zProtoUDP);
@@ -396,7 +402,7 @@ zudp_daemon(void *zp __attribute__ ((__unused__))) {
     _uc zMsgId = 0;
     for (_ui i = 0;; i++) {
         zMsgId = i % 256;
-        recvfrom(zsd, zUdpInfo_[zMsgId].data, zBYTES(512), 0,
+        recvfrom(zRun_.zUdpServSd, zUdpInfo_[zMsgId].data, zBYTES(512), 0,
                 & zUdpInfo_[zMsgId].peerAddr,
                 & zUdpInfo_[zMsgId].peerAddrLen);
         zThreadPool_.add(zops_route_udp, & zUdpInfo_[zMsgId]);
