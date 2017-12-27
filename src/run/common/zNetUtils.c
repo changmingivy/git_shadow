@@ -44,11 +44,11 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
                     *zpAddrInfo_ = NULL;
     struct addrinfo zHints_  = { .ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV };
 
-    zHints_.ai_socktype = (zProtoUdp == zProtoType) ? SOCK_DGRAM : SOCK_STREAM;
-    zHints_.ai_protocol = (zProtoUdp == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP;
+    zHints_.ai_socktype = (zProtoUDP == zProtoType) ? SOCK_DGRAM : SOCK_STREAM;
+    zHints_.ai_protocol = (zProtoUDP == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP;
 
     if (0 != (zErrNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
-        zPrint_Err(errno, NULL, gai_strerror(zErrNo));
+        zPRINT_ERR(errno, NULL, gai_strerror(zErrNo));
         exit(1);
     }
 
@@ -100,9 +100,9 @@ zset_blocking(_i zSd) {
 static _i
 ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, znet_proto_t zProtoType) {
     _i zSd = socket(zIpFamily,
-            (zProtoUdp == zProtoType) ? SOCK_DGRAM : SOCK_STREAM,
-            (zProtoUdp == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP);
-    zCheck_Negative_Return(zSd, -1);
+            (zProtoUDP == zProtoType) ? SOCK_DGRAM : SOCK_STREAM,
+            (zProtoUDP == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP);
+    zCHECK_NEGATIVE_RETURN(zSd, -1);
 
     zset_nonblocking(zSd);
 
@@ -122,7 +122,7 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, znet_proto_t zProtoType) {
             return zSd;
         }
     } else {
-        zPrint_Err(errno, NULL, "connect err");
+        zPRINT_ERR(errno, NULL, "connect err");
     }
 
     /* 已超时或出错 */
@@ -141,7 +141,7 @@ zconnect(char *zpHost, char *zpPort, znet_proto_t zProtoType, _i zFlags) {
                     zHints_ = { .ai_flags = (0 == zFlags) ? AI_NUMERICHOST | AI_NUMERICSERV : zFlags };
 
     if (0 != (zErrNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))){
-        zPrint_Err(errno, NULL, gai_strerror(zErrNo));
+        zPRINT_ERR(errno, NULL, gai_strerror(zErrNo));
         return -1;
     }
 
@@ -160,14 +160,14 @@ static _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
     _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags,
             zpAddr_,
-            (NULL == zpAddr_) ? 0: ((zIpTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
+            (NULL == zpAddr_) ? 0: ((zIPTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
             );
     return zSentSiz;
 }
 
 static _i
 zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
-    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, zIpTypeNone);
+    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, zIPTypeNONE);
 }
 
 static _i
@@ -178,7 +178,7 @@ zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockadd
 
     struct msghdr zMsg_ = {
         .msg_name = zpAddr_,
-        .msg_namelen = (NULL == zpAddr_) ? 0: ((zIpTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)),
+        .msg_namelen = (NULL == zpAddr_) ? 0: ((zIPTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)),
         .msg_iov = zpVec_,
         .msg_iovlen = zVecSiz,
         .msg_control = NULL,
@@ -193,7 +193,7 @@ static _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_) {
     socklen_t zAddrLen = 0;
     _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr_, &zAddrLen);
-    zCheck_Negative_Return(zRecvSiz, -1);
+    zCHECK_NEGATIVE_RETURN(zRecvSiz, -1);
     return zRecvSiz;
 }
 
@@ -216,7 +216,7 @@ static _i
 zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */) {
     _i zErrNo = -1;
 
-    if (zIpTypeV6 == zIpType) {
+    if (zIPTypeV6 == zIpType) {
         struct in6_addr zIp6Addr_ = {{{0}}};
 
         if (1 == inet_pton(AF_INET6, zpStrAddr, &zIp6Addr_)) {
@@ -243,7 +243,7 @@ static _i
 zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */) {
     _i zErrNo = -1;
 
-    if (zIpType == zIpTypeV6) {
+    if (zIpType == zIPTypeV6) {
         struct in6_addr zIpAddr_ = {{{0}}};
         _uc *zp = (_uc *) zpIpNumeric;
 

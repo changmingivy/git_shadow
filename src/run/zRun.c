@@ -286,14 +286,14 @@ zcode_fetch_daemon(void *zp __attribute__ ((__unused__))) {
      * 返回的 udp socket 已经做完 bind
      * 若出错，其内部会 exit
      */
-    _i zsd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoUdp);
+    _i zsd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoUDP);
 
     /* !!! 单个消息长度不能超过 512 */
     static char zbuf[256][512];
     _uc zmsgId = 0;
     for (_ui i = 0;; i++) {
         zmsgId = i % 256;
-        recv(zsd, zbuf[zmsgId], zBytes(512), 0);
+        recv(zsd, zbuf[zmsgId], zBYTES(512), 0);
         zThreadPool_.add(zcode_fetch_ops, zbuf[zmsgId]);
     }
 }
@@ -358,7 +358,7 @@ zstart_server() {
      * 必须指定服务端的根路径
      */
     if (NULL == zRun_.p_servPath) {
-        zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
 
@@ -366,7 +366,7 @@ zstart_server() {
      * 检查 pgSQL 运行环境是否是线程安全的
      */
     if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPrint_Err(0, NULL, "==== !!! FATAL !!! ====");
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
 
@@ -406,10 +406,10 @@ zstart_server() {
 
         zRun_.homePathLen = strlen(zRun_.p_homePath);
 
-        zMem_Alloc(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
+        zMEM_ALLOC(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
         sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
 
-        zMem_Alloc(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
+        zMEM_ALLOC(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
         sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
 
         /* 线程池初始化 */
@@ -447,7 +447,7 @@ zstart_server() {
          * 若出错，其内部会 exit
          */
         _i zMajorSd = -1;
-        zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTcp);
+        zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTCP);
 
         /*
          * 会传向新线程，使用静态变量
@@ -456,7 +456,7 @@ zstart_server() {
         static _i zSd[64] = {0};
         for (_ui zCnter = 0;; zCnter++) {
             if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
-                zPrint_Err_Easy_Sys();
+                zPRINT_ERR_EASY_SYS();
             } else {
                 zThreadPool_.add(zops_route, & (zSd[zCnter % 64]));
             }
@@ -486,7 +486,7 @@ zops_route(void *zpParam) {
      */
     if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
         zDataBufSiz *= 1024;
-        zMem_Alloc(zpDataBuf, char, zDataBufSiz);
+        zMEM_ALLOC(zpDataBuf, char, zDataBufSiz);
         strcpy(zpDataBuf, zDataBuf);
         zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
@@ -495,8 +495,8 @@ zops_route(void *zpParam) {
      * 最短的 json 字符串：{"a":}
      * 长度合计 6 字节
      */
-    if (zBytes(6) > zDataLen) {
-        zPrint_Err(errno, NULL, "recvd data too short(< 6bytes)");
+    if (zBYTES(6) > zDataLen) {
+        zPRINT_ERR(errno, NULL, "recvd data too short(< 6bytes)");
         goto zMarkEnd;
     }
 

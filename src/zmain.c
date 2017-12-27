@@ -54,7 +54,7 @@ main(_i zArgc, char **zppArgv) {
             case 'D':
                 zRun_.pgLogin_.p_dbName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-                zPrint_Time();
+                zPRINT_TIME();
                 fprintf(stderr,
                         "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
                         "Usage:\n"

@@ -55,12 +55,12 @@ zgit_env_init(char *zpNativeRepoAddr) {
     git_repository *zpRepoHandler;
 
     if (0 > git_libgit2_init()) {  // 此处要使用 0 > ... 作为条件
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zpRepoHandler = NULL;
     }
 
     if (0 != git_repository_open(&zpRepoHandler, zpNativeRepoAddr)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zpRepoHandler = NULL;
     }
 
@@ -105,7 +105,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     //git_remote_lookup( &zRemote, zpRepo, "origin" );  // 使用已命名分支时，调用此函数
     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -122,7 +122,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_FETCH, &zConnOpts, NULL, NULL)) {
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -144,7 +144,7 @@ zgit_remote_fetch(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_fetch]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -181,7 +181,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     //git_remote_lookup( &zRemote, zRepo, "origin" );  // 使用已命名分支时，调用此函数
     if (0 != git_remote_create_anonymous(&zRemote, zpRepo, zpRemoteRepoAddr)) {  // 直接使用 URL 时调用此函数
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -199,7 +199,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
     if (0 != git_remote_connect(zRemote, GIT_DIRECTION_PUSH, &zConnOpts, NULL, NULL)) {
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -223,7 +223,7 @@ zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs,
         git_remote_disconnect(zRemote);
         git_remote_free(zRemote);
         if (NULL == zpErrBufOUT) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message);
         } else {
             strncpy(zpErrBufOUT, NULL == giterr_last() ? "[zgit_remote_push]:error without message" : giterr_last()->message, 255);
             zpErrBufOUT[255] = '\0';
@@ -269,7 +269,7 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
     git_revwalk *zpRevWalker = NULL;
 
     if (0 != git_revwalk_new(&zpRevWalker, zpRepo)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return NULL;
     }
 
@@ -284,7 +284,7 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
 
     if ((0 != git_revparse_single(&zpObj, zpRepo, zpRef))
             || (0 != git_revwalk_push(zpRevWalker, git_object_id(zpObj)))) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         zgit_destroy_revwalker(zpRevWalker);
         return NULL;
     }
@@ -315,13 +315,13 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
 
     if (0 == zErrNo) {
         if (0 != git_commit_lookup(&zpCommit, zpRepo, &zOid)) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
 
         /* 取完整的 40 位 SHA1 sig，第二个参数指定调用者传入的缓冲区大小 */
         if ('\0' == git_oid_tostr(zpRevSigOUT, 41, &zOid)[0]) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             git_commit_free(zpCommit);
             return -1;
         }
@@ -332,7 +332,7 @@ zgit_get_one_commitsig_and_timestamp(char *zpRevSigOUT, git_repository *zpRepo, 
     } else if (GIT_ITEROVER == zErrNo) {
         return 0;
     } else {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 }
@@ -353,17 +353,17 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRe
     /* 获取基准版本 BaseRev 的 Oid */
     if (NULL == zpBaseRev || 0 == strcmp("HEAD", zpBaseRev)) {
         if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, "HEAD")) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
     } else if (0 == strncmp("refs/", zpBaseRev, 5)) {
         if (0 != git_reference_name_to_id(&zBaseRefOid, zpRepo, zpBaseRev)) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
     } else {
         if (0 != git_oid_fromstr(& zBaseRefOid, zpBaseRev)) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             return -1;
         }
     }
@@ -373,13 +373,13 @@ zgit_branch_add_local(git_repository *zpRepo, char *zpBranchName, char *zpBaseRe
      * 或者指定的具体的 commit
      */
     if (0 != git_commit_lookup(&zpCommit, zpRepo, &zBaseRefOid)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     /* 基于 HEAD 的最后一次 commit 创建新分支 */
     if (0 != git_branch_create(&zpNewBranch, zpRepo, zpBranchName, zpCommit, zForceMark)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
 
         git_commit_free(zpCommit);
         return -1;
@@ -401,24 +401,24 @@ zgit_branch_del_local(git_repository *zpRepo, char *zpBranchName) {
     git_reference *zpBranch = NULL;
 
     if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     if (NULL == zpBranch) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpBranch);
         return -1;
     }
 
     // if (git_branch_is_head(zpBranch)) {
-    //     zPrint_Err(0, NULL, "Delete HEAD will failed!");
+    //     zPRINT_ERR(0, NULL, "Delete HEAD will failed!");
     //     git_reference_free(zpBranch);
     //     return -1;
     // }
 
     if (0 != git_branch_delete(zpBranch)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpBranch);
         return -1;
     }
@@ -438,18 +438,18 @@ zgit_branch_rename_local(git_repository *zpRepo, char *zpOldName, char *zpNewNam
     git_reference *zpNew = NULL;
 
     if (0 != git_branch_lookup(&zpOld, zpRepo, zpOldName, GIT_BRANCH_LOCAL)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     if (NULL == zpOld) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpOld);
         return -1;
     }
 
     if (0 != git_branch_move(&zpNew, zpOld, zpNewName, zForceMark)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpOld);
         return -1;
     }
@@ -469,18 +469,18 @@ zgit_branch_switch_local(git_repository *zpRepo, char *zpBranchName) {
     git_reference *zpBranch = NULL;
 
     if (0 != git_branch_lookup(&zpBranch, zpRepo, zpBranchName, GIT_BRANCH_LOCAL)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     if (NULL == zpBranch) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpBranch);
         return -1;
     }
 
     if (0 != git_repository_set_head(zpRepo, git_reference_name(zpBranch))) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_reference_free(zpBranch);
         return -1;
     }
@@ -505,7 +505,7 @@ zgit_branch_list_local(git_repository *zpRepo, char *zpResBufOUT, _i zBufLen, _i
     const char *zpBranchName = NULL;
 
     if (0 != git_branch_iterator_new(&zpBranchIter, zpRepo, GIT_BRANCH_LOCAL)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
@@ -538,11 +538,11 @@ zgit_init(git_repository **zppRepoOUT, const char *zpPath, zbool_t zIsBare) {
      * 此处要使用 0 > ... 作为条件
      */
     if (0 > (zErrNo = git_libgit2_init())) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
     } else {
         zErrNo = 0;
         if (0 != (zErrNo = git_repository_init(zppRepoOUT, zpPath, zIsBare))) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             git_libgit2_shutdown();
         }
     }
@@ -579,7 +579,7 @@ zgit_clone(git_repository **zppRepoOUT, char *zpRepoAddr, char *zpPath, char *zp
     }
 
     if (0 != (zErrNo = git_clone(zppRepoOUT, zpRepoAddr, zpPath, &zOpt))) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
     }
 
     return zErrNo;
@@ -607,7 +607,7 @@ zgit_add_and_commit(git_repository *zpRepo,
 
     _i zErrNo = 0;
     struct stat zS_;
-    zCheck_Negative_Return(stat(zpPath, &zS_), -1);
+    zCHECK_NEGATIVE_RETURN(stat(zpPath, &zS_), -1);
 
     git_index* zpIndex = NULL;
 
@@ -626,7 +626,7 @@ zgit_add_and_commit(git_repository *zpRepo,
 
     /* get index */
     if (0 != git_repository_index(&zpIndex, zpRepo)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
@@ -642,14 +642,14 @@ zgit_add_and_commit(git_repository *zpRepo,
     }
 
     if (0 != zErrNo) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_index_free(zpIndex);
         return -1;
     }
 
     /* Write the in-memory index to disk */
     if (0 != git_index_write(zpIndex)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_index_free(zpIndex);
         return -1;
     }
@@ -660,7 +660,7 @@ zgit_add_and_commit(git_repository *zpRepo,
      */
     if (0 == (zErrNo = git_reference_name_to_id(&zParentOid, zpRepo, zpRefName))) {
         if (0 != git_commit_lookup(&zpParentCommit, zpRepo, &zParentOid)) {
-            zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+            zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
             git_index_free(zpIndex);
             return -1;
         }
@@ -670,14 +670,14 @@ zgit_add_and_commit(git_repository *zpRepo,
     } else if (GIT_ENOTFOUND == zErrNo) {
         /* branch not exist(will be created), do nothing... */
     } else {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_index_free(zpIndex);
         return -1;
     }
 
     /* 以提交到工作区的内容，创建一棵子树，并写出 TreeOid */
     if (0 != git_index_write_tree(&zTreeOid, zpIndex)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         if (NULL != zpParentCommit) {
             git_commit_free(zpParentCommit);
         }
@@ -687,7 +687,7 @@ zgit_add_and_commit(git_repository *zpRepo,
 
     /* 以生成的 TreeOid 找出对应的树对象 */
     if (0 != git_tree_lookup(&zpTree, zpRepo, &zTreeOid)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         if (NULL != zpParentCommit) {
             git_commit_free(zpParentCommit);
         }
@@ -697,7 +697,7 @@ zgit_add_and_commit(git_repository *zpRepo,
 
     /* 生成临时签名 */
     if (0 != git_signature_now(&zpMe, "_", "_@_")) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_tree_free(zpTree);
         if (NULL != zpParentCommit) {
             git_commit_free(zpParentCommit);
@@ -708,7 +708,7 @@ zgit_add_and_commit(git_repository *zpRepo,
 
     /* 将新生成的树对象、父节点 CommitId 联系起来，写到库中 */
     if (0 != git_commit_create(&zCommitOid, zpRepo, zpRefName, zpMe, zpMe, "UTF-8", zpMsg, zpTree, zParentCnt, zppParentCommit)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_signature_free(zpMe);
         git_tree_free(zpTree);
         if (NULL != zpParentCommit) {
@@ -742,18 +742,18 @@ zgit_config_name_and_email(char *zpRepoPath) {
 
     git_config *zpConf = NULL;
     if (0 != git_config_open_ondisk(&zpConf, zConfPathBuf)) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         return -1;
     }
 
     if (0 != git_config_set_string(zpConf, "user.name", "_")) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_config_free(zpConf);
         return -1;
     }
 
     if (0 != git_config_set_string(zpConf, "user.email", "_@_")) {
-        zPrint_Err(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
+        zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_config_free(zpConf);
         return -1;
     }
@@ -825,7 +825,7 @@ zgit_config_name_and_email(char *zpRepoPath) {
 // void *
 // zsystem_alloc_wrap(void *zpParam) {
 //     void *zpRes = NULL;
-//     zMem_Alloc(zpRes, char, ((zAllocParam__ *) zpParam)->siz);
+//     zMEM_ALLOC(zpRes, char, ((zAllocParam__ *) zpParam)->siz);
 //     return zpRes;
 // }
 //

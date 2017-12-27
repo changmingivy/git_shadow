@@ -81,22 +81,22 @@ zssh_exec(
     pthread_mutex_lock(zpCcurLock);
     if (0 != (zRet = libssh2_init(0))) {
         pthread_mutex_unlock(zpCcurLock);
-        zPrint_Err(0, NULL, "libssh2_init(0): failed");
+        zPRINT_ERR(0, NULL, "libssh2_init(0): failed");
         return -1;
     }
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
         pthread_mutex_unlock(zpCcurLock);
         libssh2_exit();
-        zPrint_Err(0, NULL, "libssh2_session_init(): failed");
+        zPRINT_ERR(0, NULL, "libssh2_session_init(): failed");
         return -1;
     }
     pthread_mutex_unlock(zpCcurLock);
 
-    if (0 > (zSd = zNetUtils_.conn(zpHostIpAddr, zpHostPort, zProtoTcp, AI_NUMERICHOST | AI_NUMERICSERV))) {
+    if (0 > (zSd = zNetUtils_.conn(zpHostIpAddr, zpHostPort, zProtoTCP, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
-        zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
+        zPRINT_ERR(0, NULL, "libssh2 tcp connect: failed");
         return -2;  /* 网络不通 */
     }
 
@@ -109,7 +109,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_session_handshake failed");
+        zPRINT_ERR(0, NULL, "libssh2_session_handshake failed");
         return -2;  /* 网络不通 */
     }
 
@@ -125,7 +125,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
+        zPRINT_ERR(0, NULL, "libssh2: user auth failed(password and publickey)");
         return -3;  /* 认证失败 */
     }
 
@@ -139,7 +139,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_channel_open_session failed");
+        zPRINT_ERR(0, NULL, "libssh2_channel_open_session failed");
         return -1;
     }
 
@@ -155,7 +155,7 @@ zssh_exec(
         libssh2_channel_free(zChannel);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_channel_exec failed");
+        zPRINT_ERR(0, NULL, "libssh2_channel_exec failed");
         return -1;
     }
 
@@ -173,7 +173,7 @@ zssh_exec(
                         libssh2_session_free(zSession);
                         libssh2_exit();
                         close(zSd);
-                        zPrint_Err(0, NULL, "libssh2_channel_read: failed");
+                        zPRINT_ERR(0, NULL, "libssh2_channel_read: failed");
                         return -1;
                     }
                 }

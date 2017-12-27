@@ -41,10 +41,10 @@ zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
     pthread_detach( pthread_self() );
 
     zThreadTask__ *zpSelfTask;
-    zMem_Alloc(zpSelfTask, zThreadTask__, 1);
+    zMEM_ALLOC(zpSelfTask, zThreadTask__, 1);
     zpSelfTask->func = NULL;
 
-    zCheck_Pthread_Func_Exit( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
 
     /* 线程可被cancel，且 cancel 属性设置为立即退出 */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
@@ -83,7 +83,7 @@ zMark:
 static void
 zthread_poll_init(void) {
     for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
-        zCheck_Pthread_Func_Exit( pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL) );
+        zCHECK_PTHREAD_FUNC_EXIT( pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL) );
     }
 }
 

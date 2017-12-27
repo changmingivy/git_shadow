@@ -94,7 +94,7 @@ typedef enum {
  * =>>> Error Management <<<=
  */
 #define zPRINT_ERR(zErrNo, zCause, zMsg) do {\
-    zPrint_Time();\
+    zPRINT_TIME();\
     fprintf(stderr,\
     "\033[31;01m[ ERROR ] \033[00m"\
     "\033[31;01m__FIlE__:\033[00m %s; "\
@@ -114,56 +114,56 @@ typedef enum {
 
 #define zCHECK_NULL_RETURN(zRes, __VA_ARGS__) do{\
     if (NULL == (zRes)) {\
-        zPrint_Err(errno, #zRes " == NULL", "");\
+        zPRINT_ERR(errno, #zRes " == NULL", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
 #define zCHECK_NULL_EXIT(zRes) do{\
     if (NULL == (zRes)) {\
-        zPrint_Err(errno, #zRes " == NULL", "");\
+        zPRINT_ERR(errno, #zRes " == NULL", "");\
         exit(1);\
     }\
 } while(0)
 
 #define zCHECK_NEGATIVE_RETURN(zRes, __VA_ARGS__) do{\
     if (0 > (zRes)) {\
-        zPrint_Err(errno, #zRes " < 0", "");\
+        zPRINT_ERR(errno, #zRes " < 0", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
 #define zCheck_Negative_Exit(zRes) do{\
     if (0 > (zRes)) {\
-        zPrint_Err(errno, #zRes " < 0", "");\
+        zPRINT_ERR(errno, #zRes " < 0", "");\
         exit(1);\
     }\
 } while(0)
 
-#define zCheck_NotZero_Exit(zRes) do{\
+#define zCHECK_NOTZERO_EXIT(zRes) do{\
     if (0 != (zRes)) {\
-        zPrint_Err(errno, #zRes " < 0", "");\
+        zPRINT_ERR(errno, #zRes " < 0", "");\
         exit(1);\
     }\
 } while(0)
 
-#define zCheck_Pthread_Func_Return(zRet, __VA_ARGS__) do{\
+#define zCHECK_PTHREAD_FUNC_RETURN(zRet, __VA_ARGS__) do{\
     _i zX = (zRet);\
     if (0 != zX) {\
-        zPrint_Err(zX, #zRet " != 0", "");\
+        zPRINT_ERR(zX, #zRet " != 0", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
-#define zCheck_Pthread_Func_Exit(zRet) do{\
+#define zCHECK_PTHREAD_FUNC_EXIT(zRet) do{\
     _i zX = (zRet);\
     if (0 != zX) {\
-        zPrint_Err(zX, #zRet " != 0", "");\
+        zPRINT_ERR(zX, #zRet " != 0", "");\
         exit(1);\
     }\
 } while(0)
 
-#define zLog_Err(zMSG) do{\
+#define zLOG_ERR(zMSG) do{\
     syslog(LOG_ERR|LOG_PID|LOG_CONS, "%s", zMSG);\
 } while(0)
 
@@ -171,27 +171,27 @@ typedef enum {
  * =>>> Memory Management <<<=
  */
 
-#define zMem_Alloc(zpRet, zType, zCnt) do {\
+#define zMEM_ALLOC(zpRet, zType, zCnt) do {\
     zCheck_Null_Exit( zpRet = malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_Re_Alloc(zpRet, zType, zCnt, zpOldAddr) do {\
+#define zMEM_RE_ALLOC(zpRet, zType, zCnt, zpOldAddr) do {\
     zCheck_Null_Exit( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
-#define zMem_C_Alloc(zpRet, zType, zCnt) do {\
+#define zMEM_C_ALLOC(zpRet, zType, zCnt) do {\
     zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 /*
-#define zMap_Alloc(zpRet, zType, zCnt) do {\
+#define zMAP_ALLOC(zpRet, zType, zCnt) do {\
     if (MAP_FAILED == ((zpRet) = mmap(NULL, (zCnt) * sizeof(zType), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_SHARED, -1, 0))) {\
-        zPrint_Err(0, NULL, "mmap failed!");\
+        zPRINT_ERR(0, NULL, "mmap failed!");\
         exit(1);\
     }\
 } while(0)
 
-#define zMap_Free(zpRet, zType, zCnt) do {\
+#define zMAP_FREE(zpRet, zType, zCnt) do {\
     munmap(zpRet, (zCnt) * sizeof(zType));\
 } while(0)
 */
@@ -199,7 +199,7 @@ typedef enum {
 /*
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 24 种
  */
-#define /*void*/ zIgnoreAllSignal(/*void*/) {\
+#define /*void*/ zIGNORE_ALL_SIGNAL(/*void*/) {\
     _i zSigSet[24] = {\
         SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
         SIGTERM, SIGBUS, SIGHUP, SIGSYS,\

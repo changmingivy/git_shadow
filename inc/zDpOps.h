@@ -66,9 +66,9 @@ struct zDpOps__ {
 #define /*_i*/ zConvert_IpStr_To_Num(/*|_ull [2]|*/ zpIpStr, /*|char *|*/ zpNumVec) ({\
     _i zErrNo = 0;\
     if ('.' == zpIpStr[1] || '.' == zpIpStr[2] || '.' == zpIpStr[3]) {\
-        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV4, zpNumVec);\
+        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIPTypeV4, zpNumVec);\
     } else {\
-        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIpTypeV6, zpNumVec);\
+        zErrNo = zNetUtils_.to_numaddr(zpIpStr, zIPTypeV6, zpNumVec);\
     };\
     zErrNo;  /* 宏返回值 */\
 })
@@ -76,9 +76,9 @@ struct zDpOps__ {
 #define /*_i*/ zConvert_IpNum_To_Str(/*|_ull [2]|*/ zpNumVec, /*|char *|*/ zpIpStr) ({\
     _i zErrNo = 0;\
     if (0xff == zpNumVec[1] /* IPv4 */) {\
-        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV4, zpIpStr);\
+        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIPTypeV4, zpIpStr);\
     } else {\
-        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIpTypeV6, zpIpStr);\
+        zErrNo = zNetUtils_.to_straddr(zpNumVec, zIPTypeV6, zpIpStr);\
     } \
     zErrNo;  /* 宏返回值 */\
 })

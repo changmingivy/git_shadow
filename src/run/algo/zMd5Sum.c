@@ -236,7 +236,7 @@ zgenerate_file_sig_md5(char *zpFilePath, char *zpResOUT/* char [33] */) {
     _uc zOrigRes[16] = {0},
         zBuf[4096];
 
-    zCheck_Negative_Return(zFd = open(zpFilePath, O_RDONLY), -1);
+    zCHECK_NEGATIVE_RETURN(zFd = open(zpFilePath, O_RDONLY), -1);
 
     MD5Init(&zMd5Handler);
 

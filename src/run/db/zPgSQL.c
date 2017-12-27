@@ -54,7 +54,7 @@ zpg_conn(const char *zpConnInfo) {
     if (CONNECTION_OK == PQstatus(zpPgConnHd_)) {
         return zpPgConnHd_;
     } else {
-        zPrint_Err(0, NULL, PQerrorMessage(zpPgConnHd_));
+        zPRINT_ERR(0, NULL, PQerrorMessage(zpPgConnHd_));
         PQfinish(zpPgConnHd_);
         return NULL;
     }
@@ -80,7 +80,7 @@ zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -96,7 +96,7 @@ zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, c
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -112,7 +112,7 @@ zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjNam
     if (PGRES_COMMAND_OK == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -128,7 +128,7 @@ zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCn
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -153,7 +153,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     }
     zFieldCnt = PQnfields(zpPgResHd_);
 
-    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
+    zMEM_ALLOC(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
             + zFieldCnt * sizeof(void *)  /* for zpPgRes_->fieldNames_.pp_fields */
             + zTupleCnt * (zFieldCnt * sizeof(void *)));  /* for zpPgRes_->tupleRes_[0].pp_fields */
 
