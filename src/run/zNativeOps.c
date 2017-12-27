@@ -36,6 +36,9 @@ static void * zsys_load_monitor(void *zp);
 static void * zinit_env(zPgLogin__ *zpPgLogin_);
 static void * zextend_pg_partition(void *zp);
 
+static _i zcode_fetch_mgmt(_i zRepoId);
+static void * zcache_sync(void *zp __attribute__ ((__unused__)));
+
 struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
     .get_diff_files = zget_file_list,
@@ -47,7 +50,8 @@ struct zNativeOps__ zNativeOps_ = {
     .alloc = zalloc_cache,
     .sysload_monitor = zsys_load_monitor,
 
-    .extend_pg_partition = zextend_pg_partition
+    .extend_pg_partition = zextend_pg_partition,
+    .fetch_mgmt = zcode_fetch_mgmt,
 };
 
 
@@ -187,9 +191,9 @@ zget_diff_content(void *zp) {
     }
 
     /* 数据完全生成之后，再插入到缓存结构中，保障可用性 */
-    pthread_mutex_lock(& zRun_.commonLock);
+    pthread_mutex_lock(& zRun_.p_repoVec[zpMeta_->repoId]->commLock);
     zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId) = zpVecWrap;
-    pthread_mutex_unlock(& zRun_.commonLock);
+    pthread_mutex_unlock(& zRun_.p_repoVec[zpMeta_->repoId]->commLock);
 
     return NULL;
 }
@@ -540,9 +544,9 @@ zMarkLarge:
     ((char *) (zpVecWrap->p_vec_[0].iov_base))[0] = '[';
 
     /* 数据完全生成之后，再插入到缓存结构中，保障可用性 */
-    pthread_mutex_lock(& zRun_.commonLock);
+    pthread_mutex_lock(& zRun_.p_repoVec[zpMeta_->repoId]->commLock);
     zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId) = zpVecWrap;
-    pthread_mutex_unlock(& zRun_.commonLock);
+    pthread_mutex_unlock(& zRun_.p_repoVec[zpMeta_->repoId]->commLock);
 
     return NULL;
 }
@@ -974,19 +978,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zERR_RETURN_OR_EXIT(-37);
     }
 
-    /*
-     * 内存池初始化，开头留一个指针位置，
-     * 用于当内存池容量不足时，指向下一块新开辟的内存区
-     */
-    if (MAP_FAILED ==
-            (zRun_.p_repoVec[zRepoId]->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
-        zERR_RETURN_OR_EXIT(1);
-    }
-
     void **zppPrev = zRun_.p_repoVec[zRepoId]->p_memPool;
     zppPrev[0] = NULL;
     zRun_.p_repoVec[zRepoId]->memPoolOffSet = sizeof(void *);
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->memLock, NULL) );
+
+    /* 通用锁 */
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->commLock, NULL) );
 
     /* 布署锁与布署等待锁 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->dpLock, NULL) );
@@ -1325,40 +1323,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     strcpy(zRun_.p_repoVec[zRepoId]->sshPort, zpRepoMeta_->pp_fields[7]);
 
     /*
-     * 启动独立的进程负责定时拉取远程代码
-     * OpenSSL 默认不是多线程安全的，故使用多进程模型
+     * 内存池初始化，开头留一个指针位置，
+     * 用于当内存池容量不足时，指向下一块新开辟的内存区
      */
-    if ('Y' == zNeedPull) {
-        _i zInnerSd = -1;
-        zCodeFetch__ zCodeFetch_;
-
-        zCodeFetch_.oldPid = -1;
-        zCodeFetch_.pathEndOffSet = 1 + zRun_.p_repoVec[zRepoId]->repoPathLen;
-        zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;
-        zCodeFetch_.refsEndOffSet = zCodeFetch_.urlEndOffSet + 1 + zSyncRefsLen;
-
-        while (0 > (zInnerSd = zNetUtils_.conn("127.0.0.1", "20001", zProtoUDP, 0))) {
-            // continue;
-        }
-
-        zNetUtils_.send_nosignal(zInnerSd, &zCodeFetch_, sizeof(zCodeFetch__));
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_repoPath, 1 + zRun_.p_repoVec[zRepoId]->repoPathLen);
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncURL, 1 + zSourceUrlLen);
-        zNetUtils_.send_nosignal(zInnerSd, zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1 + zSyncRefsLen);
-
-        if (sizeof(pid_t) !=
-                recv(zInnerSd, & zRun_.p_repoVec[zRepoId]->codeSyncPid, sizeof(pid_t), MSG_WAITALL)) {
-            zPRINT_ERR_EASY("!!! FATAL !!!");
-            exit(1);
-        }
-
-        if (0 >= zRun_.p_repoVec[zRepoId]->codeSyncPid) {
-            sprintf(zCommonBuf, "errNo ==> %d", zRun_.p_repoVec[zRepoId]->codeSyncPid);
-            zPRINT_ERR_EASY(zCommonBuf);
-            exit(1);
-        }
-
-        close(zInnerSd);
+    if (MAP_FAILED ==
+            (zRun_.p_repoVec[zRepoId]->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+        zERR_RETURN_OR_EXIT(1);
     }
 
     /* 生成缓存 */
@@ -1371,23 +1341,36 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zMeta_.dataType = zDATA_TYPE_DP;
     zgenerate_cache(&zMeta_);
 
-    /* 释放锁 */
-    pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
-
     /* 标记初始化动作已全部完成 */
     zRun_.p_repoVec[zRepoId]->initFinished = 'Y';
 
+    /* 释放锁 */
+    pthread_rwlock_unlock(& zRun_.p_repoVec[zRepoId]->rwLock);
+
+    /*
+     * 启动独立的进程负责定时拉取远程代码
+     * OpenSSL 默认不是多线程安全的，使用多进程模型
+     */
+    if ('Y' == zNeedPull) {
+        /*
+         * 置为 1，指示创建新进程，而不是停止丢进程
+         * 1 号进程是 init 或 systemd
+         */
+        zRun_.p_repoVec[zRepoId]->codeSyncPid = 1;
+        zcode_fetch_mgmt(zRepoId);
+    }
+
     /* 全局实际项目 ID 最大值调整，并通知上层调用者本项目初始化任务完成 */
-    pthread_mutex_lock(& zRun_.commonLock);
+    pthread_mutex_lock(zRun_.p_commLock);
 
     zRun_.maxRepoId = (zRepoId > zRun_.maxRepoId) ? zRepoId : zRun_.maxRepoId;
 
     if (NULL == zpRepoMeta_->p_taskCnt) {
-        pthread_mutex_unlock(& zRun_.commonLock);
+        pthread_mutex_unlock(zRun_.p_commLock);
     } else {
         (* (zpRepoMeta_->p_taskCnt)) ++;
-        pthread_mutex_unlock(& zRun_.commonLock);
-        pthread_cond_signal(& zRun_.commonCond);
+        pthread_mutex_unlock(zRun_.p_commLock);
+        pthread_cond_signal(zRun_.p_commCond);
     }
 
     return 0;
@@ -1425,21 +1408,79 @@ zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
         zRun_.memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
         fseek(zpHandler, 0, SEEK_SET);
 
-        /*
-         * 此处不拿锁，直接通知，否则锁竞争太甚
-         * 由于是无限循环监控任务，允许存在无效的通知
-         * 工作线程等待在 80% 的水平线上
-         */
-        if (80 > zRun_.memLoad) {
-            pthread_cond_signal(& zRun_.commonCond);
-        }
-
         zNativeUtils_.sleep(0.1);
     }
 
     return NULL;
 }
 #endif
+
+
+/*
+ * 负责 fetch 的子进程的启停管理
+ */
+static _i
+zcode_fetch_mgmt(_i zRepoId) {
+    _i zPid = 0;
+
+    /*
+     * [OPS: 0]
+     * 1 号进程是 init 或 systemd
+     * ==== 停止旧进程 ====
+     */
+    if (1 < zRun_.p_repoVec[zRepoId]->codeSyncPid) {
+        kill(zRun_.p_repoVec[zRepoId]->codeSyncPid, SIGUSR1);
+        waitpid(zRun_.p_repoVec[zRepoId]->codeSyncPid, NULL, 0);
+        zRun_.p_repoVec[zRepoId]->codeSyncPid = 1;
+
+        return 0;
+    }
+
+    /*
+     * [OPS: 1]
+     * ==== 启动新进程 ====
+     */
+    zCHECK_NEGATIVE_EXIT(zPid = fork());
+
+    if (0 == zPid) {
+        /*
+         * 子进程无限循环，fetch...
+         * 二进制项目场景必要：
+         *     连续失败超过 10 次
+         *     删除本地分支，重新拉取
+         */
+        _i zCnter = 0;
+        while (1) {
+            /* 
+             * 子进程的 gitCommHandler 可以直接使用，不影响主进程 
+             */
+                if (0 > zLibGit_.remote_fetch(
+                            zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
+                            zRun_.p_repoVec[zRepoId]->p_codeSyncURL,
+                            & zRun_.p_repoVec[zRepoId]->p_codeSyncRefs, 1, NULL)) {
+                zCnter++;
+
+                if (10 < zCnter) {
+                    zLibGit_.branch_del(
+                            zRun_.p_repoVec[zRepoId]->p_gitCommHandler,
+                            zRun_.p_repoVec[zRepoId]->p_localRef);
+                }
+
+                /* try clean rubbish... */
+                unlink(".git/index.lock");
+            } else {
+                zCnter = 0;
+            }
+
+            sleep(2);
+        }
+    } else {
+        zRun_.p_repoVec[zRepoId]->codeSyncPid = zPid;
+    }
+
+    return 0;
+}
+
 
 
 /*
@@ -1459,10 +1500,10 @@ zrefresh_commit_cache(_i zRepoId) {
 
 
 /*
- * 定时同步远程代码
+ * 同步更新缓存
  */
 static void *
-zcode_sync(void *zp __attribute__ ((__unused__))) {
+zcache_sync(void *zp __attribute__ ((__unused__))) {
     char zCommonBuf[64] = {'\0'};
 
 zLoop:
@@ -1704,11 +1745,11 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
         zThreadPool_.add(zinit_one_repo_env_thread_wraper, zpPgRes_->tupleRes_ + i);
     }
 
-    pthread_mutex_lock(& zRun_.commonLock);
+    pthread_mutex_lock(zRun_.p_commLock);
     while (zpPgRes_->tupleCnt > zpPgRes_->taskCnt) {
-        pthread_cond_wait(& zRun_.commonCond, & zRun_.commonLock);
+        pthread_cond_wait(zRun_.p_commCond, zRun_.p_commLock);
     }
-    pthread_mutex_unlock(& zRun_.commonLock);
+    pthread_mutex_unlock(zRun_.p_commLock);
 
 zMarkNotFound:
     /*
@@ -1721,7 +1762,7 @@ zMarkNotFound:
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
 
-    zThreadPool_.add(zcode_sync, NULL);
+    zThreadPool_.add(zcache_sync, NULL);
 
     /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zRun_.p_sysUpdateLock, NULL) );

@@ -25,6 +25,10 @@ static void * zops_route_udp (void *zp);
 
 static _i zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd);
 
+/* 不区分项目的全局通用锁 */
+static pthread_mutex_t zGlobCommLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t zGlobCommCond = PTHREAD_COND_INITIALIZER;
+
 struct zRun__ zRun_ = {
     .run = zstart_server,
 
@@ -36,6 +40,9 @@ struct zRun__ zRun_ = {
 
     .p_servPath = NULL,
     .dpTraficLimit = 296,
+
+    .p_commLock = & zGlobCommLock,
+    .p_commCond = & zGlobCommCond,
 };
 
 static char *zpErrVec[128];

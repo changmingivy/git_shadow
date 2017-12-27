@@ -404,7 +404,7 @@ typedef struct __zRepo__ {
     _ui tempTableNo;
 
     /*
-     * SYNC 子进程 pid
+     * 负责 fetch 源库代码的子进程 pid
      */
     pid_t codeSyncPid;
 
@@ -427,6 +427,9 @@ typedef struct __zRepo__ {
      * 结果 == p_codeSyncRefs + (strlen(p_codeSyncRefs) - 8) / 2 + 1
      */
     char *p_localRef;
+
+    /* 本项目范围内通用锁 */
+    pthread_mutex_t commLock;
 } zRepo__;
 
 
@@ -440,8 +443,8 @@ struct zRun__ {
     _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *);
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
-    pthread_mutex_t commonLock;
-    pthread_cond_t commonCond;
+    pthread_mutex_t *p_commLock;
+    pthread_cond_t *p_commCond;
 
     /*
      * 系统全局内存负载值：0 - 100

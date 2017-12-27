@@ -66,6 +66,8 @@ struct zNativeOps__ {
     void * (* sysload_monitor) (void *);
 
     void * (* extend_pg_partition) (void *zp);
+
+    _i (* fetch_mgmt) (_i);
 };
 
 #endif  // #ifndef ZLOCALOPS_H
