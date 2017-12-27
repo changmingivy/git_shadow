@@ -258,7 +258,7 @@ zstart_server() {
     zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
 
     /* 索引范围：0 至 zTCP_SERV_HASH_SIZ - 1 */
-    zRun_.ops_tcp[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
+    zRun_.ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
     zRun_.ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
     zRun_.ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
     zRun_.ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
