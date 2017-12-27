@@ -280,30 +280,21 @@ zMarkEnd:
     return NULL;
 }
 
-static void
-zcode_fetch_daemon(void) {
-    pthread_t zTid;
-    _i zMajorSd = -1;
-
+static void *
+zcode_fetch_daemon(void *zp __attribute__ ((__unused__))) {
     /*
-     * 返回的 socket 已经做完 bind 和 listen
+     * 返回的 udp socket 已经做完 bind
      * 若出错，其内部会 exit
      */
-    zMajorSd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoTcp);
+    _i zsd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoUdp);
 
-    /*
-     * 会传向新线程，使用静态变量
-     * 使用数组防止负载高时造成线程参数混乱
-     */
-    static _i zSd[64] = {0};
-    for (_ui zCnter = 0;; zCnter++) {
-        if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
-            zPrint_Err_Easy_Sys();
-        } else {
-            zCheck_NotZero_Exit(
-                    errno = pthread_create(&zTid, NULL, zcode_fetch_ops, & (zSd[zCnter % 64]))
-                    );
-        }
+    /* !!! 单个消息长度不能超过 512 */
+    static char zbuf[256][512];
+    _uc zmsgId = 0;
+    for (_ui i = 0;; i++) {
+        zmsgId = i % 256;
+        recv(zsd, zbuf[zmsgId], zBytes(512), 0);
+        zThreadPool_.add(zcode_fetch_ops, zbuf[zmsgId]);
     }
 }
 

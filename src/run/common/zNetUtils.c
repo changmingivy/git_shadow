@@ -13,7 +13,7 @@
 #include <poll.h>
 
 static _i zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType);
-static _i ztcp_connect(char *zpHost, char *zpPort, _i zFlags);
+static _i zconnect(char *zpHost, char *zpPort, znet_proto_t zProtoType, _i zFlags);
 static _i zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
 static _i zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
 static _i zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
@@ -23,7 +23,7 @@ static _i zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, 
 
 struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,
-    .tcp_conn = ztcp_connect,
+    .conn = zconnect,
     .sendto = zsendto,
     .send_nosignal = zsend_nosignal,
     .sendmsg = zsendmsg,
@@ -98,16 +98,10 @@ zset_blocking(_i zSd) {
 
 /* Used by client */
 static _i
-ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
-    if (zSockType == 0) {
-        zSockType = SOCK_STREAM;
-    }
-
-    if (zProto == 0) {
-        zProto = IPPROTO_TCP;
-    }
-
-    _i zSd = socket(zIpFamily, zSockType, zProto);
+ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, znet_proto_t zProtoType) {
+    _i zSd = socket(zIpFamily,
+            (zProtoUdp == zProtoType) ? SOCK_DGRAM : SOCK_STREAM,
+            (zProtoUdp == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP);
     zCheck_Negative_Return(zSd, -1);
 
     zset_nonblocking(zSd);
@@ -138,9 +132,10 @@ ztry_connect(struct sockaddr *zpAddr_, _i zIpFamily, _i zSockType, _i zProto) {
 
 /* Used by client */
 static _i
-ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
-    _i zSd = -1,
-       zErrNo = -1;
+zconnect(char *zpHost, char *zpPort, znet_proto_t zProtoType, _i zFlags) {
+     _i zErrNo = -1,
+        zSd = -1;
+
     struct addrinfo *zpRes_ = NULL,
                     *zpAddrInfo_ = NULL,
                     zHints_ = { .ai_flags = (0 == zFlags) ? AI_NUMERICHOST | AI_NUMERICSERV : zFlags };
@@ -151,7 +146,7 @@ ztcp_connect(char *zpHost, char *zpPort, _i zFlags) {
     }
 
     for (zpAddrInfo_ = zpRes_; NULL != zpAddrInfo_; zpAddrInfo_ = zpAddrInfo_->ai_next) {
-        if(0 < (zSd = ztry_connect( zpAddrInfo_->ai_addr, zpAddrInfo_->ai_family, SOCK_STREAM, IPPROTO_TCP))) {
+        if(0 < (zSd = ztry_connect( zpAddrInfo_->ai_addr, zpAddrInfo_->ai_family, zProtoType))) {
             freeaddrinfo(zpRes_);
             return zSd;
         }

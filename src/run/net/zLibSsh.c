@@ -93,7 +93,7 @@ zssh_exec(
     }
     pthread_mutex_unlock(zpCcurLock);
 
-    if (0 > (zSd = zNetUtils_.tcp_conn(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+    if (0 > (zSd = zNetUtils_.conn(zpHostIpAddr, zpHostPort, zProtoTcp, AI_NUMERICHOST | AI_NUMERICSERV))) {
         libssh2_session_free(zSession);
         libssh2_exit();
         zPrint_Err(0, NULL, "libssh2 tcp connect: failed");

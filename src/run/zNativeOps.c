@@ -1337,7 +1337,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;
         zCodeFetch_.refsEndOffSet = zCodeFetch_.urlEndOffSet + 1 + zSyncRefsLen;
 
-        while (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {
+        while (0 > (zInnerSd = zNetUtils_.conn("127.0.0.1", "20001", zProtoUdp, 0))) {
             // continue;
         }
 

@@ -1,20 +1,20 @@
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
-#define zBytes(zNum) ((_i)((zNum) * sizeof(char)))
-#define zSizeOf(zObj) ((_i)sizeof(zObj))
+#define zBYTES(zNum) ((_i)((zNum) * sizeof(char)))
+#define zSIZEOF(zObj) ((_i)sizeof(zObj))
 
 typedef enum {
-    zProtoTcp = 0,
-    zProtoUdp = 1,
-    zProtoSctp = 3,
-    zProtoNone = 4
+    zProtoTCP = 0,
+    zProtoUDP = 1,
+    zProtoSCTP = 3,
+    zProtoNONE = 4
 } znet_proto_t;
 
 typedef enum {
-    zIpTypeV4 = 4,
-    zIpTypeV6 = 6,
-    zIpTypeNone = 9
+    zIPTypeV4 = 4,
+    zIPTypeV6 = 6,
+    zIPTypeNONE = 9
 } zip_t;
 
 typedef enum {
@@ -61,24 +61,24 @@ typedef enum {
 
 // Set bit meaning set a bit to 1;
 // Index from 1.
-#define zSet_Bit(zObj, zWhich) do {\
+#define zSET_BIT(zObj, zWhich) do {\
     (zObj) |= ((((zObj) >> (zWhich)) | 1) << (zWhich));\
 } while(0)
 
 // Unset bit meaning set a bit to 0;
 // Index from 1.
-#define zUnSet_Bit(zObj, zWhich) do {\
+#define zUNSET_BIT(zObj, zWhich) do {\
     (zObj) &= ~(((~(zObj) >> (zWhich)) | 1) << (zWhich));\
 } while(0)
 
 // Check bit meaning check if a bit is 1;
 // Index from 1.
-#define zCheck_Bit(zObj, zWhich) ((zObj) ^ ((zObj) & ~(((~(zObj) >> (zWhich)) | 1) << (zWhich))))
+#define zCHECK_BIT(zObj, zWhich) ((zObj) ^ ((zObj) & ~(((~(zObj) >> (zWhich)) | 1) << (zWhich))))
 
 /*
  * =>>> Print Current Time <<<=
  */
-#define /*_i*/ zPrint_Time(/*void*/) {\
+#define /*_i*/ zPRINT_TIME(/*void*/) {\
     time_t zMarkNow = time(NULL);  /* Mark the time when this process start */\
     struct tm *zpCurrentTime_ = localtime(&zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
     fprintf(stderr, "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
@@ -93,7 +93,7 @@ typedef enum {
 /*
  * =>>> Error Management <<<=
  */
-#define zPrint_Err(zErrNo, zCause, zMsg) do {\
+#define zPRINT_ERR(zErrNo, zCause, zMsg) do {\
     zPrint_Time();\
     fprintf(stderr,\
     "\033[31;01m[ ERROR ] \033[00m"\
@@ -109,24 +109,24 @@ typedef enum {
     NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 } while(0)
 
-#define zPrint_Err_Easy(zMsg) zPrint_Err(0, NULL, (zMsg))
-#define zPrint_Err_Easy_Sys() zPrint_Err(errno, "", NULL)
+#define zPRINT_ERR_EASY(zMsg) zPRINT_ERR(0, NULL, (zMsg))
+#define zPRINT_ERR_EASY_SYS() zPRINT_ERR(errno, "", NULL)
 
-#define zCheck_Null_Return(zRes, __VA_ARGS__) do{\
+#define zCHECK_NULL_RETURN(zRes, __VA_ARGS__) do{\
     if (NULL == (zRes)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
         return __VA_ARGS__;\
     }\
 } while(0)
 
-#define zCheck_Null_Exit(zRes) do{\
+#define zCHECK_NULL_EXIT(zRes) do{\
     if (NULL == (zRes)) {\
         zPrint_Err(errno, #zRes " == NULL", "");\
         exit(1);\
     }\
 } while(0)
 
-#define zCheck_Negative_Return(zRes, __VA_ARGS__) do{\
+#define zCHECK_NEGATIVE_RETURN(zRes, __VA_ARGS__) do{\
     if (0 > (zRes)) {\
         zPrint_Err(errno, #zRes " < 0", "");\
         return __VA_ARGS__;\

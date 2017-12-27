@@ -3028,7 +3028,7 @@ zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd __attribute__ ((
         zCodeFetch_.urlEndOffSet = zCodeFetch_.pathEndOffSet + 1 + zSourceUrlLen;\
         zCodeFetch_.refsEndOffSet = zCodeFetch_.urlEndOffSet + 1 + zSyncRefsLen;\
 \
-        if (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {\
+        if (0 > (zInnerSd = zNetUtils_.conn("127.0.0.1", "20001", zProtoUdp, 0))) {\
             zPrint_Err_Easy("!!! FATAL !!!");\
             exit(1);\
         }\
@@ -3125,7 +3125,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zCodeFetch__ zCodeFetch_;
         zCodeFetch_.oldPid = zRun_.p_repoVec[zRepoId]->codeSyncPid;
 
-        if (0 > (zInnerSd = zNetUtils_.tcp_conn("::1", "20001", 0))) {
+        if (0 > (zInnerSd = zNetUtils_.conn("127.0.0.1", "20001", zProtoUdp, 0))) {
             zPrint_Err_Easy("!!! FATAL !!!");
             exit(1);
         }
