@@ -119,9 +119,9 @@ zget_diff_content(void *zp) {
     /* MTU 上限，每个分片最多可以发送1448 Bytes */
     char zRes[zBYTES(1448)];
 
-    if (zIsCommitDataType == zpMeta_->dataType) {
+    if (zDATA_TYPE_COMMIT == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_;
-    } else if (zIsDpDataType == zpMeta_->dataType) {
+    } else if (zDATA_TYPE_DP == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
     } else {
         zPRINT_ERR_EASY("");
@@ -332,9 +332,9 @@ zget_file_list(void *zp) {
     _i zVecDataLen = 0,
        zBaseDataLen = 0;
 
-    if (zIsCommitDataType == zpMeta_->dataType) {
+    if (zDATA_TYPE_COMMIT == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_;
-    } else if (zIsDpDataType == zpMeta_->dataType) {
+    } else if (zDATA_TYPE_DP == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
     } else {
         zPRINT_ERR_EASY("");
@@ -554,8 +554,8 @@ zMarkLarge:
  */
 static void
 zgenerate_cache(void *zp) {
-    char *zpRevSig[zCacheSiz] = { NULL };
-    char zTimeStampVec[16 * zCacheSiz];
+    char *zpRevSig[zCACHE_SIZ] = { NULL };
+    char zTimeStampVec[16 * zCACHE_SIZ];
 
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zCacheMeta__ *zpMeta_ = (zCacheMeta__ *) zp;
@@ -567,7 +567,7 @@ zgenerate_cache(void *zp) {
     /* 计算本函数需要用到的最大 BufSiz */
     char zCommonBuf[256 + zRun_.p_repoVec[zpMeta_->repoId]->repoPathLen + 12];
 
-    if (zIsCommitDataType == zpMeta_->dataType) {
+    if (zDATA_TYPE_COMMIT == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->commitVecWrap_;
 
         /* use: refs/remotes/origin/%sXXXXXXXX ??? */
@@ -581,7 +581,7 @@ zgenerate_cache(void *zp) {
             zPRINT_ERR_EASY("");
             exit(1);
         } else {
-            for (i = 0; i < zCacheSiz; i++) {
+            for (i = 0; i < zCACHE_SIZ; i++) {
                 zpRevSig[i] = zalloc_cache(zpMeta_->repoId, zBYTES(44));
                 if (0 < (zTimeStamp = zLibGit_.get_one_commitsig_and_timestamp(
                                 zpRevSig[i],
@@ -602,7 +602,7 @@ zgenerate_cache(void *zp) {
         /* 存储的是实际的对象数量 */
         zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz = i;
 
-    } else if (zIsDpDataType == zpMeta_->dataType) {
+    } else if (zDATA_TYPE_DP == zpMeta_->dataType) {
         zpTopVecWrap_ = & zRun_.p_repoVec[zpMeta_->repoId]->dpVecWrap_;
         zPgRes__ *zpPgRes_ = NULL;
 
@@ -611,7 +611,7 @@ zgenerate_cache(void *zp) {
                 "SELECT DISTINCT rev_sig, time_stamp FROM dp_log "
                 "WHERE proj_id = %d ORDER BY time_stamp DESC LIMIT %d",
                 zpMeta_->repoId,
-                zCacheSiz);
+                zCACHE_SIZ);
 
         if (0 != zPgSQL_.exec_once(zRun_.pgConnInfo, zCommonBuf, & zpPgRes_)) {
             zPRINT_ERR_EASY("");
@@ -622,7 +622,7 @@ zgenerate_cache(void *zp) {
         if (NULL == zpPgRes_) {
             zpTopVecWrap_->vecSiz = 0;
         } else {
-            zpTopVecWrap_->vecSiz = (zCacheSiz < zpPgRes_->tupleCnt) ? zCacheSiz : zpPgRes_->tupleCnt;
+            zpTopVecWrap_->vecSiz = (zCACHE_SIZ < zpPgRes_->tupleCnt) ? zCACHE_SIZ : zpPgRes_->tupleCnt;
         }
         zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
 
@@ -644,7 +644,7 @@ zgenerate_cache(void *zp) {
     }
 
     if (NULL != zpRevSig[0]) {
-        for (i = 0; i < zCacheSiz && NULL != zpRevSig[i]; i++) {
+        for (i = 0; i < zCACHE_SIZ && NULL != zpRevSig[i]; i++) {
             /* 转换为JSON 文本 */
             zVecDataLen = sprintf(zCommonBuf,
                     ",{\"revId\":%d,\"revSig\":\"%s\",\"revTimeStamp\":\"%s\"}",
@@ -673,7 +673,7 @@ zgenerate_cache(void *zp) {
      */
     memset(zpTopVecWrap_->p_refData_ + zpTopVecWrap_->vecSiz,
             0,
-            sizeof(zRefData__) * (zCacheSiz - zpTopVecWrap_->vecSiz));
+            sizeof(zRefData__) * (zCACHE_SIZ - zpTopVecWrap_->vecSiz));
 }
 
 
@@ -718,7 +718,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
 
-    char zCommonBuf[zGlobCommonBufSiz];
+    char zCommonBuf[zGLOB_COMMON_BUF_SIZ];
 
     _us zSourceUrlLen = strlen(zpRepoMeta_->pp_fields[2]),
         zSourceBranchLen = strlen(zpRepoMeta_->pp_fields[3]),
@@ -728,7 +728,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
 
     /* 检查项目 ID 是否超限 */
-    if (zGlobRepoIdLimit <= zRepoId || 0 >= zRepoId) {
+    if (zGLOB_REPO_ID_LIMIT <= zRepoId || 0 >= zRepoId) {
         zPRINT_ERR_EASY("");
         return -32;
     }
@@ -1066,7 +1066,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 项目新建时在 add_repo(...) 中处理
      */
     if (0 > zSdToClose) {
-        snprintf(zCommonBuf, zGlobCommonBufSiz,
+        snprintf(zCommonBuf, zGLOB_COMMON_BUF_SIZ,
                 "SELECT create_time,alias_path FROM proj_meta WHERE proj_id = %d",
                 zRepoId);
 
@@ -1137,16 +1137,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             strcpy(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig);
 
             /* 预置为成功状态 */
-            zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
+            zRun_.p_repoVec[zRepoId]->repoState = zCACHE_GOOD;
         } else {
             strncpy(zRun_.p_repoVec[zRepoId]->dpingSig, zpPgRes_->tupleRes_[0].pp_fields[1], 40);
             zRun_.p_repoVec[zRepoId]->dpingSig[40] = '\0';
 
             /* 比较最近一次尝试布署的版本号与最近一次成功布署的版本号是否相同 */
             if (0 == strcmp(zRun_.p_repoVec[zRepoId]->dpingSig, zRun_.p_repoVec[zRepoId]->lastDpSig)) {
-                zRun_.p_repoVec[zRepoId]->repoState = zCacheGood;
+                zRun_.p_repoVec[zRepoId]->repoState = zCACHE_GOOD;
             } else {
-                zRun_.p_repoVec[zRepoId]->repoState = zCacheDamaged;
+                zRun_.p_repoVec[zRepoId]->repoState = zCACHE_DAMAGED;
             }
         }
 
@@ -1201,7 +1201,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
         if (NULL != (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zMEM_C_ALLOC(zRun_.p_repoVec[zRepoId]->p_dpResList_, zDpRes__, zpPgRes_->tupleCnt);
-            // memset(zRun_.p_repoVec[zRepoId]->p_dpResHash_, 0, zDpHashSiz * sizeof(zDpRes__ *));
+            // memset(zRun_.p_repoVec[zRepoId]->p_dpResHash_, 0, zDP_HASH_SIZ * sizeof(zDpRes__ *));
 
             /* needed by zDpOps_.show_dp_process */
             zRun_.p_repoVec[zRepoId]->totalHost
@@ -1277,9 +1277,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                  * 更新HASH
                  * 若顶层为空，直接指向数组中对应的位置
                  */
-                zpTmpDpRes_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDpHashSiz];
+                zpTmpDpRes_ = zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ];
                 if (NULL == zpTmpDpRes_) {
-                    zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDpHashSiz]
+                    zRun_.p_repoVec[zRepoId]->p_dpResHash_[(zRun_.p_repoVec[zRepoId]->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ]
                         = & zRun_.p_repoVec[zRepoId]->p_dpResList_[i];
                 } else {
                     while (NULL != zpTmpDpRes_->p_next) {
@@ -1365,10 +1365,10 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zCacheMeta__ zMeta_;
     zMeta_.repoId = zRepoId;
 
-    zMeta_.dataType = zIsCommitDataType;
+    zMeta_.dataType = zDATA_TYPE_COMMIT;
     zgenerate_cache(&zMeta_);
 
-    zMeta_.dataType = zIsDpDataType;
+    zMeta_.dataType = zDATA_TYPE_DP;
     zgenerate_cache(&zMeta_);
 
     /* 释放锁 */
@@ -1449,7 +1449,7 @@ static _i
 zrefresh_commit_cache(_i zRepoId) {
     zCacheMeta__ zMeta_ = {
         .repoId = zRepoId,
-        .dataType = zIsCommitDataType
+        .dataType = zDATA_TYPE_COMMIT
     };
 
     zgenerate_cache(&zMeta_);

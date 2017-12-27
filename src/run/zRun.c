@@ -424,7 +424,7 @@ zstart_server() {
          */
         zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
-        /* 索引范围：0 至 zServHashSiz - 1 */
+        /* 索引范围：0 至 zSERV_HASH_SIZ - 1 */
         zRun_.ops[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
         zRun_.ops[1] = zDpOps_.creat;  /* 创建新项目 */
         zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
@@ -472,13 +472,13 @@ static void *
 zops_route(void *zpParam) {
     _i zSd = * ((_i *) zpParam);
 
-    char zDataBuf[zGlobCommonBufSiz] = {'\0'};
+    char zDataBuf[zGLOB_COMMON_BUF_SIZ] = {'\0'};
     char *zpDataBuf = zDataBuf;
 
     _i zErrNo = 0,
        zOpsId = -1,
        zDataLen = -1,
-       zDataBufSiz = zGlobCommonBufSiz;
+       zDataBufSiz = zGLOB_COMMON_BUF_SIZ;
 
     /*
      * 若收到的数据量很大，
@@ -507,7 +507,7 @@ zops_route(void *zpParam) {
         zOpsId = zpOpsId->valueint;
 
         /* 检验 value[OpsId] 合法性 */
-        if (0 > zOpsId || zServHashSiz <= zOpsId || NULL == zRun_.ops[zOpsId]) {
+        if (0 > zOpsId || zSERV_HASH_SIZ <= zOpsId || NULL == zRun_.ops[zOpsId]) {
             zErrNo = -1;
         } else {
             zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);

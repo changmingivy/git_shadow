@@ -9,7 +9,7 @@
 #include "zDpOps.h"
 #include "cJSON.h"
 
-#define zServHashSiz 16
+#define zSERV_HASH_SIZ 16
 
 
 /* 服务端自身的 IP 地址与端口 */
@@ -21,20 +21,20 @@ typedef struct {
 } zNetSrv__;
 
 
-#define zGlobRepoIdLimit 1024
+#define zGLOB_REPO_ID_LIMIT 1024
 
-#define zCacheSiz 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
-#define zDpHashSiz 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
-#define zSendUnitSiz 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
-#define zForecastedHostNum 256  // 预测的目标主机数量上限
+#define zCACHE_SIZ 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
+#define zDP_HASH_SIZ 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
+#define zSEND_UNIT_SIZ 8  // sendmsg 单次发送的单元数量，在 Linux 平台上设定为 <=8 的值有助于提升性能
+#define zFORECASTED_HOST_NUM 256  // 预测的目标主机数量上限
 
-#define zGlobCommonBufSiz 1024
+#define zGLOB_COMMON_BUF_SIZ 1024
 
-#define zCacheGood 0
-#define zCacheDamaged 1
+#define zCACHE_GOOD 0
+#define zCACHE_DAMAGED 1
 
-#define zIsCommitDataType 0
-#define zIsDpDataType 1
+#define zDATA_TYPE_COMMIT 0
+#define zDATA_TYPE_DP 1
 
 typedef struct __zDpRes__ {
     /*
@@ -185,7 +185,7 @@ typedef struct __zCacheMeta__ {
     _s opsId;  // 网络交互时，代表操作指令（从 1 开始的连续排列的非负整数）
     _s repoId;  // 项目代号（从 1 开始的非负整数）
     _s commitId;  // 版本号
-    _s dataType;  // 缓存类型，zIsCommitDataType/zIsDpDataType
+    _s dataType;  // 缓存类型，zDATA_TYPE_COMMIT/zDATA_TYPE_DP
     _i fileId;  // 单个文件在差异文件列表中 index
     _l cacheId;  // 缓存版本代号（最新一次布署的时间戳）
 
@@ -330,17 +330,17 @@ typedef struct __zRepo__ {
 
     /*
      * 存放所有目标机的并发布署参数
-     * 目标机数量不超过 zForecastedHostNum 时，使用预置的空间，以提升效率
+     * 目标机数量不超过 zFORECASTED_HOST_NUM 时，使用预置的空间，以提升效率
      */
     zDpCcur__ *p_dpCcur_;
-    zDpCcur__ dpCcur_[zForecastedHostNum];
+    zDpCcur__ dpCcur_[zFORECASTED_HOST_NUM];
 
     /*
      * 每次布署时的所有目标机 IP(_ull[2]) 的链表及其散列
      * 用于增量对比差异 IP，并由此决定每台目标机是否需要初始化或布署
      */
     zDpRes__ *p_dpResList_;
-    zDpRes__ *p_dpResHash_[zDpHashSiz];
+    zDpRes__ *p_dpResHash_[zDP_HASH_SIZ];
 
     /*
      * 用于确保同一时间不会有多个新布署请求阻塞排队，
@@ -376,13 +376,13 @@ typedef struct __zRepo__ {
 
     /* 存放新的版本号记录 */
     zVecWrap__ commitVecWrap_;
-    struct iovec commitVec_[zCacheSiz];
-    zRefData__ commitRefData_[zCacheSiz];
+    struct iovec commitVec_[zCACHE_SIZ];
+    zRefData__ commitRefData_[zCACHE_SIZ];
 
     /* 存放布署记录 */
     zVecWrap__ dpVecWrap_;
-    struct iovec dpVec_[zCacheSiz];
-    zRefData__ dpRefData_[zCacheSiz];
+    struct iovec dpVec_[zCACHE_SIZ];
+    zRefData__ dpRefData_[zCACHE_SIZ];
 
     /*
      * 线程内存池，预分配 8M 空间
@@ -433,7 +433,7 @@ struct zRun__ {
     void (* run) ();
     void * (* route) (void *);
 
-    _i (* ops[zServHashSiz]) (cJSON *, _i);
+    _i (* ops[zSERV_HASH_SIZ]) (cJSON *, _i);
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t commonLock;
@@ -452,7 +452,7 @@ struct zRun__ {
     _s maxRepoId;
 
     /* 数组：指向每个项目的元信息 */
-    zRepo__ *p_repoVec[zGlobRepoIdLimit];
+    zRepo__ *p_repoVec[zGLOB_REPO_ID_LIMIT];
 
     /* 服务端主程序的启动根路径 */
     char *p_servPath;
