@@ -376,7 +376,7 @@ zstart_server() {
     zNativeUtils_.daemonize("/");
 
     pid_t zPid = -1;
-    zCheck_Negative_Exit( zPid = fork() );
+    zCHECK_NEGATIVE_EXIT( zPid = fork() );
 
     if (0 == zPid) {
         /*
@@ -390,7 +390,7 @@ zstart_server() {
         atexit(zexit_clean);
 
         /* 全局并发控制的信号量 */
-        zCheck_Negative_Exit( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
+        zCHECK_NEGATIVE_EXIT( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
 
         /* 初始化错误信息HashMap */
         zerr_vec_init();
@@ -402,7 +402,7 @@ zstart_server() {
 
         /* 提取 $HOME */
         struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
-        zCheck_Null_Exit(zRun_.p_homePath = zpPWD->pw_dir);
+        zCHECK_NULL_EXIT(zRun_.p_homePath = zpPWD->pw_dir);
 
         zRun_.homePathLen = strlen(zRun_.p_homePath);
 

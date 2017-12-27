@@ -133,7 +133,7 @@ typedef enum {
     }\
 } while(0)
 
-#define zCheck_Negative_Exit(zRes) do{\
+#define zCHECK_NEGATIVE_EXIT(zRes) do{\
     if (0 > (zRes)) {\
         zPRINT_ERR(errno, #zRes " < 0", "");\
         exit(1);\
@@ -172,15 +172,15 @@ typedef enum {
  */
 
 #define zMEM_ALLOC(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = malloc((zCnt) * sizeof(zType)) );\
+    zCHECK_NULL_EXIT( zpRet = malloc((zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMEM_RE_ALLOC(zpRet, zType, zCnt, zpOldAddr) do {\
-    zCheck_Null_Exit( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
+    zCHECK_NULL_EXIT( zpRet = realloc((zpOldAddr), (zCnt) * sizeof(zType)) );\
 } while(0)
 
 #define zMEM_C_ALLOC(zpRet, zType, zCnt) do {\
-    zCheck_Null_Exit( zpRet = calloc(zCnt, sizeof(zType)) );\
+    zCHECK_NULL_EXIT( zpRet = calloc(zCnt, sizeof(zType)) );\
 } while(0)
 
 /*

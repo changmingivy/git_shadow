@@ -58,17 +58,17 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
         }
     }
 
-    zCheck_Negative_Exit(zSd);
+    zCHECK_NEGATIVE_EXIT(zSd);
 
     /* 不等待，直接重用地址与端口 */
 #ifdef _Z_BSD
-    zCheck_Negative_Exit( setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i)) );
+    zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i)) );
 #else
-    zCheck_Negative_Exit( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zSd, sizeof(_i)) );
+    zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zSd, sizeof(_i)) );
 #endif
 
-    zCheck_Negative_Exit( bind(zSd, zpRes_->ai_addr, (AF_INET6 == zpAddrInfo_->ai_family) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) );
-    zCheck_Negative_Exit( listen(zSd, 6) );
+    zCHECK_NEGATIVE_EXIT( bind(zSd, zpRes_->ai_addr, (AF_INET6 == zpAddrInfo_->ai_family) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) );
+    zCHECK_NEGATIVE_EXIT( listen(zSd, 6) );
 
     freeaddrinfo(zpRes_);
     return zSd;
@@ -80,9 +80,9 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, znet_proto_t zProtoType) {
 static void
 zset_nonblocking(_i zSd) {
     _i zOpts;
-    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zCHECK_NEGATIVE_EXIT( zOpts = fcntl(zSd, F_GETFL) );
     zOpts |= O_NONBLOCK;
-    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+    zCHECK_NEGATIVE_EXIT( fcntl(zSd, F_SETFL, zOpts) );
 }
 
 /*
@@ -91,9 +91,9 @@ zset_nonblocking(_i zSd) {
 static void
 zset_blocking(_i zSd) {
     _i zOpts;
-    zCheck_Negative_Exit( zOpts = fcntl(zSd, F_GETFL) );
+    zCHECK_NEGATIVE_EXIT( zOpts = fcntl(zSd, F_GETFL) );
     zOpts &= ~O_NONBLOCK;
-    zCheck_Negative_Exit( fcntl(zSd, F_SETFL, zOpts) );
+    zCHECK_NEGATIVE_EXIT( fcntl(zSd, F_SETFL, zOpts) );
 }
 
 /* Used by client */

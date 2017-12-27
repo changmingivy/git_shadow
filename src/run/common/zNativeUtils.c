@@ -152,7 +152,7 @@ zdaemonize(const char *zpWorkDir) {
 // void
 // zfork_do_exec(const char *zpCommand, char **zppArgv) {
 //     pid_t zPid = fork();
-//     zCheck_Negative_Exit(zPid);
+//     zCHECK_NEGATIVE_EXIT(zPid);
 //
 //     if (0 == zPid) {
 //         execve(zpCommand, zppArgv, NULL);
@@ -184,7 +184,7 @@ zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
 static _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt;
-    zCheck_Negative_Exit( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
+    zCHECK_NEGATIVE_EXIT( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
     return zCnt;
 }
 
