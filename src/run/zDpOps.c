@@ -3240,4 +3240,127 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 #undef zPROCESS_START
 
 
+/*
+ ********************************
+ * ******** UDP SERVER ******** *
+ ********************************
+ */
+
+struct zCodeFetch__ {
+    pid_t oldPid;
+    _s pathEndOffSet;
+    _s urlEndOffSet;
+    _s refsEndOffSet;
+};
+
+static void *
+zcode_fetch_ops(void *zp) {
+    _i zSd = * ((_i *) zp);
+
+    struct zCodeFetch__ zOps_;
+    char *zpPath = NULL,
+         *zpURL = NULL,
+         *zpRefs = NULL;
+
+    pid_t zResId = 0;
+    git_repository *zpGit = NULL;
+
+    /* thread detach... */
+    pthread_detach( pthread_self() );
+
+    if (sizeof(struct zCodeFetch__) !=
+            recv(zSd, &zOps_, sizeof(struct zCodeFetch__), MSG_WAITALL)) {
+        zResId = -1;
+
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
+        close(zSd);
+
+        return (void *) -1;
+    }
+
+    /*
+     * [OPS: 0]
+     * ==== 停止旧进程 ====
+     */
+    if (0 < zOps_.oldPid) {
+        kill(zOps_.oldPid, SIGUSR1);
+        waitpid(zOps_.oldPid, NULL, 0);
+
+        zResId = 0;
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
+        close(zSd);
+
+        return NULL;
+    }
+
+    /*
+     * [OPS: 1]
+     * ==== 启动新进程 ====
+     */
+    char zDataBuf[zOps_.refsEndOffSet];
+
+    if (zOps_.refsEndOffSet !=
+            recv(zSd, zDataBuf, zOps_.refsEndOffSet, MSG_WAITALL)) {
+        zResId = -2;
+        goto zMarkEnd;
+    }
+
+    /* info for fetch... */
+    zpPath = zDataBuf;
+    zpURL = zDataBuf + zOps_.pathEndOffSet;
+    zpRefs = zDataBuf + zOps_.urlEndOffSet;
+
+    if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
+        zResId = -3;
+        goto zMarkEnd;
+    }
+
+    if (0 > (zResId = fork())) {
+        zLibGit_.env_clean(zpGit);
+
+        zResId = -4;
+        goto zMarkEnd;
+    }
+
+    if (0 == zResId) {
+        /* 子进程中关闭 socket */
+         close(zSd);
+
+        /*
+         * 子进程无限循环，fetch...
+         * 二进制项目场景必要：
+         *     连续失败超过 10 次
+         *     删除本地分支，重新拉取
+         */
+        _i zCnter = 0;
+        while (1) {
+            if (0 > zLibGit_.remote_fetch(zpGit, zpURL, &zpRefs, 1, NULL)) {
+                zCnter++;
+
+                if (10 < zCnter) {
+                    zLibGit_.branch_del(zpGit, zpRefs + (strlen(zpRefs) - 8) / 2 + 1);
+                }
+
+                /* try clean rubbish... */
+                unlink(".git/index.lock");
+            } else {
+                zCnter = 0;
+            }
+
+            sleep(2);
+        }
+    } else {
+        zLibGit_.env_clean(zpGit);
+
+zMarkEnd:
+        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
+        close(zSd);
+    }
+
+    return NULL;
+}
+
+
+
+
 #undef cJSON_V

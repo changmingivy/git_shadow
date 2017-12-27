@@ -18,12 +18,22 @@ extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
 
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
-static void * zops_route (void *zpParam);
+static void * zops_route_tcp (void *zp);
+
+static void * zudp_daemon(void *zp __attribute__ ((__unused__)));
+static void * zops_route_udp (void *zp);
+
+static _i zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd);
 
 struct zRun__ zRun_ = {
     .run = zstart_server,
-    .route = zops_route,
-    .ops = { NULL },
+
+    .route_tcp = zops_route_tcp,
+    .route_udp = zops_route_udp,
+
+    .ops_tcp = { NULL },
+    .ops_udp = { NULL },
+
     .p_servPath = NULL,
     .dpTraficLimit = 296,
 };
@@ -173,129 +183,233 @@ zexit_clean(void) {
     kill(0, SIGUSR1);
 }
 
+
+/*
+ * 服务启动入口
+ */
+static void
+zstart_server() {
+    atexit(zexit_clean);
+
+    /*
+     * 转换为后台守护进程
+     */
+    zNativeUtils_.daemonize("/");
+
+    /*
+     * 必须指定服务端的根路径
+     */
+    if (NULL == zRun_.p_servPath) {
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
+    /*
+     * 检查 pgSQL 运行环境是否是线程安全的
+     */
+    if (zFalse == zPgSQL_.thread_safe_check()) {
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
+    /* 全局并发控制的信号量 */
+    zCHECK_NEGATIVE_EXIT( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
+
+    /* 初始化错误信息 HashMap */
+    zerr_vec_init();
+
+    /* 线程池初始化 */
+    zThreadPool_.init();
+
+    /* start daemon for code fetching... */
+    zThreadPool_.add(zudp_daemon, NULL);
+
+    /*
+     * 定时扩展新的 pgSQL 日志分区表
+     * 及清理旧的分区表
+     */
+    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+
+    /* 提取用户名称 */
+    if (NULL == zRun_.p_loginName) {
+        zRun_.p_loginName = "git";
+    }
+
+    /* 提取 $HOME */
+    struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
+    zCHECK_NULL_EXIT(zRun_.p_homePath = zpPWD->pw_dir);
+
+    zRun_.homePathLen = strlen(zRun_.p_homePath);
+
+    zMEM_ALLOC(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
+    sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
+
+    zMEM_ALLOC(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
+    sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
+
+    /* 扫描所有项目库并初始化之 */
+    zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
+
+    /* 索引范围：0 至 zTCP_SERV_HASH_SIZ - 1 */
+    zRun_.ops_tcp[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
+    zRun_.ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
+    zRun_.ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
+    zRun_.ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
+    zRun_.ops_tcp[4] = NULL;
+    zRun_.ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
+    zRun_.ops_tcp[6] = NULL;
+    zRun_.ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
+    zRun_.ops_tcp[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
+    zRun_.ops_tcp[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
+    zRun_.ops_tcp[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
+    zRun_.ops_tcp[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
+    zRun_.ops_tcp[12] = zDpOps_.dp;  /* 批量布署或撤销 */
+    zRun_.ops_tcp[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
+    zRun_.ops_tcp[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
+    zRun_.ops_tcp[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
+
+    /*
+     * 返回的 socket 已经做完 bind 和 listen
+     * 若出错，其内部会 exit
+     */
+    _i zMajorSd = zNetUtils_.gen_serv_sd(
+            zRun_.netSrv_.p_ipAddr,
+            zRun_.netSrv_.p_port,
+            zProtoTCP);
+
+    /*
+     * 会传向新线程，使用静态变量
+     * 使用数组防止负载高时造成线程参数混乱
+     */
+    static _i zSd[256] = {0};
+    _uc zMsgId = 0;
+    for (_ui i = 0;; i++) {
+        zMsgId = i % 256;
+        if (-1 == (zSd[zMsgId] = accept(zMajorSd, NULL, 0))) {
+            zPRINT_ERR_EASY_SYS();
+        } else {
+            zThreadPool_.add(zops_route_tcp, & (zSd[zMsgId]));
+        }
+    }
+}
+
+
+/*
+ * tcp 路由函数，主要用于面向用户的服务
+ */
 static void *
-zcode_fetch_ops(void *zp) {
+zops_route_tcp(void *zp) {
     _i zSd = * ((_i *) zp);
 
-    zCodeFetch__ zOps_;
-    char *zpPath = NULL,
-         *zpURL = NULL,
-         *zpRefs = NULL;
+    char zDataBuf[zGLOB_COMMON_BUF_SIZ] = {'\0'};
+    char *zpDataBuf = zDataBuf;
 
-    pid_t zResId = 0;
-    git_repository *zpGit = NULL;
+    _i zErrNo = 0,
+       zOpsId = -1,
+       zDataLen = -1,
+       zDataBufSiz = zGLOB_COMMON_BUF_SIZ;
 
-    /* thread detach... */
-    pthread_detach( pthread_self() );
-
-    if (sizeof(zCodeFetch__) !=
-            recv(zSd, &zOps_, sizeof(zCodeFetch__), MSG_WAITALL)) {
-        zResId = -1;
-
-        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
-        close(zSd);
-
-        return (void *) -1;
+    /*
+     * 若收到的数据量很大，
+     * 直接一次性扩展为 1024 倍的缓冲区
+     */
+    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
+        zDataBufSiz *= 1024;
+        zMEM_ALLOC(zpDataBuf, char, zDataBufSiz);
+        strcpy(zpDataBuf, zDataBuf);
+        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
     }
 
     /*
-     * [OPS: 0]
-     * ==== 停止旧进程 ====
+     * 最短的 json 字符串：{"a":}
+     * 长度合计 6 字节
      */
-    if (0 < zOps_.oldPid) {
-        kill(zOps_.oldPid, SIGUSR1);
-        waitpid(zOps_.oldPid, NULL, 0);
-
-        zResId = 0;
-        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
-        close(zSd);
-
-        return NULL;
-    }
-
-    /*
-     * [OPS: 1]
-     * ==== 启动新进程 ====
-     */
-    char zDataBuf[zOps_.refsEndOffSet];
-
-    if (zOps_.refsEndOffSet !=
-            recv(zSd, zDataBuf, zOps_.refsEndOffSet, MSG_WAITALL)) {
-        zResId = -2;
+    if (zBYTES(6) > zDataLen) {
+        zPRINT_ERR(errno, NULL, "recvd data too short(< 6bytes)");
         goto zMarkEnd;
     }
 
-    /* info for fetch... */
-    zpPath = zDataBuf;
-    zpURL = zDataBuf + zOps_.pathEndOffSet;
-    zpRefs = zDataBuf + zOps_.urlEndOffSet;
+    /* 提取 value[OpsId] */
+    cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
+    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
+    if (cJSON_IsNumber(zpOpsId)) {
+        zOpsId = zpOpsId->valueint;
 
-    if (NULL == (zpGit = zLibGit_.env_init(zpPath))) {
-        zResId = -3;
-        goto zMarkEnd;
-    }
-
-    if (0 > (zResId = fork())) {
-        zLibGit_.env_clean(zpGit);
-
-        zResId = -4;
-        goto zMarkEnd;
-    }
-
-    if (0 == zResId) {
-        /* 子进程中关闭 socket */
-         close(zSd);
-
-        /*
-         * 子进程无限循环，fetch...
-         * 二进制项目场景必要：
-         *     连续失败超过 10 次
-         *     删除本地分支，重新拉取
-         */
-        _i zCnter = 0;
-        while (1) {
-            if (0 > zLibGit_.remote_fetch(zpGit, zpURL, &zpRefs, 1, NULL)) {
-                zCnter++;
-
-                if (10 < zCnter) {
-                    zLibGit_.branch_del(zpGit, zpRefs + (strlen(zpRefs) - 8) / 2 + 1);
-                }
-
-                /* try clean rubbish... */
-                unlink(".git/index.lock");
-            } else {
-                zCnter = 0;
-            }
-
-            sleep(2);
+        /* 检验 value[OpsId] 合法性 */
+        if (0 > zOpsId || zTCP_SERV_HASH_SIZ <= zOpsId || NULL == zRun_.ops_tcp[zOpsId]) {
+            zErrNo = -1;
+        } else {
+            zErrNo = zRun_.ops_tcp[zOpsId](zpJRoot, zSd);
         }
     } else {
-        zLibGit_.env_clean(zpGit);
+        zErrNo = -1;
+    }
+    cJSON_Delete(zpJRoot);
+
+    /*
+     * 成功状态及特殊的错误信息在执行函数中直接回复
+     * 通用的错误状态返回至此处统一处理
+     */
+    if (0 > zErrNo) {
+        /* 无法解析的数据，打印出其原始信息 */
+        if (-1 == zErrNo) {
+            // fprintf(stderr, "\342\224\224\342\224\200\342\224\200\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
+            fprintf(stderr, "\n\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
+        }
+
+        if (14 != zOpsId) {
+            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
+            zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
+        }
+    }
 
 zMarkEnd:
-        zNetUtils_.send_nosignal(zSd, &zResId, sizeof(pid_t));
-        close(zSd);
+    close(zSd);
+    if (zpDataBuf != &(zDataBuf[0])) {
+        free(zpDataBuf);
     }
 
     return NULL;
 }
 
-static void *
-zcode_fetch_daemon(void *zp __attribute__ ((__unused__))) {
-    /*
-     * 返回的 udp socket 已经做完 bind
-     * 若出错，其内部会 exit
-     */
-    _i zsd = zNetUtils_.gen_serv_sd("127.0.0.1", "20001", zProtoUDP);
 
-    /* !!! 单个消息长度不能超过 512 */
-    static char zbuf[256][512];
-    _uc zmsgId = 0;
+/*
+ * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
+ * 收到的内容会传向新线程，使用静态变量数组防止负载高时造成线程参数混乱
+ * 单个消息长度不能超过 512
+ */
+static void *
+zudp_daemon(void *zp __attribute__ ((__unused__))) {
+    _i zsd = zNetUtils_.gen_serv_sd(
+            zRun_.netSrv_.p_ipAddr,
+            zRun_.netSrv_.p_port,
+            zProtoUDP);
+
+    static zUdpInfo__ zUdpInfo_[256];
+    _uc zMsgId = 0;
     for (_ui i = 0;; i++) {
-        zmsgId = i % 256;
-        recv(zsd, zbuf[zmsgId], zBYTES(512), 0);
-        zThreadPool_.add(zcode_fetch_ops, zbuf[zmsgId]);
+        zMsgId = i % 256;
+        recvfrom(zsd, zUdpInfo_[zMsgId].data, zBYTES(512), 0,
+                & zUdpInfo_[zMsgId].peerAddr,
+                & zUdpInfo_[zMsgId].peerAddrLen);
+        zThreadPool_.add(zops_route_udp, & zUdpInfo_[zMsgId]);
     }
+}
+
+
+/*
+ * udp 路由函数，主要用于服务器内部
+ */
+static void *
+zops_route_udp (void *zp) {
+    zUdpInfo__ zUdpInfo_;
+
+    /* 必须第一时间复制出来 */
+    memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
+
+    // TODO ...
+
+    return NULL;
 }
 
 
@@ -349,195 +463,4 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
 
     zNetUtils_.send_nosignal(zSd, "==== Import Success ====" ,sizeof("==== Import Success ====") - 1);
     return 0;
-}
-
-
-static void
-zstart_server() {
-    /*
-     * 必须指定服务端的根路径
-     */
-    if (NULL == zRun_.p_servPath) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
-        exit(1);
-    }
-
-    /*
-     * 检查 pgSQL 运行环境是否是线程安全的
-     */
-    if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
-        exit(1);
-    }
-
-    /*
-     * 转换为后台守护进程
-     */
-    zNativeUtils_.daemonize("/");
-
-    pid_t zPid = -1;
-    zCHECK_NEGATIVE_EXIT( zPid = fork() );
-
-    if (0 == zPid) {
-        /*
-         * 既有与新建项目的 fetch 源库代码的任务
-         * 分离出来，作为独立的服务
-         */
-        atexit(zexit_clean);
-
-        zcode_fetch_daemon();
-    } else {
-        atexit(zexit_clean);
-
-        /* 全局并发控制的信号量 */
-        zCHECK_NEGATIVE_EXIT( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
-
-        /* 初始化错误信息HashMap */
-        zerr_vec_init();
-
-        /* 提取用户名称 */
-        if (NULL == zRun_.p_loginName) {
-            zRun_.p_loginName = "git";
-        }
-
-        /* 提取 $HOME */
-        struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
-        zCHECK_NULL_EXIT(zRun_.p_homePath = zpPWD->pw_dir);
-
-        zRun_.homePathLen = strlen(zRun_.p_homePath);
-
-        zMEM_ALLOC(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
-        sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
-
-        zMEM_ALLOC(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
-        sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
-
-        /* 线程池初始化 */
-        zThreadPool_.init();
-
-        /* 扫描所有项目库并初始化之 */
-        zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
-
-        /*
-         * 定时扩展新的 pgSQL 日志分区表
-         * 及清理旧的分区表
-         */
-        zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
-
-        /* 索引范围：0 至 zSERV_HASH_SIZ - 1 */
-        zRun_.ops[0] = zDpOps_.pang;  /* 目标机使用此接口测试与服务端的连通性 */
-        zRun_.ops[1] = zDpOps_.creat;  /* 创建新项目 */
-        zRun_.ops[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
-        zRun_.ops[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
-        zRun_.ops[4] = NULL;
-        zRun_.ops[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
-        zRun_.ops[6] = NULL;
-        zRun_.ops[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
-        zRun_.ops[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
-        zRun_.ops[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
-        zRun_.ops[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
-        zRun_.ops[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
-        zRun_.ops[12] = zDpOps_.dp;  /* 批量布署或撤销 */
-        zRun_.ops[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
-        zRun_.ops[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
-        zRun_.ops[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
-
-        /*
-         * 返回的 socket 已经做完 bind 和 listen
-         * 若出错，其内部会 exit
-         */
-        _i zMajorSd = -1;
-        zMajorSd = zNetUtils_.gen_serv_sd(zRun_.netSrv_.p_ipAddr, zRun_.netSrv_.p_port, zProtoTCP);
-
-        /*
-         * 会传向新线程，使用静态变量
-         * 使用数组防止负载高时造成线程参数混乱
-         */
-        static _i zSd[64] = {0};
-        for (_ui zCnter = 0;; zCnter++) {
-            if (-1 == (zSd[zCnter % 64] = accept(zMajorSd, NULL, 0))) {
-                zPRINT_ERR_EASY_SYS();
-            } else {
-                zThreadPool_.add(zops_route, & (zSd[zCnter % 64]));
-            }
-        }
-    }
-}
-
-
-/*
- * 路由函数
- */
-static void *
-zops_route(void *zpParam) {
-    _i zSd = * ((_i *) zpParam);
-
-    char zDataBuf[zGLOB_COMMON_BUF_SIZ] = {'\0'};
-    char *zpDataBuf = zDataBuf;
-
-    _i zErrNo = 0,
-       zOpsId = -1,
-       zDataLen = -1,
-       zDataBufSiz = zGLOB_COMMON_BUF_SIZ;
-
-    /*
-     * 若收到的数据量很大，
-     * 直接一次性扩展为 1024 倍的缓冲区
-     */
-    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
-        zDataBufSiz *= 1024;
-        zMEM_ALLOC(zpDataBuf, char, zDataBufSiz);
-        strcpy(zpDataBuf, zDataBuf);
-        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
-    }
-
-    /*
-     * 最短的 json 字符串：{"a":}
-     * 长度合计 6 字节
-     */
-    if (zBYTES(6) > zDataLen) {
-        zPRINT_ERR(errno, NULL, "recvd data too short(< 6bytes)");
-        goto zMarkEnd;
-    }
-
-    /* 提取 value[OpsId] */
-    cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
-    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
-    if (cJSON_IsNumber(zpOpsId)) {
-        zOpsId = zpOpsId->valueint;
-
-        /* 检验 value[OpsId] 合法性 */
-        if (0 > zOpsId || zSERV_HASH_SIZ <= zOpsId || NULL == zRun_.ops[zOpsId]) {
-            zErrNo = -1;
-        } else {
-            zErrNo = zRun_.ops[zOpsId](zpJRoot, zSd);
-        }
-    } else {
-        zErrNo = -1;
-    }
-    cJSON_Delete(zpJRoot);
-
-    /*
-     * 成功状态及特殊的错误信息在执行函数中直接回复
-     * 通用的错误状态返回至此处统一处理
-     */
-    if (0 > zErrNo) {
-        /* 无法解析的数据，打印出其原始信息 */
-        if (-1 == zErrNo) {
-            fprintf(stderr, "\342\224\224\342\224\200\342\224\200\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
-        }
-
-        if (14 != zOpsId) {
-            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-            zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
-        }
-    }
-
-zMarkEnd:
-    close(zSd);
-    if (zpDataBuf != &(zDataBuf[0])) {
-        free(zpDataBuf);
-    }
-
-    return NULL;
 }

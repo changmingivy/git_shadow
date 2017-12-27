@@ -9,7 +9,8 @@
 #include "zDpOps.h"
 #include "cJSON.h"
 
-#define zSERV_HASH_SIZ 16
+#define zTCP_SERV_HASH_SIZ 16
+#define zUDP_SERV_HASH_SIZ 8
 
 
 /* 服务端自身的 IP 地址与端口 */
@@ -431,9 +432,12 @@ typedef struct __zRepo__ {
 
 struct zRun__ {
     void (* run) ();
-    void * (* route) (void *);
 
-    _i (* ops[zSERV_HASH_SIZ]) (cJSON *, _i);
+    void * (* route_tcp) (void *);
+    void * (* route_udp) (void *);
+
+    _i (* ops_tcp[zTCP_SERV_HASH_SIZ]) (cJSON *, _i);
+    _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *);
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t commonLock;
@@ -484,11 +488,12 @@ struct zRun__ {
 };
 
 
-typedef struct __zCodeFetch__ {
-    pid_t oldPid;
-    _s pathEndOffSet;
-    _s urlEndOffSet;
-    _s refsEndOffSet;
-} zCodeFetch__;
-
+/*
+ * udp server: use the same ipAddr and port as tcp server.
+ */
+typedef struct __zUdpInfo__ {
+    char data[512];
+    struct sockaddr peerAddr;
+    socklen_t peerAddrLen;
+} zUdpInfo__;
 #endif  // #ifndef ZRUN_H
