@@ -1660,12 +1660,12 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "%s%s "
             "sslmode=allow "
             "connect_timeout=6",
-            NULL == zpPgLogin_->p_addr ? "host=" : "",
-            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "localhost" : zpPgLogin_->p_host) : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "" : "host=") : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "" : zpPgLogin_->p_host) : "",
             NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
             NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
-            "port=",
-            NULL == zpPgLogin_->p_port ? "5432" : zpPgLogin_->p_port,
+            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : "port="),
+            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : zpPgLogin_->p_port),
             "user=",
             NULL == zpPgLogin_->p_userName ? "git" : zpPgLogin_->p_userName,
             "passfile=",
