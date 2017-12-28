@@ -59,7 +59,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         struct addrinfo *zpRes_ = NULL,
                         *zpAddrInfo_ = NULL;
         struct addrinfo zHints_  = {
-            .ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV
+            .ai_flags = AI_PASSIVE|AI_NUMERICHOST|AI_NUMERICSERV
         };
 
         zHints_.ai_socktype = (zProtoUDP == zProtoType) ? SOCK_DGRAM : SOCK_STREAM;
@@ -82,7 +82,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
 #ifdef _Z_BSD
         zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i)) );
 #else
-        zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &zSd, sizeof(_i)) );
+        zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i)) );
 #endif
 
         zCHECK_NEGATIVE_EXIT(
@@ -158,7 +158,7 @@ ztry_connect(struct sockaddr *zpAddr_, size_t zSiz, _i zIpFamily, _i zSockType, 
         zset_blocking(zSd);  /* 连接成功后，属性恢复为阻塞 */
         return zSd;
     } else if (EINPROGRESS == errno) {
-        struct pollfd zWd_ = {zSd, POLLIN | POLLOUT, -1};
+        struct pollfd zWd_ = {zSd, POLLIN|POLLOUT, -1};
         /*
          * poll 出错返回 -1，超时返回 0，
          * 在超时之前成功建立连接，则返回可用连接数量
@@ -243,7 +243,7 @@ zEndMark:
 
 static _i
 zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL | zFlags,
+    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL|zFlags,
             zpAddr_,
             (NULL == zpAddr_) ? 0: ((zIPTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
             );
@@ -273,14 +273,14 @@ zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockadd
         .msg_flags = 0
     };
 
-    return sendmsg(zSd, &zMsg_, MSG_NOSIGNAL | zFlags);
+    return sendmsg(zSd, &zMsg_, MSG_NOSIGNAL|zFlags);
 }
 
 
 static _i
 zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_) {
     socklen_t zAddrLen = 0;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL | zFlags, zpAddr_, &zAddrLen);
+    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL|zFlags, zpAddr_, &zAddrLen);
     zCHECK_NEGATIVE_RETURN(zRecvSiz, -1);
     return zRecvSiz;
 }
@@ -290,9 +290,9 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_)
 // zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_) {
 //     socklen_t zAddrLen = 0;
 //     _i zRecvSiz = 0;
-//     if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr_, &zAddrLen)))
+//     if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|zFlags, zpAddr_, &zAddrLen)))
 //             && (EAGAIN == errno)) {
-//         zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT | zFlags, zpAddr_, &zAddrLen);
+//         zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|zFlags, zpAddr_, &zAddrLen);
 //     }
 //     return zRecvSiz;
 // }

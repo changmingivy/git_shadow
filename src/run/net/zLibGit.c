@@ -277,7 +277,7 @@ zgit_generate_revwalker(git_repository *zpRepo, char *zpRef, _i zSortMode) {
     if (0 == zSortMode) {
         zSortMode = GIT_SORT_TIME;
     } else {
-        zSortMode = GIT_SORT_TIME | GIT_SORT_REVERSE;
+        zSortMode = GIT_SORT_TIME|GIT_SORT_REVERSE;
     }
 
     git_revwalk_sorting(zpRevWalker, zSortMode);

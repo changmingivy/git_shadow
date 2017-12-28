@@ -71,7 +71,7 @@ zalloc_cache(_i zRepoId, _ui zSiz) {
          * 新增一片内存，加入内存池
          */
         void *zpCur = NULL;
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
             zPRINT_ERR_EASY_SYS();
             exit(1);
         }
@@ -352,7 +352,7 @@ zget_file_list(void *zp) {
     /* 必须首先在 shell 命令中切换到正确的工作路径 */
     sprintf(zCommonBuf,
             "cd \"%s\" "
-            "&& git diff --shortstat \"%s\" \"%s\" | grep -oP '\\d+(?=\\s*file)' "
+            "&& git diff --shortstat \"%s\" \"%s\"|grep -oP '\\d+(?=\\s*file)' "
             "&& git diff --name-only \"%s\" \"%s\"",
             zRun_.p_repoVec[zpMeta_->repoId]->p_repoPath,
             zRun_.p_repoVec[zpMeta_->repoId]->lastDpSig,
@@ -1327,7 +1327,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 用于当内存池容量不足时，指向下一块新开辟的内存区
      */
     if (MAP_FAILED ==
-            (zRun_.p_repoVec[zRepoId]->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0))) {
+            (zRun_.p_repoVec[zRepoId]->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
         zERR_RETURN_OR_EXIT(1);
     }
 

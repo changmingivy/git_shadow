@@ -77,7 +77,7 @@ struct zNativeUtils__ zNativeUtils_ = {
 //     _c mask = 63;
 //     zRes[0] = zRightOffset[0] & mask;
 //
-//     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
+//     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i]|zLeftOffset[i-1]) & mask; }
 //     zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
 //
 //     for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
@@ -242,7 +242,7 @@ zthread_system(void *zpCmd) {
 // _i
 // zCheck_Dir_Existence(char *zpDirPath) {
 //     _i zFd;
-//     if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
+//     if (-1 == (zFd = open(zpDirPath, O_RDONLY|O_DIRECTORY))) {
 //         if (EEXIST == errno) {
 //             return 1;
 //         } else {
@@ -296,7 +296,7 @@ zpath_del_cb(const char *zpPath, const struct stat *zpS __attribute__ ((__unused
 
 static _i
 zpath_del(char *zpPath) {
-    return nftw(zpPath, zpath_del_cb, 124, FTW_PHYS | FTW_DEPTH);
+    return nftw(zpPath, zpath_del_cb, 124, FTW_PHYS|FTW_DEPTH);
 }
 
 
@@ -324,7 +324,7 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
         zCHECK_NEGATIVE_RETURN(zRdFd = open(zpPath, O_RDONLY), -1);
 
         if (0 > (zWrFd = openat(zDestFd, zpPath + 2,
-                        O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, zpS->st_mode))) {
+                        O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, zpS->st_mode))) {
             close(zRdFd);
             zPRINT_ERR(errno, zpPath + 2, NULL);
             return -1;

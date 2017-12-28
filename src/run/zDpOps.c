@@ -769,7 +769,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 #define zGENERATE_SSH_CMD(zpCmdBuf, zRepoId) do {\
     sprintf(zpCmdBuf,\
             "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
-            "kill `ps ax -o pid,ppid,cmd | grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
+            "kill `ps ax -o pid,ppid,cmd|grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
             "printf '{\"opsId\":0}'>&5;"\
