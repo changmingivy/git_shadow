@@ -17,10 +17,10 @@ struct zNetUtils__ {
 
     _i (* conn) (char *, char *, char *, znet_proto_t, _i);
 
-    _i (* sendto) (_i, void *, size_t, _i, struct sockaddr *, zip_t);
-    _i (* send_nosignal) (_i, void *, size_t);
-    _i (* sendmsg) (_i, struct iovec *, size_t, _i, struct sockaddr *, zip_t);
-    _i (* recv_all) (_i, void *, size_t, _i, struct sockaddr *);
+    _i (* send) (_i, void *, size_t);
+    _i (* sendto) (_i, void *, size_t, struct sockaddr *, zip_t);
+    _i (* sendmsg) (_i, struct iovec *, size_t, struct sockaddr *, zip_t);
+    _i (* recv_all) (_i, void *, size_t, struct sockaddr *, socklen_t *zpAddrSiz);
 
     _i (* to_numaddr) (const char *, zip_t, _ull *);
     _i (* to_straddr) (_ull *, zip_t, char *);

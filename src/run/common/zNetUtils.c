@@ -22,11 +22,11 @@
 static _i zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUN, znet_proto_t zProtoType);
 static _i zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProtoType, _i zFlags);
 
-static _i zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
-static _i zsend_nosignal(_i zSd, void *zpBuf, size_t zLen);
-static _i zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType);
+static _i zsend(_i zSd, void *zpBuf, size_t zLen);
+static _i zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, zip_t zIpType);
+static _i zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, struct sockaddr *zpAddr_, zip_t zIpType);
 
-static _i zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_);
+static _i zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t *zpAddrSiz);
 
 static _i zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
 static _i zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
@@ -36,7 +36,7 @@ struct zNetUtils__ zNetUtils_ = {
     .conn = zconnect,
 
     .sendto = zsendto,
-    .send_nosignal = zsend_nosignal,
+    .send = zsend,
     .sendmsg = zsendmsg,
 
     .recv_all = zrecv_all,
@@ -242,30 +242,26 @@ zEndMark:
 
 
 static _i
-zsendto(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
-    _i zSentSiz = sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL|zFlags,
-            zpAddr_,
-            (NULL == zpAddr_) ? 0: ((zIPTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in))
-            );
-    return zSentSiz;
+zsendto(_i zSd, void *zpBuf, size_t zLen,
+        struct sockaddr *zpAddr_, socklen_t zAddrSiz) {
+    return sendto(zSd, zpBuf, zLen,
+            MSG_NOSIGNAL,
+            zpAddr_, zAddrSiz);
 }
 
 
 static _i
-zsend_nosignal(_i zSd, void *zpBuf, size_t zLen) {
-    return sendto(zSd, zpBuf, zLen, MSG_NOSIGNAL, NULL, zIPTypeNONE);
+zsend(_i zSd, void *zpBuf, size_t zLen) {
+    return send(zSd, zpBuf, zLen, MSG_NOSIGNAL);
 }
 
 
 static _i
-zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockaddr *zpAddr_, zip_t zIpType) {
-    if (NULL == zpVec_) {
-        return -1;
-    }
-
+zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz,
+		struct sockaddr *zpAddr_, socklen_t zAddrSiz) {
     struct msghdr zMsg_ = {
         .msg_name = zpAddr_,
-        .msg_namelen = (NULL == zpAddr_) ? 0: ((zIPTypeV6 == zIpType) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)),
+        .msg_namelen = zAddrSiz,
         .msg_iov = zpVec_,
         .msg_iovlen = zVecSiz,
         .msg_control = NULL,
@@ -273,29 +269,20 @@ zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz, _i zFlags, struct sockadd
         .msg_flags = 0
     };
 
-    return sendmsg(zSd, &zMsg_, MSG_NOSIGNAL|zFlags);
+    return sendmsg(zSd, &zMsg_, MSG_NOSIGNAL);
 }
 
 
 static _i
-zrecv_all(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_) {
-    socklen_t zAddrLen = 0;
-    _i zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_WAITALL|zFlags, zpAddr_, &zAddrLen);
-    zCHECK_NEGATIVE_RETURN(zRecvSiz, -1);
-    return zRecvSiz;
+zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t *zpAddrSiz) {
+    return recvfrom(zSd, zpBuf, zLen, MSG_WAITALL|MSG_NOSIGNAL, zpAddr_, zpAddrSiz);
 }
 
 
-// static _i
-// zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, _i zFlags, struct sockaddr *zpAddr_) {
-//     socklen_t zAddrLen = 0;
-//     _i zRecvSiz = 0;
-//     if ((-1 == (zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|zFlags, zpAddr_, &zAddrLen)))
-//             && (EAGAIN == errno)) {
-//         zRecvSiz = recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|zFlags, zpAddr_, &zAddrLen);
-//     }
-//     return zRecvSiz;
-// }
+static _i
+zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t *zpAddrSiz) {
+    return recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|MSG_NOSIGNAL, zpAddr_, zpAddrSiz);
+}
 
 
 /*

@@ -137,6 +137,11 @@ typedef struct __zDpCcur__ {
     /* 指向目标机 IP 在服务端 HASH 链中的节点 */
     zDpRes__ *p_selfNode;
 
+    /*
+     * 单项目、单次布署并发窗口大小控制
+     * size: 256
+     */
+    sem_t *p_dpSem;
 
     /*
      * 修改线程任务完成状态必须是原子性的，
@@ -145,27 +150,12 @@ typedef struct __zDpCcur__ {
      */
     pthread_mutex_t *p_ccurLock;
 
-    /* --------------------------------------
-     * 如下多项由工作线程填写，调度者不必赋值
-     * -------------------------------------- */
-
     /*
      * 工作线程将当次任务错误码写出到此值
      * 0 表示成功
      * 其余数字表示错误码
      * */
     _c errNo;
-
-     /*
-      * 0 表示尚未完成任务
-      * 1 表示工作线程已完成当前任务，可能已经承接其它任务，不能被清理
-      */
-    _c finMark;
-
-    /*
-     * 工作线程将自身的 Tid 写入此值
-     */
-    pthread_t tid;
 } zDpCcur__;
 
 
@@ -438,6 +428,12 @@ typedef struct __zRepo__ {
 
     /* 本项目范围内通用锁 */
     pthread_mutex_t commLock;
+
+    /*
+     * 用于控制并发流量的信号量，防止并发超载
+     */
+    sem_t dpSem;
+    _s dpSemSiz;  /* 296 */
 } zRepo__;
 
 
@@ -448,7 +444,7 @@ struct zRun__ {
     void * (* route_udp) (void *);
 
     _i (* ops_tcp[zTCP_SERV_HASH_SIZ]) (cJSON *, _i);
-    _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *);
+    _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *, struct sockaddr *, socklen_t);
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t *p_commLock;
@@ -483,15 +479,17 @@ struct zRun__ {
     /* 布署系统自身服务连接信息 */
     zNetSrv__ netSrv_;
 
-    /* UDP 服务器套接字 */
-    _i zUdpServSd;
+    /*
+     * UDP 服务器套接字
+     * [0] 内部使用的，基于 UNIX 域套接字
+     * [1] 用于收集目标机监控数据
+     */
+    _i zUdpServSd[2];
 
     /*
-     * 用于控制并发流量的信号量
-     * 防止并发超载，限制为 296
+     * 服务端内部自连接的 cli sd
      */
-    sem_t dpTraficControl;
-    _s dpTraficLimit;
+    _i zUdpCliSd;
 
     /* postgreSQL 全局认证信息 */
     zPgLogin__ pgLogin_;
@@ -506,7 +504,10 @@ struct zRun__ {
  * udp server: use the same ipAddr and port as tcp server.
  */
 typedef struct __zUdpInfo__ {
-    char data[512];
+    _s opsId;
+
+    char data[510];
+
     struct sockaddr peerAddr;
     socklen_t peerAddrLen;
 } zUdpInfo__;

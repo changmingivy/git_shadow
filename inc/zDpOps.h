@@ -37,14 +37,15 @@
 
 
 struct zDpState__ {
-    char *p_replyType;
+    char replyType[4];
 
     _s repoId;
     time_t timeStamp;
 
-    char *p_hostAddr;
-    char *p_revSig;
-    char *p_errContent;
+    char hostAddr[INET6_ADDRSTRLEN];
+    char revSig[40];  /* 不含末尾的 '\0' */
+
+    char errContent[256];
 };
 
 
@@ -62,12 +63,12 @@ struct zDpOps__ {
 
     _i (* glob_res_confirm) (cJSON *, _i);
     _i (* state_confirm_wraper) (cJSON *, _i);
-    _i (* state_confirm) (void *);
+    _i (* state_confirm) (void *, struct sockaddr *, socklen_t);
 
     _i (* req_file) (cJSON *, _i);
 
     _i (* tcp_pang) (cJSON *, _i);
-    _i (* udp_pang) (void *);
+    _i (* udp_pang) (void *, struct sockaddr *, socklen_t);
 
     _i (* sys_update) (cJSON *, _i);
 

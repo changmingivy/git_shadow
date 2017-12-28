@@ -40,7 +40,6 @@ struct zRun__ zRun_ = {
     .ops_udp = { NULL },
 
     .p_servPath = NULL,
-    .dpTraficLimit = 296,
 
     .p_commLock = & zGlobCommLock,
     .p_commCond = & zGlobCommCond,
@@ -63,7 +62,7 @@ zerr_vec_init(void) {
     zpErrVec[11] = "系统忙，请两秒后重试...";
     zpErrVec[12] = "布署失败";
     zpErrVec[13] = "正在布署过程中，或上一次布署失败，查看最近一次布署动作的实时进度";
-    zpErrVec[14] = "";
+    zpErrVec[14] = "用户指定的布署后命令执行失败";
     zpErrVec[15] = "服务端布署前动作出错";
     zpErrVec[16] = "系统当前负载太高，请稍稍后重试";
     zpErrVec[17] = "IPnum ====> IPstr 失败";
@@ -229,7 +228,10 @@ zstart_server() {
     /* 线程池初始化 */
     zThreadPool_.init();
 
-    /* start daemon for code fetching... */
+    /* 服务器内部使用的 AF_UNIX UDP 服务器 */
+    zThreadPool_.add(zudp_daemon, ".s.git_shadow");
+
+    /* 用于收集所有目标机监控数据的 AF_INET6 UDP 服务器 */
     zThreadPool_.add(zudp_daemon, NULL);
 
     /*
@@ -322,11 +324,11 @@ zops_route_tcp(void *zp) {
      * 若收到的数据量很大，
      * 直接一次性扩展为 1024 倍的缓冲区
      */
-    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, 0))) {
+    if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, MSG_NOSIGNAL))) {
         zDataBufSiz *= 1024;
         zMEM_ALLOC(zpDataBuf, char, zDataBufSiz);
         strcpy(zpDataBuf, zDataBuf);
-        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, 0);
+        zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, MSG_NOSIGNAL);
     }
 
     /*
@@ -368,7 +370,7 @@ zops_route_tcp(void *zp) {
 
         if (14 != zOpsId) {
             zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}", zErrNo, zOpsId, zpErrVec[-1 * zErrNo]);
-            zNetUtils_.send_nosignal(zSd, zpDataBuf, zDataLen);
+            zNetUtils_.send(zSd, zpDataBuf, zDataLen);
         }
     }
 
@@ -385,27 +387,39 @@ zMarkEnd:
 /*
  * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
  * 收到的内容会传向新线程，使用静态变量数组防止负载高时造成线程参数混乱
- * 单个消息长度不能超过 512
+ * 单个消息长度不能超过 510
  */
 static void *
-zudp_daemon(void *zp __attribute__ ((__unused__))) {
+zudp_daemon(void *zpUNPath) {
+    _i zServSd = -1;
+
     /* UDP serv vec */
     zRun_.ops_udp[0] = zDpOps_.udp_pang;
     zRun_.ops_udp[1] = zDpOps_.state_confirm;
     zRun_.ops_udp[2] = NULL;
     zRun_.ops_udp[3] = NULL;
 
-    zRun_.zUdpServSd = zNetUtils_.gen_serv_sd(
-            zRun_.netSrv_.p_ipAddr,
-            zRun_.netSrv_.p_port,
-            NULL,
-            zProtoUDP);
+    if (NULL == zpUNPath) {
+        zServSd = zNetUtils_.gen_serv_sd(
+                zRun_.netSrv_.p_ipAddr,
+                zRun_.netSrv_.p_port,
+                NULL,
+                zProtoUDP);
+        zRun_.zUdpServSd[1] = zServSd;
+    } else {
+        zServSd = zNetUtils_.gen_serv_sd(
+                NULL,
+                NULL,
+                zpUNPath,
+                zProtoUDP);
+        zRun_.zUdpServSd[0] = zServSd;
+    }
 
     static zUdpInfo__ zUdpInfo_[256];
     _uc zMsgId = 0;
     for (_ui i = 0;; i++) {
         zMsgId = i % 256;
-        recvfrom(zRun_.zUdpServSd, zUdpInfo_[zMsgId].data, zBYTES(512), 0,
+        recvfrom(zServSd, zUdpInfo_[zMsgId].data, zBYTES(510), MSG_NOSIGNAL,
                 & zUdpInfo_[zMsgId].peerAddr,
                 & zUdpInfo_[zMsgId].peerAddrLen);
         zThreadPool_.add(zops_route_udp, & zUdpInfo_[zMsgId]);
@@ -423,9 +437,14 @@ zops_route_udp (void *zp) {
     /* 必须第一时间复制出来 */
     memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
 
-    // TODO ...
-
-    return NULL;
+    if (0 == zRun_.ops_udp[zUdpInfo_.opsId](
+                & zUdpInfo_.data,
+                & zUdpInfo_.peerAddr,
+                zUdpInfo_.peerAddrLen)) {
+        return NULL;
+    } else {
+        return (void *) -1;
+    }
 }
 
 
@@ -477,6 +496,6 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
         zPosixReg_.free_res(&zR_);
     }
 
-    zNetUtils_.send_nosignal(zSd, "==== Import Success ====" ,sizeof("==== Import Success ====") - 1);
+    zNetUtils_.send(zSd, "==== Import Success ====" ,sizeof("==== Import Success ====") - 1);
     return 0;
 }
