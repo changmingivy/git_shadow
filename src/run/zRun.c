@@ -265,7 +265,7 @@ zstart_server() {
     zRun_.ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
     zRun_.ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
     zRun_.ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
-    zRun_.ops_tcp[4] = NULL;
+    zRun_.ops_tcp[4] = NULL;  /* 删除项目接口预留 */
     zRun_.ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
     zRun_.ops_tcp[6] = NULL;
     zRun_.ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */

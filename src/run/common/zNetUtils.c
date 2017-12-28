@@ -258,7 +258,7 @@ zsend(_i zSd, void *zpBuf, size_t zLen) {
 
 static _i
 zsendmsg(_i zSd, struct iovec *zpVec_, size_t zVecSiz,
-		struct sockaddr *zpAddr_, socklen_t zAddrSiz) {
+        struct sockaddr *zpAddr_, socklen_t zAddrSiz) {
     struct msghdr zMsg_ = {
         .msg_name = zpAddr_,
         .msg_namelen = zAddrSiz,
@@ -354,6 +354,142 @@ zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpRe
     }
 
     return zErrNo;
+}
+
+
+/*
+ * 进程间传递文件描述符
+ * 用于实现多进程模型服务器
+ * 每次只传送一个 fd
+ * @param: zFd[0] 是 UNIX 域套接字，用作传输的工具
+ * @param: zFd[1] 是需要被传递的目标 fd
+ * 返回 0 表示成功，否则表示失败
+ * 若使用 UDP 通信，则必须事先完成了 connect
+ */
+static _i
+zsend_fd(const _i zFd[2])
+{
+    /*
+     * 只发送一个字节的常规数据
+     * 用于判断 sendmsg 的执行结果
+     */
+    struct iovec zVec_ = {
+        .iov_base = "",
+        .iov_len = zBYTES(1),
+    };
+
+    /*
+     * 存放将要被发送的 fd 的所有必要信息的空间
+     * 为适用不同的硬件平台，需要使用宏取值
+     */
+    char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
+
+    /*
+     * sendmsg 直接使用的最外层结构体
+     */
+    struct msghdr zMsg_ = {
+        .msg_name = NULL,
+        .msg_namelen = 0,
+
+        .msg_iov = &zVec_,
+        .msg_iovlen = 1,
+
+        .msg_control = zCmsgBuf,
+        .msg_controllen = CMSG_SPACE(sizeof(_i)),
+
+        .msg_flags = 0,
+    };
+
+    /*
+     * 以下为控制数据赋值
+     */
+    struct cmsghdr *zpCmsg = zMsg_.msg_control;
+
+    /*
+     * 声明传递的数据层级：SOL_SOCKET
+     * 与 setsockopt 中的含义一致
+     */
+    zpCmsg->cmsg_level = SOL_SOCKET;
+
+    /*
+     * 声明传递的数据类型是：
+     * socket controling management rights/权限
+     */
+    zpCmsg->cmsg_type = SCM_RIGHTS;
+
+    /*
+     * CMSG_SPACE(data_to_send) 永远 >= CMSG_LEN(data_to_send)
+     * 因为前者对实际要发送的数据对象，也做了对齐填充计算
+     * 而后者是 cmsghdr 结构体对齐填充后的大小，与实际数据的原始长度之和
+     */
+    zpCmsg->cmsg_len = CMSG_LEN(sizeof(_i));
+
+    /*
+     * cmsghdr 结构体的最后一个成员是 C99 风格的 data[] 形式
+     * 使用宏将目标 fd 写入此位置，
+     */
+    * (_i *) CMSG_DATA(zpCmsg) = zFd[1];
+
+    /*
+     * 成功发送了一个字节的数据，即说明执行成功
+     */
+    if (1 == sendmsg(zFd[0], &zMsg_, MSG_NOSIGNAL)) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+
+/*
+ * 接收其它进程传递过来的 fd
+ * 成功返回 fd（正整数），失败返回 -1
+ * @param: 传递所用的 UNIX 域套接字
+ * 若使用 UDP 通信，则必须事先完成了 connect
+ */
+static _i
+zrecv_fd(const _i zFd)
+{
+    char _;
+    struct iovec zVec_ = {
+        .iov_base = &_,
+        .iov_len = zBYTES(1),
+    };
+
+    char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
+
+    struct msghdr zMsg_ = {
+        .msg_name = NULL,
+        .msg_namelen = 0,
+
+        .msg_iov = &zVec_,
+        .msg_iovlen = 1,
+
+        .msg_control = zCmsgBuf,
+        .msg_controllen = CMSG_SPACE(sizeof(_i)),
+
+        .msg_flags = 0,
+    };
+
+    /* 目标 fd 空间预置为 -1 */
+    * (_i *) CMSG_DATA(CMSG_FIRSTHDR(&zMsg_)) = -1;
+
+    /*
+     * zsend_fd() 只发送了一个字节的常规数据
+     */
+    if (1 == recvmsg(zFd, &zMsg_, 0)) {
+        if (NULL == CMSG_FIRSTHDR(&zMsg_)) {
+            return -1;
+        } else {
+            /*
+             * 只发送了一个 cmsghdr 结构体 + fd
+             * 其最后的 data[] 存放的即是接收到的 fd
+             */
+            return * (_i *) CMSG_DATA(CMSG_FIRSTHDR(&zMsg_));
+        }
+    } else {
+        return -1;
+    }
 }
 
 #undef zUN_PATH_SIZ
