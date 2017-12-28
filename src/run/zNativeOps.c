@@ -978,11 +978,6 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zERR_RETURN_OR_EXIT(-37);
     }
 
-    void **zppPrev = zRun_.p_repoVec[zRepoId]->p_memPool;
-    zppPrev[0] = NULL;
-    zRun_.p_repoVec[zRepoId]->memPoolOffSet = sizeof(void *);
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->memLock, NULL) );
-
     /* 通用锁 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->commLock, NULL) );
 
@@ -1330,6 +1325,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             (zRun_.p_repoVec[zRepoId]->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
         zERR_RETURN_OR_EXIT(1);
     }
+
+    void **zppPrev = zRun_.p_repoVec[zRepoId]->p_memPool;
+    zppPrev[0] = NULL;
+    zRun_.p_repoVec[zRepoId]->memPoolOffSet = sizeof(void *);
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zRun_.p_repoVec[zRepoId]->memLock, NULL) );
 
     /* 生成缓存 */
     zCacheMeta__ zMeta_;
