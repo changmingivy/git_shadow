@@ -1652,7 +1652,7 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
      * 生成连接 pgSQL 的元信息
      */
     snprintf(zRun_.pgConnInfo, 2048,
-            "%s%s "
+            "%s%s%s "
             "%s%s "
             "%s%s "
             "%s%s "
@@ -1660,8 +1660,9 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
             "%s%s "
             "sslmode=allow "
             "connect_timeout=6",
-            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "" : "host=") : "",
-            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "" : zpPgLogin_->p_host) : "",
+            NULL == zpPgLogin_->p_addr ? "host=" : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? zRun_.p_servPath : zpPgLogin_->p_host) : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? "/.s.pgsql" : "") : "",
             NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
             NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
             (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : "port="),
