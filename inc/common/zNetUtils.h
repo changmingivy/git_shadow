@@ -13,9 +13,9 @@
 #include "zCommon.h"
 
 struct zNetUtils__ {
-    _i (* gen_serv_sd) (char *, char *, znet_proto_t);
+    _i (* gen_serv_sd) (char *, char *, char *, znet_proto_t);
 
-    _i (* conn) (char *, char *, znet_proto_t, _i);
+    _i (* conn) (char *, char *, char *, znet_proto_t, _i);
 
     _i (* sendto) (_i, void *, size_t, _i, struct sockaddr *, zip_t);
     _i (* send_nosignal) (_i, void *, size_t);

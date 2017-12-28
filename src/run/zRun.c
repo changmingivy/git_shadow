@@ -199,17 +199,17 @@ zstart_server() {
     atexit(zexit_clean);
 
     /*
-     * 转换为后台守护进程
-     */
-    zNativeUtils_.daemonize("/");
-
-    /*
      * 必须指定服务端的根路径
      */
     if (NULL == zRun_.p_servPath) {
         zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
+
+    /*
+     * 转换为后台守护进程
+     */
+    zNativeUtils_.daemonize(zRun_.p_servPath);
 
     /*
      * 检查 pgSQL 运行环境是否是线程安全的

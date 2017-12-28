@@ -1,3 +1,5 @@
+#include <sys/socket.h>
+
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
@@ -7,8 +9,8 @@
 typedef enum {
     zProtoTCP = 0,
     zProtoUDP = 1,
-    zProtoSCTP = 3,
-    zProtoNONE = 4
+    zProtoSCTP = 2,
+    zProtoNONE = 3
 } znet_proto_t;
 
 typedef enum {

@@ -45,8 +45,17 @@ zPgLibPath=${zPgPath}/lib
 zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
 
-sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
-echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
+# PG: 留空表示仅接受本地 UNIX 域套接字连接
+sed -i '/listen_addresses/d' ${zPgDataPath}/postgresql.conf
+echo "listen_addresses = ''" >> ${zPgDataPath}/postgresql.conf
+
+# PG: 以源码根路径作为 UNIX 域套接字存放路径
+sed -i '/unix_socket_directories/d' ${zPgDataPath}/postgresql.conf
+echo "unix_socket_directories = \'${zShadowPath}"\' >> ${zPgDataPath}/postgresql.conf
+
+# PG: UNIX 域套接字权限
+sed -i '/unix_socket_permissions/d' ${zPgDataPath}/postgresql.conf
+echo "unix_socket_permissions = 0700" >> ${zPgDataPath}/postgresql.conf
 
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
