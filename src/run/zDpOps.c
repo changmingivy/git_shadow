@@ -2913,20 +2913,20 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
  * 目标机使用此接口测试与服务端的连通性
  */
 static _i
-zudp_pang(void *zp,
-        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
-        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-    zUdpInfo__ *zpUdpInfo_= (zUdpInfo__*) zp;
+zudp_pang(void *zp __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr,
+        socklen_t zPeerAddrLen) {
 
     /*
      * 目标机发送 "?"
      * 服务端回复 "!"
      */
-    return zNetUtils_.sendto(
-            zRun_.zUdpServSd[1],
-            "!", zBYTES(1),
-            0,
-            & zpUdpInfo_->peerAddr, zpUdpInfo_->peerAddrLen);
+    if (NULL == zpPeerAddr) {
+        return zNetUtils_.send(zRun_.zUdpServSd[1], "!", zBYTES(1));
+    } else {
+        return zNetUtils_.sendto(zRun_.zUdpServSd[1], "!", zBYTES(1),
+                zpPeerAddr, zPeerAddrLen);
+    }
 }
 
 
