@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <signal.h>
 
 extern struct zThreadPool__ zThreadPool_;
 extern struct zNetUtils__ zNetUtils_;
@@ -282,6 +283,7 @@ zstart_server() {
     _i zMajorSd = zNetUtils_.gen_serv_sd(
             zRun_.netSrv_.p_ipAddr,
             zRun_.netSrv_.p_port,
+            NULL,
             zProtoTCP);
 
     /*
@@ -396,6 +398,7 @@ zudp_daemon(void *zp __attribute__ ((__unused__))) {
     zRun_.zUdpServSd = zNetUtils_.gen_serv_sd(
             zRun_.netSrv_.p_ipAddr,
             zRun_.netSrv_.p_port,
+            NULL,
             zProtoUDP);
 
     static zUdpInfo__ zUdpInfo_[256];
