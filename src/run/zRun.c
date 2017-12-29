@@ -223,12 +223,18 @@ zstart_server() {
     zerr_vec_init();
 
     /* 线程池初始化 */
-    zThreadPool_.init();
+    zThreadPool_.init(64);
 
-    /* 服务器内部使用的 AF_UNIX UDP 服务器 */
+    /*
+     * 只运行于项目进程
+     * 服务器内部使用的 AF_UNIX UDP 服务器
+     */
     zThreadPool_.add(zudp_daemon, ".s.git_shadow");
 
-    /* 用于收集所有目标机监控数据的 AF_INET6 UDP 服务器 */
+    /*
+     * 只运行于主进程
+     * 用于收集所有目标机监控数据的 AF_INET/AF_INET6 UDP 服务器
+     */
     zThreadPool_.add(zudp_daemon, NULL);
 
     /*

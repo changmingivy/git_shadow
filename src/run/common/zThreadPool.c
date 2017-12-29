@@ -6,12 +6,7 @@
 #include <string.h>
 #include <errno.h>
 
-/* 允许同时处于空闲状态的线程数量，即常备线程数量 */
-#define zThreadPollSiz 385
-
-#define zThreadPollSizMark (zThreadPollSiz - 1)
-
-static void zthread_poll_init(void);
+static void zthread_poll_init(_i zPrevSiz);
 static void zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
 
 /******************************
@@ -23,9 +18,12 @@ struct zThreadPool__ zThreadPool_ = {
 };
 
 /* 线程池栈结构 */
-static zThreadTask__ *zpPoolStack_[zThreadPollSiz];
+static _i zThreadPollSiz;
+static _i zOverflowMark;
 
+static zThreadTask__ **zppPoolStack_;
 static _i zStackHeader = -1;
+
 static pthread_mutex_t zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t zThreadPoolTidTrash;
 
@@ -53,8 +51,8 @@ zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
 
-    if (zStackHeader < zThreadPollSizMark) {
-        zpPoolStack_[++zStackHeader] = zpSelfTask;
+    if (zStackHeader < zOverflowMark) {
+        zppPoolStack_[++zStackHeader] = zpSelfTask;
         while (NULL == zpSelfTask->func) {
             /* 等待任务到达 */
             pthread_cond_wait( &(zpSelfTask->condVar), &zStackHeaderLock );
@@ -81,9 +79,23 @@ zMark:
 }
 
 static void
-zthread_poll_init(void) {
-    for (_i zCnter = 0; zCnter < zThreadPollSiz; zCnter++) {
-        zCHECK_PTHREAD_FUNC_EXIT( pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL) );
+zthread_poll_init(_i zSiz) {
+    /*
+     * 允许同时处于空闲状态的线程数量，
+     * 即常备线程数量
+     */
+    zThreadPollSiz = zSiz;
+    zOverflowMark = zThreadPollSiz - 1;
+
+    /*
+     * 线程池栈结构空间
+     */
+    zMEM_ALLOC(zppPoolStack_, void *, zThreadPollSiz);
+
+    for (_i i = 0; i < zThreadPollSiz; i++) {
+        zCHECK_PTHREAD_FUNC_EXIT(
+                pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL)
+                );
     }
 }
 
@@ -104,9 +116,9 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
         pthread_mutex_lock(&zStackHeaderLock);
     }
     _i zKeepStackHeader= zStackHeader;
-    zpPoolStack_[zStackHeader]->func = zFunc;
-    zpPoolStack_[zStackHeader]->p_param = zpParam;
+    zppPoolStack_[zStackHeader]->func = zFunc;
+    zppPoolStack_[zStackHeader]->p_param = zpParam;
     zStackHeader--;
     pthread_mutex_unlock(&zStackHeaderLock);
-    pthread_cond_signal(&(zpPoolStack_[zKeepStackHeader]->condVar));
+    pthread_cond_signal(&(zppPoolStack_[zKeepStackHeader]->condVar));
 }

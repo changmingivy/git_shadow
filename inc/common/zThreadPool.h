@@ -20,7 +20,7 @@ typedef struct zThreadTask__ {
 } zThreadTask__ ;
 
 struct zThreadPool__ {
-    void (* init) (void);
+    void (* init) (_i);
     void (* add) (void * (*) (void *), void *);
 };
 
