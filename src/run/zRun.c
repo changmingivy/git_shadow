@@ -329,6 +329,12 @@ zstart_server() {
 }
 
 
+static void *
+zops_route_tcp_master(void *zp) {
+
+}
+
+
 /*
  * tcp 路由函数，主要用于面向用户的服务
  */
