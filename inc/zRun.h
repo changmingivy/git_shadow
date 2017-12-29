@@ -74,7 +74,7 @@ typedef struct __zDpRes__ {
      * err5 bit[4]: 目标端权限不足
      * err6 bit[5]: 目标端文件冲突
      * err7 bit[6]: 目标端路径不存在
-     * err8 bit[7]: 目标端收到重复布署指令(同一目标机的多个不同IP)
+     * err8 bit[7]: 目标端的 git 环境不可用
      * err9 bit[8]: 目标机 IP 格式错误/无法解析
      * err10 bit[9]: host ==> server 网络不通
      * err11 bit[10]: 目标端负载过高
