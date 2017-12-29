@@ -219,9 +219,6 @@ zstart_server() {
         exit(1);
     }
 
-    /* 全局并发控制的信号量 */
-    zCHECK_NEGATIVE_EXIT( sem_init(& zRun_.dpTraficControl, 0, zRun_.dpTraficLimit) );
-
     /* 初始化错误信息 HashMap */
     zerr_vec_init();
 
