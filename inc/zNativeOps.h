@@ -62,12 +62,10 @@ struct zNativeOps__ {
     _i (* proj_init) (zPgResTuple__ *, _i);
     void * (* proj_init_all) (zPgLogin__ *);
 
-    void * (* alloc) (_i, _ui);
+    void * (* alloc) (size_t);
     void * (* sysload_monitor) (void *);
 
     void * (* extend_pg_partition) (void *zp);
-
-    _i (* fetch_mgmt) (_i);
 };
 
 #endif  // #ifndef ZLOCALOPS_H

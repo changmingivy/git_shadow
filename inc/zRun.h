@@ -91,8 +91,6 @@ typedef struct __zDpRes__ {
 } zDpRes__;
 
 typedef struct __zDpCcur__ {
-    _i repoId;
-
     /*
      * 单次动作的身份唯一性标识
      * 布署时为：time_stamp
@@ -138,12 +136,6 @@ typedef struct __zDpCcur__ {
     zDpRes__ *p_selfNode;
 
     /*
-     * 单项目、单次布署并发窗口大小控制
-     * size: 256
-     */
-    sem_t *p_dpSem;
-
-    /*
      * 修改线程任务完成状态必须是原子性的，
      * 即调度者在清理线程的时候，不允许再有工作线程自行退出
      * 另 libssh2 中的部分环节需要加锁，才能安全并发
@@ -156,6 +148,17 @@ typedef struct __zDpCcur__ {
      * 其余数字表示错误码
      * */
     _c errNo;
+
+    /*
+     * 标记布署动作已经开始运行
+     * 初始化为 0，进入工作线程后，置为 1
+     */
+    _c startMark;
+
+    /*
+     * 工作线程自身的 tid
+     */
+    pthread_t selfTid;
 } zDpCcur__;
 
 
@@ -182,7 +185,6 @@ typedef struct __zVecWrap__ {
 
 typedef struct __zCacheMeta__ {
     _s opsId;  // 网络交互时，代表操作指令（从 1 开始的连续排列的非负整数）
-    _s repoId;  // 项目代号（从 1 开始的非负整数）
     _s commitId;  // 版本号
     _s dataType;  // 缓存类型，zDATA_TYPE_COMMIT/zDATA_TYPE_DP
     _i fileId;  // 单个文件在差异文件列表中 index
@@ -402,11 +404,6 @@ typedef struct __zRepo__ {
     _ui tempTableNo;
 
     /*
-     * 负责 fetch 源库代码的子进程 pid
-     */
-    pid_t codeSyncPid;
-
-    /*
      * 同步远程代码时对接的源库URL与分支名称
      * 之后用户可以改变
      */
@@ -425,15 +422,6 @@ typedef struct __zRepo__ {
      * 结果 == p_codeSyncRefs + (strlen(p_codeSyncRefs) - 8) / 2 + 1
      */
     char *p_localRef;
-
-    /* 本项目范围内通用锁 */
-    pthread_mutex_t commLock;
-
-    /*
-     * 用于控制并发流量的信号量，防止并发超载
-     */
-    sem_t dpSem;
-    _s dpSemSiz;  /* 296 */
 } zRepo__;
 
 
@@ -445,6 +433,11 @@ struct zRun__ {
 
     _i (* ops_tcp[zTCP_SERV_HASH_SIZ]) (cJSON *, _i);
     _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *, struct sockaddr *, socklen_t);
+
+    /*
+     * 项目元数据
+     */
+    zRepo__ self;
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t *p_commLock;
@@ -498,7 +491,9 @@ struct zRun__ {
     zPgLogin__ pgLogin_;
     char pgConnInfo[2048];
 
-    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
+    /*
+     * 升级锁：系统本身升级时，需要排斥 IP 增量更新动作
+     */
     pthread_rwlock_t p_sysUpdateLock;
 };
 
