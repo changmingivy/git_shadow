@@ -476,6 +476,9 @@ struct zRun__ {
     char *p_SSHPubKeyPath;
     char *p_SSHPrvKeyPath;
 
+    /* 错误码影射表 */
+    char *p_errVec[128];
+
     /* 布署系统自身服务连接信息 */
     zNetSrv__ netSrv_;
 
