@@ -14,6 +14,8 @@
 #include "zCommon.h"
 
 typedef struct zThreadTask__ {
+    pthread_t selfTid;
+
     pthread_cond_t condVar;
 
     void * (* func) (void *);
@@ -22,7 +24,7 @@ typedef struct zThreadTask__ {
 
 struct zThreadPool__ {
     _i (* init) (_i, _i);
-    _i (* add) (void * (*) (void *), void *);
+    _i (* add) (void * (*) (void *), void *, pthread_t *);
 
     /*
      * 这是一个使用 sem_open 创建的，

@@ -8,7 +8,7 @@
 #include <errno.h>
 
 static _i zthread_pool_init(_i zSiz, _i zGlobSiz);
-static _i zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
+static _i zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam, pthread_t *zpTidOUT);
 
 /******************************
  * ====  对外公开的接口  ==== *
@@ -29,6 +29,7 @@ static pthread_mutex_t zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
 
 static pthread_t zThreadPoolTidTrash;
 
+
 /*
  * 线程退出时，释放自身占用的资源
  */
@@ -41,23 +42,26 @@ zthread_canceled_cleanup(void *zp_) {
     sem_post(zThreadPool_.p_threadPoolSem);
 }
 
+
 static void *
 zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
-    pthread_detach( pthread_self() );
-
     zThreadTask__ *zpSelfTask;
     zMEM_ALLOC(zpSelfTask, zThreadTask__, 1);
 
-    /* 注册因收到 cancel 指令而退出时的资源清理动作 */
-    pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
+    zpSelfTask->selfTid = pthread_self();
+    zpSelfTask->func = NULL;
+
+    pthread_detach(zpSelfTask->selfTid);
 
     zCHECK_PTHREAD_FUNC_EXIT( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
+
+    /* 注册因收到 cancel 指令而退出时的资源清理动作 */
+    pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
 
     /* 线程可被cancel，且 cancel 属性设置为立即退出 */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
 
-    zpSelfTask->func = NULL;
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
 
@@ -70,7 +74,6 @@ zMark:
         pthread_mutex_unlock(&zStackHeaderLock);
 
         zpSelfTask->func(zpSelfTask->p_param);
-
 
         zpSelfTask->func = NULL;
         goto zMark;
@@ -150,13 +153,14 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
     return 0;
 }
 
+
 /*
  * 线程池容量不足时，自动扩容
  * 空闲线程过多时，会自动缩容
  * @return 成功返回 0，失败返回 -1
  */
 static _i
-zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
+zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam, pthread_t *zpTidOUT) {
     pthread_mutex_lock(&zStackHeaderLock);
 
     while (0 > zStackHeader) {
@@ -167,17 +171,26 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
             return -1;
         }
 
-        pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL);
+        pthread_create(
+                & zThreadPoolTidTrash,
+                NULL,
+                zthread_pool_meta_func, NULL);
 
         pthread_mutex_lock(&zStackHeaderLock);
     }
 
-    _i zKeepStackHeader= zStackHeader;
 
     zppPoolStack_[zStackHeader]->func = zFunc;
     zppPoolStack_[zStackHeader]->p_param = zpParam;
 
+    if (NULL != zpTidOUT) {
+        *zpTidOUT = zppPoolStack_[zStackHeader]->selfTid;
+    }
+
     zStackHeader--;
+
+    /* 防止解锁后，瞬间改变的情况 */
+    _i zKeepStackHeader= zStackHeader;
 
     pthread_mutex_unlock(&zStackHeaderLock);
     pthread_cond_signal(&(zppPoolStack_[zKeepStackHeader]->condVar));
