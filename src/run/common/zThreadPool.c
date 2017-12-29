@@ -8,7 +8,7 @@
 #include <errno.h>
 
 static _i zthread_pool_init(_i zSiz, _i zGlobSiz);
-static _i zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam, pthread_t *zpTidOUT);
+static _i zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
 
 /******************************
  * ====  对外公开的接口  ==== *
@@ -36,31 +36,41 @@ static pthread_t zThreadPoolTidTrash;
 static void
 zthread_canceled_cleanup(void *zp_) {
     zThreadTask__ *zpSelfTask = (zThreadTask__ *) zp_;
+
+    /* 释放占用的系统全局信号量 */
+    sem_post(zThreadPool_.p_threadPoolSem);
+
+    /* 清理内部分配的静态资源 */
     pthread_cond_destroy(&(zpSelfTask->condVar));
     free(zpSelfTask);
-
-    sem_post(zThreadPool_.p_threadPoolSem);
 }
 
 
 static void *
 zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
+    /*
+     * detach 自身
+     */
+    pthread_detach(pthread_self());
+
+    /*
+     * 线程池中的线程程默认不接受 cancel
+     * 若有需求，在传入的工作函数中更改属性即可
+     */
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, 0);
+
+    /* 线程任务桩 */
     zThreadTask__ *zpSelfTask;
     zMEM_ALLOC(zpSelfTask, zThreadTask__, 1);
 
-    zpSelfTask->selfTid = pthread_self();
     zpSelfTask->func = NULL;
 
-    pthread_detach(zpSelfTask->selfTid);
+    zCHECK_PTHREAD_FUNC_EXIT(
+            pthread_cond_init(&(zpSelfTask->condVar), NULL)
+            );
 
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_cond_init(&(zpSelfTask->condVar), NULL) );
-
-    /* 注册因收到 cancel 指令而退出时的资源清理动作 */
+    /* 线程退出时的资源清理动作 */
     pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
-
-    /* 线程可被cancel，且 cancel 属性设置为立即退出 */
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
 
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
@@ -77,17 +87,23 @@ zMark:
 
         zpSelfTask->func = NULL;
         goto zMark;
-    } else {
-        pthread_mutex_unlock(&zStackHeaderLock);
-
-        /*
-         * 太多空闲线程时，自行退出
-         * 会触发 push-pop 清理资源
-         */
-        pthread_exit((void *) -1);
     }
 
-    pthread_cleanup_pop(0);
+    /*
+     * 只有空闲线程数超过线程池栈深度时，
+     * 才会运行至此
+     */
+    pthread_mutex_unlock(&zStackHeaderLock);
+
+    /*
+     * 参数置为非 0 值，
+     * 则运行至此处时，
+     * 清理函数一定会被执行
+     * 不必再调用 pthread_exit();
+     */
+    pthread_cleanup_pop(1);
+
+    return NULL;
 }
 
 
@@ -160,7 +176,7 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
  * @return 成功返回 0，失败返回 -1
  */
 static _i
-zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam, pthread_t *zpTidOUT) {
+zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
     pthread_mutex_lock(&zStackHeaderLock);
 
     while (0 > zStackHeader) {
@@ -182,10 +198,6 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam, pthread_t *zpTidOU
 
     zppPoolStack_[zStackHeader]->func = zFunc;
     zppPoolStack_[zStackHeader]->p_param = zpParam;
-
-    if (NULL != zpTidOUT) {
-        *zpTidOUT = zppPoolStack_[zStackHeader]->selfTid;
-    }
 
     zStackHeader--;
 
