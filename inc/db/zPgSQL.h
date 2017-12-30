@@ -5,12 +5,12 @@
 #include "zCommon.h"
 
 typedef struct __zPgLogin__ {
-    char * p_host;
-    char * p_addr;
-    char * p_port;
-    char * p_userName;
-    char * p_passFilePath;
-    char * p_dbName;
+    char *p_host;
+    char *p_addr;
+    char *p_port;
+    char *p_userName;
+    char *p_passFilePath;
+    char *p_dbName;
 } zPgLogin__;
 
 typedef PGconn zPgConnHd__;

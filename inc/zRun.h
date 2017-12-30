@@ -30,7 +30,7 @@ typedef struct {
 } zNetSrv__;
 
 
-#define zGLOB_REPO_ID_LIMIT 1024
+#define zGLOB_REPO_NUM_LIMIT 1024  /* 最多可管理 1024 个项目，ID 范围：0 - 1023 */
 
 #define zCACHE_SIZ 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
 #define zDP_HASH_SIZ 1009  // 布署状态HASH的大小，不要取 2 的倍数或指数，会导致 HASH 失效，应使用 奇数
@@ -46,6 +46,11 @@ typedef struct {
 #define zDATA_TYPE_DP 1
 
 typedef struct __zDpRes__ {
+    /*
+     * 目标机 IP
+     */
+    char *p_hostAddr;
+
     /*
      * unsigned long long int
      * IPv4 地址只使用第一个成员
@@ -92,55 +97,10 @@ typedef struct __zDpRes__ {
 
 typedef struct __zDpCcur__ {
     /*
-     * 单次动作的身份唯一性标识
-     * 布署时为：time_stamp
+     * 目标机 IP 在服务端 dpList 链中的节点索引
+     * 目标机 IP_str 通过此索引获取，port 从 zpRepo_ 中取
      */
-    _l id;
-
-    /* 单个目标机 Ip，如："10.0.0.1" "::1" */
-    char *p_hostAddr;
-
-    /* 字符串形式的端口号，如："22" */
-    char *p_hostServPort;
-
-    /* 需要执行的 SSH 初始化命令 */
-    char *p_cmd;
-
-    /* 布署成功后需要执行的动作 */
-    char *p_postDpCmd;
-
-    /* SSH 认证类型：公钥或密码 */
-    znet_auth_t authType;
-
-    /* 目标机上的用户名称 */
-    const char *p_userName;
-
-    /* 服务器上公钥所在路径，如："/home/git/.ssh/id_rsa.pub" */
-    const char *p_pubKeyPath;
-
-    /* 服务器上私钥所在路径，如："/home/git/.ssh/id_rsa" */
-    const char *p_privateKeyPath;
-
-    /*
-     * 公钥认证时，用于提定公钥的密码
-     * 密码认证时，用于指定用户登陆密码
-     * 留空表示无密码
-     */
-    const char *p_passWd;
-
-    /* 用于存放远程 SSH 命令的回显信息 */
-    char *p_remoteOutPutBuf;
-    _ui remoteOutPutBufSiz;
-
-    /* 指向目标机 IP 在服务端 HASH 链中的节点 */
-    zDpRes__ *p_selfNode;
-
-    /*
-     * 修改线程任务完成状态必须是原子性的，
-     * 即调度者在清理线程的时候，不允许再有工作线程自行退出
-     * 另 libssh2 中的部分环节需要加锁，才能安全并发
-     */
-    pthread_mutex_t *p_ccurLock;
+    _i selfNodeIndex;
 
     /*
      * 工作线程将当次任务错误码写出到此值
@@ -150,15 +110,15 @@ typedef struct __zDpCcur__ {
     _c errNo;
 
     /*
-     * 标记布署动作已经开始运行
+     * 工作线程标记布署动作已经开始运行
      * 初始化为 0，进入工作线程后，置为 1
      */
     _c startMark;
 
     /*
-     * 工作线程自身的 tid
+     * 工作线程写出的自身的 tid
      */
-    pthread_t selfTid;
+    pthread_t tid;
 } zDpCcur__;
 
 
@@ -171,6 +131,7 @@ typedef struct __zRefData__ {
     char *p_data;
 } zRefData__;
 
+
 /* 对 struct iovec 的封装，用于 zsendmsg 函数 */
 typedef struct __zVecWrap__ {
     /* 此数组中每个成员的 iov_base 字段均指向 p_refData_ 中对应的 p_data 字段 */
@@ -179,8 +140,6 @@ typedef struct __zVecWrap__ {
 
     struct __zRefData__ *p_refData_;
 } zVecWrap__;
-
-
 
 
 typedef struct __zCacheMeta__ {
@@ -204,17 +163,49 @@ typedef struct __zCacheMeta__ {
 } zCacheMeta__;
 
 
-
-
 /*
  * 用于存放每个项目的专用元信息
+ * 锁类型数据，空间间隔尽可能超过 128bytes，防止伪共享问题
  */
 typedef struct __zRepo__ {
-    /* 项目创建时间，格式：2016-12-01 09:29:00 */
+    /* 项目 ID */
+    _i id;
+
+    /*
+     * 项目创建时间，
+     * 格式：2016-12-01 09:29:00
+     */
     char createdTime[24];
 
-    /* 项目 ID */
-    _i repoId;
+    /*
+     * 项目在服务端上的绝对路径及其长度
+     */
+    char *p_path;
+    _s pathLen;
+
+    /*
+     * 项目所在文件系统支持的最大路径长度
+     * 相对于项目根目录的值，由底层文件系统决定
+     * 用于度量 git 输出的差异文件相对路径长度
+     */
+    _s maxPathLen;
+
+    /*
+     * 项目在服务端上的别名路径
+     * 每次布署时由用户指定
+     */
+    char *p_aliasPath;
+
+    /*
+     * 项目内存池，预分配 8M 空间
+     * 后续以 8M 为步进增长
+     * 能一次性分配的最长空间大小：8M - sizeof(void *)
+     * 超过此大小的内存申请，需要使用系统 alloc 类函数
+     */
+    void *p_memPool;
+
+    /* 动态指示下一次内存分配的起始地址 */
+    _ui memPoolOffSet;
 
     /*
      * 版本号列表、差异文件列表等缓存的 ID
@@ -223,46 +214,27 @@ typedef struct __zRepo__ {
     time_t  cacheId;
 
     /*
-     * 项目在服务端上的绝对路径
+     * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
+     * 用于提示用户看到的信息可能不准确
      */
-    char *p_repoPath;
-
-    /*
-     * 项目在服务端上的别名路径
-     * 每次布署时由用户指定
-     */
-    char *p_repoAliasPath;
-
-    /*
-     * 服务端项目路径字符串长度
-     * 会被频繁使用，因此全局留存以提升性能
-     */
-    _i repoPathLen;
-
-    /*
-     * 项目所在文件系统支持的最大路径长度
-     * 相对于项目根目录的值，由底层文件系统决定
-     * 用于度量 git 输出的差异文件相对路径长度
-     */
-    _i maxPathLen;
-
-    /*
-     * 用于标识仓库是否已经初始化完成：N 代表动作尚未完成，Y 代表已完成
-     * 未初始化完成的项目，不接受任何动作请求
-     */
-    char initFinished;
-
-    /*
-     * 每次布署的开始时间
-     * 每台目标机的耗时均基于此计算
-     */
-    time_t  dpBaseTimeStamp;
+    _c repoState;
 
     /*
      * 'Y'：允许强制清除有冲穾的文件或路径
      * 'N'：不允许
      */
     char forceDpMark;
+
+    /*
+     * 本项目全局 postgreSQL handler
+     */
+    zPgConnHd__ *p_pgConnHd_;
+
+    /*
+     * 临时 SQL 表命名序号
+     * 用以提升布署结果异步查询的性能
+     */
+    _ui tempTableNo;
 
     /*
      * 本项目全局 git handler
@@ -273,135 +245,6 @@ typedef struct __zRepo__ {
      * 每次布署动作都要新开启一个 handler
      */
     git_repository *p_gitDpHandler;
-
-    /*
-     * 本项目全局 postgreSQL handler
-     */
-    zPgConnHd__ *p_pgConnHd_;
-
-    /*
-     * 用于任务完成计数的原子性统计
-     * 及通知调度线程任务已完成
-     */
-    pthread_mutex_t dpSyncLock;
-    pthread_cond_t dpSyncCond;
-
-    /*
-     * 每个布署时指定的目标主机总数
-     */
-    _i totalHost;
-
-    /*
-     * 布署总任务数，其值总是 <= totalHost
-     */
-    _i dpTotalTask;
-
-    /*
-     * dpTaskFinCnt：
-     *     此值与 dpTotalTask 相等时，即代表完成所有任务
-     *     但不代表全部成功，其中可能存在因发生错误而返回的结果
-     * dpOpsFinCnt：
-     *     表示本地动作执行完毕的计数，不代表布署动作的最终结果
-     */
-    _i dpTaskFinCnt;
-    _i dpOpsFinCnt;
-
-    /*
-     * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
-     * 用于提示用户看到的信息可能不准确
-     */
-    _c repoState;
-
-    /*
-     * 用于标识收集齐的结果是全部成功，
-     * 还是其中有异常返回而增加的计数
-     * bit[0] 置位表示有异常
-     */
-    _uc resType;
-
-    /* 存放最近一次布署成功的版本号 */
-    char lastDpSig[41];
-
-    /* 正在布署过程中但尚未确定最终结果的版本号 */
-    char dpingSig[41];
-
-    /* 同一个项目的所有目标机登陆认证方式必须完全相同 */
-    char sshUserName[256];
-    char sshPort[6];
-
-    /*
-     * 存放所有目标机的并发布署参数
-     * 目标机数量不超过 zFORECASTED_HOST_NUM 时，使用预置的空间，以提升效率
-     */
-    zDpCcur__ *p_dpCcur_;
-    zDpCcur__ dpCcur_[zFORECASTED_HOST_NUM];
-
-    /*
-     * 每次布署时的所有目标机 IP(_ull[2]) 的链表及其散列
-     * 用于增量对比差异 IP，并由此决定每台目标机是否需要初始化或布署
-     */
-    zDpRes__ *p_dpResList_;
-    zDpRes__ *p_dpResHash_[zDP_HASH_SIZ];
-
-    /*
-     * 用于确保同一时间不会有多个新布署请求阻塞排队，
-     * 避免拥塞持续布署的情况
-     */
-    pthread_mutex_t dpWaitLock;
-
-    /*
-     * 正在进行的布署会将期置为 0，
-     * 后来到达的新布署通过将其置为 1，通知旧布署终止
-     */
-    _c dpWaitMark;
-
-    /*
-     * 布署主锁：同一项目同一时间只允许一套布署流程在运行
-     */
-    pthread_mutex_t dpLock;
-
-    /*
-     * 布署成功之后，刷新项目缓存时需要此锁
-     * 此锁将排斥所有查询类操作
-     * 读写锁属性：写者优先
-     */
-    pthread_rwlock_t rwLock;
-    //pthread_rwlockattr_t zRWLockAttr;
-
-    /*
-     * 并发布署屏障
-     * 用于保证基础环境就绪之后，工作线程才开始真正的布署动作
-     * 需要每次布署时根据目标机数量实时初始化，不能随项目启动执行初始化
-     */
-    //pthread_barrier_t dpBarrier;
-
-    /* 存放新的版本号记录 */
-    zVecWrap__ commitVecWrap_;
-    struct iovec commitVec_[zCACHE_SIZ];
-    zRefData__ commitRefData_[zCACHE_SIZ];
-
-    /* 存放布署记录 */
-    zVecWrap__ dpVecWrap_;
-    struct iovec dpVec_[zCACHE_SIZ];
-    zRefData__ dpRefData_[zCACHE_SIZ];
-
-    /*
-     * 线程内存池，预分配 8M 空间
-     * 后续以 8M 为步进增长
-     */
-    void *p_memPool;
-
-    /* 内存池锁，保证内存的原子性分配 */
-    pthread_mutex_t memLock;
-
-    /* 动态指示下一次内存分配的起始地址 */
-    _ui memPoolOffSet;
-
-    /*
-     * 临时 SQL 表命名序号
-     * 用以提升布署结果异步查询的性能
-     */
-    _ui tempTableNo;
 
     /*
      * 同步远程代码时对接的源库URL与分支名称
@@ -422,6 +265,148 @@ typedef struct __zRepo__ {
      * 结果 == p_codeSyncRefs + (strlen(p_codeSyncRefs) - 8) / 2 + 1
      */
     char *p_localRef;
+
+    /* 同一个项目的所有目标机登陆认证方式必须完全相同 */
+    char sshUserName[256];
+    char sshPort[6];
+
+    /* SSH 认证类型：公钥或密码 */
+    znet_auth_t authType;
+
+    /*
+     * 公钥认证时，用于提定公钥的密码
+     * 密码认证时，用于指定用户登陆密码
+     * 留空表示无密码
+     */
+    const char *p_passWd;
+
+    /* 存放最近一次布署成功的版本号 */
+    char lastDpSig[41];
+
+    /* 正在布署过程中但尚未确定最终结果的版本号 */
+    char dpingSig[41];
+
+    /*
+     * 每次布署时的所有目标机 IP(_ull[2]) 的链表及其散列
+     * 用于增量对比差异 IP，并由此决定每台目标机是否需要初始化或布署
+     */
+    zDpRes__ *p_dpResList_;
+    zDpRes__ *p_dpResHash_[zDP_HASH_SIZ];
+
+    /* 存放新的版本号记录 */
+    zVecWrap__ commitVecWrap_;
+    struct iovec commitVec_[zCACHE_SIZ];
+    zRefData__ commitRefData_[zCACHE_SIZ];
+
+    /* 存放布署记录 */
+    zVecWrap__ dpVecWrap_;
+    struct iovec dpVec_[zCACHE_SIZ];
+    zRefData__ dpRefData_[zCACHE_SIZ];
+
+    /*
+     * 项目目标机总数
+     */
+    _i totalHost;
+
+    /*
+     * 布署总任务数，其值总是 <= totalHost
+     */
+    _i dpTotalTask;
+
+    /*
+     * dpTaskFinCnt：
+     *     此值与 dpTotalTask 相等时，即代表完成所有任务
+     *     但不代表全部成功，其中可能存在因发生错误而返回的结果
+     */
+    _i dpTaskFinCnt;
+
+    /*
+     * 正在进行的布署会将期置为 0，
+     * 后来到达的新布署通过将其置为 1，通知旧布署终止
+     */
+    _c dpWaitMark;
+
+    /*
+     * 用于标识收集齐的结果是全部成功，
+     * 还是其中有异常返回而增加的计数
+     * bit[0] 置位表示有异常
+     */
+    _uc resType;
+
+    /*
+     * 存放布署时每个工作线程需要的参数
+     * 目标机数量不超过 zFORECASTED_HOST_NUM 时，使用预置的空间，以提升效率
+     */
+    zDpCcur__ *p_dpCcur_;
+    zDpCcur__ dpCcur_[zFORECASTED_HOST_NUM];
+
+    /*
+     * 每次布署的开始时间
+     * 每台目标机的耗时均基于此计算
+     */
+    time_t  dpBaseTimeStamp;
+
+    /*
+     * 单次布署动作的身份唯一性标识
+     * 目前设置为 == dpBaseTimeStamp
+     */
+    _ui dpID;
+
+    /*
+     * 系统定义的布署前动作
+     * 需要执行的 SSH 初始化命令
+     */
+    char *p_cmd;
+
+    /*
+     * 用户定义的布署后动作
+     * 布署成功后需要执行的动作
+     */
+    char *p_postDpCmd;
+
+    /*************
+     * LOCK AREA *
+     *************/
+
+    /*
+     * 用于任务完成计数的原子性统计
+     * 及通知调度线程任务已完成
+     */
+    pthread_mutex_t dpSyncLock;
+    char pad_0[128];
+    pthread_cond_t dpSyncCond;
+    char pad_1[128];
+
+    /*
+     * 用于确保同一时间不会有多个新布署请求阻塞排队，
+     * 避免拥塞持续布署的情况
+     */
+    pthread_mutex_t dpWaitLock;
+    char pad_2[128];
+
+    /*
+     * 布署主锁：同一项目同一时间只允许一套布署流程在运行
+     */
+    pthread_mutex_t dpLock;
+    char pad_3[128];
+
+    /*
+     * 布署成功之后，刷新项目缓存时需要此锁
+     * 此锁将排斥所有查询类操作
+     * 读写锁属性：写者优先 ???
+     */
+    pthread_rwlock_t rwLock;
+    char pad_4[128];
+    //pthread_rwlockattr_t zRWLockAttr;
+
+    /* 内存池锁，保证内存的原子性分配 */
+    pthread_mutex_t memLock;
+    char pad_5[128];
+
+    /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
+    pthread_mutex_t commLock;
+    char pad_6[128];
+    pthread_cond_t commCond;
 } zRepo__;
 
 
@@ -435,28 +420,38 @@ struct zRun__ {
     _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *, struct sockaddr *, socklen_t);
 
     /*
-     * 项目元数据
+     * 系统全局负载值：0 - 100
+     * 高于 80 时，不接受布署请求
+     * 目前只用到 memload
      */
-    zRepo__ self;
-
-    /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
-    pthread_mutex_t *p_commLock;
-    pthread_cond_t *p_commCond;
+    _uc cpuLoad;
+    _uc memLoad;
+    _uc netLoad;
+    _uc diskLoad;
 
     /*
-     * 系统全局内存负载值：0 - 100
-     * 系统由高负载降至可用范围时，通知等待的线程继续其任务
-     * 高于 80 拒绝布署，同时 git push 的过程中，若高于 80 则剩余任阻塞等待
+     * 若置 0，表示项目不存在，或尚未初始化完成
+     * 若置 1，表示项目存在，并且已经初始化完成
      */
-    _c memLoad;
+    _c repoFinMark[zGLOB_REPO_NUM_LIMIT];
 
+    /*
+     * 主进程调用 connect 返回的套接字
+     * 用于向项目进程传递业务 sd
+     */
+    _i repoUN[zGLOB_REPO_NUM_LIMIT];
+
+    /* 常量，其值恒等于 zGLOB_REPO_NUM_LIMIT */
+    _s globRepoNumLimit;
+
+    /*
+     * 服务端属主用户的家路径长度
+     * 例如：strlen("/home/git")
+     */
     _s homePathLen;
 
-    /* 既有项目 ID 中的最大值 */
-    _s maxRepoId;
-
-    /* 数组：指向每个项目的元信息 */
-    zRepo__ *p_repoVec[zGLOB_REPO_ID_LIMIT];
+    /* 服务端网络信息 */
+    zNetSrv__ netSrv_;
 
     /* 服务端主程序的启动根路径 */
     char *p_servPath;
@@ -466,35 +461,21 @@ struct zRun__ {
     char *p_homePath;
 
     /* 服务端的公私钥存储位置 */
-    char *p_SSHPubKeyPath;
-    char *p_SSHPrvKeyPath;
+    char *p_sshPubKeyPath;
+    char *p_sshPrvKeyPath;
 
     /* 错误码影射表 */
     char *p_errVec[128];
 
-    /* 布署系统自身服务连接信息 */
-    zNetSrv__ netSrv_;
-
-    /*
-     * UDP 服务器套接字
-     * [0] 内部使用的，基于 UNIX 域套接字
-     * [1] 用于收集目标机监控数据
-     */
-    _i zUdpServSd[2];
-
-    /*
-     * 服务端内部自连接的 cli sd
-     */
-    _i zUdpCliSd;
-
     /* postgreSQL 全局认证信息 */
-    zPgLogin__ pgLogin_;
     char pgConnInfo[2048];
+    zPgLogin__ pgLogin_;
 
     /*
-     * 升级锁：系统本身升级时，需要排斥 IP 增量更新动作
+     * 升级锁：系统本身升级时，
+     * 需要排斥 IP 增量更新动作
      */
-    pthread_rwlock_t p_sysUpdateLock;
+    pthread_rwlock_t sysUpdateLock;
 };
 
 
@@ -509,4 +490,5 @@ typedef struct __zUdpInfo__ {
     struct sockaddr peerAddr;
     socklen_t peerAddrLen;
 } zUdpInfo__;
+
 #endif  // #ifndef ZRUN_H

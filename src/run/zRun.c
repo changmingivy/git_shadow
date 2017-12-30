@@ -30,6 +30,9 @@ static _i zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd);
 static pthread_mutex_t zGlobCommLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t zGlobCommCond = PTHREAD_COND_INITIALIZER;
 
+struct zRun__ *zpRun_;
+zRepo__ *zpRepo_;
+
 struct zRun__ zRun_ = {
     .run = zstart_server,
 
@@ -279,7 +282,7 @@ zstart_server() {
     /*
      * 主进程线程池初始化
      */
-    zThreadPool_.init(64);
+    zThreadPool_.init(64, 65);
 
     /*
      * 只运行于主进程
