@@ -484,6 +484,7 @@ typedef struct __zSysInfo__ {
 
 struct zRun__ {
     void (* run) ();
+
     zSysInfo__ *p_sysInfo_;
 };
 

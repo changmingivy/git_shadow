@@ -75,7 +75,7 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[29] = "指定的项目路径不合法";
     zRun_.p_sysInfo_->p_errVec[30] = "指定项目路径不是目录，存在非目录文件与之同名";
     zRun_.p_sysInfo_->p_errVec[31] = "SSHUserName 字段太长(>255 char)";
-    zRun_.p_sysInfo_->p_errVec[32] = "指定的项目 ID 超限(0 - 1024)";
+    zRun_.p_sysInfo_->p_errVec[32] = "指定的项目 ID 不合法(1 - 1023)";
     zRun_.p_sysInfo_->p_errVec[33] = "服务端无法创建指定的项目路径";
     zRun_.p_sysInfo_->p_errVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
     zRun_.p_sysInfo_->p_errVec[35] = "项目 ID 已存在";
@@ -223,17 +223,36 @@ zexit_clean(void) {
 }
 
 
+#ifndef _Z_BSD
+/*
+ * 定时获取系统全局负载信息
+ */
+static void *
+zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
+    FILE *zpHandler = NULL;
+    _ul zTotalMem = 0,
+        zAvalMem = 0;
+
+    zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
+
+    while(1) {
+        fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
+        zRun_.p_sysInfo_->memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
+        fseek(zpHandler, 0, SEEK_SET);
+
+        zNativeUtils_.sleep(0.1);
+    }
+
+    return NULL;
+}
+#endif
+
+
 /*
  * 服务启动入口
  */
 static void
 zstart_server() {
-    struct passwd *zpPWD = NULL;
-
-    _i zMajorSd = -1;
-    static _i zSd[256] = {0};
-    _uc zMsgId = 0;
-
     /*
      * 必须指定服务端的根路径
      */
@@ -264,10 +283,13 @@ zstart_server() {
      * 只需在主进程执行一次，项目进程会继承之
      * 提取必要的基础信息
      */
+    zRun_.p_sysInfo_->globRepoNumLimit = zGLOB_REPO_NUM_LIMIT;
+
     if (NULL == zRun_.p_sysInfo_->p_loginName) {
         zRun_.p_sysInfo_->p_loginName = "git";
     }
 
+    struct passwd *zpPWD = NULL;
     zCHECK_NULL_EXIT(
             zpPWD = getpwnam(zRun_.p_sysInfo_->p_loginName)
             );
@@ -295,28 +317,27 @@ zstart_server() {
     zThreadPool_.init(32, 1024);
 
     /*
-	 * 扫描所有项目库并初始化之
-	 * 每个项目对应一个独立的进程
-	 */
-    zNativeOps_.proj_init_all(& (zRun_.p_sysInfo_->pgLogin_));
+     * 扫描所有项目库并初始化之
+     * 每个项目对应一个独立的进程
+     */
+    zNativeOps_.proj_init_all(& zRun_.p_sysInfo_->pgLogin_);
 
     /*
      * 只运行于主进程
-     * 用于收集所有目标机监控数据的 UDP 服务器
+     * 用于目标机监控数据收集
+     * DB 表分区管理，由各项目进程负责
      */
     zThreadPool_.add(zudp_daemon, NULL);
 
-    /*
-     * 只运行于主进程
-     * 定时扩展新的 pgSQL 日志分区表及清理已过期的旧分区表
-     */
-    zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
+#ifndef _Z_BSD
+    zThreadPool_.add(zsys_load_monitor, NULL);
+#endif
 
     /*
      * 返回的 socket 已经做完 bind 和 listen
      * 若出错，其内部会 exit
      */
-    zMajorSd = zNetUtils_.gen_serv_sd(
+    _i zMajorSd = zNetUtils_.gen_serv_sd(
             zRun_.p_sysInfo_->netSrv_.p_ipAddr,
             zRun_.p_sysInfo_->netSrv_.p_port,
             NULL,
@@ -326,12 +347,14 @@ zstart_server() {
      * 会传向新线程，使用静态变量
      * 使用数组防止负载高时造成线程参数混乱
      */
+    static _i zSd[256] = {0};
+    _uc zReqId = 0;
     for (_ui i = 0;; i++) {
-        zMsgId = i % 256;
-        if (-1 == (zSd[zMsgId] = accept(zMajorSd, NULL, 0))) {
+        zReqId = i % 256;
+        if (-1 == (zSd[zReqId] = accept(zMajorSd, NULL, 0))) {
             zPRINT_ERR_EASY_SYS();
         } else {
-            zThreadPool_.add(zops_route_tcp_master, & (zSd[zMsgId]));
+            zThreadPool_.add(zops_route_tcp_master, & zSd[zReqId]);
         }
     }
 }
@@ -356,14 +379,21 @@ zops_route_tcp_master(void *zp) {
 
     /*
      * 若没有提取到数据，结果是 0
-     * 项目 ID 范围：1 - 1023
+     * 项目 ID 范围：1 - (zRun_.p_sysInfo_->globRepoNumLimit - 1)
      * 不允许使用 0
      */
     zRepoId = strtol(zDataBuf, NULL, 10);
-    if (0 == zRepoId) {
+    if (0 >= zRepoId) {
         zNetUtils_.send(zSd,
                 "{\"errNo\":-7,\"content\":\"json parse err\"}",
                 sizeof("{\"errNo\":-7,\"content\":\"json parse err\"}") - 1);
+        goto zMarkEnd;
+    }
+
+    if (zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+        zNetUtils_.send(zSd,
+                "{\"errNo\":-32,\"content\":\"projId too large (hint: 1 - 1023)\"}",
+                sizeof("{\"errNo\":-32,\"content\":\"projId too large (hint: 1 - 1023)\"}") - 1);
         goto zMarkEnd;
     }
 
@@ -520,7 +550,7 @@ static void *
 zudp_daemon(void *zpUNPath) {
     _i zServSd = -1;
     static zUdpInfo__ zUdpInfo_[256];
-    _uc zMsgId = 0;
+    _uc zReqId = 0;
 
     if (NULL == zpUNPath) {
         zServSd = zNetUtils_.gen_serv_sd(
@@ -537,11 +567,11 @@ zudp_daemon(void *zpUNPath) {
     }
 
     for (_ui i = 0;; i++) {
-        zMsgId = i % 256;
-        recvfrom(zServSd, zUdpInfo_[zMsgId].data, zBYTES(510), MSG_NOSIGNAL,
-                & zUdpInfo_[zMsgId].peerAddr,
-                & zUdpInfo_[zMsgId].peerAddrLen);
-        zThreadPool_.add(zops_route_udp, & zUdpInfo_[zMsgId]);
+        zReqId = i % 256;
+        recvfrom(zServSd, zUdpInfo_[zReqId].data, zBYTES(510), MSG_NOSIGNAL,
+                & zUdpInfo_[zReqId].peerAddr,
+                & zUdpInfo_[zReqId].peerAddrLen);
+        zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
     }
 }
 

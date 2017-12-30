@@ -63,9 +63,8 @@ struct zNativeOps__ {
     void * (* proj_init_all) (zPgLogin__ *);
 
     void * (* alloc) (size_t);
-    void * (* sysload_monitor) (void *);
 
-    void * (* extend_pg_partition) (void *zp);
+    void * (* cron_ops) (void *);
 };
 
 #endif  // #ifndef ZLOCALOPS_H

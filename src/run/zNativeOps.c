@@ -32,12 +32,9 @@ static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
 static _i zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
-static void * zcode_fetch(void *zp __attribute__ ((__unused__)));
-static void * zsys_load_monitor(void *zp);
 static void * zinit_env(zPgLogin__ *zpPgLogin_);
-static void * zextend_pg_partition(void *zp);
 
-static void * zcache_sync(void *zp __attribute__ ((__unused__)));
+static void * zcron_ops(void *zp);
 
 struct zNativeOps__ zNativeOps_ = {
     .get_revs = zgenerate_cache,
@@ -48,9 +45,8 @@ struct zNativeOps__ zNativeOps_ = {
     .proj_init_all = zinit_env,
 
     .alloc = zalloc_cache,
-    .sysload_monitor = zsys_load_monitor,
 
-    .extend_pg_partition = zextend_pg_partition,
+    .cron_ops = zcron_ops,
 };
 
 
@@ -1346,14 +1342,11 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     /* 释放锁 */
     pthread_rwlock_unlock(& zRun_.self.rwLock);
 
-    /*
-     * 每个项目独占一个进程且只需要一个同步线程，因此
-     * 可以不考虑 OpenSSL 默认不是多线程安全的问题
-     */
-    if ('Y' == zNeedPull) {
+    {////
+        /* 启动定时任务 */
         pthread_t zTid;
-        zThreadPool_.add(&zTid, NULL, zcode_fetch, NULL);
-    }
+        zThreadPool_.add(&zTid, NULL, zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");
+    }////
 
     /* 全局实际项目 ID 最大值调整，并通知上层调用者本项目初始化任务完成 */
     pthread_mutex_lock(zRun_.p_commLock);
@@ -1374,6 +1367,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     zThreadPool_.add(zudp_daemon, ".s.git_shadow");
 
+    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zRun_.p_sysUpdateLock, NULL) );
+
     return 0;
 }
 #undef zERR_RETURN_OR_EXIT
@@ -1392,154 +1388,72 @@ zinit_one_repo_env_thread_wraper(void *zp) {
 }
 
 
-#ifndef _Z_BSD
 /*
- * 定时获取系统全局负载信息
+ * 源库代码同步
  */
-static void *
-zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
-    FILE *zpHandler = NULL;
-    _ul zTotalMem = 0,
-        zAvalMem = 0;
+static void
+zcode_sync(_i *zpCnter) {
+    _i zErrNo = 0;
 
-    zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
+    pthread_mutex_lock(zRun_.p_commLock);
 
-    while(1) {
-        fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
-        zRun_.memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
-        fseek(zpHandler, 0, SEEK_SET);
+    zErrNo = zLibGit_.remote_fetch(
+                zRun_.self.p_gitCommHandler, zRun_.self.p_codeSyncURL,
+                & zRun_.self.p_codeSyncRefs, 1,
+                NULL);
 
-        zNativeUtils_.sleep(0.1);
-    }
+    pthread_mutex_unlock(zRun_.p_commLock);
 
-    return NULL;
-}
-#endif
+    if (0 > zErrNo) {
+        *zpCnter++;
 
-
-/*
- * 源库代码同步管理
- */
-static void *
-zcode_fetch(void *zp __attribute__ ((__unused__))) {
-    _i zCnter = 0,
-       zErrNo = 0;
-
-    /*
-     * 无限循环，fetch...
-     * 二进制项目场景必要：
-     *     连续失败超过 10 次
-     *     删除本地分支，重新拉取
-     */
-    while (1) {
-        pthread_mutex_lock(zRun_.p_commLock);
-
-        zErrNo = zLibGit_.remote_fetch(
-                    zRun_.self.p_gitCommHandler, zRun_.self.p_codeSyncURL,
-                    & zRun_.self.p_codeSyncRefs, 1,
-                    NULL);
-
-        pthread_mutex_unlock(zRun_.p_commLock);
-
-        if (0 > zErrNo) {
-            zCnter++;
-
-            if (10 < zCnter) {
-                zLibGit_.branch_del(zRun_.self.p_gitCommHandler, zRun_.self.p_localRef);
-            }
-
-            /* try clean rubbish... */
-            unlink(".git/index.lock");
-        } else {
-            zCnter = 0;
-
-            /* get new revs */
-            zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                    zRun_.self.p_gitCommHandler,
-                    zRun_.self.p_localRef,
-                    0);
-
-            if (NULL == zpRevWalker) {
-                zPRINT_ERR_EASY("");
-                continue;
-            } else {
-                zLibGit_.get_one_commitsig_and_timestamp(
-                        zCommonBuf,
-                        zRun_.self.p_gitCommHandler,
-                        zpRevWalker);
-
-                zLibGit_.destroy_revwalker(zpRevWalker);
-            }
-
-            if ((NULL == zRun_.self.commitRefData_[0].p_data)
-                    || (0 != strncmp(zCommonBuf, zRun_.self.commitRefData_[0].p_data, 40))) {
-                /*
-                 * 若能取到锁，则更新缓存；
-                 * OR do nothing...
-                 */
-                if (0 == pthread_rwlock_trywrlock(& zRun_.self.rwLock)) {
-                    zgenerate_cache(& zMeta_);
-                    pthread_rwlock_unlock(& zRun_.self.rwLock);
-                };
-            }
-
-            /* 每次有写入内容，都需要复位 */
-            zCommonBuf[0] = '\0';
+        /*
+         * 二进制项目场景必要：
+         *     连续失败超过 10 次
+         *     删除本地分支，重新拉取
+         */
+        if (10 < *zpCnter) {
+            zLibGit_.branch_del(zRun_.self.p_gitCommHandler, zRun_.self.p_localRef);
         }
 
-        sleep(2);
-    }
-
-    return NULL;
-}
-
-
-/*
- * 同步更新缓存
- */
-static void *
-zcache_sync(void *zp __attribute__ ((__unused__))) {
-    char zCommonBuf[64] = {'\0'};
-    zCacheMeta__ zMeta_ = {
-        .dataType = zDATA_TYPE_COMMIT
-    };
-
-zLoop:
-    /* get new revs */
-    zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-            zRun_.self.p_gitCommHandler,
-            zRun_.self.p_localRef,
-            0);
-
-    if (NULL == zpRevWalker) {
-        zPRINT_ERR_EASY("");
-        continue;
+        /* try clean rubbish... */
+        unlink(".git/index.lock");
     } else {
-        zLibGit_.get_one_commitsig_and_timestamp(
-                zCommonBuf,
+        *zpCnter = 0;
+
+        /* get new revs */
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
                 zRun_.self.p_gitCommHandler,
-                zpRevWalker);
+                zRun_.self.p_localRef,
+                0);
 
-        zLibGit_.destroy_revwalker(zpRevWalker);
+        if (NULL == zpRevWalker) {
+            zPRINT_ERR_EASY("");
+            return;
+        } else {
+            zLibGit_.get_one_commitsig_and_timestamp(
+                    zCommonBuf,
+                    zRun_.self.p_gitCommHandler,
+                    zpRevWalker);
+
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        }
+
+        if ((NULL == zRun_.self.commitRefData_[0].p_data)
+                || (0 != strncmp(zCommonBuf, zRun_.self.commitRefData_[0].p_data, 40))) {
+            /*
+             * 若能取到锁，则更新缓存；
+             * OR do nothing...
+             */
+            if (0 == pthread_rwlock_trywrlock(& zRun_.self.rwLock)) {
+                zgenerate_cache(& zMeta_);
+                pthread_rwlock_unlock(& zRun_.self.rwLock);
+            };
+        }
+
+        /* 每次有写入内容，都需要复位 */
+        zCommonBuf[0] = '\0';
     }
-
-    if ((NULL == zRun_.self.commitRefData_[0].p_data)
-            || (0 != strncmp(zCommonBuf, zRun_.self.commitRefData_[0].p_data, 40))) {
-        /*
-         * 若能取到锁，则更新缓存；
-         * OR do nothing...
-         */
-        if (0 == pthread_rwlock_trywrlock(& zRun_.self.rwLock)) {
-            zgenerate_cache(& zMeta_);
-            pthread_rwlock_unlock(& zRun_.self.rwLock);
-        };
-    }
-
-    /* 每次有写入内容，都需要复位 */
-    zCommonBuf[0] = '\0';
-
-    sleep(2);
-    goto zLoop;
 }
 
 
@@ -1548,68 +1462,95 @@ zLoop:
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，
  * 表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
-static void *
-zextend_pg_partition(void *zp __attribute__ ((__unused__))) {
+static void
+zpg_partition_mgmt(_i *zpCnter) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     char zCmdBuf[1024];
 
-zLoop:
     /*
-     * 每天（24 * 60 * 60 秒）尝试创建新日志表
+     * 尝试连接到 pgSQL server
+     * 若失败，将计数器调至 > 86400，以使 2s 后重新被 cron_ops() 调用
      */
-    sleep(86400);
-
-    /* 尝试连接到 pgSQL server */
-    while (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
+    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.pgConnInfo))) {
         zPRINT_ERR(0, NULL, "Connect to pgSQL failed");
-        sleep(60);
+        *zpCnter = 86400 + 1;
+
+        return;
     }
 
-    /* 非紧要任务，串行执行即可 */
     _i zBaseId = time(NULL) / 86400,
        zId = 0;
-    for (_i zRepoId = 0; zRepoId <= zRun_.maxRepoId; zRepoId++) {
-        if (NULL == zRun_.p_repoVec[zRepoId]
-                || 'Y' != zRun_.self.initFinished) {
+
+    /* 创建之后 10 天的分区表 */
+    for (zId = 0; zId < 10; zId ++) {
+        sprintf(zCmdBuf,
+                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
+                "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
+                zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
+
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
+            zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
             continue;
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
+    }
 
-        /* 创建之后 10 天的分区表 */
-        for (zId = 0; zId < 10; zId ++) {
-            sprintf(zCmdBuf,
-                    "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-                    "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                    zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
+    /* 清除 30 天之前的分区表 */
+    for (zId = 0; zId < 10; zId ++) {
+        sprintf(zCmdBuf,
+                "DROP TABLE IF EXISTS dp_log_%d_%d",
+                zRepoId, zBaseId - zId - 30);
 
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-                zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
-                continue;
-            } else {
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
-            }
-        }
-
-        /* 清除 30 天之前的分区表 */
-        for (zId = 0; zId < 10; zId ++) {
-            sprintf(zCmdBuf,
-                    "DROP TABLE IF EXISTS dp_log_%d_%d",
-                    zRepoId, zBaseId - zId - 30);
-
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-                zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
-                continue;
-            } else {
-                zPgSQL_.res_clear(zpPgResHd_, NULL);
-            }
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
+            zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
+            continue;
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
     }
 
     zPgSQL_.conn_clear(zpPgConnHd_);
+}
 
-    goto zLoop;
 
-    /* never reach here */
+/*
+ * 定时任务：
+ *     源库代码同步管理
+ *     DB 分区表管理
+ */
+static void *
+zcron_ops(void *zp) {
+    char *zpNeedPull = zp;
+
+    _ui zCodeFetchCnter = 0,
+        zDBPartitionCnter = 0;
+
+    if ('Y' = zpNeedPull[0]) {
+        while (1) {
+            zcode_sync(& zCodeFetchCnter);
+
+            zDBPartitionCnter += 2;
+            if (86400 < zDBPartitionCnter) {
+                zDBPartitionCnter = 0;
+                zpg_partition_mgmt(& zDBPartitionCnter);
+            }
+
+            sleep(2);
+        }
+    } else {
+        while (1) {
+            zDBPartitionCnter += 60;
+            if (86400 < zDBPartitionCnter) {
+                zDBPartitionCnter = 0;
+                zpg_partition_mgmt(& zDBPartitionCnter);
+            }
+
+            sleep(60);
+        }
+    }
+
     return NULL;
 }
 
@@ -1754,15 +1695,6 @@ zMarkNotFound:
      * 创建新项目时，需要重新建立连接
      */
     zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
-
-#ifndef _Z_BSD
-    zThreadPool_.add(zsys_load_monitor, NULL);
-#endif
-
-    zThreadPool_.add(zcache_sync, NULL);
-
-    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zRun_.p_sysUpdateLock, NULL) );
 
     return NULL;
 }
