@@ -20,16 +20,6 @@
 #define zTCP_SERV_HASH_SIZ 16
 #define zUDP_SERV_HASH_SIZ 4
 
-
-/* 服务端自身的 IP 地址与端口 */
-typedef struct {
-    char *p_ipAddr;
-    char *p_port;
-
-    char specStrForGit[INET6_ADDRSTRLEN];
-} zNetSrv__;
-
-
 #define zGLOB_REPO_NUM_LIMIT 1024  /* 最多可管理 1024 个项目，ID 范围：0 - 1023 */
 
 #define zCACHE_SIZ 64  // 顶层缓存单元数量取值不能超过 IOV_MAX
@@ -44,6 +34,16 @@ typedef struct {
 
 #define zDATA_TYPE_COMMIT 0
 #define zDATA_TYPE_DP 1
+
+
+/* 服务端自身的 IP 地址与端口 */
+typedef struct {
+    char *p_ipAddr;
+    char *p_port;
+
+    char specStrForGit[INET6_ADDRSTRLEN];
+} zNetSrv__;
+
 
 typedef struct __zDpRes__ {
     /*
@@ -95,10 +95,12 @@ typedef struct __zDpRes__ {
     struct __zDpRes__ *p_next;
 } zDpRes__;
 
+
 typedef struct __zDpCcur__ {
     /*
      * 目标机 IP 在服务端 dpList 链中的节点索引
-     * 目标机 IP_str 通过此索引获取，port 从 zpRepo_ 中取
+     * 通过此索引获取目标机 IP
+     * 目标机端口从 zpRepo_ 中取
      */
     _i selfNodeIndex;
 
@@ -208,24 +210,6 @@ typedef struct __zRepo__ {
     _ui memPoolOffSet;
 
     /*
-     * 版本号列表、差异文件列表等缓存的 ID
-     * 实质就是每次刷新缓存时的 UNIX 时间戳
-     */
-    time_t  cacheId;
-
-    /*
-     * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
-     * 用于提示用户看到的信息可能不准确
-     */
-    _c repoState;
-
-    /*
-     * 'Y'：允许强制清除有冲穾的文件或路径
-     * 'N'：不允许
-     */
-    char forceDpMark;
-
-    /*
      * 本项目全局 postgreSQL handler
      */
     zPgConnHd__ *p_pgConnHd_;
@@ -235,6 +219,24 @@ typedef struct __zRepo__ {
      * 用以提升布署结果异步查询的性能
      */
     _ui tempTableNo;
+
+    /*
+     * 'Y'：允许强制清除有冲穾的文件或路径
+     * 'N'：不允许
+     */
+    char forceDpMark;
+
+    /*
+     * 代码库状态，若上一次布署失败，此项将置为 zRepoDamaged 状态
+     * 用于提示用户看到的信息可能不准确
+     */
+    char repoState;
+
+    /*
+     * 版本号列表、差异文件列表等缓存的 ID
+     * 实质就是每次刷新缓存时的 UNIX 时间戳
+     */
+    time_t cacheId;
 
     /*
      * 本项目全局 git handler
@@ -356,13 +358,13 @@ typedef struct __zRepo__ {
      * 系统定义的布署前动作
      * 需要执行的 SSH 初始化命令
      */
-    char *p_cmd;
+    char *p_sysDpCmd;
 
     /*
      * 用户定义的布署后动作
      * 布署成功后需要执行的动作
      */
-    char *p_postDpCmd;
+    char *p_userDpCmd;
 
     /*************
      * LOCK AREA *
@@ -407,12 +409,17 @@ typedef struct __zRepo__ {
     pthread_mutex_t commLock;
     char pad_6[128];
     pthread_cond_t commCond;
+    char pad_7[128];
+
+    /*
+     * 升级锁：系统本身升级时，
+     * 需要排斥 IP 增量更新动作
+     */
+    pthread_rwlock_t sysUpdateLock;
 } zRepo__;
 
 
-struct zRun__ {
-    void (* run) ();
-
+typedef struct __zSysInfo__ {
     void * (* route_tcp) (void *);
     void * (* route_udp) (void *);
 
@@ -467,15 +474,17 @@ struct zRun__ {
     /* 错误码影射表 */
     char *p_errVec[128];
 
-    /* postgreSQL 全局认证信息 */
+    /*
+     * postgreSQL 全局认证信息
+     */
     char pgConnInfo[2048];
     zPgLogin__ pgLogin_;
+} zSysInfo__;
 
-    /*
-     * 升级锁：系统本身升级时，
-     * 需要排斥 IP 增量更新动作
-     */
-    pthread_rwlock_t sysUpdateLock;
+
+struct zRun__ {
+    void (* run) ();
+    zSysInfo__ *p_sysInfo_;
 };
 
 
@@ -490,5 +499,6 @@ typedef struct __zUdpInfo__ {
     struct sockaddr peerAddr;
     socklen_t peerAddrLen;
 } zUdpInfo__;
+
 
 #endif  // #ifndef ZRUN_H

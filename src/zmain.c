@@ -7,8 +7,10 @@
 #endif
 
 #include <sys/types.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <sys/mman.h>
+
 #include <string.h>
 #include <time.h>
 #include <errno.h>
@@ -20,39 +22,53 @@ extern struct zRun__ zRun_;
 
 _i
 main(_i zArgc, char **zppArgv) {
+    /*
+     * mmap shared 的主进程及所有项目进程共享的区域 
+     * 存放系统全局信息
+     */
+    if (MAP_FAILED ==
+            (zRun_.p_sysInfo_ = mmap(NULL, sizeof(zSysInfo__), PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0))) {
+        zPRINT_ERR_EASY_SYS();
+        exit(1);
+    }
+
+    /* 提取命令行参数 */
     _i zOpt = 0;
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "x:u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'x':
-                zRun_.p_servPath = optarg; break;
+                zRun_.p_sysInfo_->p_servPath = optarg; break;
             case 'u':
-                zRun_.p_loginName = optarg; break;
+                zRun_.p_sysInfo_->p_loginName = optarg; break;
             case 'h':
-                zRun_.netSrv_.p_ipAddr = optarg;
+                zRun_.p_sysInfo_->netSrv_.p_ipAddr = optarg;
 
                 /* git push 会用此字符串作为分支名称的一部分 */
-                snprintf(zRun_.netSrv_.specStrForGit, INET6_ADDRSTRLEN, "%s", zRun_.netSrv_.p_ipAddr);
-                for (_i i = 0; '\0' != zRun_.netSrv_.specStrForGit[i]; i++) {
-                    if (':' == zRun_.netSrv_.specStrForGit[i]) {
-                        zRun_.netSrv_.specStrForGit[i] = '_';
+                snprintf(zRun_.p_sysInfo_->netSrv_.specStrForGit, INET6_ADDRSTRLEN,
+                        "%s",
+                        zRun_.p_sysInfo_->netSrv_.p_ipAddr);
+
+                for (_i i = 0; '\0' != zRun_.p_sysInfo_->netSrv_.specStrForGit[i]; i++) {
+                    if (':' == zRun_.p_sysInfo_->netSrv_.specStrForGit[i]) {
+                        zRun_.p_sysInfo_->netSrv_.specStrForGit[i] = '_';
                     }
                 }
 
                 break;
             case 'p':
-                zRun_.netSrv_.p_port = optarg; break;
+                zRun_.p_sysInfo_->netSrv_.p_port = optarg; break;
             case 'H':
-                zRun_.pgLogin_.p_host = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_host = optarg; break;
             case 'A':
-                zRun_.pgLogin_.p_addr = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_addr = optarg; break;
             case 'P':
-                zRun_.pgLogin_.p_port = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_port = optarg; break;
             case 'U':
-                zRun_.pgLogin_.p_userName = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_userName = optarg; break;
             case 'F':
-                zRun_.pgLogin_.p_passFilePath = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_passFilePath = optarg; break;
             case 'D':
-                zRun_.pgLogin_.p_dbName = optarg; break;
+                zRun_.p_sysInfo_->pgLogin_.p_dbName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPRINT_TIME();
                 fprintf(stderr,

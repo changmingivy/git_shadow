@@ -31,6 +31,9 @@ static _i zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, 
 static _i zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
 static _i zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
 
+static _i zsend_fd(const _i zUN, const _i zFd);
+static _i zrecv_fd(const _i zFd);
+
 struct zNetUtils__ zNetUtils_ = {
     .gen_serv_sd = zgenerate_serv_SD,
     .conn = zconnect,
@@ -42,7 +45,10 @@ struct zNetUtils__ zNetUtils_ = {
     .recv_all = zrecv_all,
 
     .to_numaddr = zconvert_ip_str_to_bin,
-    .to_straddr = zconvert_ip_bin_to_str
+    .to_straddr = zconvert_ip_bin_to_str,
+
+    .send_fd = zsend_fd,
+    .recv_fd = zrecv_fd,
 };
 
 
@@ -361,14 +367,13 @@ zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpRe
  * 进程间传递文件描述符
  * 用于实现多进程模型服务器
  * 每次只传送一个 fd
- * @param: zFd[0] 是 UNIX 域套接字，用作传输的工具
- * @param: zFd[1] 是需要被传递的目标 fd
+ * @param: zUN 是 UNIX 域套接字，用作传输的工具
+ * @param: zFd 是需要被传递的目标 fd
  * 返回 0 表示成功，否则表示失败
  * 若使用 UDP 通信，则必须事先完成了 connect
  */
 static _i
-zsend_fd(const _i zFd[2])
-{
+zsend_fd(const _i zUN, const _i zFd) {
     /*
      * 只发送一个字节的常规数据
      * 用于判断 sendmsg 的执行结果
@@ -428,12 +433,12 @@ zsend_fd(const _i zFd[2])
      * cmsghdr 结构体的最后一个成员是 C99 风格的 data[] 形式
      * 使用宏将目标 fd 写入此位置，
      */
-    * (_i *) CMSG_DATA(zpCmsg) = zFd[1];
+    * (_i *) CMSG_DATA(zpCmsg) = zFd;
 
     /*
      * 成功发送了一个字节的数据，即说明执行成功
      */
-    if (1 == sendmsg(zFd[0], &zMsg_, MSG_NOSIGNAL)) {
+    if (1 == sendmsg(zUN, &zMsg_, MSG_NOSIGNAL)) {
         return 0;
     } else {
         return -1;
@@ -448,8 +453,7 @@ zsend_fd(const _i zFd[2])
  * 若使用 UDP 通信，则必须事先完成了 connect
  */
 static _i
-zrecv_fd(const _i zFd)
-{
+zrecv_fd(const _i zFd) {
     char _;
     struct iovec zVec_ = {
         .iov_base = &_,

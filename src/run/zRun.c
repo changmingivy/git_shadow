@@ -19,194 +19,195 @@ extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
 
 static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
-static void * zops_route_tcp (void *zp);
-
 static void * zudp_daemon(void *zp __attribute__ ((__unused__)));
+
+static void * zops_route_tcp_master(void *zp);
+static void * zops_route_tcp (void *zp);
 static void * zops_route_udp (void *zp);
 
 static _i zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd);
 
-/* 不区分项目的全局通用锁 */
-static pthread_mutex_t zGlobCommLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t zGlobCommCond = PTHREAD_COND_INITIALIZER;
-
-struct zRun__ *zpRun_;
-zRepo__ *zpRepo_;
 
 struct zRun__ zRun_ = {
     .run = zstart_server,
 
-    .route_tcp = zops_route_tcp,
-    .route_udp = zops_route_udp,
-
-    .ops_tcp = { NULL },
-    .ops_udp = { NULL },
-
-    .p_servPath = NULL,
-
-    .p_commLock = & zGlobCommLock,
-    .p_commCond = & zGlobCommCond,
+    /* mmap in 'main' func */
+    .p_sysInfo_ = NULL,
 };
+
+
+/*
+ * 项目进程内部分配空间，主进程中不可见
+ */
+zRepo__ *zpRepo_;
+
 
 void
 zerr_vec_init(void) {
-    zRun_.p_errVec[1] = "无法识别或未定义的操作请求";
-    zRun_.p_errVec[2] = "项目不存在或正在创建过程中";
-    zRun_.p_errVec[3] = "指定的版本号不存在";
-    zRun_.p_errVec[4] = "指定的文件 ID 不存在";
-    zRun_.p_errVec[5] = "";
-    zRun_.p_errVec[6] = "项目被锁定，请解锁后重试";
-    zRun_.p_errVec[7] = "服务端接收到的数据无法解析";
-    zRun_.p_errVec[8] = "已产生新的布署记录，请刷新页面";
-    zRun_.p_errVec[9] = "服务端错误：缓冲区容量不足，无法解析网络数据";
-    zRun_.p_errVec[10] = "请求的数据类型错误：非提交记录或布署记录";
-    zRun_.p_errVec[11] = "系统忙，请两秒后重试...";
-    zRun_.p_errVec[12] = "布署失败";
-    zRun_.p_errVec[13] = "正在布署过程中，或上一次布署失败，查看最近一次布署动作的实时进度";
-    zRun_.p_errVec[14] = "用户指定的布署后命令执行失败";
-    zRun_.p_errVec[15] = "服务端布署前动作出错";
-    zRun_.p_errVec[16] = "系统当前负载太高，请稍稍后重试";
-    zRun_.p_errVec[17] = "IPnum ====> IPstr 失败";
-    zRun_.p_errVec[18] = "IPstr ====> IPnum 失败";
-    zRun_.p_errVec[19] = "指定的目标机列表中存在重复 IP";
-    zRun_.p_errVec[20] = "";
-    zRun_.p_errVec[21] = "";
-    zRun_.p_errVec[22] = "";
-    zRun_.p_errVec[23] = "部分或全部目标机初始化失败";
-    zRun_.p_errVec[24] = "前端没有指明目标机总数";
-    zRun_.p_errVec[25] = "";
-    zRun_.p_errVec[26] = "";
-    zRun_.p_errVec[27] = "";
-    zRun_.p_errVec[28] = "指定的目标机总数与实际解析出的数量不一致";
-    zRun_.p_errVec[29] = "指定的项目路径不合法";
-    zRun_.p_errVec[30] = "指定项目路径不是目录，存在非目录文件与之同名";
-    zRun_.p_errVec[31] = "SSHUserName 字段太长(>255 char)";
-    zRun_.p_errVec[32] = "指定的项目 ID 超限(0 - 1024)";
-    zRun_.p_errVec[33] = "服务端无法创建指定的项目路径";
-    zRun_.p_errVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
-    zRun_.p_errVec[35] = "项目 ID 已存在";
-    zRun_.p_errVec[36] = "服务端项目路径已存在";
-    zRun_.p_errVec[37] = "未指定远程代码库的版本控制系统类型：git";
-    zRun_.p_errVec[38] = "";
-    zRun_.p_errVec[39] = "SSHPort 字段太长(>5 char)";
-    zRun_.p_errVec[40] = "服务端项目路径操作错误";
-    zRun_.p_errVec[41] = "服务端 git 库异常";
-    zRun_.p_errVec[42] = "git clone 错误";
-    zRun_.p_errVec[43] = "git config 错误";
-    zRun_.p_errVec[44] = "git branch 错误";
-    zRun_.p_errVec[45] = "git add and commit 错误";
-    zRun_.p_errVec[46] = "libgit2 初始化错误";
-    zRun_.p_errVec[47] = "";
-    zRun_.p_errVec[48] = "";
-    zRun_.p_errVec[49] = "指定的源库分支无效/同步失败";
-    zRun_.p_errVec[50] = "";
-    zRun_.p_errVec[51] = "";
-    zRun_.p_errVec[52] = "";
-    zRun_.p_errVec[53] = "";
-    zRun_.p_errVec[54] = "";
-    zRun_.p_errVec[55] = "";
-    zRun_.p_errVec[56] = "";
-    zRun_.p_errVec[57] = "";
-    zRun_.p_errVec[58] = "";
-    zRun_.p_errVec[59] = "";
-    zRun_.p_errVec[60] = "";
-    zRun_.p_errVec[61] = "";
-    zRun_.p_errVec[62] = "";
-    zRun_.p_errVec[63] = "";
-    zRun_.p_errVec[64] = "";
-    zRun_.p_errVec[65] = "";
-    zRun_.p_errVec[66] = "";
-    zRun_.p_errVec[67] = "";
-    zRun_.p_errVec[68] = "";
-    zRun_.p_errVec[69] = "";
-    zRun_.p_errVec[70] = "无内容 或 服务端版本号列表缓存错误";
-    zRun_.p_errVec[71] = "无内容 或 服务端差异文件列表缓存错误";
-    zRun_.p_errVec[72] = "无内容 或 服务端单个文件的差异内容缓存错误";
-    zRun_.p_errVec[73] = "";
-    zRun_.p_errVec[74] = "";
-    zRun_.p_errVec[75] = "";
-    zRun_.p_errVec[76] = "";
-    zRun_.p_errVec[77] = "";
-    zRun_.p_errVec[78] = "";
-    zRun_.p_errVec[79] = "";
-    zRun_.p_errVec[80] = "目标机请求下载的文件路径不存在或无权访问";
-    zRun_.p_errVec[81] = "同一目标机的同一次布署动作，收到重复的状态确认";
-    zRun_.p_errVec[82] = "无法创建 <PATH>_SHADOW/____post-deploy.sh 文件";
-    zRun_.p_errVec[83] = "";
-    zRun_.p_errVec[84] = "";
-    zRun_.p_errVec[85] = "";
-    zRun_.p_errVec[86] = "";
-    zRun_.p_errVec[87] = "";
-    zRun_.p_errVec[88] = "";
-    zRun_.p_errVec[89] = "";
-    zRun_.p_errVec[90] = "数据库连接失败";
-    zRun_.p_errVec[91] = "SQL 命令执行失败";
-    zRun_.p_errVec[92] = "SQL 执行结果错误";  /* 发生通常代表存在 BUG */
-    zRun_.p_errVec[93] = "";
-    zRun_.p_errVec[94] = "";
-    zRun_.p_errVec[95] = "";
-    zRun_.p_errVec[96] = "";
-    zRun_.p_errVec[97] = "";
-    zRun_.p_errVec[98] = "";
-    zRun_.p_errVec[99] = "";
-    zRun_.p_errVec[100] = "";
-    zRun_.p_errVec[101] = "目标机返回的版本号与正在布署的不一致";
-    zRun_.p_errVec[102] = "目标机 post-update 出错返回";
-    zRun_.p_errVec[103] = "";
-    zRun_.p_errVec[104] = "";
-    zRun_.p_errVec[105] = "";
-    zRun_.p_errVec[106] = "";
-    zRun_.p_errVec[107] = "";
-    zRun_.p_errVec[108] = "";
-    zRun_.p_errVec[109] = "";
-    zRun_.p_errVec[110] = "";
-    zRun_.p_errVec[111] = "";
-    zRun_.p_errVec[112] = "";
-    zRun_.p_errVec[113] = "";
-    zRun_.p_errVec[114] = "";
-    zRun_.p_errVec[115] = "";
-    zRun_.p_errVec[116] = "";
-    zRun_.p_errVec[117] = "";
-    zRun_.p_errVec[118] = "";
-    zRun_.p_errVec[119] = "";
-    zRun_.p_errVec[120] = "";
-    zRun_.p_errVec[121] = "";
-    zRun_.p_errVec[122] = "";
-    zRun_.p_errVec[123] = "";
-    zRun_.p_errVec[124] = "";
-    zRun_.p_errVec[125] = "";
-    zRun_.p_errVec[126] = "服务端操作系统错误";
-    zRun_.p_errVec[127] = "被新的布署请求打断";
+    zRun_.p_sysInfo_->p_errVec[1] = "无法识别或未定义的操作请求";
+    zRun_.p_sysInfo_->p_errVec[2] = "项目不存在或正在创建过程中";
+    zRun_.p_sysInfo_->p_errVec[3] = "指定的版本号不存在";
+    zRun_.p_sysInfo_->p_errVec[4] = "指定的文件 ID 不存在";
+    zRun_.p_sysInfo_->p_errVec[5] = "";
+    zRun_.p_sysInfo_->p_errVec[6] = "项目被锁定，请解锁后重试";
+    zRun_.p_sysInfo_->p_errVec[7] = "服务端接收到的数据无法解析";
+    zRun_.p_sysInfo_->p_errVec[8] = "已产生新的布署记录，请刷新页面";
+    zRun_.p_sysInfo_->p_errVec[9] = "服务端错误：缓冲区容量不足，无法解析网络数据";
+    zRun_.p_sysInfo_->p_errVec[10] = "请求的数据类型错误：非提交记录或布署记录";
+    zRun_.p_sysInfo_->p_errVec[11] = "系统忙，请两秒后重试...";
+    zRun_.p_sysInfo_->p_errVec[12] = "布署失败";
+    zRun_.p_sysInfo_->p_errVec[13] = "正在布署过程中，或上一次布署失败，查看最近一次布署动作的实时进度";
+    zRun_.p_sysInfo_->p_errVec[14] = "用户指定的布署后命令执行失败";
+    zRun_.p_sysInfo_->p_errVec[15] = "服务端布署前动作出错";
+    zRun_.p_sysInfo_->p_errVec[16] = "系统当前负载太高，请稍稍后重试";
+    zRun_.p_sysInfo_->p_errVec[17] = "IPnum ====> IPstr 失败";
+    zRun_.p_sysInfo_->p_errVec[18] = "IPstr ====> IPnum 失败";
+    zRun_.p_sysInfo_->p_errVec[19] = "指定的目标机列表中存在重复 IP";
+    zRun_.p_sysInfo_->p_errVec[20] = "";
+    zRun_.p_sysInfo_->p_errVec[21] = "";
+    zRun_.p_sysInfo_->p_errVec[22] = "";
+    zRun_.p_sysInfo_->p_errVec[23] = "部分或全部目标机初始化失败";
+    zRun_.p_sysInfo_->p_errVec[24] = "前端没有指明目标机总数";
+    zRun_.p_sysInfo_->p_errVec[25] = "";
+    zRun_.p_sysInfo_->p_errVec[26] = "";
+    zRun_.p_sysInfo_->p_errVec[27] = "";
+    zRun_.p_sysInfo_->p_errVec[28] = "指定的目标机总数与实际解析出的数量不一致";
+    zRun_.p_sysInfo_->p_errVec[29] = "指定的项目路径不合法";
+    zRun_.p_sysInfo_->p_errVec[30] = "指定项目路径不是目录，存在非目录文件与之同名";
+    zRun_.p_sysInfo_->p_errVec[31] = "SSHUserName 字段太长(>255 char)";
+    zRun_.p_sysInfo_->p_errVec[32] = "指定的项目 ID 超限(0 - 1024)";
+    zRun_.p_sysInfo_->p_errVec[33] = "服务端无法创建指定的项目路径";
+    zRun_.p_sysInfo_->p_errVec[34] = "项目信息格式错误：信息不足或存在不合法字段";
+    zRun_.p_sysInfo_->p_errVec[35] = "项目 ID 已存在";
+    zRun_.p_sysInfo_->p_errVec[36] = "服务端项目路径已存在";
+    zRun_.p_sysInfo_->p_errVec[37] = "未指定远程代码库的版本控制系统类型：git";
+    zRun_.p_sysInfo_->p_errVec[38] = "";
+    zRun_.p_sysInfo_->p_errVec[39] = "SSHPort 字段太长(>5 char)";
+    zRun_.p_sysInfo_->p_errVec[40] = "服务端项目路径操作错误";
+    zRun_.p_sysInfo_->p_errVec[41] = "服务端 git 库异常";
+    zRun_.p_sysInfo_->p_errVec[42] = "git clone 错误";
+    zRun_.p_sysInfo_->p_errVec[43] = "git config 错误";
+    zRun_.p_sysInfo_->p_errVec[44] = "git branch 错误";
+    zRun_.p_sysInfo_->p_errVec[45] = "git add and commit 错误";
+    zRun_.p_sysInfo_->p_errVec[46] = "libgit2 初始化错误";
+    zRun_.p_sysInfo_->p_errVec[47] = "";
+    zRun_.p_sysInfo_->p_errVec[48] = "";
+    zRun_.p_sysInfo_->p_errVec[49] = "指定的源库分支无效/同步失败";
+    zRun_.p_sysInfo_->p_errVec[50] = "";
+    zRun_.p_sysInfo_->p_errVec[51] = "";
+    zRun_.p_sysInfo_->p_errVec[52] = "";
+    zRun_.p_sysInfo_->p_errVec[53] = "";
+    zRun_.p_sysInfo_->p_errVec[54] = "";
+    zRun_.p_sysInfo_->p_errVec[55] = "";
+    zRun_.p_sysInfo_->p_errVec[56] = "";
+    zRun_.p_sysInfo_->p_errVec[57] = "";
+    zRun_.p_sysInfo_->p_errVec[58] = "";
+    zRun_.p_sysInfo_->p_errVec[59] = "";
+    zRun_.p_sysInfo_->p_errVec[60] = "";
+    zRun_.p_sysInfo_->p_errVec[61] = "";
+    zRun_.p_sysInfo_->p_errVec[62] = "";
+    zRun_.p_sysInfo_->p_errVec[63] = "";
+    zRun_.p_sysInfo_->p_errVec[64] = "";
+    zRun_.p_sysInfo_->p_errVec[65] = "";
+    zRun_.p_sysInfo_->p_errVec[66] = "";
+    zRun_.p_sysInfo_->p_errVec[67] = "";
+    zRun_.p_sysInfo_->p_errVec[68] = "";
+    zRun_.p_sysInfo_->p_errVec[69] = "";
+    zRun_.p_sysInfo_->p_errVec[70] = "无内容 或 服务端版本号列表缓存错误";
+    zRun_.p_sysInfo_->p_errVec[71] = "无内容 或 服务端差异文件列表缓存错误";
+    zRun_.p_sysInfo_->p_errVec[72] = "无内容 或 服务端单个文件的差异内容缓存错误";
+    zRun_.p_sysInfo_->p_errVec[73] = "";
+    zRun_.p_sysInfo_->p_errVec[74] = "";
+    zRun_.p_sysInfo_->p_errVec[75] = "";
+    zRun_.p_sysInfo_->p_errVec[76] = "";
+    zRun_.p_sysInfo_->p_errVec[77] = "";
+    zRun_.p_sysInfo_->p_errVec[78] = "";
+    zRun_.p_sysInfo_->p_errVec[79] = "";
+    zRun_.p_sysInfo_->p_errVec[80] = "目标机请求下载的文件路径不存在或无权访问";
+    zRun_.p_sysInfo_->p_errVec[81] = "同一目标机的同一次布署动作，收到重复的状态确认";
+    zRun_.p_sysInfo_->p_errVec[82] = "无法创建 <PATH>_SHADOW/____post-deploy.sh 文件";
+    zRun_.p_sysInfo_->p_errVec[83] = "";
+    zRun_.p_sysInfo_->p_errVec[84] = "";
+    zRun_.p_sysInfo_->p_errVec[85] = "";
+    zRun_.p_sysInfo_->p_errVec[86] = "";
+    zRun_.p_sysInfo_->p_errVec[87] = "";
+    zRun_.p_sysInfo_->p_errVec[88] = "";
+    zRun_.p_sysInfo_->p_errVec[89] = "";
+    zRun_.p_sysInfo_->p_errVec[90] = "数据库连接失败";
+    zRun_.p_sysInfo_->p_errVec[91] = "SQL 命令执行失败";
+    zRun_.p_sysInfo_->p_errVec[92] = "SQL 执行结果错误";  /* 发生通常代表存在 BUG */
+    zRun_.p_sysInfo_->p_errVec[93] = "";
+    zRun_.p_sysInfo_->p_errVec[94] = "";
+    zRun_.p_sysInfo_->p_errVec[95] = "";
+    zRun_.p_sysInfo_->p_errVec[96] = "";
+    zRun_.p_sysInfo_->p_errVec[97] = "";
+    zRun_.p_sysInfo_->p_errVec[98] = "";
+    zRun_.p_sysInfo_->p_errVec[99] = "";
+    zRun_.p_sysInfo_->p_errVec[100] = "";
+    zRun_.p_sysInfo_->p_errVec[101] = "目标机返回的版本号与正在布署的不一致";
+    zRun_.p_sysInfo_->p_errVec[102] = "目标机 post-update 出错返回";
+    zRun_.p_sysInfo_->p_errVec[103] = "";
+    zRun_.p_sysInfo_->p_errVec[104] = "";
+    zRun_.p_sysInfo_->p_errVec[105] = "";
+    zRun_.p_sysInfo_->p_errVec[106] = "";
+    zRun_.p_sysInfo_->p_errVec[107] = "";
+    zRun_.p_sysInfo_->p_errVec[108] = "";
+    zRun_.p_sysInfo_->p_errVec[109] = "";
+    zRun_.p_sysInfo_->p_errVec[110] = "";
+    zRun_.p_sysInfo_->p_errVec[111] = "";
+    zRun_.p_sysInfo_->p_errVec[112] = "";
+    zRun_.p_sysInfo_->p_errVec[113] = "";
+    zRun_.p_sysInfo_->p_errVec[114] = "";
+    zRun_.p_sysInfo_->p_errVec[115] = "";
+    zRun_.p_sysInfo_->p_errVec[116] = "";
+    zRun_.p_sysInfo_->p_errVec[117] = "";
+    zRun_.p_sysInfo_->p_errVec[118] = "";
+    zRun_.p_sysInfo_->p_errVec[119] = "";
+    zRun_.p_sysInfo_->p_errVec[120] = "";
+    zRun_.p_sysInfo_->p_errVec[121] = "";
+    zRun_.p_sysInfo_->p_errVec[122] = "";
+    zRun_.p_sysInfo_->p_errVec[123] = "";
+    zRun_.p_sysInfo_->p_errVec[124] = "";
+    zRun_.p_sysInfo_->p_errVec[125] = "";
+    zRun_.p_sysInfo_->p_errVec[126] = "服务端操作系统错误";
+    zRun_.p_sysInfo_->p_errVec[127] = "被新的布署请求打断";
 }
+
 
 void
 zserv_vec_init(void) {
     /*
+     * TCP、UDP 路由函数
+     */
+    zRun_.p_sysInfo_->route_tcp = zops_route_tcp,
+    zRun_.p_sysInfo_->route_udp = zops_route_udp,
+
+    /*
      * TCP serv vec
      * 索引范围：0 至 zTCP_SERV_HASH_SIZ - 1
      */
-    zRun_.ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
-    zRun_.ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
-    zRun_.ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
-    zRun_.ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
-    zRun_.ops_tcp[4] = NULL;  /* 删除项目接口预留 */
-    zRun_.ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
-    zRun_.ops_tcp[6] = NULL;
-    zRun_.ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
-    zRun_.ops_tcp[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
-    zRun_.ops_tcp[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
-    zRun_.ops_tcp[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
-    zRun_.ops_tcp[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
-    zRun_.ops_tcp[12] = zDpOps_.dp;  /* 批量布署或撤销 */
-    zRun_.ops_tcp[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
-    zRun_.ops_tcp[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
-    zRun_.ops_tcp[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
+    zRun_.p_sysInfo_->ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
+    zRun_.p_sysInfo_->ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
+    zRun_.p_sysInfo_->ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
+    zRun_.p_sysInfo_->ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
+    zRun_.p_sysInfo_->ops_tcp[4] = NULL;  /* 删除项目接口预留 */
+    zRun_.p_sysInfo_->ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
+    zRun_.p_sysInfo_->ops_tcp[6] = NULL;
+    zRun_.p_sysInfo_->ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */
+    zRun_.p_sysInfo_->ops_tcp[8] = zDpOps_.state_confirm;  /* 远程主机初始经状态、布署结果状态、错误信息 */
+    zRun_.p_sysInfo_->ops_tcp[9] = zDpOps_.print_revs;  /* 显示提交记录或布署记录 */
+    zRun_.p_sysInfo_->ops_tcp[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
+    zRun_.p_sysInfo_->ops_tcp[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
+    zRun_.p_sysInfo_->ops_tcp[12] = zDpOps_.dp;  /* 批量布署或撤销 */
+    zRun_.p_sysInfo_->ops_tcp[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
+    zRun_.p_sysInfo_->ops_tcp[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
+    zRun_.p_sysInfo_->ops_tcp[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
 
     /* UDP serv vec */
-    zRun_.ops_udp[0] = zDpOps_.udp_pang;
-    zRun_.ops_udp[1] = NULL;
-    zRun_.ops_udp[2] = NULL;
-    zRun_.ops_udp[3] = NULL;
+    zRun_.p_sysInfo_->ops_udp[0] = zDpOps_.udp_pang;
+    zRun_.p_sysInfo_->ops_udp[1] = NULL;
+    zRun_.p_sysInfo_->ops_udp[2] = NULL;
+    zRun_.p_sysInfo_->ops_udp[3] = NULL;
 }
 
 /************
@@ -227,10 +228,16 @@ zexit_clean(void) {
  */
 static void
 zstart_server() {
+    struct passwd *zpPWD = NULL;
+
+    _i zMajorSd = -1;
+    static _i zSd[256] = {0};
+    _uc zMsgId = 0;
+
     /*
      * 必须指定服务端的根路径
      */
-    if (NULL == zRun_.p_servPath) {
+    if (NULL == zRun_.p_sysInfo_->p_servPath) {
         zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
         exit(1);
     }
@@ -251,38 +258,47 @@ zstart_server() {
     /*
      * 转换为后台守护进程
      */
-    zNativeUtils_.daemonize(zRun_.p_servPath);
+    zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
 
     /*
      * 只需在主进程执行一次，项目进程会继承之
      * 提取必要的基础信息
      */
-    if (NULL == zRun_.p_loginName) {
-        zRun_.p_loginName = "git";
+    if (NULL == zRun_.p_sysInfo_->p_loginName) {
+        zRun_.p_sysInfo_->p_loginName = "git";
     }
 
-    struct passwd *zpPWD = getpwnam(zRun_.p_loginName);
-    zCHECK_NULL_EXIT(zRun_.p_homePath = zpPWD->pw_dir);
+    zCHECK_NULL_EXIT(
+            zpPWD = getpwnam(zRun_.p_sysInfo_->p_loginName)
+            );
+    zRun_.p_sysInfo_->p_homePath = zpPWD->pw_dir;
+    zRun_.p_sysInfo_->homePathLen = strlen(zRun_.p_sysInfo_->p_homePath);
 
-    zRun_.homePathLen = strlen(zRun_.p_homePath);
+    zMEM_ALLOC(zRun_.p_sysInfo_->p_sshPubKeyPath, char, zRun_.p_sysInfo_->homePathLen + sizeof("/.ssh/id_rsa.pub"));
+    sprintf(zRun_.p_sysInfo_->p_sshPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_sysInfo_->p_homePath);
 
-    zMEM_ALLOC(zRun_.p_SSHPubKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa.pub"));
-    sprintf(zRun_.p_SSHPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_homePath);
-
-    zMEM_ALLOC(zRun_.p_SSHPrvKeyPath, char, zRun_.homePathLen + sizeof("/.ssh/id_rsa"));
-    sprintf(zRun_.p_SSHPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_homePath);
+    zMEM_ALLOC(zRun_.p_sysInfo_->p_sshPrvKeyPath, char, zRun_.p_sysInfo_->homePathLen + sizeof("/.ssh/id_rsa"));
+    sprintf(zRun_.p_sysInfo_->p_sshPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_sysInfo_->p_homePath);
 
     /*
      * 只需在主进程执行一次，项目进程会继承之
-     * 初始化错误信息影射表
+     * 初始化 serv_map 与 err_map
      */
     zserv_vec_init();
     zerr_vec_init();
 
     /*
-     * 主进程线程池初始化
+     * 主进程线程池初始化大小：32
+     * 项目进程线程池初始化大小：4
+     * 系统全局可启动线程数上限 1024
      */
-    zThreadPool_.init(64, 65);
+    zThreadPool_.init(32, 1024);
+
+    /*
+	 * 扫描所有项目库并初始化之
+	 * 每个项目对应一个独立的进程
+	 */
+    zNativeOps_.proj_init_all(& (zRun_.p_sysInfo_->pgLogin_));
 
     /*
      * 只运行于主进程
@@ -297,21 +313,12 @@ zstart_server() {
     zThreadPool_.add(zNativeOps_.extend_pg_partition, NULL);
 
     /*
-     * 只运行于项目进程
-     * 服务器内部使用的基于 AF_UNIX 的 UDP 服务器
-     */
-    zThreadPool_.add(zudp_daemon, ".s.git_shadow");
-
-    /* 扫描所有项目库并初始化之 */
-    zNativeOps_.proj_init_all(& (zRun_.pgLogin_));
-
-    /*
      * 返回的 socket 已经做完 bind 和 listen
      * 若出错，其内部会 exit
      */
-    _i zMajorSd = zNetUtils_.gen_serv_sd(
-            zRun_.netSrv_.p_ipAddr,
-            zRun_.netSrv_.p_port,
+    zMajorSd = zNetUtils_.gen_serv_sd(
+            zRun_.p_sysInfo_->netSrv_.p_ipAddr,
+            zRun_.p_sysInfo_->netSrv_.p_port,
             NULL,
             zProtoTCP);
 
@@ -319,43 +326,126 @@ zstart_server() {
      * 会传向新线程，使用静态变量
      * 使用数组防止负载高时造成线程参数混乱
      */
-    static _i zSd[256] = {0};
-    _uc zMsgId = 0;
     for (_ui i = 0;; i++) {
         zMsgId = i % 256;
         if (-1 == (zSd[zMsgId] = accept(zMajorSd, NULL, 0))) {
             zPRINT_ERR_EASY_SYS();
         } else {
-            zThreadPool_.add(zops_route_tcp, & (zSd[zMsgId]));
+            zThreadPool_.add(zops_route_tcp_master, & (zSd[zMsgId]));
         }
     }
 }
 
 
+/*
+ * 主进程路由函数
+ */
 static void *
 zops_route_tcp_master(void *zp) {
+    _i zSd = * ((_i *) zp);
 
+    char zDataBuf[16] = {'\0'};
+    _i zRepoId = 0;
+
+    /*
+     * 必须使用 MSG_PEEK 标志
+     * json projId 字段必须是第一个字段：
+     * 格式：{"projId":1,"...":...}
+     */
+    recv(zSd, zDataBuf, zBYTES(16), MSG_PEEK|MSG_NOSIGNAL);
+
+    /*
+     * 若没有提取到数据，结果是 0
+     * 项目 ID 范围：1 - 1023
+     * 不允许使用 0
+     */
+    zRepoId = strtol(zDataBuf, NULL, 10);
+    if (0 == zRepoId) {
+        zNetUtils_.send(zSd,
+                "{\"errNo\":-7,\"content\":\"json parse err\"}",
+                sizeof("{\"errNo\":-7,\"content\":\"json parse err\"}") - 1);
+        goto zMarkEnd;
+    }
+
+    /*
+     * 若项目存在，将业务 socket 传递给对应的项目进程
+     * 若项目不存在，则收取完整的 json 信息
+     */
+    if (0 < zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->repoUN[zRepoId], zSd);
+        goto zMarkEnd;
+    } else {
+        char zDataBuf[8192] = {'\0'};
+        _i zDataLen = 0,
+        zResNo = 0;
+
+        cJSON *zpJRoot = NULL;
+        cJSON *zpOpsId = NULL;
+
+        recv(zSd, zDataBuf, zBYTES(8192), MSG_NOSIGNAL);
+
+        zpJRoot = cJSON_Parse(zDataBuf);
+        zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
+
+        if (cJSON_IsNumber(zpOpsId)) {
+            _i zOpsId = zpOpsId->valueint;
+
+            /*
+             * 若 opsId 指示的是新建项目，
+             * 则新建，否则返回项目不存在
+             */
+            if (1 == zOpsId) {
+                if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](NULL, zSd))) {
+                    zDataLen = snprintf(zDataBuf, 8192,
+                            "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                            zResNo,
+                            zOpsId,
+                            zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
+                    zNetUtils_.send(zSd, zDataBuf, zDataLen);
+                }
+            } else {
+                zDataLen = snprintf(zDataBuf, 8192,
+                        "{\"errNo\":-2,\"content\":\"%s\"}",
+                        zRun_.p_sysInfo_->p_errVec[2]);
+
+                zNetUtils_.send(zSd, zDataBuf, zDataLen);
+            }
+        } else {
+            zDataLen = snprintf(zDataBuf, 8192,
+                    "{\"errNo\":-7,\"content\":\"%s\"}",
+                    zRun_.p_sysInfo_->p_errVec[7]);
+
+            zNetUtils_.send(zSd, zDataBuf, zDataLen);
+        }
+
+        cJSON_Delete(zpJRoot);
+        goto zMarkEnd;
+    }
+
+zMarkEnd:
+    close(zSd);
+    return NULL;
 }
 
 
 /*
- * tcp 路由函数，主要用于面向用户的服务
+ * 项目进程 tcp 路由函数，用于面向用户的服务
  */
 static void *
 zops_route_tcp(void *zp) {
     _i zSd = * ((_i *) zp);
 
-    char zDataBuf[zGLOB_COMMON_BUF_SIZ] = {'\0'};
+    char zDataBuf[4096] = {'\0'};
     char *zpDataBuf = zDataBuf;
 
     _i zErrNo = 0,
        zOpsId = -1,
        zDataLen = -1,
-       zDataBufSiz = zGLOB_COMMON_BUF_SIZ;
+       zDataBufSiz = 4096;
 
     /*
      * 若收到的数据量很大，
-     * 直接一次性扩展为 1024 倍的缓冲区
+     * 直接一次性扩展为 1024 倍(4M)的缓冲区
      */
     if (zDataBufSiz == (zDataLen = recv(zSd, zpDataBuf, zDataBufSiz, MSG_NOSIGNAL))) {
         zDataBufSiz *= 1024;
@@ -380,10 +470,10 @@ zops_route_tcp(void *zp) {
         zOpsId = zpOpsId->valueint;
 
         /* 检验 value[OpsId] 合法性 */
-        if (0 > zOpsId || zTCP_SERV_HASH_SIZ <= zOpsId || NULL == zRun_.ops_tcp[zOpsId]) {
+        if (0 > zOpsId || zTCP_SERV_HASH_SIZ <= zOpsId || NULL == zRun_.p_sysInfo_->ops_tcp[zOpsId]) {
             zErrNo = -1;
         } else {
-            zErrNo = zRun_.ops_tcp[zOpsId](zpJRoot, zSd);
+            zErrNo = zRun_.p_sysInfo_->ops_tcp[zOpsId](zpJRoot, zSd);
         }
     } else {
         zErrNo = -1;
@@ -402,7 +492,11 @@ zops_route_tcp(void *zp) {
         }
 
         if (14 != zOpsId) {
-            zDataLen = snprintf(zpDataBuf, zDataBufSiz, "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}", zErrNo, zOpsId, zRun_.p_errVec[-1 * zErrNo]);
+            zDataLen = snprintf(zpDataBuf, zDataBufSiz,
+                    "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                    zErrNo,
+                    zOpsId,
+                    zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
             zNetUtils_.send(zSd, zpDataBuf, zDataLen);
         }
     }
@@ -425,25 +519,23 @@ zMarkEnd:
 static void *
 zudp_daemon(void *zpUNPath) {
     _i zServSd = -1;
+    static zUdpInfo__ zUdpInfo_[256];
+    _uc zMsgId = 0;
 
     if (NULL == zpUNPath) {
         zServSd = zNetUtils_.gen_serv_sd(
-                zRun_.netSrv_.p_ipAddr,
-                zRun_.netSrv_.p_port,
+                zRun_.p_sysInfo_->netSrv_.p_ipAddr,
+                zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
-        zRun_.zUdpServSd[1] = zServSd;
     } else {
         zServSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
-        zRun_.zUdpServSd[0] = zServSd;
     }
 
-    static zUdpInfo__ zUdpInfo_[256];
-    _uc zMsgId = 0;
     for (_ui i = 0;; i++) {
         zMsgId = i % 256;
         recvfrom(zServSd, zUdpInfo_[zMsgId].data, zBYTES(510), MSG_NOSIGNAL,
@@ -455,7 +547,7 @@ zudp_daemon(void *zpUNPath) {
 
 
 /*
- * udp 路由函数，主要用于服务器内部
+ * udp 路由函数，用于服务器内部
  */
 static void *
 zops_route_udp (void *zp) {
@@ -464,7 +556,7 @@ zops_route_udp (void *zp) {
     /* 必须第一时间复制出来 */
     memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
 
-    if (0 == zRun_.ops_udp[zUdpInfo_.opsId](
+    if (0 == zRun_.p_sysInfo_->ops_udp[zUdpInfo_.opsId](
                 & zUdpInfo_.data,
                 & zUdpInfo_.peerAddr,
                 zUdpInfo_.peerAddrLen)) {
@@ -517,12 +609,14 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
                     strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
                     zDataBuf,
                     "::1");
-            zPgSQL_.exec_once(zRun_.pgConnInfo, zSQLBuf, NULL);
+            zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
         }
 
         zPosixReg_.free_res(&zR_);
     }
 
-    zNetUtils_.send(zSd, "==== Import Success ====" ,sizeof("==== Import Success ====") - 1);
+    zNetUtils_.send(zSd,
+            "==== Import Success ====",
+            sizeof("==== Import Success ====") - 1);
     return 0;
 }

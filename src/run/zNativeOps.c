@@ -1368,6 +1368,12 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         pthread_cond_signal(zRun_.p_commCond);
     }
 
+    /*
+     * 只运行于项目进程
+     * 服务器内部使用的基于 AF_UNIX 的 UDP 服务器
+     */
+    zThreadPool_.add(zudp_daemon, ".s.git_shadow");
+
     return 0;
 }
 #undef zERR_RETURN_OR_EXIT
