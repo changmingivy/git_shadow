@@ -18,7 +18,7 @@ extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
 
-static void zstart_server(zNetSrv__ *zpNetSrv_, zPgLogin__ *zpPgLogin_);
+static void zstart_server(zPgLogin__ *zpPgLogin_);
 static void * zudp_daemon(void *zp __attribute__ ((__unused__)));
 
 static void * zops_route_tcp_master(void *zp);
@@ -252,7 +252,7 @@ zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
  * 服务启动入口
  */
 static void
-zstart_server() {
+zstart_server(zPgLogin__ *zpPgLogin_) {
     /*
      * 必须指定服务端的根路径
      */
@@ -320,7 +320,7 @@ zstart_server() {
      * 扫描所有项目库并初始化之
      * 每个项目对应一个独立的进程
      */
-    zNativeOps_.proj_init_all(& zRun_.p_sysInfo_->pgLogin_);
+    zNativeOps_.proj_init_all(zpPgLogin_);
 
     /*
      * 只运行于主进程

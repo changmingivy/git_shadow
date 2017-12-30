@@ -18,7 +18,6 @@ typedef struct __zRegRes__ {
     _i cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (size_t);
-    _i repoId;
 } zRegRes__ ;
 
 typedef regex_t zRegInit__;

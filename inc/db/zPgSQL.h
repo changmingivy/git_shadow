@@ -17,7 +17,7 @@ typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;
 
 typedef struct __zPgResTuple__ {
-    _i *p_taskCnt;
+    //_i *p_taskCnt;
 
     char **pp_fields;
 } zPgResTuple__;
@@ -26,7 +26,7 @@ typedef struct __zPgRes__ {
     _i tupleCnt;
     _i fieldCnt;
 
-    _i taskCnt;
+    //_i taskCnt;
 
     zPgResTuple__ fieldNames_;
     zPgResTuple__ tupleRes_[];

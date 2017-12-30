@@ -478,12 +478,11 @@ typedef struct __zSysInfo__ {
      * postgreSQL 全局认证信息
      */
     char pgConnInfo[2048];
-    zPgLogin__ pgLogin_;
 } zSysInfo__;
 
 
 struct zRun__ {
-    void (* run) ();
+    void (* run) (zPgLogin__ *);
 
     zSysInfo__ *p_sysInfo_;
 };
