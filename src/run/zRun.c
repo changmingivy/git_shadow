@@ -425,7 +425,7 @@ zops_route_tcp_master(void *zp) {
      * 项目 ID 范围：1 - (zRun_.p_sysInfo_->globRepoNumLimit - 1)
      * 不允许使用 0
      */
-    zRepoId = strtol(zDataBuf, NULL, 10);
+    zRepoId = strtol(zDataBuf + sizeof("{\"repoId\":") - 1, NULL, 10);
     if (0 >= zRepoId
             || 0 != strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
         zNetUtils_.send(zSd,
