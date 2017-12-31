@@ -82,7 +82,9 @@ zgit_cred_acquire_cb(git_cred **zppResOUT,
         unsigned int zpAllowedTypes __attribute__ ((__unused__)),
         void * zPayload __attribute__ ((__unused__))) {
 
-    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl, zRun_.p_SSHPubKeyPath, zRun_.p_SSHPrvKeyPath, NULL)) {
+    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl,
+				zRun_.p_sysInfo_->p_sshPubKeyPath, zRun_.p_sysInfo_->p_sshPrvKeyPath, NULL)) {
+
         if (NULL == giterr_last()) {
             fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n");
         } else {
