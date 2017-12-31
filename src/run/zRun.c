@@ -1,6 +1,7 @@
 #include "zRun.h"
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -19,14 +20,13 @@ extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
 
 static void zstart_server(zPgLogin__ *zpPgLogin_);
-static void * zudp_daemon(void *zp __attribute__ ((__unused__)));
-
 static void * zops_route_tcp_master(void *zp);
 static void * zops_route_tcp (void *zp);
+
+static void * zudp_daemon(void *zp);
 static void * zops_route_udp (void *zp);
 
-static _i zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd);
-
+static _i zhistory_import (cJSON *zpJ, _i zSd);
 
 struct zRun__ zRun_ = {
     .run = zstart_server,
@@ -35,9 +35,9 @@ struct zRun__ zRun_ = {
     .p_sysInfo_ = NULL,
 };
 
-
 /*
- * 项目进程内部分配空间，主进程中不可见
+ * 项目进程内部分配空间，
+ * 主进程中不可见
  */
 zRepo__ *zpRepo_;
 
@@ -173,7 +173,6 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[127] = "被新的布署请求打断";
 }
 
-
 void
 zserv_vec_init(void) {
     /*
@@ -222,7 +221,6 @@ zexit_clean(void) {
     kill(0, SIGUSR1);
 }
 
-
 #ifndef _Z_BSD
 /*
  * 定时获取系统全局负载信息
@@ -247,52 +245,25 @@ zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
 }
 #endif
 
-
 /*
- * 服务启动入口
+ * 提取必要的基础信息
+ * 只需在主进程执行一次，项目进程会继承之
  */
 static void
-zstart_server(zPgLogin__ *zpPgLogin_) {
-    /*
-     * 必须指定服务端的根路径
-     */
-    if (NULL == zRun_.p_sysInfo_->p_servPath) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
-        exit(1);
-    }
+zglob_data_config(zPgLogin__ *zpPgLogin_) {
+    struct passwd *zpPWD = NULL;
+    char zDBPassFilePath[1024];
+    struct stat zS_;
 
-    /*
-     * 检查 pgSQL 运行环境是否是线程安全的
-     */
-    if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
-        exit(1);
-    }
+    zRun_.p_sysInfo_->udp_daemon = zudp_daemon,
 
-    /*
-     * 主进程退出时，清理所有项目进程
-     */
-    atexit(zexit_clean);
-
-    /*
-     * 转换为后台守护进程
-     */
-    zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
-
-    /*
-     * 只需在主进程执行一次，项目进程会继承之
-     * 提取必要的基础信息
-     */
     zRun_.p_sysInfo_->globRepoNumLimit = zGLOB_REPO_NUM_LIMIT;
 
     if (NULL == zRun_.p_sysInfo_->p_loginName) {
         zRun_.p_sysInfo_->p_loginName = "git";
     }
 
-    struct passwd *zpPWD = NULL;
-    zCHECK_NULL_EXIT(
-            zpPWD = getpwnam(zRun_.p_sysInfo_->p_loginName)
-            );
+    zCHECK_NULL_EXIT( zpPWD = getpwnam(zRun_.p_sysInfo_->p_loginName) );
     zRun_.p_sysInfo_->p_homePath = zpPWD->pw_dir;
     zRun_.p_sysInfo_->homePathLen = strlen(zRun_.p_sysInfo_->p_homePath);
 
@@ -302,12 +273,77 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zMEM_ALLOC(zRun_.p_sysInfo_->p_sshPrvKeyPath, char, zRun_.p_sysInfo_->homePathLen + sizeof("/.ssh/id_rsa"));
     sprintf(zRun_.p_sysInfo_->p_sshPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_sysInfo_->p_homePath);
 
-    /*
-     * 只需在主进程执行一次，项目进程会继承之
-     * 初始化 serv_map 与 err_map
-     */
+    /* 确保 pgSQL 密钥文件存在并合法 */
+    if (NULL == zpPgLogin_->p_passFilePath) {
+        snprintf(zDBPassFilePath, 1024,
+                "%s/.pgpass",
+                zRun_.p_sysInfo_->p_homePath);
+
+        zpPgLogin_->p_passFilePath = zDBPassFilePath;
+    }
+
+    zCHECK_NOTZERO_EXIT( stat(zpPgLogin_->p_passFilePath, &zS_) );
+
+    if (! S_ISREG(zS_.st_mode)) {
+        zPRINT_ERR_EASY("");
+        exit(1);
+    }
+
+    zCHECK_NOTZERO_EXIT( chmod(zpPgLogin_->p_passFilePath, 00600) );
+
+    /* 生成连接 pgSQL 的元信息 */
+    snprintf(zRun_.p_sysInfo_->pgConnInfo, 2048,
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "%s%s "
+            "sslmode=allow "
+            "connect_timeout=6",
+            NULL == zpPgLogin_->p_addr ? "host=" : "",
+            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? zRun_.p_sysInfo_->p_servPath : zpPgLogin_->p_host) : "",
+            NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
+            NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
+            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : "port="),
+            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : zpPgLogin_->p_port),
+            "user=",
+            NULL == zpPgLogin_->p_userName ? "git" : zpPgLogin_->p_userName,
+            "passfile=",
+            zpPgLogin_->p_passFilePath,
+            "dbname=",
+            NULL == zpPgLogin_->p_dbName ? "dpDB": zpPgLogin_->p_dbName);
+
+    /* 初始化 serv_map 与 err_map */
     zserv_vec_init();
     zerr_vec_init();
+}
+
+/*
+ * 服务启动入口
+ */
+static void
+zstart_server(zPgLogin__ *zpPgLogin_) {
+    /* 必须指定服务端的根路径 */
+    if (NULL == zRun_.p_sysInfo_->p_servPath) {
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
+    /* 检查 pgSQL 运行环境是否是线程安全的 */
+    if (zFalse == zPgSQL_.thread_safe_check()) {
+        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        exit(1);
+    }
+
+    /* 主进程退出时，清理所有项目进程 */
+    atexit(zexit_clean);
+
+    /* 转换为后台守护进程 */
+    zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
+
+    /* 全局共享数据注册 */
+    zglob_data_config(zpPgLogin_);
 
     /*
      * 主进程线程池初始化大小：32
@@ -320,7 +356,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      * 扫描所有项目库并初始化之
      * 每个项目对应一个独立的进程
      */
-    zNativeOps_.proj_init_all(zpPgLogin_);
+    zNativeOps_.proj_init_all();
 
     /*
      * 只运行于主进程
@@ -358,7 +394,6 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
         }
     }
 }
-
 
 /*
  * 主进程路由函数
@@ -457,7 +492,6 @@ zMarkEnd:
     return NULL;
 }
 
-
 /*
  * 项目进程 tcp 路由函数，用于面向用户的服务
  */
@@ -540,7 +574,6 @@ zMarkEnd:
     return NULL;
 }
 
-
 /*
  * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
  * 收到的内容会传向新线程，使用静态变量数组防止负载高时造成线程参数混乱
@@ -575,7 +608,6 @@ zudp_daemon(void *zpUNPath) {
     }
 }
 
-
 /*
  * udp 路由函数，用于服务器内部
  */
@@ -596,7 +628,6 @@ zops_route_udp (void *zp) {
     }
 }
 
-
 /**************************************************************
  * 临时接口，用于导入旧版布署系统的项目信息及已产生的布署日志 *
  **************************************************************/
@@ -612,9 +643,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     FILE *zpH0 = fopen(zpConfPath, "r");
     FILE *zpH1 = NULL;
 
-    zPgResTuple__ zRepoMeta_ = {
-        .p_taskCnt = NULL
-    };
+    zPgResTuple__ zRepoMeta_;
 
     zRegRes__ zR_ = {
         .alloc_fn = NULL

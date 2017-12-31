@@ -420,6 +420,8 @@ typedef struct __zRepo__ {
 
 
 typedef struct __zSysInfo__ {
+    void * (* udp_daemon) (void *);
+
     void * (* route_tcp) (void *);
     void * (* route_udp) (void *);
 

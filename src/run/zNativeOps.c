@@ -34,7 +34,7 @@ static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
 static _i zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
-static void * zinit_env(zPgLogin__ *zpPgLogin_);
+static void zinit_env(void);
 
 static void * zcron_ops(void *zp);
 
@@ -63,12 +63,12 @@ zalloc_cache(size_t zSiz) {
     /*
      * 检测当前内存池片区剩余空间是否充裕
      */
-    if ((zSiz + zpRepo_->memPoolOffSet) > zMemPoolSiz) {
+    if ((zSiz + zpRepo_->memPoolOffSet) > zMEM_POOL_SIZ) {
         /*
          * 新增一片内存，加入内存池
          */
         void *zpCur = NULL;
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMemPoolSiz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
+        if (MAP_FAILED == (zpCur = mmap(NULL, zMEM_POOL_SIZ, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
             zPRINT_ERR_EASY_SYS();
             exit(1);
         }
@@ -138,8 +138,8 @@ zget_diff_content(void *zp) {
             "cd \"%s\" && git diff \"%s\" \"%s\" -- \"%s\"",
             zpRepo_->p_path,
             zpRepo_->lastDpSig,
-            zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),
-            zGet_OneFilePath(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId));
+            zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zpMeta_->commitId),
+            zGET_ONE_FILE_PATH(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId));
 
     FILE *zpShellRetHandler = NULL;
     zCHECK_NULL_EXIT( zpShellRetHandler = popen(zCommonBuf, "r") );
@@ -189,7 +189,7 @@ zget_diff_content(void *zp) {
 
     /* 数据完全生成之后，再插入到缓存结构中，保障可用性 */
     pthread_mutex_lock(& zpRepo_->commLock);
-    zGet_OneFileVecWrap_(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId) = zpVecWrap;
+    zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zpMeta_->commitId, zpMeta_->fileId) = zpVecWrap;
     pthread_mutex_unlock(& zpRepo_->commLock);
 
     return NULL;
@@ -353,9 +353,9 @@ zget_file_list(void *zp) {
             "&& git diff --name-only \"%s\" \"%s\"",
             zpRepo_->p_path,
             zpRepo_->lastDpSig,
-            zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId),
+            zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zpMeta_->commitId),
             zpRepo_->lastDpSig,
-            zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId));
+            zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zpMeta_->commitId));
 
     FILE *zpShellRetHandler = NULL;
     zCHECK_NULL_EXIT( zpShellRetHandler = popen(zCommonBuf, "r") );
@@ -500,7 +500,7 @@ zMarkOuter:;
         zVecDataLen = sprintf(zCommonBuf,
                 "[{\"fileId\":-1,\"filePath\":\"%s\"}",
                 (0 == strcmp(zpRepo_->lastDpSig,
-                             zGet_OneCommitSig(zpTopVecWrap_, zpMeta_->commitId))) ?
+                             zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zpMeta_->commitId))) ?
                 "===> 最新的已布署版本 <===" : "=> 无差异 <=");
 
         zpVecWrap->p_vec_[0].iov_len = zVecDataLen;
@@ -541,7 +541,7 @@ zMarkLarge:
 
     /* 数据完全生成之后，再插入到缓存结构中，保障可用性 */
     pthread_mutex_lock(& zpRepo_->commLock);
-    zGet_OneCommitVecWrap_(zpTopVecWrap_, zpMeta_->commitId) = zpVecWrap;
+    zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zpMeta_->commitId) = zpVecWrap;
     pthread_mutex_unlock(& zpRepo_->commLock);
 
     return NULL;
@@ -803,7 +803,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zMEM_ALLOC(zpRepo_->p_aliasPath, char, zpRepo_->maxPathLen);
     zpRepo_->p_aliasPath[0] = '\0';
 
-    {////
+{////
     /*
      * ================
      *  服务端创建项目
@@ -1319,7 +1319,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 用于当内存池容量不足时，指向下一块新开辟的内存区
      */
     if (MAP_FAILED ==
-            (zpRepo_->p_memPool = mmap(NULL, zMemPoolSiz, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
+            (zpRepo_->p_memPool = mmap(NULL, zMEM_POOL_SIZ, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
         zERR_RETURN_OR_EXIT(1);
     }
 
@@ -1537,63 +1537,11 @@ zcron_ops(void *zp) {
 /*
  * 读取项目信息，初始化配套环境
  */
-static void *
-zinit_env(zPgLogin__ *zpPgLogin_) {
-    char zDBPassFilePath[1024];
-    struct stat zS_;
-
+static void
+zinit_env(void) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
-
-    /*
-     * 确保 pgSQL 密钥文件存在并合法
-     */
-    if (NULL == zpPgLogin_->p_passFilePath) {
-        snprintf(zDBPassFilePath, 1024,
-                "%s/.pgpass",
-                zRun_.p_sysInfo_->p_homePath);
-
-        zpPgLogin_->p_passFilePath = zDBPassFilePath;
-    }
-
-    zCHECK_NOTZERO_EXIT(
-            stat(zpPgLogin_->p_passFilePath, &zS_)
-            );
-
-    if (! S_ISREG(zS_.st_mode)) {
-        zPRINT_ERR_EASY("");
-        exit(1);
-    }
-
-    zCHECK_NOTZERO_EXIT(
-            chmod(zpPgLogin_->p_passFilePath, 00600)
-            );
-
-    /*
-     * 生成连接 pgSQL 的元信息
-     */
-    snprintf(zRun_.p_sysInfo_->pgConnInfo, 2048,
-            "%s%s "
-            "%s%s "
-            "%s%s "
-            "%s%s "
-            "%s%s "
-            "%s%s "
-            "sslmode=allow "
-            "connect_timeout=6",
-            NULL == zpPgLogin_->p_addr ? "host=" : "",
-            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? zRun_.p_sysInfo_->p_servPath : zpPgLogin_->p_host) : "",
-            NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
-            NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
-            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : "port="),
-            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : zpPgLogin_->p_port),
-            "user=",
-            NULL == zpPgLogin_->p_userName ? "git" : zpPgLogin_->p_userName,
-            "passfile=",
-            zpPgLogin_->p_passFilePath,
-            "dbname=",
-            NULL == zpPgLogin_->p_dbName ? "dpDB": zpPgLogin_->p_dbName);
 
     /*
      * 尝试连接到 pgSQL server
@@ -1658,18 +1606,15 @@ zinit_env(zPgLogin__ *zpPgLogin_) {
     } else {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPRINT_ERR(0, NULL, "NO VALID REPO FOUND!");
-            goto zMarkEnd;
+            return;
         } else {
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 // TODO fork ...
                 // zThreadPool_.add(zinit_one_repo_env_thread_wraper, zpPgRes_->tupleRes_ + i);
             }
 
-            /* 每个子进程均有副本，请进程可以释放资源 */
+            /* 每个子进程均有副本，主进程可以释放资源 */
             zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
         }
     }
-
-zMarkEnd:
-    return NULL;
 }

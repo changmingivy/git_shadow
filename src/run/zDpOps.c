@@ -232,8 +232,8 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
     }
 
     pthread_mutex_lock(& zpRepo_->commLock);
-    if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
-        zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
+    if (NULL == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
+        zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
         pthread_mutex_unlock(& zpRepo_->commLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
@@ -241,13 +241,13 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("");
             return -71;
         }
-    } else if ((void *) 1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
+    } else if ((void *) 1 == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
         zPRINT_ERR_EASY("");
         return -11;
-    } else if ((void *) -1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
+    } else if ((void *) -1 == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
@@ -261,8 +261,8 @@ zprint_diff_files(cJSON *zpJRoot, _i zSd) {
      * send msg
      */
     zSendVecWrap_.vecSiz = 0;
-    zSendVecWrap_.p_vec_ = zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)->p_vec_;
-    zSplitCnt = (zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)->vecSiz - 1) / zSEND_UNIT_SIZ  + 1;
+    zSendVecWrap_.p_vec_ = zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)->p_vec_;
+    zSplitCnt = (zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)->vecSiz - 1) / zSEND_UNIT_SIZ  + 1;
 
     /*
      * json 前缀
@@ -378,8 +378,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     }
 
     pthread_mutex_lock(& zpRepo_->commLock);
-    if (NULL == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
-        zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
+    if (NULL == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
+        zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId) = (void *) 1;
         pthread_mutex_unlock(& zpRepo_->commLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_files(&zMeta_)) {
@@ -387,13 +387,13 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("");
             return -71;
         }
-    } else if ((void *) 1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
+    } else if ((void *) 1 == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
         zPRINT_ERR_EASY("");
         return -11;
-    } else if ((void *) -1 == zGet_OneCommitVecWrap_(zpTopVecWrap_, zMeta_.commitId)) {
+    } else if ((void *) -1 == zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
@@ -411,8 +411,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     }\
 
     pthread_mutex_lock(& zpRepo_->commLock);
-    if (NULL == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
-        zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId) = (void *) 1;
+    if (NULL == zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
+        zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId) = (void *) 1;
         pthread_mutex_unlock(& zpRepo_->commLock);
 
         if ((void *) -1 == zNativeOps_.get_diff_contents(&zMeta_)) {
@@ -420,13 +420,13 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("");
             return -72;
         }
-    } else if ((void *) 1 == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
+    } else if ((void *) 1 == zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         /* 缓存正在生成过程中 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
         zPRINT_ERR_EASY("");
         return -11;
-    } else if ((void *) -1 == zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
+    } else if ((void *) -1 == zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)) {
         /* 无差异 */
         pthread_mutex_unlock(& zpRepo_->commLock);
         pthread_rwlock_unlock(& zpRepo_->rwLock);
@@ -440,8 +440,8 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
      * send msg
      */
     zSendVecWrap_.vecSiz = 0;
-    zSendVecWrap_.p_vec_ = zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->p_vec_;
-    zSplitCnt = (zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->vecSiz - 1) / zSEND_UNIT_SIZ  + 1;
+    zSendVecWrap_.p_vec_ = zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->p_vec_;
+    zSplitCnt = (zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->vecSiz - 1) / zSEND_UNIT_SIZ  + 1;
 
     /*
      * json 前缀:
@@ -462,7 +462,7 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
     }
 
     /* 最后一个分片可能不足 zSEND_UNIT_SIZ，需要单独计算 */
-    zSendVecWrap_.vecSiz = (zGet_OneFileVecWrap_(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->vecSiz - 1) % zSEND_UNIT_SIZ + 1;
+    zSendVecWrap_.vecSiz = (zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zMeta_.commitId, zMeta_.fileId)->vecSiz - 1) % zSEND_UNIT_SIZ + 1;
     zNetUtils_.sendmsg(zSd, zSendVecWrap_.p_vec_, zSendVecWrap_.vecSiz, NULL, 0);
 
     /*
@@ -1249,7 +1249,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     if (NULL == zpForceSig) {
         strcpy(zpRepo_->dpingSig,
-                zGet_OneCommitSig(zpTopVecWrap_, zCommitId));
+                zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zCommitId));
     } else {
         strcpy(zpRepo_->dpingSig, zpForceSig);
     }
@@ -1310,7 +1310,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     char *zpCommonBuf =
         zNativeOps_.alloc(2048 + 4 * zpRepo_->repoPathLen + 2 * zIpListStrLen);
 
-    {////
+{////
     /*
      * 更新最近一次布署尝试的版本号
      * 若 SSH 认证信息有变动，亦更新之
@@ -1799,7 +1799,7 @@ zSkipMark:;
             /*
              * 项目内存池复位
              */
-            zReset_Mem_Pool_State( zpRepo_->repoId );
+            zMEM_POOL_REST( zpRepo_->repoId );
 
             /* 刷新缓存 */
             zCacheMeta__ zSubMeta_;
@@ -2745,7 +2745,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zSourceBranchLen = strlen(zpNewBranch);
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
-        {////
+{////
         /* 测试新的信息是否有效... */
         char zRefs[sizeof("+refs/heads/:refs/heads/XXXXXXXX") + 2 * strlen(zpNewBranch)],
              *zpRefs = zRefs;
@@ -2776,7 +2776,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         }
         }////
 
-        {////
+{////
         char zSQLBuf[128 + zSourceUrlLen + zSourceBranchLen];
         _i zResNo = -1;
 
