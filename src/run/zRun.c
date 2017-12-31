@@ -47,6 +47,7 @@ zRepo__ *zpRepo_;
 
 void
 zerr_vec_init(void) {
+    zRun_.p_sysInfo_->p_errVec[0] = "";
     zRun_.p_sysInfo_->p_errVec[1] = "无法识别或未定义的操作请求";
     zRun_.p_sysInfo_->p_errVec[2] = "项目不存在或正在创建过程中";
     zRun_.p_sysInfo_->p_errVec[3] = "指定的版本号不存在";
@@ -93,7 +94,7 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[44] = "git branch 错误";
     zRun_.p_sysInfo_->p_errVec[45] = "git add and commit 错误";
     zRun_.p_sysInfo_->p_errVec[46] = "libgit2 初始化错误";
-    zRun_.p_sysInfo_->p_errVec[47] = "";
+    zRun_.p_sysInfo_->p_errVec[47] = "git rev_walker err";
     zRun_.p_sysInfo_->p_errVec[48] = "";
     zRun_.p_sysInfo_->p_errVec[49] = "指定的源库分支无效/同步失败";
     zRun_.p_sysInfo_->p_errVec[50] = "";
@@ -349,8 +350,8 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zglob_data_config(zpPgLogin_);
 
     /*
-     * 主进程线程池初始化大小：32
-     * 项目进程线程池初始化大小：4
+     * 主进程常备线程数量：32
+     * 项目进程常备线程数量：8
      * 系统全局可启动线程数上限 1024
      */
     zThreadPool_.init(32, 1024);
@@ -584,13 +585,12 @@ zMarkEnd:
 
 /*
  * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
- * 收到的内容会传向新线程，使用静态变量数组防止负载高时造成线程参数混乱
- * 单个消息长度不能超过 510
+ * 收到的内容会传向新线程，
+ * 使用静态变量数组防止负载高时造成线程参数混乱
  */
 static void *
 zudp_daemon(void *zpUNPath) {
     _i zServSd = -1;
-    static zUdpInfo__ zUdpInfo_[256];
     _uc zReqId = 0;
 
     if (NULL == zpUNPath) {
@@ -599,21 +599,41 @@ zudp_daemon(void *zpUNPath) {
                 zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
+
+        /*
+         * 监控数据收集服务
+         * 单个消息长度不能超过 510
+         */
+        static zUdpInfo__ zUdpInfo_[256];
+        for (_ui i = 0;; i++) {
+            zReqId = i % 256;
+            recvfrom(zServSd, zUdpInfo_[zReqId].data, zBYTES(510), MSG_NOSIGNAL,
+                    & zUdpInfo_[zReqId].peerAddr,
+                    & zUdpInfo_[zReqId].peerAddrLen);
+            zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
+        }
     } else {
         zServSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
+
+        /*
+         * TCP 套接字进程间传递服务
+         */
+        static _i zSd[256] = {0};
+        for (_ui i = 0;; i++) {
+            zReqId = i % 256;
+            if (0 > (zSd[zReqId] = zNetUtils_.recv_fd(zServSd))) {
+                zPRINT_ERR_EASY_SYS();
+            } else {
+                zThreadPool_.add(zops_route_tcp, & zSd[zReqId]);
+            }
+        }
     }
 
-    for (_ui i = 0;; i++) {
-        zReqId = i % 256;
-        recvfrom(zServSd, zUdpInfo_[zReqId].data, zBYTES(510), MSG_NOSIGNAL,
-                & zUdpInfo_[zReqId].peerAddr,
-                & zUdpInfo_[zReqId].peerAddrLen);
-        zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
-    }
+    return NULL;
 }
 
 /*

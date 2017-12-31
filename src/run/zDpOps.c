@@ -2452,9 +2452,9 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
     pthread_mutex_unlock(& (zpRepo_->commLock));
 
     sprintf(zSQLBuf,
-            "CREATE TABLE tmp%d as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
+            "CREATE TABLE tmp_%d_%d as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
             "WHERE repo_id = %d AND time_stamp > %ld",
-            zTbNo,
+            zpRepo_->id, zTbNo,
             zpRepo_->repoId, time(NULL) - 3600 * 24 * 30);
 
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
@@ -2463,7 +2463,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
          * 删除可能存在的重名表
          */
         char zTmpBuf[64];
-        snprintf(zTmpBuf, 64, "DROP TABLE tmp%u", zTbNo);
+        snprintf(zTmpBuf, 64, "DROP TABLE tmp_%d_%d", zpRepo_->id, zTbNo);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zTmpBuf, zFalse))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             free(zpStageBuf[0]);
@@ -2581,7 +2581,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
     }
 
     /* 删除临时表 */
-    sprintf(zSQLBuf, "DROP TABLE tmp%u", zTbNo);
+    sprintf(zSQLBuf, "DROP TABLE tmp_%d_%d", zpRepo_->id, zTbNo);
     if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
         zPgSQL_.conn_clear(zpPgConnHd_);
         free(zpStageBuf[0]);

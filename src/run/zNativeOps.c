@@ -33,7 +33,7 @@ static void * zalloc_cache(size_t zSiz);
 static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
-static _i zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSdToClose);
+static void zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, zbool_t zNewRepo);
 static void zinit_env(void);
 
 static void * zcron_ops(void *zp);
@@ -852,7 +852,7 @@ zcron_ops(void *zp) {
 
 /*
  * 参数：项目基本信息
- * @zSdToClose 作用一：子进程凭此决定是否需要关闭此套接字；作用二：用以识别是项目载入还是项目新建
+ * @zNewRepo 用以识别是项目载入还是项目新建
  * zpRepoMeta_->pp_field[i]: [0 repoId] [1 pathOnHost] [2 sourceURL] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 #define zFREE_SOURCE() do {\
@@ -861,20 +861,16 @@ zcron_ops(void *zp) {
     zpRepo_ = NULL;\
 } while(0)
 
-#define zERR_RETURN_OR_EXIT(zResNo) do {\
-    zPRINT_ERR_EASY("");\
-    if (0 <= zSdToClose) {  /* 新建项目失败返回，则删除路径 */\
+#define zERR_CLEAN_AND_EXIT(zResNo) do {\
+    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);\
+    if (zTrue == zNewRepo) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zpRepo_->p_path);\
     }\
-    if (0 < zResNo) {\
-        exit(1);\
-    } else {\
-        return zResNo;\
-    }\
+    exit(1);\
 } while(0)
 
-static _i
-zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
+static void
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, zbool_t zNewRepo) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
@@ -899,16 +895,16 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
     /* 检查项目 ID 是否超限 */
     if (zGLOB_REPO_NUM_LIMIT <= zRepoId
-			|| 0 >= zRepoId) {
-        zPRINT_ERR_EASY("");
-        return -32;
+            || 0 >= zRepoId) {
+        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[32]);
+        exit(1);
     }
 
     /* 检查项目 ID 是否冲突 */
     if (0 != zRun_.p_sysInfo_->repoUN[zRepoId]
             || 0 != zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
-        zPRINT_ERR_EASY("");
-        return -35;
+        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[35]);
+        exit(1);
     }
 
     /* 分配项目信息的存储空间，务必使用 calloc */
@@ -931,8 +927,9 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPosixReg_.free_res(&zRegRes_);
         free(zpRepo_);
         zpRepo_ = NULL;
-        zPRINT_ERR_EASY("");
-        return -29;
+
+        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[29]);
+        exit(1);
     }
 
     zpOrigPath = zpRepoMeta_->pp_fields[1];
@@ -987,32 +984,27 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     if (0 == stat(zpRepo_->p_path, &zS_)) {
         /**
          * 若是项目新建，则不允许存在同名路径
-         * 既有项目初始化会将 zSdToClose 置为 -1
          */
-        if (0 <= zSdToClose) {
+        if (zTrue == zNewRepo) {
             zFREE_SOURCE();
-            zPRINT_ERR_EASY("");
-            return -36;
+            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[36]);
+            exit(1);
         } else {
             if (! S_ISDIR(zS_.st_mode)) {
                 zFREE_SOURCE();
-                zPRINT_ERR_EASY("");
-                return -30;
-            } else {  /* TO DEL: 兼容旧版本 */
+                zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[30]);
+                exit(1);
+            } else {
                 /* 全局 libgit2 Handler 初始化 */
                 if (NULL == (zpRepo_->p_gitCommHandler
                             = zLibGit_.env_init(zpRepo_->p_path))) {
                     zFREE_SOURCE();
-                    zPRINT_ERR_EASY("");
-                    return -46;
+                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[46]);
+                    exit(1);
                 }
 
-                /* 不必关心执行结果 */
-                sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
-                zLibGit_.branch_add(zpRepo_->p_gitCommHandler,
-                        zCommonBuf, "HEAD", zFalse);
-
                 /*
+                 * 兼容旧版本，创建空白分支
                  * 删除所有除 .git 之外的文件与目录
                  * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
                  */
@@ -1030,8 +1022,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                             if (0 != zNativeUtils_.path_del(zPathBuf)) {
                                 closedir(zpDIR);
                                 zFREE_SOURCE();
-                                zPRINT_ERR_EASY("");
-                                return -40;
+                                zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[40]);
+                                exit(1);
                             }
                         }
                     } else {
@@ -1040,8 +1032,8 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                         if (0 != unlink(zPathBuf)) {
                             closedir(zpDIR);
                             zFREE_SOURCE();
-                            zPRINT_ERR_EASY_SYS();
-                            return -40;
+                            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[40]);
+                            exit(1);
                         }
                     }
                 }
@@ -1049,31 +1041,38 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zCHECK_NOTZERO_EXIT( errno );
                 closedir(zpDIR);
 
-                if (0 != zLibGit_.branch_rename(zpRepo_->p_gitCommHandler, "____base.XXXXXXXX", "____baseXXXXXXXX", zTrue)) {
-                    if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
-                        zPRINT_ERR_EASY("");
-                        return -45;
-                    }
+                zLibGit_.branch_del(zpRepo_->p_gitCommHandler,
+                        "refs/heads/____baseXXXXXXXX");
+                if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
+                            "refs/heads/____baseXXXXXXXX", ".", "_")) {
+                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[45]);
+                    exit(1);
                 }
+
+                /* 兼容旧版本，不必关心执行结果 */
+                sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
+                zLibGit_.branch_add(zpRepo_->p_gitCommHandler,
+                        zCommonBuf, "HEAD", zFalse);
             }
         }
     } else {
-        /**
+        /*
          * git clone URL，内部会回调 git_init，
          * 生成本项目 libgit2 Handler
+         * 会自动递归创建各级目录
          */
         if (0 != zLibGit_.clone(
                     &zpRepo_->p_gitCommHandler,
                     zpRepoMeta_->pp_fields[2],
                     zpRepo_->p_path, NULL, zFalse)) {
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-42);
+            zERR_CLEAN_AND_EXIT(-42);
         }
 
         /* git config user.name _ && git config user.email _@_ */
         if (0 != zLibGit_.config_name_email(zpRepo_->p_path)) {
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-43);
+            zERR_CLEAN_AND_EXIT(-43);
         }
 
         /*
@@ -1083,7 +1082,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
         if (0 != zLibGit_.branch_add(zpRepo_->p_gitCommHandler, zCommonBuf, "HEAD", zFalse)) {
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-44);
+            zERR_CLEAN_AND_EXIT(-44);
         }
 
         /*
@@ -1092,7 +1091,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
          */
         if (NULL == (zpDIR = opendir(zpRepo_->p_path))) {
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-40);
+            zERR_CLEAN_AND_EXIT(-40);
         }
 
         errno = 0;
@@ -1107,7 +1106,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                     if (0 != zNativeUtils_.path_del(zPathBuf)) {
                         closedir(zpDIR);
                         zFREE_SOURCE();
-                        zERR_RETURN_OR_EXIT(-40);
+                        zERR_CLEAN_AND_EXIT(-40);
                     }
                 }
             } else {
@@ -1116,7 +1115,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 if (0 != unlink(zPathBuf)) {
                     closedir(zpDIR);
                     zFREE_SOURCE();
-                    zERR_RETURN_OR_EXIT(-40);
+                    zERR_CLEAN_AND_EXIT(-40);
                 }
             }
         }
@@ -1124,14 +1123,15 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         if (0 != errno) {
             closedir(zpDIR);
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-40);
+            zERR_CLEAN_AND_EXIT(-40);
         }
 
         closedir(zpDIR);
 
-        if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler, "refs/heads/____baseXXXXXXXX", ".", "_")) {
+        if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
+                    "refs/heads/____baseXXXXXXXX", ".", "_")) {
             zFREE_SOURCE();
-            zERR_RETURN_OR_EXIT(-40);
+            zERR_CLEAN_AND_EXIT(-40);
         }
     }
     }////
@@ -1143,7 +1143,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      */
     if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
         zFREE_SOURCE();
-        zERR_RETURN_OR_EXIT(-37);
+        zERR_CLEAN_AND_EXIT(-37);
     }
 
     /* 通用锁 */
@@ -1164,19 +1164,46 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     // zCHECK_PTHREAD_FUNC_EXIT(pthread_rwlock_init(& zpRepo_->rwLock, & zpRepo_->rwLockAttr));
     // zCHECK_PTHREAD_FUNC_EXIT(pthread_rwlockattr_destroy(& zpRepo_->rwLockAttr));
 
-    /* 读写锁生成之后，立刻取写锁 */
-    pthread_rwlock_wrlock(& zpRepo_->rwLock);
-
-    /* 缓存版本初始化 */
-    zpRepo_->cacheId = time(NULL);
+    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zpRepo_->sysUpdateLock, NULL) );
 
     /* SQL 临时表命名序号 */
     zpRepo_->tempTableNo = 0;
 
     /* 本项目 pgSQL 连接的全局 Handler */
-    if (NULL == (zpRepo_->p_pgConnHd_ = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
-        zERR_RETURN_OR_EXIT(1);
+    if (NULL == (zpRepo_->p_pgConnHd_
+                = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
+        zERR_CLEAN_AND_EXIT(-90);
     }
+
+    /* 指针指向自身的静态数据项 */
+    zpRepo_->commitVecWrap_.p_vec_ = zpRepo_->commitVec_;
+    zpRepo_->commitVecWrap_.p_refData_ = zpRepo_->commitRefData_;
+
+    zpRepo_->dpVecWrap_.p_vec_ = zpRepo_->dpVec_;
+    zpRepo_->dpVecWrap_.p_refData_ = zpRepo_->dpRefData_;
+
+    zpRepo_->p_dpCcur_ = zpRepo_->dpCcur_;
+
+    /* 源库相关信息留存 */
+    zMEM_ALLOC(zpRepo_->p_codeSyncURL, char, 1 + zSourceUrlLen);
+    zMEM_ALLOC(zpRepo_->p_codeSyncBranch, char, 1 + zSourceBranchLen);
+    zMEM_ALLOC(zpRepo_->p_codeSyncRefs, char, 1 + zSyncRefsLen);
+
+    strcpy(zpRepo_->p_codeSyncURL, zpRepoMeta_->pp_fields[2]);
+    strcpy(zpRepo_->p_codeSyncBranch, zpRepoMeta_->pp_fields[3]);
+
+    sprintf(zpRepo_->p_codeSyncRefs,
+            "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+            zpRepo_->p_codeSyncBranch,
+            zpRepo_->p_codeSyncBranch);
+
+    /* p_localRef 指向 refs 的后半段，本身不占用空间 */
+    zpRepo_->p_localRef =
+        zpRepo_->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
+
+    strcpy(zpRepo_->sshUserName, zpRepoMeta_->pp_fields[6]);
+    strcpy(zpRepo_->sshPort, zpRepoMeta_->pp_fields[7]);
 
     /*
      * 每次启动时尝试创建必要的表，
@@ -1189,7 +1216,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
      * 新建项目时需要执行一次
      * 后续不需要再执行
      */
-    if (0 <= zSdToClose) {
+    if (zTrue == zNewRepo) {
         sprintf(zCommonBuf,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d "
                 "PARTITION OF dp_log FOR VALUES IN (%d) "
@@ -1201,7 +1228,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
             zRepoId, zBaseId, zRepoId, 86400 * zBaseId);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zFalse))) {
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
@@ -1214,43 +1241,39 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zRepoId, zBaseId + zId + 1, zRepoId, 86400 * (zBaseId + zId), 86400 * (zBaseId + zId + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zFalse))) {
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
         }
     }
 
-
     /*
-     * ====  提取项目创建时间与路径别名 ====
-     * 既有项目，从 DB 中提取其创建时间
+     * ====  提取项目元信息 ====
+     * 既有项目，从 DB 中提取
      * 项目新建时在 add_repo(...) 中处理
      */
-    if (0 > zSdToClose) {
+    if (zFalse == zNewRepo) {
         snprintf(zCommonBuf, zGLOB_COMMON_BUF_SIZ,
                 "SELECT create_time,alias_path FROM repo_meta WHERE repo_id = %d",
                 zRepoId);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         }
 
         /* DB err: 'create_time' miss */
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
             zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-92);
         }
 
         /* copy... */
-        snprintf(zpRepo_->createdTime,
-                24,
-                "%s",
+        snprintf(zpRepo_->createdTime, 24, "%s",
                 zpPgRes_->tupleRes_[0].pp_fields[0]);
-        snprintf(zpRepo_->p_aliasPath,
-                zpRepo_->maxPathLen,
-                "%s",
+
+        snprintf(zpRepo_->p_aliasPath, zpRepo_->maxPathLen, "%s",
                 zpPgRes_->tupleRes_[0].pp_fields[1]);
 
         /* clean... */
@@ -1266,13 +1289,13 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zRepoId);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         }
 
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
             zPgSQL_.res_clear(zpPgResHd_, NULL);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-92);
         }
 
         if ('\0' == zpPgRes_->tupleRes_[0].pp_fields[0][0]) {
@@ -1287,7 +1310,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
 
                 zLibGit_.destroy_revwalker(zpRevWalker);
             } else {
-                zERR_RETURN_OR_EXIT(1);
+                zERR_CLEAN_AND_EXIT(-47);
             }
         } else {
             strncpy(zpRepo_->lastDpSig, zpPgRes_->tupleRes_[0].pp_fields[0], 40);
@@ -1329,7 +1352,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                         zCommonBuf,
                         zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         }
 
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
@@ -1357,7 +1380,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 zpRepo_->dpingSig);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-            zERR_RETURN_OR_EXIT(1);
+            zERR_CLEAN_AND_EXIT(-91);
         }
 
         if (NULL != (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
@@ -1384,7 +1407,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
                 /* 线性链表斌值；转换字符串格式 IP 为 _ull 型 */
                 if (0 != zCONVERT_IPSTR_TO_NUM(zpPgRes_->tupleRes_[i].pp_fields[0],
                             zpRepo_->p_dpResList_[i].clientAddr)) {
-                    zERR_RETURN_OR_EXIT(1);
+                    zERR_CLEAN_AND_EXIT(-18);
                 }
 
                 /* 恢复上一次布署的 resState 与全局 resType */
@@ -1454,50 +1477,22 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
     }
 
-    /* 指针指向自身的静态数据项 */
-    zpRepo_->commitVecWrap_.p_vec_ = zpRepo_->commitVec_;
-    zpRepo_->commitVecWrap_.p_refData_ = zpRepo_->commitRefData_;
-
-    zpRepo_->dpVecWrap_.p_vec_ = zpRepo_->dpVec_;
-    zpRepo_->dpVecWrap_.p_refData_ = zpRepo_->dpRefData_;
-
-    zpRepo_->p_dpCcur_ = zpRepo_->dpCcur_;
-
-    /*
-     * 源库相关信息留存
-     */
-    zMEM_ALLOC(zpRepo_->p_codeSyncURL, char, 1 + zSourceUrlLen);
-    zMEM_ALLOC(zpRepo_->p_codeSyncBranch, char, 1 + zSourceBranchLen);
-    zMEM_ALLOC(zpRepo_->p_codeSyncRefs, char, 1 + zSyncRefsLen);
-
-    strcpy(zpRepo_->p_codeSyncURL, zpRepoMeta_->pp_fields[2]);
-    strcpy(zpRepo_->p_codeSyncBranch, zpRepoMeta_->pp_fields[3]);
-
-    sprintf(zpRepo_->p_codeSyncRefs,
-            "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-            zpRepo_->p_codeSyncBranch,
-            zpRepo_->p_codeSyncBranch);
-
-    /* p_localRef 指向 refs 的后半段，本身不占用空间 */
-    zpRepo_->p_localRef =
-        zpRepo_->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
-
-    strcpy(zpRepo_->sshUserName, zpRepoMeta_->pp_fields[6]);
-    strcpy(zpRepo_->sshPort, zpRepoMeta_->pp_fields[7]);
-
     /*
      * 内存池初始化，开头留一个指针位置，
      * 用于当内存池容量不足时，指向下一块新开辟的内存区
      */
     if (MAP_FAILED ==
             (zpRepo_->p_memPool = mmap(NULL, zMEM_POOL_SIZ, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
-        zERR_RETURN_OR_EXIT(1);
+        zERR_CLEAN_AND_EXIT(-126);
     }
 
     void **zppPrev = zpRepo_->p_memPool;
     zppPrev[0] = NULL;
     zpRepo_->memPoolOffSet = sizeof(void *);
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->memLock, NULL) );
+
+    /* 缓存版本初始化 */
+    zpRepo_->cacheId = time(NULL);
 
     /* 生成缓存 */
     zCacheMeta__ zMeta_;
@@ -1508,25 +1503,29 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSdToClose) {
     zMeta_.dataType = zDATA_TYPE_DP;
     zgenerate_cache(&zMeta_);
 
-    /* 标记初始化动作已全部完成 */
-    zRun_.p_sysInfo_->repoFinMark[zRepoId] = 1;
-
-    /* 释放锁 */
-    pthread_rwlock_unlock(& zpRepo_->rwLock);
+    /*
+     * 项目进程线程池初始化
+     * 常备线程数量：8
+     */
+    zThreadPool_.init(8, -1);
 
     /* 启动定时任务 */
     zThreadPool_.add(zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");
+
+    /* 标记初始化动作已全部完成 */
+    zRun_.p_sysInfo_->repoFinMark[zRepoId] = 1;
 
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 AF_UNIX 的 UDP 服务器
      */
-    zThreadPool_.add(udp_daemon, ".s.git_shadow");
+    sprintf(zCommonBuf, ".s.%d", zpRepo_->id);
+    zRun_.p_sysInfo_->udp_daemon(zCommonBuf);
 
-    /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zpRepo_->sysUpdateLock, NULL) );
-
-    return 0;
+    /*
+     * never! reach! here!
+     */
+    exit(0);
 }
 
 
@@ -1538,6 +1537,9 @@ zinit_env(void) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
+
+    char zUNPathBuf[32];
+    pid_t zPid = -1;
 
     /*
      * 尝试连接到 pgSQL server
@@ -1602,8 +1604,20 @@ zinit_env(void) {
             zPRINT_ERR(0, NULL, "NO VALID REPO FOUND!");
         } else {
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
-                // TODO fork ...
-                // zThreadPool_.add(zinit_one_repo_env_thread_wraper, zpPgRes_->tupleRes_ + i);
+                zCHECK_NEGATIVE_EXIT( zPid = fork() );
+
+                if (0 == zPid) {
+                    /* 项目进程初始化项目环境 */
+                    zinit_one_repo_env(zpPgRes_->tupleRes_ + i, zFalse);
+                } else {
+                    /* 主进程 connect 项目进程的 unix udp server */
+                    sprintf(zUNPathBuf, ".s.%s", zpPgRes_->tupleRes_[i].pp_fields[0]);
+                    if (0 > (zRun_.p_sysInfo_->repoUN[strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10)]
+                                = zNetUtils_.conn(NULL, NULL, zUNPathBuf, zProtoUDP))) {
+                        zPRINT_ERR_EASY("==== udp connect err! ====");
+                        exit(1);
+                    }
+                }
             }
         }
 
@@ -1613,5 +1627,5 @@ zinit_env(void) {
 }
 
 
-#undef zERR_RETURN_OR_EXIT
+#undef zERR_CLEAN_AND_EXIT
 #undef zFREE_SOURCE

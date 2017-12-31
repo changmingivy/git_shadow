@@ -15,7 +15,7 @@
 struct zNetUtils__ {
     _i (* gen_serv_sd) (char *, char *, char *, znet_proto_t);
 
-    _i (* conn) (char *, char *, char *, znet_proto_t, _i);
+    _i (* conn) (char *, char *, char *, znet_proto_t);
 
     _i (* send) (_i, void *, size_t);
     _i (* sendto) (_i, void *, size_t, struct sockaddr *, zip_t);

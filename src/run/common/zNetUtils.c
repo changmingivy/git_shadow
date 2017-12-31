@@ -20,7 +20,7 @@
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 
 static _i zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUN, znet_proto_t zProtoType);
-static _i zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProtoType, _i zFlags);
+static _i zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProtoType);
 
 static _i zsend(_i zSd, void *zpBuf, size_t zLen);
 static _i zsendto(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, zip_t zIpType);
@@ -184,9 +184,12 @@ ztry_connect(struct sockaddr *zpAddr_, size_t zSiz, _i zIpFamily, _i zSockType, 
 }
 
 
-/* Used by client */
+/*
+ * Used by client
+ * @return success: socket_fd, failed: -1
+ */
 static _i
-zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto, _i zFlags) {
+zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
      _i zResNo = -1;
 
      _i zSockType, zProtoType;
@@ -205,7 +208,7 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto, _i zFl
                         zHints_ = {
                             .ai_socktype = zSockType,
                             .ai_protocol = zProtoType,
-                            .ai_flags = (0 == zFlags) ? AI_NUMERICHOST|AI_NUMERICSERV : zFlags,
+                            //.ai_flags = AI_NUMERICHOST|AI_NUMERICSERV,
                         };
 
         if (0 != (zResNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
