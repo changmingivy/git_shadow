@@ -288,10 +288,10 @@ zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t 
 }
 
 
-static _i
-zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t *zpAddrSiz) {
-    return recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|MSG_NOSIGNAL, zpAddr_, zpAddrSiz);
-}
+// static _i
+// zrecv_nohang(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, socklen_t *zpAddrSiz) {
+//     return recvfrom(zSd, zpBuf, zLen, MSG_DONTWAIT|MSG_NOSIGNAL, zpAddr_, zpAddrSiz);
+// }
 
 
 /*
