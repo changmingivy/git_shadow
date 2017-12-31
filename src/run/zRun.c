@@ -350,6 +350,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zglob_data_config(zpPgLogin_);
 
     /*
+     * !!! 必须在初始化项目库之前运行
      * 主进程常备线程数量：32
      * 项目进程常备线程数量：8
      * 系统全局可启动线程数上限 1024
@@ -357,7 +358,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zThreadPool_.init(32, 1024);
 
     /*
-     * 扫描所有项目库并初始化之
+     * 项目库初始化
      * 每个项目对应一个独立的进程
      */
     zNativeOps_.repo_init_all();

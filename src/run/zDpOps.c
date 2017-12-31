@@ -483,8 +483,14 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
  */
 static _i
 zadd_repo(cJSON *zpJRoot, _i zSd) {
+    /* 顺序固定的元信息 */
+    char *zpRepoInfo[8] = { NULL };
+    zPgResTuple__ zRepoMeta_ = {
+        .pp_fields = zpRepoInfo
+    };
+
     _i zResNo = 0;
-    char *zpRepoInfo[8] = { NULL };  /* 顺序固定的元信息 */
+    pid_t zPid = -1;
 
     cJSON *zpJ = NULL;
 
@@ -573,81 +579,18 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
-    /* DO creating... */
-    zPgResTuple__ zRepoMeta_ = {
-        .pp_fields = zpRepoInfo
-    };
-
-    if (0 == (zResNo = zNativeOps_.repo_init(&zRepoMeta_, zSd))) {
-        _i zRepoId = strtol(zRepoMeta_.pp_fields[0], NULL, 10);
-        /* 新项目元数据写入 DB */
-        char zCommonBuf[4096] = {'\0'};
-        snprintf(zCommonBuf, 4096, "INSERT INTO repo_meta "
-                "(repo_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
-                "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
-                zRepoMeta_.pp_fields[0],
-                zRepoMeta_.pp_fields[1],
-                zRepoMeta_.pp_fields[2],
-                zRepoMeta_.pp_fields[3],
-                toupper(zRepoMeta_.pp_fields[4][0]),
-                toupper(zRepoMeta_.pp_fields[5][0]),
-                zRepoMeta_.pp_fields[6],
-                zRepoMeta_.pp_fields[7]);
-
-        zPgResHd__ *zpPgResHd_ = zPgSQL_.exec(
-                zpRepo_->p_pgConnHd_,
-                zCommonBuf,
-                zFalse);
-        if (NULL == zpPgResHd_) {
-            /*
-             * 新建立的连接，不必尝试 reset
-             */
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
-
-            zResNo = -91;
-            zPRINT_ERR_EASY("");
-            goto zEndMark;
-        } else {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
-
-            /*
-             * 既有项目，直接从DB中提取提取项目创建时间
-             * 项目新建时，由于项目创建时间属于参考类数据，直接使用当前时间戳即可
-             */
-            time_t zCreatedTimeStamp = time(NULL);
-            struct tm *zpCreatedTM_ = localtime( & zCreatedTimeStamp);
-            sprintf(zRun_.p_repoVec[strtol(zRepoMeta_.pp_fields[0], NULL, 10)]->createdTime, "%d-%d-%d %d:%d:%d",
-                    zpCreatedTM_->tm_year + 1900,
-                    zpCreatedTM_->tm_mon + 1,  /* Month (0-11) */
-                    zpCreatedTM_->tm_mday,
-                    zpCreatedTM_->tm_hour,
-                    zpCreatedTM_->tm_min,
-                    zpCreatedTM_->tm_sec);
-        }
-
-        /* 状态预置: repoState/lastDpSig/dpingSig */
-        zpRepo_->repoState = zCACHE_GOOD;
-
-        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                zpRepo_->p_gitCommHandler,
-                "refs/heads/____baseXXXXXXXX",
-                0);
-        if (NULL != zpRevWalker
-                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf,
-                    zpRepo_->p_gitCommHandler,
-                    zpRevWalker)) {
-            strncpy(zpRepo_->lastDpSig, zCommonBuf, 40);
-            zpRepo_->lastDpSig[40] = '\0';
-
-            strcpy(zpRepo_->dpingSig, zpRepo_->lastDpSig);
-
-            zLibGit_.destroy_revwalker(zpRevWalker);
-        } else {
-            zPRINT_ERR_EASY("");
-            exit(1);
-        }
-
-        zNetUtils_.send(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
+    /*
+     * DO creating...
+     * 创建的最终结果通知，会由子进程发出
+     */
+    if (0 > (zPid = fork())) {
+        zResNo = -126;
+        goto zEndMark;
+    } else if (0 > zPid) {
+        zResNo = 0;
+        goto zEndMark;
+    } else {
+        zNativeOps_.repo_init(&zRepoMeta_, zSd);
     }
 
 zEndMark:
@@ -1965,7 +1908,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
             if (0 >= zRetBit || 24 < zRetBit) {
                 zResNo = -1;
                 zPRINT_ERR_EASY("UNknown reply type");
-                goto zMarkEnd;
+                goto zEndMark;
             }
 
             /*
@@ -1998,7 +1941,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
 
                     zResNo = -101;
                     zPRINT_ERR_EASY("msg out-of-date");
-                    goto zMarkEnd;
+                    goto zEndMark;
                 }
 
                 zSET_BIT(zpTmp_->errState, zRetBit);
@@ -2014,7 +1957,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
 
                 zResNo = -102;
                 zPRINT_ERR_EASY("");
-                goto zMarkEnd;
+                goto zEndMark;
             } else if ('S' == zpReplyType[0]) {
                 snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                         "UPDATE dp_log SET host_res[%d] = '1' "
@@ -2031,7 +1974,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
                         || zTimeStamp != zpRepo_->dpBaseTimeStamp) {
                     zResNo = -101;
                     zPRINT_ERR_EASY("msg out-of-date");
-                    goto zMarkEnd;
+                    goto zEndMark;
                 }
 
                 zSET_BIT(zpTmp_->resState, zRetBit);
@@ -2057,16 +2000,16 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
                 }
 
                 zResNo = 0;
-                goto zMarkEnd;
+                goto zEndMark;
             } else {
                 zResNo = -1;
                 zPRINT_ERR_EASY("UNdefined reply type");
-                goto zMarkEnd;
+                goto zEndMark;
             }
         }
     }
 
-zMarkEnd:
+zEndMark:
     return zResNo;
 }
 
@@ -2794,9 +2737,9 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         }////
 
         /*
-		 * 取项目 commLock 锁
-		 * 用于暂停 code_sync 动作
-		 */
+         * 取项目 commLock 锁
+         * 用于暂停 code_sync 动作
+         */
         pthread_mutex_lock(zRun_.p_commLock);
 
         /*

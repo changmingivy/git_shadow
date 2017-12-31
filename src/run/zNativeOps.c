@@ -33,7 +33,7 @@ static void * zalloc_cache(size_t zSiz);
 static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
-static void zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, zbool_t zNewRepo);
+static void zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSd);
 static void zinit_env(void);
 
 static void * zcron_ops(void *zp);
@@ -852,7 +852,7 @@ zcron_ops(void *zp) {
 
 /*
  * 参数：项目基本信息
- * @zNewRepo 用以识别是项目载入还是项目新建
+ * @zSd 用以识别是项目载入还是项目新建，负数表示既有项目载入，否则表示新建
  * zpRepoMeta_->pp_field[i]: [0 repoId] [1 pathOnHost] [2 sourceURL] [3 sourceBranch] [4 sourceVcsType] [5 needPull]
  */
 #define zFREE_SOURCE() do {\
@@ -863,14 +863,14 @@ zcron_ops(void *zp) {
 
 #define zERR_CLEAN_AND_EXIT(zResNo) do {\
     zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);\
-    if (zTrue == zNewRepo) {  /* 新建项目失败返回，则删除路径 */\
+    if (0 <= zSd) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zpRepo_->p_path);\
     }\
     exit(1);\
 } while(0)
 
 static void
-zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, zbool_t zNewRepo) {
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSd) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
@@ -985,7 +985,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, zbool_t zNewRepo) {
         /**
          * 若是项目新建，则不允许存在同名路径
          */
-        if (zTrue == zNewRepo) {
+        if (0 <= zSd) {
             zFREE_SOURCE();
             zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[36]);
             exit(1);
@@ -1216,7 +1216,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, zbool_t zNewRepo) {
      * 新建项目时需要执行一次
      * 后续不需要再执行
      */
-    if (zTrue == zNewRepo) {
+    if (0 <= zSd) {
         sprintf(zCommonBuf,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d "
                 "PARTITION OF dp_log FOR VALUES IN (%d) "
@@ -1249,10 +1249,86 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, zbool_t zNewRepo) {
 
     /*
      * ====  提取项目元信息 ====
-     * 既有项目，从 DB 中提取
-     * 项目新建时在 add_repo(...) 中处理
+     * 项目新建即时生成
+     * 既有项目从 DB 中提取
      */
-    if (zFalse == zNewRepo) {
+    if (0 <= zSd) {
+        char *zpSQLBuf;
+        _ui zLen = 0;
+
+        for (_i i = 0; i < 7; i++) {
+            zLen += strlen(zpRepoMeta_->pp_fields[i]);
+        }
+
+        zMEM_ALLOC(zpSQLBuf, char, 256 + zLen);
+
+        /* 新项目元数据写入 DB */
+        sprintf(zpSQLBuf, "INSERT INTO repo_meta "
+                "(repo_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
+                "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
+                zpRepoMeta_->pp_fields[0],
+                zpRepoMeta_->pp_fields[1],
+                zpRepoMeta_->pp_fields[2],
+                zpRepoMeta_->pp_fields[3],
+                toupper(zpRepoMeta_->pp_fields[4][0]),
+                toupper(zpRepoMeta_->pp_fields[5][0]),
+                zpRepoMeta_->pp_fields[6],
+                zpRepoMeta_->pp_fields[7]);
+
+        zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zpSQLBuf, zFalse);
+        free(zpSQLBuf);
+
+        if (NULL == zpPgResHd_) {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+
+            /* 子进程中的 sd 副本需要关闭 */
+            zNetUtils_.send(zSd, "{\"errNo\":-91}", sizeof("{\"errNo\":-91}") - 1);
+            close(zSd);
+
+            zERR_CLEAN_AND_EXIT(-91);
+        } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+
+            time_t zCreatedTimeStamp = time(NULL);
+            struct tm *zpCreatedTM_ = localtime( & zCreatedTimeStamp);
+            sprintf(zpRepo_->createdTime, "%d-%d-%d %d:%d:%d",
+                    zpCreatedTM_->tm_year + 1900,
+                    zpCreatedTM_->tm_mon + 1,  /* Month (0-11) */
+                    zpCreatedTM_->tm_mday,
+                    zpCreatedTM_->tm_hour,
+                    zpCreatedTM_->tm_min,
+                    zpCreatedTM_->tm_sec);
+        }
+
+        /* 状态预置: repoState/lastDpSig/dpingSig */
+        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                zpRepo_->p_gitCommHandler,
+                "refs/heads/____baseXXXXXXXX",
+                0);
+        if (NULL != zpRevWalker
+                && 0 < zLibGit_.get_one_commitsig_and_timestamp(zCommonBuf,
+                    zpRepo_->p_gitCommHandler,
+                    zpRevWalker)) {
+            strncpy(zpRepo_->lastDpSig, zCommonBuf, 40);
+            zpRepo_->lastDpSig[40] = '\0';
+
+            strcpy(zpRepo_->dpingSig, zpRepo_->lastDpSig);
+
+            zLibGit_.destroy_revwalker(zpRevWalker);
+        } else {
+            /* 子进程中的 sd 副本需要关闭 */
+            zNetUtils_.send(zSd, "{\"errNo\":-47}", sizeof("{\"errNo\":-47}") - 1);
+            close(zSd);
+
+            zERR_CLEAN_AND_EXIT(-47);
+        }
+
+        zpRepo_->repoState = zCACHE_GOOD;
+
+        /* 子进程中的 sd 副本需要关闭 */
+        zNetUtils_.send(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
+        close(zSd);
+    } else {
         snprintf(zCommonBuf, zGLOB_COMMON_BUF_SIZ,
                 "SELECT create_time,alias_path FROM repo_meta WHERE repo_id = %d",
                 zRepoId);
@@ -1603,6 +1679,8 @@ zinit_env(void) {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
             zPRINT_ERR(0, NULL, "NO VALID REPO FOUND!");
         } else {
+            zPgSQL_.res_clear(zpPgResHd_, NULL);
+
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
 
@@ -1612,8 +1690,9 @@ zinit_env(void) {
                 } else {
                     /* 主进程 connect 项目进程的 unix udp server */
                     sprintf(zUNPathBuf, ".s.%s", zpPgRes_->tupleRes_[i].pp_fields[0]);
-                    if (0 > (zRun_.p_sysInfo_->repoUN[strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10)]
-                                = zNetUtils_.conn(NULL, NULL, zUNPathBuf, zProtoUDP))) {
+                    if (0 > (zRun_.p_sysInfo_->repoUN[
+                                strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10)
+                    ] = zNetUtils_.conn(NULL, NULL, zUNPathBuf, zProtoUDP))) {
                         zPRINT_ERR_EASY("==== udp connect err! ====");
                         exit(1);
                     }
@@ -1622,7 +1701,7 @@ zinit_env(void) {
         }
 
         /* 每个子进程均有副本，主进程可以释放资源 */
-        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
+        zPgSQL_.res_clear(NULL, zpPgRes_);
     }
 }
 
