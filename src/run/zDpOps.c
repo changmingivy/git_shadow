@@ -675,11 +675,33 @@ zssh_exec_simple(const char *zpSSHUserName,
 }
 
 #define zSTATE_CONFIRM(zpReplyType) {\
-    if (0 != zstate_confirm_inner(zpDpCcur_->selfNodeIndex, zpRepo_->dpBaseTimeStamp,\
-            zpRepo_->dpingSig,\
-            zpReplyType, zErrBuf)) {\
-        zPRINT_ERR_EASY("");\
-    }\
+    struct zInnerState__ *zpInnerState_ = zNativeOps_.alloc(sizeof(struct zInnerState__));\
+    zpInnerState_->p_replyType = zpReplyType;\
+    zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
+    strcpy(zpInnerState_->errMsg, zErrBuf);\
+\
+    zThreadPool_.add(zstate_confirm_inner_wrap, zpInnerState_);\
+}
+
+struct zInnerState__ {
+    _i selfNodeIndex;
+    char *p_replyType;
+    char errMsg[256];
+};
+
+static void *
+zstate_confirm_inner_wrap(void *zp) {
+    struct zInnerState__ *zpState_ = (struct zInnerState__ *) zp;
+
+    pthread_rwlock_rdlock(& zpRepo_->sysUpdateLock);
+
+    /* 调用此函数时，必须加锁 */
+    zstate_confirm_inner(zpState_->selfNodeIndex,
+            zpRepo_->dpBaseTimeStamp, zpRepo_->dpingSig, zpState_->p_replyType, zpState_->errMsg);
+
+    pthread_rwlock_unlock(& zpRepo_->sysUpdateLock);
+
+    return NULL;
 }
 
 static void *
