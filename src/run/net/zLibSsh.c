@@ -96,7 +96,7 @@ zssh_exec(
     if (0 > (zSd = zNetUtils_.conn(
                     zpHostIpAddr, zpHostPort,
                     NULL,
-                    zProtoTCP, AI_NUMERICHOST|AI_NUMERICSERV))) {
+                    zProtoTCP))) {
         libssh2_session_free(zSession);
         libssh2_exit();
         zPRINT_ERR(0, NULL, "libssh2 tcp connect: failed");
