@@ -58,7 +58,7 @@ struct zDpOps__ {
 
     _i (* sys_update) (cJSON *, _i);
 
-    _i (* SI_update) (cJSON *, _i);
+    _i (* repo_update) (cJSON *, _i);
 };
 
 

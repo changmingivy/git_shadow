@@ -69,7 +69,7 @@
 ```
 {
     "opsId": 1,
-    "projId": 9,
+    "repoId": 9,
     "pathOnHost": "/home/git/zgit_shadow2",
     "sshUserName": "john",
     "sshPort": "22",
@@ -81,7 +81,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 将要创建的项目 ID|
+|**repoId**|[int] 将要创建的项目 ID|
 |**pathOnHost**|[string] 新项目文件在目标机上的存放路径|
 |**sshUserName**|[string] 服务端使用哪个用户身份登陆该项目的所有目标机|
 |**sshPort**|[string] 本项目所有目标机的 SSH 服务端口|
@@ -122,13 +122,13 @@
 ```
 {
     "opsId": 9,
-    "projId": 35,
+    "repoId": 35,
     "dataType": 0
 }
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 项目 ID|
+|**repoId**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
 >3. **json 返回示例**    
 ```
@@ -176,7 +176,7 @@
 ```
 {
     "opsId": 10,
-    "projId": 35,
+    "repoId": 35,
     "dataType": 0,
     "revId": 3,
     "cacheId": 1555555555
@@ -184,7 +184,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 项目 ID|
+|**repoId**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
 |**revId**|[int] 查询版本号列表时，服务端返回的 revId 字段值|
 |**cacheId**|[int] 查询版本号列表时，服务端返回的 cacheId 字段值|
@@ -236,7 +236,7 @@
 ```
 {
     "opsId": 11,
-    "projId": 35,
+    "repoId": 35,
     "dataType": 0,
     "revId": 3,
     "fileId": 8,
@@ -245,7 +245,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 项目 ID|
+|**repoId**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
 |**revId**|[int] 查询版本号列表时，服务端返回的 revId 字段值|
 |**fileId**|[int] 查询差异文件列表时，服务端返回的 fileId 字段值|
@@ -285,19 +285,19 @@
 ```
 {
     "opsId": 15,
-    "projId": 35
+    "repoId": 35
 }
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 项目 ID|
+|**repoId**|[int] 项目 ID|
 
 >3. **json 返回示例**    
 ```
 **成功返回**
 {
   "errNo": 0,
-  "projMeta": {
+  "repoMeta": {
     "id": 35,
     "path": "/home/git/abc",
     "aliasPath": "/home/git/www",
@@ -395,11 +395,11 @@
 | :- | :- |
 |**errNo**|[int] 0 表示成功，否则表示出错| 
 |||
-|**projMeta**|[obj] 项目元信息数据块| 
-|**projMeta / id**|[int] 项目 ID| 
-|**projMeta / path**|[string] 目标机上的项目路径| 
-|**projMeta / aliasPath**|[string] 目标机上的项目路径别名，即软链接| 
-|**projMeta / createdTime**|[string] 项目创建时间| 
+|**repoMeta**|[obj] 项目元信息数据块| 
+|**repoMeta / id**|[int] 项目 ID| 
+|**repoMeta / path**|[string] 目标机上的项目路径| 
+|**repoMeta / aliasPath**|[string] 目标机上的项目路径别名，即软链接| 
+|**repoMeta / createdTime**|[string] 项目创建时间| 
 |||
 |**recentDpInfo**|[obj] 最近一次布署信息数据块| 
 |**recentDpInfo / revSig**|[string] 最近一次布署的版本号| 
@@ -452,14 +452,14 @@
 ```
 {
     "opsId": 13,
-    "projId": 35,
+    "repoId": 35,
     "sourceURL": "https://github.com/kt10/zgit_shadow.git",
     "sourceBranch": "dev-tree"
 }
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 创建项目时指定的 ID|
+|**repoId**|[int] 创建项目时指定的 ID|
 |**sourceURL**|[string 可选] 新的源库地址|
 |**sourceBranch**|[string 可选] 新的源库分支名称，即服务端要和哪个分支保持同步|
 >3. **json 返回示例**    
@@ -493,7 +493,7 @@
 **使用 revId 布署**
 {
     "opsId": 12,
-    "projId": 9,
+    "repoId": 9,
     "cacheId": 1555555555,
     "revId": 5,
     "dataType": 1,
@@ -510,7 +510,7 @@
 **使用 revSig 布署**
 {
     "opsId": 12,
-    "projId": 9,
+    "repoId": 9,
     "revSig": "abcdefg12345678abcdefg12345678qwertyui"
     "dataType": 1,
     "forceDp": "N",
@@ -525,7 +525,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 创建项目时指定的 ID|
+|**repoId**|[int] 创建项目时指定的 ID|
 |**cacheId**|[int 条件可选] 查询版本号列表时取得的 cacheId，未指定 revSig 时此项不能为空|
 |**revId**|[int 条件可选] 查询版本号列表时取得的 revId，未指定 revSig 时此项不能为空|
 |**revSig**|[string 条件可选] 版本号字符串，若指定了此项，则 cacheId 与 revId 两项将被忽略|
@@ -566,7 +566,7 @@
 ```
 {
     "opsId": 13,
-    "projId": 9,
+    "repoId": 9,
     "ipCnt": 4,
     "ipList": "::1 , ::2 @ ::3 _ ::4",
     "delim": ", @_",
@@ -575,7 +575,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**projId**|[int] 创建项目时指定的 ID|
+|**repoId**|[int] 创建项目时指定的 ID|
 |**ipCnt**|[int] 目标机数量|
 |**ipList**|[string] 目标机IP列表，以 delim 字段指定的分割符分割，若不指定 delim，则默认使用空格|
 |**delim**|[string 可选] 字段可同时指定多个分割符，如上述示例可被正确解析|

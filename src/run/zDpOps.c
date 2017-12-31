@@ -77,7 +77,7 @@ struct zDpOps__ zDpOps_ = {
     .udp_pang = zudp_pang,
 
     .sys_update = zsys_update,
-    .SI_update = zsource_info_update,
+    .repo_update = zsource_info_update,
 };
 
 
@@ -484,17 +484,17 @@ zprint_diff_content(cJSON *zpJRoot, _i zSd) {
 static _i
 zadd_repo(cJSON *zpJRoot, _i zSd) {
     _i zResNo = 0;
-    char *zpProjInfo[8] = { NULL };  /* 顺序固定的元信息 */
+    char *zpRepoInfo[8] = { NULL };  /* 顺序固定的元信息 */
 
     cJSON *zpJ = NULL;
 
-    zpJ = cJSON_V(zpJRoot, "projId");
+    zpJ = cJSON_V(zpJRoot, "repoId");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zResNo = -34;
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpProjInfo[0] = zpJ->valuestring;
+    zpRepoInfo[0] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "pathOnHost");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -502,7 +502,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpProjInfo[1] = zpJ->valuestring;
+    zpRepoInfo[1] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "needPull");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -510,7 +510,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpProjInfo[5] = zpJ->valuestring;
+    zpRepoInfo[5] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "sshUserName");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -523,7 +523,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpProjInfo[6] = zpJ->valuestring;
+    zpRepoInfo[6] = zpJ->valuestring;
 
     zpJ = cJSON_V(zpJRoot, "sshPort");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -537,16 +537,16 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpProjInfo[7] = zpJ->valuestring;
+    zpRepoInfo[7] = zpJ->valuestring;
 
-    if ('Y' == toupper(zpProjInfo[5][0])) {
+    if ('Y' == toupper(zpRepoInfo[5][0])) {
         zpJ = cJSON_V(zpJRoot, "sourceURL");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
             zResNo = -34;
             zPRINT_ERR_EASY("");
             goto zEndMark;
         }
-        zpProjInfo[2] = zpJ->valuestring;
+        zpRepoInfo[2] = zpJ->valuestring;
 
         zpJ = cJSON_V(zpJRoot, "sourceBranch");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -554,7 +554,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("");
             goto zEndMark;
         }
-        zpProjInfo[3] = zpJ->valuestring;
+        zpRepoInfo[3] = zpJ->valuestring;
 
         zpJ = cJSON_V(zpJRoot, "sourceVcsType");
         if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
@@ -562,11 +562,11 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("");
             goto zEndMark;
         }
-        zpProjInfo[4] = zpJ->valuestring;
-    } else if ('N' == toupper(zpProjInfo[5][0])) {
-        zpProjInfo[2] = "";
-        zpProjInfo[3] = "";
-        zpProjInfo[4] = "Git";
+        zpRepoInfo[4] = zpJ->valuestring;
+    } else if ('N' == toupper(zpRepoInfo[5][0])) {
+        zpRepoInfo[2] = "";
+        zpRepoInfo[3] = "";
+        zpRepoInfo[4] = "Git";
     } else {
         zResNo = -34;
         zPRINT_ERR_EASY("");
@@ -575,15 +575,15 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
 
     /* DO creating... */
     zPgResTuple__ zRepoMeta_ = {
-        .pp_fields = zpProjInfo
+        .pp_fields = zpRepoInfo
     };
 
-    if (0 == (zResNo = zNativeOps_.proj_init(&zRepoMeta_, zSd))) {
+    if (0 == (zResNo = zNativeOps_.repo_init(&zRepoMeta_, zSd))) {
         _i zRepoId = strtol(zRepoMeta_.pp_fields[0], NULL, 10);
         /* 新项目元数据写入 DB */
         char zCommonBuf[4096] = {'\0'};
-        snprintf(zCommonBuf, 4096, "INSERT INTO proj_meta "
-                "(proj_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
+        snprintf(zCommonBuf, 4096, "INSERT INTO repo_meta "
+                "(repo_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
                 "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
                 zRepoMeta_.pp_fields[0],
                 zRepoMeta_.pp_fields[1],
@@ -706,17 +706,17 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             " };"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
             "chmod 0755 ${zPath}/.git/hooks/post-update;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"projId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
+            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_servPath,\
             zpRepo_->p_repoPath + zRun_.homePathLen,\
@@ -1317,7 +1317,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      */
     _i zLen = 0;
     zLen = sprintf(zpCommonBuf,
-            "UPDATE proj_meta SET last_try_sig = '%s'",
+            "UPDATE repo_meta SET last_try_sig = '%s'",
             zpRepo_->dpingSig);
 
     if (NULL != zpSSHUserName
@@ -1341,7 +1341,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     }
 
     sprintf(zpCommonBuf + zLen,
-            " WHERE proj_id = %d",
+            " WHERE repo_id = %d",
             zpRepo_->repoId);
 
     zpPgResHd_ = zPgSQL_.exec(
@@ -1769,8 +1769,8 @@ zSkipMark:;
                     zpRepo_->dpingSig);
 
             sprintf(zpCommonBuf,
-                    "UPDATE proj_meta SET last_dp_sig = '%s',alias_path = '%s' "
-                    "WHERE proj_id = %d",
+                    "UPDATE repo_meta SET last_dp_sig = '%s',alias_path = '%s' "
+                    "WHERE repo_id = %d",
                     zpRepo_->lastDpSig,
                     zpRepo_->p_repoAliasPath,
                     zpRepo_->repoId);
@@ -1983,7 +1983,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
                 /* postgreSQL 的数组下标是从 1 开始的 */
                 snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                         "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "
-                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                        "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
                         zRetBit, zpTmp_->errMsg,
                         zpRepo_->repoId, zpHostAddr, zTimeStamp, zpRevSig);
 
@@ -2018,7 +2018,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
             } else if ('S' == zpReplyType[0]) {
                 snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                         "UPDATE dp_log SET host_res[%d] = '1' "
-                        "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                        "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
                         zRetBit,
                         zpRepo_->repoId, zpHostAddr, zTimeStamp, zpRevSig);
 
@@ -2047,7 +2047,7 @@ zstate_confirm_inner(time_t zTimeStamp, char *zpHostAddr, char *zpRevSig,
                     /* [DEBUG]：每台目标机的布署耗时统计 */
                     snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                             "UPDATE dp_log SET host_timespent = %ld "
-                            "WHERE proj_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
+                            "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND rev_sig = '%s'",
                             time(NULL) - zpRepo_->dpBaseTimeStamp,
                             zpRepo_->repoId, zpHostAddr, zTimeStamp, zpRevSig);
 
@@ -2179,7 +2179,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
  */
 /** ==== 样例 ==== **
  * {
- *   "ProjMeta": {
+ *   "RepoMeta": {
  *     "id": 9,
  *     "path": "/home/git/miaopai",
  *     "AliasPath": "/home/git/www",
@@ -2453,7 +2453,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
 
     sprintf(zSQLBuf,
             "CREATE TABLE tmp%d as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
-            "WHERE proj_id = %d AND time_stamp > %ld",
+            "WHERE repo_id = %d AND time_stamp > %ld",
             zTbNo,
             zpRepo_->repoId, time(NULL) - 3600 * 24 * 30);
 
@@ -2599,7 +2599,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
      ****************/
     char zResBuf[8192];
     _i zResSiz = snprintf(zResBuf, 8192,
-            "{\"errNo\":0,\"projMeta\":{\"id\":%d,\"path\":\"%s\",\"aliasPath\":\"%s\",\"createdTime\":\"%s\"},\"recentDpInfo\":{\"revSig\":\"%s\",\"result\":\"%s\",\"timeStamp\":%ld,\"timeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"servErr\":[%s],\"netServToHost\":[%s],\"sshAuth\":[%s],\"hostDisk\":[%s],\"hostPermission\":[%s],\"hostFileConflict\":[%s],\"hostPathNotExist\":[%s],\"hostGitInvalid\":[%s],\"hostAddrInvalid\":[%s],\"netHostToServ\":[%s],\"hostLoad\":[%s],\"reqFileNotExist\":[%s]}},\"inProcess\":{\"cnt\":%d,\"stage\":{\"hostInit\":[%s],\"servDpOps\":[%s],\"hostRecvWaiting\":[%s],\"hostConfirmWaiting\":[%s]}}}},\"dpDataAnalysis\":{\"successRate\":%.2f,\"avgTimeSpent\":%.2f,\"errClassification\":{\"total\":%d,\"servErr\":%d,\"netServToHost\":%d,\"sshAuth\":%d,\"hostDisk\":%d,\"hostPermission\":%d,\"hostFileConflict\":%d,\"hostPathNotExist\":%d,\"hostGitInvalid\":%d,\"hostAddrInvalid\":%d,\"netHostToServ\":%d,\"hostLoad\":%d,\"reqFileNotExist\":%d}},\"hostDataAnalysis\":{\"cpu\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"mem\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Net\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Disk\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"diskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
+            "{\"errNo\":0,\"repoMeta\":{\"id\":%d,\"path\":\"%s\",\"aliasPath\":\"%s\",\"createdTime\":\"%s\"},\"recentDpInfo\":{\"revSig\":\"%s\",\"result\":\"%s\",\"timeStamp\":%ld,\"timeSpent\":%d,\"process\":{\"total\":%d,\"success\":%d,\"fail\":{\"cnt\":%d,\"detail\":{\"servErr\":[%s],\"netServToHost\":[%s],\"sshAuth\":[%s],\"hostDisk\":[%s],\"hostPermission\":[%s],\"hostFileConflict\":[%s],\"hostPathNotExist\":[%s],\"hostGitInvalid\":[%s],\"hostAddrInvalid\":[%s],\"netHostToServ\":[%s],\"hostLoad\":[%s],\"reqFileNotExist\":[%s]}},\"inProcess\":{\"cnt\":%d,\"stage\":{\"hostInit\":[%s],\"servDpOps\":[%s],\"hostRecvWaiting\":[%s],\"hostConfirmWaiting\":[%s]}}}},\"dpDataAnalysis\":{\"successRate\":%.2f,\"avgTimeSpent\":%.2f,\"errClassification\":{\"total\":%d,\"servErr\":%d,\"netServToHost\":%d,\"sshAuth\":%d,\"hostDisk\":%d,\"hostPermission\":%d,\"hostFileConflict\":%d,\"hostPathNotExist\":%d,\"hostGitInvalid\":%d,\"hostAddrInvalid\":%d,\"netHostToServ\":%d,\"hostLoad\":%d,\"reqFileNotExist\":%d}},\"hostDataAnalysis\":{\"cpu\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"mem\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Net\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"io/Disk\":{\"avgLoad\":%.2f,\"loadBalance\":%.2f},\"diskUsage\":{\"current\":%.2f,\"avg\":%.2f,\"max\":%.2f}}}",
             zpRepo_->repoId,
             zpRepo_->p_repoPath + zRun_.homePathLen,
             zpRepo_->p_repoAliasPath,
@@ -2782,7 +2782,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
 
         /* 首先更新 DB，无错则继续之后的动作 */
         sprintf(zSQLBuf,
-                "UPDATE proj_meta SET source_url = '%s', source_branch = '%s' WHERE proj_id = %d",
+                "UPDATE repo_meta SET source_url = '%s', source_branch = '%s' WHERE repo_id = %d",
                 zpNewURL,
                 zpNewBranch,
                 zpRepo_->repoId);

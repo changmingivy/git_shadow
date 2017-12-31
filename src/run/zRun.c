@@ -35,6 +35,9 @@ struct zRun__ zRun_ = {
     .p_sysInfo_ = NULL,
 };
 
+/* 不允许并发新建项目 */
+static pthread_mutex_t zRepoCreatLock = PTHREAD_MUTEX_INITIALIZER;
+
 /*
  * 项目进程内部分配空间，
  * 主进程中不可见
@@ -188,7 +191,7 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
     zRun_.p_sysInfo_->ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
     zRun_.p_sysInfo_->ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
-    zRun_.p_sysInfo_->ops_tcp[3] = zDpOps_.SI_update;  /* 源库URL或分支更改 */
+    zRun_.p_sysInfo_->ops_tcp[3] = zDpOps_.repo_update;  /* 源库URL或分支更改 */
     zRun_.p_sysInfo_->ops_tcp[4] = NULL;  /* 删除项目接口预留 */
     zRun_.p_sysInfo_->ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
     zRun_.p_sysInfo_->ops_tcp[6] = NULL;
@@ -356,7 +359,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      * 扫描所有项目库并初始化之
      * 每个项目对应一个独立的进程
      */
-    zNativeOps_.proj_init_all();
+    zNativeOps_.repo_init_all();
 
     /*
      * 只运行于主进程
@@ -407,8 +410,8 @@ zops_route_tcp_master(void *zp) {
 
     /*
      * 必须使用 MSG_PEEK 标志
-     * json projId 字段必须是第一个字段：
-     * 格式：{"projId":1,"...":...}
+     * json repoId 字段必须是第一个字段：
+     * 格式：{"repoId":1,"...":...}
      */
     recv(zSd, zDataBuf, zBYTES(16), MSG_PEEK|MSG_NOSIGNAL);
 
@@ -427,8 +430,8 @@ zops_route_tcp_master(void *zp) {
 
     if (zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
         zNetUtils_.send(zSd,
-                "{\"errNo\":-32,\"content\":\"projId too large (hint: 1 - 1023)\"}",
-                sizeof("{\"errNo\":-32,\"content\":\"projId too large (hint: 1 - 1023)\"}") - 1);
+                "{\"errNo\":-32,\"content\":\"repoId too large (hint: 1 - 1023)\"}",
+                sizeof("{\"errNo\":-32,\"content\":\"repoId too large (hint: 1 - 1023)\"}") - 1);
         goto zMarkEnd;
     }
 
@@ -458,8 +461,11 @@ zops_route_tcp_master(void *zp) {
             /*
              * 若 opsId 指示的是新建项目，
              * 则新建，否则返回项目不存在
+             * 不允许并发新建项目
              */
             if (1 == zOpsId) {
+                pthread_mutex_lock(& zRepoCreatLock);
+
                 if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](NULL, zSd))) {
                     zDataLen = snprintf(zDataBuf, 8192,
                             "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
@@ -468,6 +474,8 @@ zops_route_tcp_master(void *zp) {
                             zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
                     zNetUtils_.send(zSd, zDataBuf, zDataLen);
                 }
+
+                pthread_mutex_unlock(& zRepoCreatLock);
             } else {
                 zDataLen = snprintf(zDataBuf, 8192,
                         "{\"errNo\":-2,\"content\":\"%s\"}",
@@ -653,7 +661,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
         zPosixReg_.str_split(&zR_, zDataBuf, " ");
 
         zRepoMeta_.pp_fields = zR_.pp_rets;
-        zNativeOps_.proj_init(&zRepoMeta_, -1);
+        zNativeOps_.repo_init(&zRepoMeta_, -1);
 
         sprintf(zLogPathBuf,
                 "/home/git/home/git/.____DpSystem/%s_SHADOW/log/deploy/meta",
@@ -663,7 +671,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
         while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH1)) {
             zDataBuf[40] = '\0';
             sprintf(zSQLBuf,
-                    "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
+                    "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
                     "VALUES (%ld,%s,'%s','%s')",
                     strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
                     zDataBuf,

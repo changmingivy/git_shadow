@@ -25,7 +25,7 @@ zPathOnHost=`dirname \`pwd\``
 zMasterAddr=`echo $1 | awk -F@ '{print $2}' | sed 's/_/:/g'`
 zMasterPort=`echo $1 | awk -F@ '{print $3}'`
 
-zProjId=`echo $1 | awk -F@ '{print $4}'`
+zRepoId=`echo $1 | awk -F@ '{print $4}'`
 
 # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
 zSelfIpStrAddr=`echo $1 | awk -F@ '{print $5}' | sed 's/_/:/g'`
@@ -35,18 +35,18 @@ zTimeStamp=`echo $1 | awk -F@ '{print $6}'`
 zDpingSig=`echo $1 | awk -F@ '{print $7}'`
 
 # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
-zProjAliasPath=`echo $1 | awk -F@ '{print $8}'`
+zRepoAliasPath=`echo $1 | awk -F@ '{print $8}'`
 
 zForceDpMark=`echo $1 | awk -F@ '{print $9}'`
 
-zProjOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
+zRepoOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
 # 当次布署的活动分支，仅用于所有动作完成后，进行清理
-zServBranch="s@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}@${zForceDpMark}"
-zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zProjAliasPath}@${zForceDpMark}"
+zServBranch="s@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
+zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
 
 # 临时保存错误信息的位置
-zErrLogPath="/tmp/.${zProjId}_${zTimeStamp}_errlog"
+zErrLogPath="/tmp/.${zRepoId}_${zTimeStamp}_errlog"
 
 # 预置为空
 zOldMasterSig=
@@ -61,7 +61,7 @@ zTcpReply() {
     # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
     if [[ 0 -lt ${zTimeStamp} ]]; then
         exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "{\"opsId\":${1},\"projId\":${zProjId},\"hostAddr\":\"${zSelfIpStrAddr}\",\"revSig\":\"${2}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${3}\",\"content\":\"${4}\"}">&4
+        printf "{\"opsId\":${1},\"repoId\":${zRepoId},\"hostAddr\":\"${zSelfIpStrAddr}\",\"revSig\":\"${2}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${3}\",\"content\":\"${4}\"}">&4
         zRecvContent="`cat<&4`"  # bash tcp fd: 4
         exec 4<&-
         exec 4>&-
@@ -93,7 +93,7 @@ zExitClean() {
 
     # 清理分支
     git branch -D ${zServBranch}
-    git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
+    git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
 
     # 退出之前还原权限
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update
@@ -108,21 +108,21 @@ if [[ "!" != ${zRecvContent} ]]; then
 fi
 
 # 检测必要的路径下是存在权限异常的文件
-mkdir -p ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
-chown `whoami` ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
+mkdir -p ${zRepoAliasPath} ${zRepoOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+chown `whoami` ${zRepoOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW 2>${zErrLogPath}
 if [[ 0 -ne $? ]]; then
     zExitClean "E5" "`cat ${zErrLogPath}`"
 fi
 
-if [[ "" != ${zProjAliasPath} ]]; then
-    chown `whoami` ${zProjAliasPath}
+if [[ "" != ${zRepoAliasPath} ]]; then
+    chown `whoami` ${zRepoAliasPath}
     if [[ 0 -ne $? ]]; then
         zExitClean "E5" "`cat ${zErrLogPath}`"
     fi
 fi
 
 # 权限无误，清除可能被创建的空目录
-rmdir ${zProjAliasPath} ${zProjOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
+rmdir ${zRepoAliasPath} ${zRepoOnLinePath} ${zPathOnHost} ${zPathOnHost}_SHADOW
 
 ##################
 # 进入项目代码库 #
@@ -143,7 +143,7 @@ zOldMasterSig=`git log master -1 --format=%H`
 # 比正在进行的版本更新，kill 之，并清理其创建的分支
 # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
 # ----????---- 同一版本，返回错误，同时要检测父进程号[BUG: 筛选结果不准确]
-for x in `ps ax -o pid,ppid,cmd|fgrep "post-update"|fgrep "@${zProjId}@"|fgrep -v "grep"|sed 's/[[:blank:]]/-/g'|grep -vE "(${$}|${zWrapPid})-"`
+for x in `ps ax -o pid,ppid,cmd|fgrep "post-update"|fgrep "@${zRepoId}@"|fgrep -v "grep"|sed 's/[[:blank:]]/-/g'|grep -vE "(${$}|${zWrapPid})-"`
 do
     zExistTimeStamp=`echo ${x}|awk -F@ '{print $6}'`
     if [[ ${zTimeStamp} -gt ${zExistTimeStamp} ]]; then
@@ -196,41 +196,41 @@ fi
 # 创建项目路径软链接
 # 检测是否有路长冲突，若有，则抛出错误
 if [[ "Y" == ${zForceDpMark} ]]; then
-    rm -rf ${zProjOnLinePath}
-    ln -sT ${zPathOnHost} ${zProjOnLinePath} 2>${zErrLogPath}
+    rm -rf ${zRepoOnLinePath}
+    ln -sT ${zPathOnHost} ${zRepoOnLinePath} 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
         zExitClean "E6" "`cat ${zErrLogPath}`"
     fi
 else
-    if [[ 0 -eq `ls ${zProjOnLinePath} | wc -l` ]]; then
-        ln -sT ${zPathOnHost} ${zProjOnLinePath} 2>${zErrLogPath}
+    if [[ 0 -eq `ls ${zRepoOnLinePath} | wc -l` ]]; then
+        ln -sT ${zPathOnHost} ${zRepoOnLinePath} 2>${zErrLogPath}
         if [[ 0 -ne $? ]]; then
             zExitClean "E6" "`cat ${zErrLogPath}`"
         fi
-    elif [[ ('l' != `ls -l ${zProjOnLinePath} | grep -o '^l'`)
-        || ((${zPathOnHost} != `readlink -q ${zProjOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjOnLinePath}`)) ]]; then
-        zExitClean "E6" "路径冲突: ${zProjOnLinePath}"
+    elif [[ ('l' != `ls -l ${zRepoOnLinePath} | grep -o '^l'`)
+        || ((${zPathOnHost} != `readlink -q ${zRepoOnLinePath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zRepoOnLinePath}`)) ]]; then
+        zExitClean "E6" "路径冲突: ${zRepoOnLinePath}"
     fi
 fi
 
 # 若用户指定了 alias 路径，则创建同名软链接指向项目库
 # 检测路径是否有冲突，若有，则抛出错误
 if [[ "Y" == ${zForceDpMark} ]]; then
-    rm -rf ${zProjAliasPath}
-    ln -sT ${zPathOnHost} ${zProjAliasPath} 2>${zErrLogPath}
+    rm -rf ${zRepoAliasPath}
+    ln -sT ${zPathOnHost} ${zRepoAliasPath} 2>${zErrLogPath}
     if [[ 0 -ne $? ]]; then
         zExitClean "E6" "`cat ${zErrLogPath}`"
     fi
 else
-    if [[ "" != ${zProjAliasPath} ]]; then
-        if [[ 0 -eq `ls ${zProjAliasPath} | wc -l` ]]; then
-            ln -sT ${zPathOnHost} ${zProjAliasPath} 2>${zErrLogPath}
+    if [[ "" != ${zRepoAliasPath} ]]; then
+        if [[ 0 -eq `ls ${zRepoAliasPath} | wc -l` ]]; then
+            ln -sT ${zPathOnHost} ${zRepoAliasPath} 2>${zErrLogPath}
             if [[ 0 -ne $? ]]; then
                 zExitClean "E6" "`cat ${zErrLogPath}`"
             fi
-        elif [[ ('l' != `ls -l ${zProjAliasPath} | grep -o '^l'`)
-            || ((${zPathOnHost} != `readlink -q ${zProjAliasPath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zProjAliasPath}`)) ]]; then
-            zExitClean "E6" "path confilict: ${zProjAliasPath}"
+        elif [[ ('l' != `ls -l ${zRepoAliasPath} | grep -o '^l'`)
+            || ((${zPathOnHost} != `readlink -q ${zRepoAliasPath}`) && (`dirname \`dirname ${zPathOnHost}\``/`basename ${zPathOnHost}` != `readlink -q ${zRepoAliasPath}`)) ]]; then
+            zExitClean "E6" "path confilict: ${zRepoAliasPath}"
         fi
     fi
 fi
@@ -265,7 +265,7 @@ do
         fi
 
         git branch -D ${zServBranch}
-        git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
+        git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
         exit 255
     else
         # 继续等待
@@ -275,10 +275,10 @@ done
 
 # 删除已用完的分支
 git branch -D ${zServBranch}
-git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zProjId}@${zSelfIpStrAddr}"
+git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
 
 # 清理可能存在的旧版布署系统的遗留文件
-rm -rf ${zProjOnLinePath}_SHADOW
+rm -rf ${zRepoOnLinePath}_SHADOW
 
 # git 仓库占用空间超过 200M 时，清理空间
 # 非必须动作，对执行周期要求不严格，故异常退出时，可不必执行此步

@@ -59,8 +59,8 @@ struct zNativeOps__ {
     void * (* get_diff_files) (void *);
     void * (* get_diff_contents) (void *);
 
-    _i (* proj_init) (zPgResTuple__ *, _i);
-    void (* proj_init_all) ();
+    _i (* repo_init) (zPgResTuple__ *, _i);
+    void (* repo_init_all) ();
 
     void * (* alloc) (size_t);
 
