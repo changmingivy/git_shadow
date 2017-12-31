@@ -490,15 +490,18 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     _i zResNo = 0;
     pid_t zPid = -1;
 
+    char zRepoIdStr[16];
+
     cJSON *zpJ = NULL;
 
     zpJ = cJSON_V(zpJRoot, "repoId");
-    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    if (! cJSON_IsNumber(zpJ)) {
         zResNo = -34;
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    zpRepoInfo[0] = zpJ->valuestring;
+    sprintf(zRepoIdStr, "%d", zpJ->valueint);
+    zpRepoInfo[0] = zRepoIdStr;
 
     zpJ = cJSON_V(zpJRoot, "pathOnHost");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
