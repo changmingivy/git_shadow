@@ -426,7 +426,8 @@ zops_route_tcp_master(void *zp) {
      * 不允许使用 0
      */
     zRepoId = strtol(zDataBuf, NULL, 10);
-    if (0 >= zRepoId) {
+    if (0 >= zRepoId
+            || 0 != strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
         zNetUtils_.send(zSd,
                 "{\"errNo\":-7,\"content\":\"json parse err\"}",
                 sizeof("{\"errNo\":-7,\"content\":\"json parse err\"}") - 1);
