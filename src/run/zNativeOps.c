@@ -1680,6 +1680,7 @@ zinit_env(void) {
             zPRINT_ERR(0, NULL, "NO VALID REPO FOUND!");
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
+            zpPgResHd_ = NULL;
 
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
