@@ -2624,6 +2624,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
  ********************************
  */
 /*
+ * TODO
  * UDP 0：Ping、Pang
  * 目标机使用此接口测试与服务端的连通性
  */
@@ -2637,9 +2638,9 @@ zudp_pang(void *zp __attribute__ ((__unused__)),
      * 服务端回复 "!"
      */
     if (NULL == zpPeerAddr) {
-        return zNetUtils_.send(zRun_.zUdpServSd[1], "!", zBYTES(1));
+        return zNetUtils_.send(0/*???*/, "!", zBYTES(1));
     } else {
-        return zNetUtils_.sendto(zRun_.zUdpServSd[1], "!", zBYTES(1),
+        return zNetUtils_.sendto(0/*???*/, "!", zBYTES(1),
                 zpPeerAddr, zPeerAddrLen);
     }
 }
