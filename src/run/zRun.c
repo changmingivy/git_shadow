@@ -340,11 +340,14 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
         exit(1);
     }
 
-    /* 主进程退出时，清理所有项目进程 */
-    atexit(zexit_clean);
-
     /* 转换为后台守护进程 */
     zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
+
+    /*
+     * 主进程退出时，清理所有项目进程
+     * 必须在 daemonize(其中会调用 fork()) 之后执行
+     */
+    atexit(zexit_clean);
 
     /* 全局共享数据注册 */
     zglob_data_config(zpPgLogin_);
