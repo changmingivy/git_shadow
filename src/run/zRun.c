@@ -482,6 +482,9 @@ zops_route_tcp_master(void *zp) {
                 }
 
                 pthread_mutex_unlock(& zRepoCreatLock);
+            } else if (0 == zOpsId) {
+                /* ping-pang 接口不检查结果 */
+                zRun_.p_sysInfo_->ops_tcp[1](NULL, zSd);
             } else {
                 zDataLen = snprintf(zDataBuf, 8192,
                         "{\"errNo\":-2,\"content\":\"%s\"}",
