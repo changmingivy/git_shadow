@@ -195,14 +195,13 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
         pthread_mutex_lock(&zStackHeaderLock);
     }
 
-
     zppPoolStack_[zStackHeader]->func = zFunc;
     zppPoolStack_[zStackHeader]->p_param = zpParam;
 
-    zStackHeader--;
-
     /* 防止解锁后，瞬间改变的情况 */
     _i zKeepStackHeader= zStackHeader;
+
+    zStackHeader--;
 
     pthread_mutex_unlock(&zStackHeaderLock);
     pthread_cond_signal(&(zppPoolStack_[zKeepStackHeader]->condVar));
