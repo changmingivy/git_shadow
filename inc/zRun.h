@@ -46,6 +46,8 @@ typedef struct {
 
 
 typedef struct __zDpRes__ {
+    _i selfIndex;
+
     /*
      * 目标机 IP
      */
@@ -103,6 +105,12 @@ typedef struct __zDpCcur__ {
      * 目标机端口从 zpRepo_ 中取
      */
     _i selfNodeIndex;
+
+    /*
+     * need to be initilized ?
+     * 'Y' or 'N'
+     */
+    _c needInit;
 
     /*
      * 工作线程将当次任务错误码写出到此值
@@ -352,7 +360,7 @@ typedef struct __zRepo__ {
      * 单次布署动作的身份唯一性标识
      * 目前设置为 == dpBaseTimeStamp
      */
-    _ui dpID;
+    _l dpID;
 
     /*
      * 系统定义的布署前动作

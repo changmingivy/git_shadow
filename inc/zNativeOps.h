@@ -24,18 +24,18 @@
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zMEM_POOL_REST(zRepoId) do {\
-    pthread_mutex_lock(&(zRun_.p_repoVec[zRepoId]->memLock));\
+    pthread_mutex_lock(& zpRepo_->memLock);\
     \
-    void **zppPrev = zRun_.p_repoVec[zRepoId]->p_memPool;\
+    void **zppPrev = zpRepo_->p_memPool;\
     while(NULL != zppPrev[0]) {\
         zppPrev = zppPrev[0];\
-        munmap(zRun_.p_repoVec[zRepoId]->p_memPool, zMEM_POOL_SIZ);\
-        zRun_.p_repoVec[zRepoId]->p_memPool = zppPrev;\
+        munmap(zpRepo_->p_memPool, zMEM_POOL_SIZ);\
+        zpRepo_->p_memPool = zppPrev;\
     }\
-    zRun_.p_repoVec[zRepoId]->memPoolOffSet = sizeof(void *);\
-    /* memset(zRun_.p_repoVec[zRepoId]->p_memPool, 0, zMEM_POOL_SIZ); */\
+    zpRepo_->memPoolOffSet = sizeof(void *);\
+    /* memset(zpRepo_->p_memPool, 0, zMEM_POOL_SIZ); */\
     \
-    pthread_mutex_unlock(&(zRun_.p_repoVec[zRepoId]->memLock));\
+    pthread_mutex_unlock(& zpRepo_->memLock);\
 } while(0)
 
 

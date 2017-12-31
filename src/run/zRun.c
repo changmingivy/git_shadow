@@ -150,7 +150,7 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[100] = "";
     zRun_.p_sysInfo_->p_errVec[101] = "目标机返回的版本号与正在布署的不一致";
     zRun_.p_sysInfo_->p_errVec[102] = "目标机 post-update 出错返回";
-    zRun_.p_sysInfo_->p_errVec[103] = "";
+    zRun_.p_sysInfo_->p_errVec[103] = "收到未知的目标机 IP";
     zRun_.p_sysInfo_->p_errVec[104] = "";
     zRun_.p_sysInfo_->p_errVec[105] = "";
     zRun_.p_sysInfo_->p_errVec[106] = "";
@@ -202,7 +202,7 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_tcp[10] = zDpOps_.print_diff_files;  /* 显示差异文件路径列表 */
     zRun_.p_sysInfo_->ops_tcp[11] = zDpOps_.print_diff_contents;  /* 显示差异文件内容 */
     zRun_.p_sysInfo_->ops_tcp[12] = zDpOps_.dp;  /* 批量布署或撤销 */
-    zRun_.p_sysInfo_->ops_tcp[13] = zDpOps_.req_dp;  /* 目标机主协要求同步或布署到正式环境外(如测试用途)的目标机上 */
+    zRun_.p_sysInfo_->ops_tcp[13] = NULL;
     zRun_.p_sysInfo_->ops_tcp[14] = zDpOps_.req_file;  /* 请求服务器发送指定的文件 */
     zRun_.p_sysInfo_->ops_tcp[15] = zDpOps_.show_dp_process;  /* 查询指定项目的详细信息及最近一次的布署进度 */
 
