@@ -175,7 +175,7 @@ ztry_connect(struct sockaddr *zpAddr_, size_t zSiz, _i zIpFamily, _i zSockType, 
             return zSd;
         }
     } else {
-        zPRINT_ERR(errno, NULL, "connect err");
+        zPRINT_ERR_EASY_SYS();
     }
 
     /* 已超时或出错 */
