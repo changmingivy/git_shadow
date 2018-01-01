@@ -478,7 +478,7 @@ zops_route_tcp_master(void *zp) {
             if (1 == zOpsId) {
                 pthread_mutex_lock(& zRepoCreatLock);
 
-                if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](NULL, zSd))) {
+                if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](zpJRoot, zSd))) {
                     zDataLen = snprintf(zDataBuf, 8192,
                             "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
                             zResNo,
@@ -490,7 +490,7 @@ zops_route_tcp_master(void *zp) {
                 pthread_mutex_unlock(& zRepoCreatLock);
             } else if (0 == zOpsId) {
                 /* ping-pang 接口不检查结果 */
-                zRun_.p_sysInfo_->ops_tcp[1](NULL, zSd);
+                zRun_.p_sysInfo_->ops_tcp[1](zpJRoot, zSd);
             } else {
                 zDataLen = snprintf(zDataBuf, 8192,
                         "{\"errNo\":-2,\"content\":\"%s\"}",
