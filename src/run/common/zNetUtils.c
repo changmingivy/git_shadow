@@ -1,9 +1,9 @@
 #include "zNetUtils.h"
 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 
 #include <unistd.h>
 #include <time.h>
@@ -232,7 +232,7 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
         goto zEndMark;
     } else {
         struct sockaddr_un zUN;
-        zUN.sun_family = AF_UNIX;
+        // zUN.sun_family = AF_UNIX;
         snprintf(zUN.sun_path, zUN_PATH_SIZ,  /* 防止越界 */
                 "%s",
                 zpUNPath);
