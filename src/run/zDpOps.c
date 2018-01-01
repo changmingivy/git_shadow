@@ -587,11 +587,11 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 > (zPid = fork())) {
         zResNo = -126;
         goto zEndMark;
-    } else if (0 > zPid) {
+    } else if (0 == zPid) {
+        zNativeOps_.repo_init(&zRepoMeta_, zSd);
+    } else {
         zResNo = 0;
         goto zEndMark;
-    } else {
-        zNativeOps_.repo_init(&zRepoMeta_, zSd);
     }
 
 zEndMark:
