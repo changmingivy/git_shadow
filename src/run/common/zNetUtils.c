@@ -196,10 +196,12 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
 
      if (zProtoUDP == zProto) {
          zSockType = SOCK_DGRAM;
-         zProtoType = IPPROTO_UDP;
+         //zProtoType = IPPROTO_UDP;
+         zProtoType = 0;
      } else {
          zSockType = SOCK_STREAM;
-         zProtoType = IPPROTO_TCP;
+         //zProtoType = IPPROTO_TCP;
+         zProtoType = 0;
      }
 
     if (NULL == zpUNPath) {
