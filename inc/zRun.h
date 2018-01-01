@@ -9,6 +9,8 @@
     #endif
 #endif
 
+#include <sys/types.h>
+#include <sys/un.h>
 #include "zCommon.h"
 #include "zNetUtils.h"
 #include "zThreadPool.h"
@@ -452,11 +454,14 @@ typedef struct __zSysInfo__ {
      */
     _c repoFinMark[zGLOB_REPO_NUM_LIMIT];
 
+    /* 存放每个项目进程的 UNIX domain sd 路径：".s.1234"*/
+    struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
+
     /*
-     * 主进程调用 connect 返回的套接字
-     * 用于向项目进程传递业务 sd
+     * 主进程 bind 之后的 UNIX domain sd
+     * 使用它向项目进程发送业务 sd
      */
-    _i repoUN[zGLOB_REPO_NUM_LIMIT];
+    _i masterUNSd;
 
     /* 常量，其值恒等于 zGLOB_REPO_NUM_LIMIT */
     _s globRepoNumLimit;

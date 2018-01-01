@@ -1608,13 +1608,14 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSd) {
 /*
  * 读取项目信息，初始化配套环境
  */
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
 zinit_env(void) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
 
-    char zUNPathBuf[32];
     pid_t zPid = -1;
 
     /*
@@ -1688,15 +1689,6 @@ zinit_env(void) {
                 if (0 == zPid) {
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zpPgRes_->tupleRes_ + i, -1);
-                } else {
-                    /* 主进程 connect 项目进程的 unix udp server */
-                    sprintf(zUNPathBuf, ".s.%s", zpPgRes_->tupleRes_[i].pp_fields[0]);
-                    if (0 > (zRun_.p_sysInfo_->repoUN[
-                                strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10)
-                    ] = zNetUtils_.conn(NULL, NULL, zUNPathBuf, zProtoUDP))) {
-                        zPRINT_ERR_EASY("==== udp connect err! ====");
-                        exit(1);
-                    }
                 }
             }
         }
@@ -1707,5 +1699,6 @@ zinit_env(void) {
 }
 
 
+#undef zUN_PATH_SIZ
 #undef zERR_CLEAN_AND_EXIT
 #undef zFREE_SOURCE

@@ -384,6 +384,29 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zThreadPool_.add(zsys_load_monitor, NULL);
 #endif
 
+{////
+    /* 主进程对应的 UNIX domain sd 路径 */
+    struct sockaddr_un zUN;
+    strcpy(zUN.sun_path, ".s");
+
+    zCHECK_NEGATIVE_EXIT(
+            zRun_.p_sysInfo_->masterUNSd = socket(PF_UNIX, SOCK_DGRAM, 0)
+            );
+
+    zCHECK_NEGATIVE_EXIT(
+            bind(zRun_.p_sysInfo_->masterUNSd, (struct sockaddr *) &zUN, SUN_LEN(&zUN))
+            );
+
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+    /* 每个项目进程对应的 UNIX domain sd 路径 */
+    for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
+        snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
+                ".s.%d", i);
+    }
+#undef zUN_PATH_SIZ
+}////
+
     /*
      * 返回的 socket 已经做完 bind 和 listen
      * 若出错，其内部会 exit
@@ -453,7 +476,7 @@ zops_route_tcp_master(void *zp) {
      * 若项目不存在，则收取完整的 json 信息
      */
     if (0 < zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->repoUN[zRepoId], zSd);
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd);
         goto zMarkEnd;
     } else {
         char zDataBuf[8192] = {'\0'};
