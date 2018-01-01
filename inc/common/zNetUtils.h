@@ -25,7 +25,7 @@ struct zNetUtils__ {
     _i (* to_numaddr) (const char *, zip_t, _ull *);
     _i (* to_straddr) (_ull *, zip_t, char *);
 
-    _i (* send_fd) (const _i, const _i);
+    _i (* send_fd) (const _i, const _i, void *, _i);
     _i (* recv_fd) (const _i);
 };
 

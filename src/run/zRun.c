@@ -476,7 +476,9 @@ zops_route_tcp_master(void *zp) {
      * 若项目不存在，则收取完整的 json 信息
      */
     if (0 < zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd);
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd,
+                & zRun_.p_sysInfo_->unAddrVec_[zRepoId],
+                SUN_LEN(& zRun_.p_sysInfo_->unAddrVec_[zRepoId]));
         goto zMarkEnd;
     } else {
         char zDataBuf[8192] = {'\0'};

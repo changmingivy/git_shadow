@@ -31,7 +31,7 @@ static _i zrecv_all(_i zSd, void *zpBuf, size_t zLen, struct sockaddr *zpAddr_, 
 static _i zconvert_ip_str_to_bin(const char *zpStrAddr, zip_t zIpType, _ull *zpResOUT/* _ull[2] */);
 static _i zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpResOUT/* char[INET6_ADDRSTRLEN] */);
 
-static _i zsend_fd(const _i zUN, const _i zFd);
+static _i zsend_fd(const _i zUN, const _i zFd, void *zpPeerAddr, _i zAddrSiz);
 static _i zrecv_fd(const _i zFd);
 
 struct zNetUtils__ zNetUtils_ = {
@@ -378,7 +378,7 @@ zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpRe
  * 若使用 UDP 通信，则必须事先完成了 connect
  */
 static _i
-zsend_fd(const _i zUN, const _i zFd) {
+zsend_fd(const _i zUN, const _i zFd, void *zpPeerAddr, _i zAddrSiz) {
     /*
      * 只发送一个字节的常规数据
      * 用于判断 sendmsg 的执行结果
@@ -398,8 +398,8 @@ zsend_fd(const _i zUN, const _i zFd) {
      * sendmsg 直接使用的最外层结构体
      */
     struct msghdr zMsg_ = {
-        .msg_name = NULL,
-        .msg_namelen = 0,
+        .msg_name = zpPeerAddr,
+        .msg_namelen = zAddrSiz,
 
         .msg_iov = &zVec_,
         .msg_iovlen = 1,
