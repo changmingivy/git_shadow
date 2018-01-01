@@ -1687,7 +1687,7 @@ zinit_env(void) {
 
                 if (0 == zPid) {
                     /* 项目进程初始化项目环境 */
-                    zinit_one_repo_env(zpPgRes_->tupleRes_ + i, zFalse);
+                    zinit_one_repo_env(zpPgRes_->tupleRes_ + i, -1);
                 } else {
                     /* 主进程 connect 项目进程的 unix udp server */
                     sprintf(zUNPathBuf, ".s.%s", zpPgRes_->tupleRes_[i].pp_fields[0]);
