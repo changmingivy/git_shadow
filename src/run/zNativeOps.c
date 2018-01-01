@@ -901,8 +901,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSd) {
     }
 
     /* 检查项目 ID 是否冲突 */
-    if (0 != zRun_.p_sysInfo_->repoUN[zRepoId]
-            || 0 != zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
+    if (0 != zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
         zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[35]);
         exit(1);
     }
