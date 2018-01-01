@@ -349,12 +349,6 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     /* 转换为后台守护进程 */
     zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
 
-    /*
-     * 主进程退出时，清理所有项目进程
-     * 必须在 daemonize(其中会调用 fork()) 之后执行
-     */
-    atexit(zexit_clean);
-
     /* 全局共享数据注册 */
     zglob_data_config(zpPgLogin_);
 
@@ -371,6 +365,13 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      * 每个项目对应一个独立的进程
      */
     zNativeOps_.repo_init_all();
+
+    /*
+     * 主进程退出时，清理所有项目进程
+     * 必须在项目进程启动之后执行，
+     * 否则任一项目进程退出，都会触发清理动作
+     */
+    atexit(zexit_clean);
 
     /*
      * 只运行于主进程
