@@ -211,6 +211,12 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[1] = NULL;
     zRun_.p_sysInfo_->ops_udp[2] = NULL;
     zRun_.p_sysInfo_->ops_udp[3] = NULL;
+    zRun_.p_sysInfo_->ops_udp[4] = NULL;
+    zRun_.p_sysInfo_->ops_udp[5] = NULL;
+    zRun_.p_sysInfo_->ops_udp[6] = NULL;
+    zRun_.p_sysInfo_->ops_udp[7] = NULL;
+    zRun_.p_sysInfo_->ops_udp[8] = NULL;
+    zRun_.p_sysInfo_->ops_udp[9] = NULL;
 }
 
 /************
@@ -613,7 +619,13 @@ zudp_daemon(void *zpUNPath) {
          * 单个消息长度不能超过 510
          */
         static zUdpInfo__ zUdpInfo_[256];
-        for (_ui i = 0;; i++) {
+        _ui i = 0;
+
+        for (; i < 256; i++) {
+            zUdpInfo_[i].sd = zServSd;
+        }
+
+        for (;; i++) {
             zReqId = i % 256;
             recvfrom(zServSd, zUdpInfo_[zReqId].data, zBYTES(510), MSG_NOSIGNAL,
                     & zUdpInfo_[zReqId].peerAddr,
@@ -646,6 +658,9 @@ zudp_daemon(void *zpUNPath) {
 
 /*
  * udp 路由函数，用于服务器内部
+ * 首字符充当路由索引
+ * 0 在 ansi 表中对应值是 48
+ * 故，首字符减去 48，即可得到二进制格式的 0-9
  */
 static void *
 zops_route_udp (void *zp) {
@@ -654,8 +669,12 @@ zops_route_udp (void *zp) {
     /* 必须第一时间复制出来 */
     memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
 
-    if (0 == zRun_.p_sysInfo_->ops_udp[zUdpInfo_.opsId](
-                & zUdpInfo_.data,
+    if (47 < zUdpInfo_.data[0]
+            && 58 > zUdpInfo_.data[0]
+            && NULL != zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48]
+            && 0 == zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48](
+                zUdpInfo_.data + 1,
+                zUdpInfo_.sd,
                 & zUdpInfo_.peerAddr,
                 zUdpInfo_.peerAddrLen)) {
         return NULL;

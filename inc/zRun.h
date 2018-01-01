@@ -18,7 +18,7 @@
 #include "cJSON.h"
 
 #define zTCP_SERV_HASH_SIZ 16
-#define zUDP_SERV_HASH_SIZ 4
+#define zUDP_SERV_HASH_SIZ 10
 
 #define zGLOB_REPO_NUM_LIMIT 1024  /* 最多可管理 1024 个项目，ID 范围：0 - 1023 */
 
@@ -434,7 +434,7 @@ typedef struct __zSysInfo__ {
     void * (* route_udp) (void *);
 
     _i (* ops_tcp[zTCP_SERV_HASH_SIZ]) (cJSON *, _i);
-    _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *, struct sockaddr *, socklen_t);
+    _i (* ops_udp[zUDP_SERV_HASH_SIZ]) (void *, _i, struct sockaddr *, socklen_t);
 
     /*
      * 系统全局负载值：0 - 100
@@ -502,10 +502,12 @@ struct zRun__ {
  * udp server: use the same ipAddr and port as tcp server.
  */
 typedef struct __zUdpInfo__ {
-    _s opsId;
-
     char data[510];
 
+    /* 己端 sd */
+    _i sd;
+
+    /* 对端地址 */
     struct sockaddr peerAddr;
     socklen_t peerAddrLen;
 } zUdpInfo__;

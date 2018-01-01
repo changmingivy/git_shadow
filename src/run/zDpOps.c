@@ -45,7 +45,7 @@ static _i zstate_confirm_inner(_i zSelfNodeId, time_t zTimeStamp, char *zpRevSig
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
 
 static _i ztcp_pang(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd);
-static _i zudp_pang(void *zp,
+static _i zudp_pang(void *zp, _i zSd,
         struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__)));
 
@@ -2655,6 +2655,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
  */
 static _i
 zudp_pang(void *zp __attribute__ ((__unused__)),
+        _i zSd,
         struct sockaddr *zpPeerAddr,
         socklen_t zPeerAddrLen) {
 
@@ -2663,9 +2664,9 @@ zudp_pang(void *zp __attribute__ ((__unused__)),
      * 服务端回复 "!"
      */
     if (NULL == zpPeerAddr) {
-        return zNetUtils_.send(0/*???*/, "!", zBYTES(1));
+        return zNetUtils_.send(zSd, "!", zBYTES(1));
     } else {
-        return zNetUtils_.sendto(0/*???*/, "!", zBYTES(1),
+        return zNetUtils_.sendto(zSd, "!", zBYTES(1),
                 zpPeerAddr, zPeerAddrLen);
     }
 }
