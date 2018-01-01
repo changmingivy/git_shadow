@@ -101,12 +101,12 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         struct sockaddr_un zUN;
 
         zCHECK_NEGATIVE_EXIT(
-                zSd = socket(AF_UNIX,
+                zSd = socket(PF_UNIX,
                     (zProtoUDP == zProtoType) ? SOCK_DGRAM : SOCK_STREAM,
                     (zProtoUDP == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP)
                 );
 
-        zUN.sun_family = AF_UNIX;
+        zUN.sun_family = PF_UNIX;
         snprintf(zUN.sun_path, zUN_PATH_SIZ,  /* 防止越界 */
                 "%s",
                 zpUNPath);
@@ -232,14 +232,14 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
         goto zEndMark;
     } else {
         struct sockaddr_un zUN;
-        // zUN.sun_family = AF_UNIX;
+        // zUN.sun_family = PF_UNIX;
         snprintf(zUN.sun_path, zUN_PATH_SIZ,  /* 防止越界 */
                 "%s",
                 zpUNPath);
 
         if (0 > (zResNo = ztry_connect((struct sockaddr *) &zUN,
                         SUN_LEN(&zUN),
-                        AF_UNIX, zSockType, zProtoType))) {
+                        PF_UNIX, zSockType, zProtoType))) {
             zResNo = -1;
             goto zEndMark;
         }

@@ -1593,7 +1593,7 @@ zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSd) {
 
     /*
      * 只运行于项目进程
-     * 服务器内部使用的基于 AF_UNIX 的 UDP 服务器
+     * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
      */
     sprintf(zCommonBuf, ".s.%d", zpRepo_->id);
     zRun_.p_sysInfo_->udp_daemon(zCommonBuf);
