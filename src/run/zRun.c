@@ -715,8 +715,6 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     FILE *zpH0 = fopen(zpConfPath, "r");
     FILE *zpH1 = NULL;
 
-    zPgResTuple__ zRepoMeta_;
-
     zRegRes__ zR_ = {
         .alloc_fn = NULL
     };
@@ -724,8 +722,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH0)) {
         zPosixReg_.str_split(&zR_, zDataBuf, " ");
 
-        zRepoMeta_.pp_fields = zR_.pp_rets;
-        zNativeOps_.repo_init(&zRepoMeta_, -1);
+        zNativeOps_.repo_init(zR_.pp_rets, -1);
 
         sprintf(zLogPathBuf,
                 "/home/git/home/git/.____DpSystem/%s_SHADOW/log/deploy/meta",
