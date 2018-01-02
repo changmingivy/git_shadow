@@ -596,7 +596,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             }
 
             zMEM_ALLOC(zppMeta, char, 8 * sizeof(void *) + zLen);
-            zpData = (char *) (zppMeta + 8 * sizeof(void *));
+            zpData = (char *) (zppMeta + 8);
 
             zLen = 0;
             for (j = 0; j < 8; j++) {

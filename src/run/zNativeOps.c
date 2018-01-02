@@ -1697,7 +1697,7 @@ zinit_env(void) {
                         }
 
                         zMEM_ALLOC(zppMeta, char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
-                        zpData = (char *) (zppMeta + zpPgRes_->fieldCnt * sizeof(void *));
+                        zpData = (char *) (zppMeta + zpPgRes_->fieldCnt);
 
                         zLen = 0;
                         for (j = 0; j < zpPgRes_->fieldCnt; j++) {
