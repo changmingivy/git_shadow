@@ -369,9 +369,8 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     /* 项目进程唯一性保证 */
     zRun_.p_repoStartLock = & zRepoStartLock;
 
-    /* 主进程 pid 及 对应的 UNIX domain sd 路径 */
+    /* 主进程 pid */
     zRun_.p_sysInfo_->masterPid = getpid();
-    zRun_.p_sysInfo_->masterUNSd = zNetUtils_.gen_serv_sd(NULL, NULL, ".s", zProtoUDP);
 
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
@@ -485,11 +484,7 @@ zops_route_tcp_master(void *zp) {
      * 若项目不存在，则收取完整的 json 信息
      */
     if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]) {
-        // zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd,
-        //         & zRun_.p_sysInfo_->unAddrVec_[zRepoId],
-        //         SUN_LEN(& zRun_.p_sysInfo_->unAddrVec_[zRepoId]));
-
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd, NULL, 0);
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoId], zSd, NULL, 0);
         goto zEndMark;
     } else {
         char zDataBuf[8192] = {'\0'};

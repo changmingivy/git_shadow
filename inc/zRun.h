@@ -459,12 +459,6 @@ typedef struct __zSysInfo__ {
     pid_t repoPidVec[zGLOB_REPO_NUM_LIMIT];
 
     /*
-     * 主进程 bind 之后的 UNIX domain sd
-     * 使用它向项目进程发送业务 sd
-     */
-    _i masterUNSd;
-
-    /*
      * 主进程与每个项目进程，均事先 connect
      * 预置为 -1，以是否小于 0，判断项目进程是否已经就绪
      */
