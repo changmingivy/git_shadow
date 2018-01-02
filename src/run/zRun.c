@@ -386,20 +386,11 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
 
 {////
     /* 主进程对应的 UNIX domain sd 路径 */
-    struct sockaddr_un zUN;
-    strcpy(zUN.sun_path, ".s");
+    zRun_.p_sysInfo_->masterUNSd = zNetUtils_.gen_serv_sd(NULL, NULL, ".s", zProtoUDP);
 
-    zCHECK_NEGATIVE_EXIT(
-            zRun_.p_sysInfo_->masterUNSd = socket(PF_UNIX, SOCK_DGRAM, 0)
-            );
-
-    zCHECK_NEGATIVE_EXIT(
-            bind(zRun_.p_sysInfo_->masterUNSd, (struct sockaddr *) &zUN, SUN_LEN(&zUN))
-            );
-
+    /* 每个项目进程对应的 UNIX domain sd 路径 */
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
-    /* 每个项目进程对应的 UNIX domain sd 路径 */
     for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
         snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
                 ".s.%d", i);

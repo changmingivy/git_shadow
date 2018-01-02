@@ -86,9 +86,13 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
 
         /* 不等待，直接重用地址与端口 */
 #ifdef _Z_BSD
-        zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i)) );
+        zCHECK_NEGATIVE_EXIT(
+                setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i))
+                );
 #else
-        zCHECK_NEGATIVE_EXIT( setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i)) );
+        zCHECK_NEGATIVE_EXIT(
+                setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i))
+                );
 #endif
 
         zCHECK_NEGATIVE_EXIT(
@@ -103,7 +107,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         zCHECK_NEGATIVE_EXIT(
                 zSd = socket(PF_UNIX,
                     (zProtoUDP == zProtoType) ? SOCK_DGRAM : SOCK_STREAM,
-                    (zProtoUDP == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP)
+                    0)
                 );
 
         zUN.sun_family = PF_UNIX;
@@ -113,6 +117,17 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
 
         /* 尝试清除可能存在的旧文件 */
         unlink(zpUNPath);
+
+        /* 不等待，直接重用地址与端口 */
+#ifdef _Z_BSD
+        zCHECK_NEGATIVE_EXIT(
+                setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i))
+                );
+#else
+        zCHECK_NEGATIVE_EXIT(
+                setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i))
+                );
+#endif
 
         zCHECK_NEGATIVE_EXIT(
                 bind(zSd, (struct sockaddr *) &zUN, SUN_LEN(&zUN))
@@ -234,7 +249,7 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
         goto zEndMark;
     } else {
         struct sockaddr_un zUN;
-        // zUN.sun_family = PF_UNIX;
+        zUN.sun_family = PF_UNIX;
         snprintf(zUN.sun_path, zUN_PATH_SIZ,  /* 防止越界 */
                 "%s",
                 zpUNPath);
