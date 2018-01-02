@@ -1166,6 +1166,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zpRepo_->sysUpdateLock, NULL) );
 
+    /* 内存池锁 */
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->memLock, NULL) );
+
     /* SQL 临时表命名序号 */
     zpRepo_->tempTableNo = 0;
 
@@ -1564,7 +1567,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     void **zppPrev = zpRepo_->p_memPool;
     zppPrev[0] = NULL;
     zpRepo_->memPoolOffSet = sizeof(void *);
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->memLock, NULL) );
 
     /* 缓存版本初始化 */
     zpRepo_->cacheId = time(NULL);
