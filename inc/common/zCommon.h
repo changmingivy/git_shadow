@@ -199,12 +199,12 @@ typedef enum {
 */
 
 /*
- * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGALRM、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 24 种
+ * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 25 种
  */
 #define /*void*/ zIGNORE_ALL_SIGNAL(/*void*/) {\
     _i zSigSet[24] = {\
         SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
-        SIGTERM, SIGBUS, SIGHUP, SIGSYS,\
+        SIGTERM, SIGBUS, SIGHUP, SIGSYS, SIGALRM,\
         SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,\
         SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO\
     };\
@@ -238,6 +238,7 @@ typedef enum {
     sigaction(zSigSet[21], &zSigAction_, NULL);\
     sigaction(zSigSet[22], &zSigAction_, NULL);\
     sigaction(zSigSet[23], &zSigAction_, NULL);\
+    sigaction(zSigSet[24], &zSigAction_, NULL);\
 }
 
 #endif  //  #ifndef ZCOMMON_H
