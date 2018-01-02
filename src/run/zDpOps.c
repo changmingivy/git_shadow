@@ -483,9 +483,6 @@ static _i
 zadd_repo(cJSON *zpJRoot, _i zSd) {
     /* 顺序固定的元信息 */
     char *zpRepoInfo[8] = { NULL };
-    zPgResTuple__ zRepoMeta_ = {
-        .pp_fields = zpRepoInfo
-    };
 
     _i zResNo = 0;
     pid_t zPid = -1;
@@ -588,7 +585,32 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zResNo = -126;
         goto zEndMark;
     } else if (0 == zPid) {
-        zNativeOps_.repo_init(&zRepoMeta_, zSd);
+        char **zppMeta;
+
+        {////
+            char *zpData;
+            _i zLen = 8;
+            _i j;
+            for (j = 0; j < 8; j++) {
+                zLen += strlen(zpRepoInfo[j]);
+            }
+
+            zMEM_ALLOC(zppMeta, char, 8 * sizeof(void *) + zLen);
+            zpData = (char *) (zppMeta + 8 * sizeof(void *));
+
+            zLen = 0;
+            for (j = 0; j < 8; j++) {
+                zppMeta[j] = zpData + zLen;
+
+                zLen += sprintf(zpData + zLen, "%s", zpRepoInfo[j]);
+                zLen++;
+            }
+
+            /* 子进程中的副本需要清理 */
+            cJSON_Delete(zpJRoot);
+        }////
+
+        zNativeOps_.repo_init(zppMeta, zSd);
     } else {
         zResNo = 0;
         goto zEndMark;

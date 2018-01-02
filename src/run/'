@@ -33,7 +33,7 @@ static void * zalloc_cache(size_t zSiz);
 static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
-static void zinit_one_repo_env(char **zppRepoMeta, _i zSd);
+static void zinit_one_repo_env(zPgResTuple__ *zpRepoMeta, _i zSd);
 static void zinit_env(void);
 
 static void * zcron_ops(void *zp);
@@ -870,7 +870,7 @@ zcron_ops(void *zp) {
 } while(0)
 
 static void
-zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
+zinit_one_repo_env(zPgResTuple__ *zpRepoMeta_, _i zSd) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
@@ -886,12 +886,12 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     char zCommonBuf[zGLOB_COMMON_BUF_SIZ];
 
-    _us zSourceUrlLen = strlen(zppRepoMeta[2]),
-        zSourceBranchLen = strlen(zppRepoMeta[3]),
+    _us zSourceUrlLen = strlen(zpRepoMeta_->pp_fields[2]),
+        zSourceBranchLen = strlen(zpRepoMeta_->pp_fields[3]),
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
     /* 提取项目ID */
-    zRepoId = strtol(zppRepoMeta[0], NULL, 10);
+    zRepoId = strtol(zpRepoMeta_->pp_fields[0], NULL, 10);
 
     /* 检查项目 ID 是否超限 */
     if (zGLOB_REPO_NUM_LIMIT <= zRepoId
@@ -911,7 +911,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zpRepo_->id = zRepoId;
 
     /* needPull */
-    zNeedPull = toupper(zppRepoMeta[5][0]);
+    zNeedPull = toupper(zpRepoMeta_->pp_fields[5][0]);
 
     /*
      * 提取项目绝对路径
@@ -919,7 +919,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
      * 服务端项目路径格式：${HOME}/`dirname $zPathOnHost`/.____DpSystem/${zRepoNo}/`basename $zPathOnHost`
      */
     zPosixReg_.init(&zRegInit_, "[^/]+[/]*$");
-    zPosixReg_.match(&zRegRes_, &zRegInit_, zppRepoMeta[1]);
+    zPosixReg_.match(&zRegRes_, &zRegInit_, zpRepoMeta_->pp_fields[1]);
     zPosixReg_.free_meta(&zRegInit_);
 
     if (0 == zRegRes_.cnt) {
@@ -931,7 +931,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         exit(1);
     }
 
-    zpOrigPath = zppRepoMeta[1];
+    zpOrigPath = zpRepoMeta_->pp_fields[1];
     zStrLen = strlen(zpOrigPath);
     zKeepValue = zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1];
     zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1] = '\0';
@@ -953,7 +953,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     zPosixReg_.free_res(&zRegRes_);
 
-    zppRepoMeta[1][zStrLen - zRegRes_.p_resLen[0] - 1]
+    zpRepoMeta_->pp_fields[1][zStrLen - zRegRes_.p_resLen[0] - 1]
         = zKeepValue;  /* 恢复原始字符串，上层调用者需要使用 */
 
     /*
@@ -1049,7 +1049,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 }
 
                 /* 兼容旧版本，不必关心执行结果 */
-                sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
+                sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
                 zLibGit_.branch_add(zpRepo_->p_gitCommHandler,
                         zCommonBuf, "HEAD", zFalse);
             }
@@ -1062,7 +1062,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
          */
         if (0 != zLibGit_.clone(
                     &zpRepo_->p_gitCommHandler,
-                    zppRepoMeta[2],
+                    zpRepoMeta_->pp_fields[2],
                     zpRepo_->p_path, NULL, zFalse)) {
             zFREE_SOURCE();
             zERR_CLEAN_AND_EXIT(-42);
@@ -1078,7 +1078,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
          * 创建 {源分支名称}XXXXXXXX 分支
          * 注：源库不能是空库，即：0 提交、0 分支
          */
-        sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
+        sprintf(zCommonBuf, "%sXXXXXXXX", zpRepoMeta_->pp_fields[3]);
         if (0 != zLibGit_.branch_add(zpRepo_->p_gitCommHandler, zCommonBuf, "HEAD", zFalse)) {
             zFREE_SOURCE();
             zERR_CLEAN_AND_EXIT(-44);
@@ -1140,7 +1140,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
      * 'G' 代表 git，'S' 代表 svn
      * 历史遗留问题，实质已不支持 SVN
      */
-    if ('G' != toupper(zppRepoMeta[4][0])) {
+    if ('G' != toupper(zpRepoMeta_->pp_fields[4][0])) {
         zFREE_SOURCE();
         zERR_CLEAN_AND_EXIT(-37);
     }
@@ -1189,8 +1189,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zMEM_ALLOC(zpRepo_->p_codeSyncBranch, char, 1 + zSourceBranchLen);
     zMEM_ALLOC(zpRepo_->p_codeSyncRefs, char, 1 + zSyncRefsLen);
 
-    strcpy(zpRepo_->p_codeSyncURL, zppRepoMeta[2]);
-    strcpy(zpRepo_->p_codeSyncBranch, zppRepoMeta[3]);
+    strcpy(zpRepo_->p_codeSyncURL, zpRepoMeta_->pp_fields[2]);
+    strcpy(zpRepo_->p_codeSyncBranch, zpRepoMeta_->pp_fields[3]);
 
     sprintf(zpRepo_->p_codeSyncRefs,
             "+refs/heads/%s:refs/heads/%sXXXXXXXX",
@@ -1201,8 +1201,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zpRepo_->p_localRef =
         zpRepo_->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
 
-    strcpy(zpRepo_->sshUserName, zppRepoMeta[6]);
-    strcpy(zpRepo_->sshPort, zppRepoMeta[7]);
+    strcpy(zpRepo_->sshUserName, zpRepoMeta_->pp_fields[6]);
+    strcpy(zpRepo_->sshPort, zpRepoMeta_->pp_fields[7]);
 
     /*
      * 每次启动时尝试创建必要的表，
@@ -1256,7 +1256,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         _ui zLen = 0;
 
         for (_i i = 0; i < 7; i++) {
-            zLen += strlen(zppRepoMeta[i]);
+            zLen += strlen(zpRepoMeta_->pp_fields[i]);
         }
 
         zMEM_ALLOC(zpSQLBuf, char, 256 + zLen);
@@ -1265,14 +1265,14 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         sprintf(zpSQLBuf, "INSERT INTO repo_meta "
                 "(repo_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
                 "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
-                zppRepoMeta[0],
-                zppRepoMeta[1],
-                zppRepoMeta[2],
-                zppRepoMeta[3],
-                toupper(zppRepoMeta[4][0]),
-                toupper(zppRepoMeta[5][0]),
-                zppRepoMeta[6],
-                zppRepoMeta[7]);
+                zpRepoMeta_->pp_fields[0],
+                zpRepoMeta_->pp_fields[1],
+                zpRepoMeta_->pp_fields[2],
+                zpRepoMeta_->pp_fields[3],
+                toupper(zpRepoMeta_->pp_fields[4][0]),
+                toupper(zpRepoMeta_->pp_fields[5][0]),
+                zpRepoMeta_->pp_fields[6],
+                zpRepoMeta_->pp_fields[7]);
 
         zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zpSQLBuf, zFalse);
         free(zpSQLBuf);
@@ -1590,9 +1590,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 标记初始化动作已全部完成 */
     zRun_.p_sysInfo_->repoFinMark[zRepoId] = 1;
 
-    /* clean... */
-    free(zppRepoMeta);
-
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
@@ -1686,32 +1683,8 @@ zinit_env(void) {
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
 
                 if (0 == zPid) {
-                    char **zppMeta;
-
-                    {////
-                        char *zpData;
-                        _i zLen = zpPgRes_->fieldCnt;
-                        _i j;
-                        for (j = 0; j < zpPgRes_->fieldCnt; j++) {
-                            zLen += strlen(zpPgRes_->tupleRes_[i].pp_fields[j]);
-                        }
-
-                        zMEM_ALLOC(zppMeta, char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
-                        zpData = (char *) (zppMeta + zpPgRes_->fieldCnt * sizeof(void *));
-
-                        zLen = 0;
-                        for (j = 0; j < zpPgRes_->fieldCnt; j++) {
-                            zppMeta[j] = zpData + zLen;
-
-                            zLen += sprintf(zpData + zLen, "%s", zpPgRes_->tupleRes_[i].pp_fields[j]);
-                            zLen++;
-                        }
-
-                        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
-                    }////
-
                     /* 项目进程初始化项目环境 */
-                    zinit_one_repo_env(zppMeta, -1);
+                    zinit_one_repo_env(zpPgRes_->tupleRes_ + i, -1);
                 }
             }
         }
