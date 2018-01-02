@@ -35,8 +35,8 @@ struct zRun__ zRun_ = {
     .p_sysInfo_ = NULL,
 };
 
-/* 不允许并发新建项目 */
-static pthread_mutex_t zRepoCreatLock = PTHREAD_MUTEX_INITIALIZER;
+/* 项目并发启动控制 */
+static pthread_mutex_t zRepoStartLock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * 项目进程内部分配空间，
@@ -234,9 +234,13 @@ zexit_clean(void) {
 #ifndef _Z_BSD
 /*
  * 定时获取系统全局负载信息
+ * 监控项目进程运行状态
+ * TODO 若有异常退出，自动重启之
+ * 主进程使用 waitpid(pid, NULL, WNOHANG) 定时轮循检测项目进程在线状态
+ * 若返回 0 表示正常在线，返回 >0 值，则说明该项目进程已崩溃(成为僵尸进程)
  */
 static void *
-zsys_load_monitor(void *zp __attribute__ ((__unused__))) {
+zsys_monitor(void *zp __attribute__ ((__unused__))) {
     FILE *zpHandler = NULL;
     _ul zTotalMem = 0,
         zAvalMem = 0;
@@ -329,6 +333,7 @@ zglob_data_config(zPgLogin__ *zpPgLogin_) {
     zerr_vec_init();
 }
 
+
 /*
  * 服务启动入口
  */
@@ -360,6 +365,31 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      */
     zThreadPool_.init(32, 1024);
 
+{////
+    /* 项目进程唯一性保证 */
+    zRun_.p_repoStartLock = & zRepoStartLock;
+
+    /* 主进程 pid 及 对应的 UNIX domain sd 路径 */
+    zRun_.p_sysInfo_->masterPid = getpid();
+    zRun_.p_sysInfo_->masterUNSd = zNetUtils_.gen_serv_sd(NULL, NULL, ".s", zProtoUDP);
+
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+    for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
+        /* 每个项目进程对应的 UNIX domain sd 路径 */
+        // zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
+        // snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
+        //         ".s.%d",
+        //         i);
+
+        /* 以主进程 pid 的值，预置项目进程 pid */
+        zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
+
+        /* 主进程 connect 项目进程 UNIX domain socket 生成的 sd，预置为 -1 */
+        zRun_.p_sysInfo_->masterPeerSdVec[i] = -1;
+    }
+#undef zUN_PATH_SIZ
+
     /*
      * 项目库初始化
      * 每个项目对应一个独立的进程
@@ -381,22 +411,8 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zThreadPool_.add(zudp_daemon, NULL);
 
 #ifndef _Z_BSD
-    zThreadPool_.add(zsys_load_monitor, NULL);
+    zThreadPool_.add(zsys_monitor, NULL);
 #endif
-
-{////
-    /* 主进程对应的 UNIX domain sd 路径 */
-    zRun_.p_sysInfo_->masterUNSd = zNetUtils_.gen_serv_sd(NULL, NULL, ".s", zProtoUDP);
-
-    /* 每个项目进程对应的 UNIX domain sd 路径 */
-#define zUN_PATH_SIZ\
-        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
-    for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
-        zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
-        snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
-                ".s.%d", i);
-    }
-#undef zUN_PATH_SIZ
 }////
 
     /*
@@ -448,30 +464,33 @@ zops_route_tcp_master(void *zp) {
      * 不允许使用 0
      */
     zRepoId = strtol(zDataBuf + sizeof("{\"repoId\":") - 1, NULL, 10);
-    if (0 >= zRepoId
-            || 0 != strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
+    if (0 != strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
         zNetUtils_.send(zSd,
                 "{\"errNo\":-7,\"content\":\"json parse err\"}",
                 sizeof("{\"errNo\":-7,\"content\":\"json parse err\"}") - 1);
-        goto zMarkEnd;
+        goto zEndMark;
     }
 
-    if (zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+    if (0 >= zRepoId
+            || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
         zNetUtils_.send(zSd,
-                "{\"errNo\":-32,\"content\":\"repoId too large (hint: 1 - 1023)\"}",
-                sizeof("{\"errNo\":-32,\"content\":\"repoId too large (hint: 1 - 1023)\"}") - 1);
-        goto zMarkEnd;
+                "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
+                sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
+        goto zEndMark;
     }
 
     /*
-     * 若项目存在，将业务 socket 传递给对应的项目进程
+     * 若项目存在且已就绪，将业务 socket 传递给对应的项目进程
+     * 若项目存在，但未就绪，提示正在创建过程中
      * 若项目不存在，则收取完整的 json 信息
      */
-    if (0 < zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd,
-                & zRun_.p_sysInfo_->unAddrVec_[zRepoId],
-                SUN_LEN(& zRun_.p_sysInfo_->unAddrVec_[zRepoId]));
-        goto zMarkEnd;
+    if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]) {
+        // zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd,
+        //         & zRun_.p_sysInfo_->unAddrVec_[zRepoId],
+        //         SUN_LEN(& zRun_.p_sysInfo_->unAddrVec_[zRepoId]));
+
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterUNSd, zSd, NULL, 0);
+        goto zEndMark;
     } else {
         char zDataBuf[8192] = {'\0'};
         _i zDataLen = 0,
@@ -491,24 +510,15 @@ zops_route_tcp_master(void *zp) {
             /*
              * 若 opsId 指示的是新建项目，
              * 则新建，否则返回项目不存在
-             * 不允许并发新建项目
              */
             if (1 == zOpsId) {
-                pthread_mutex_lock(& zRepoCreatLock);
-
                 if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](zpJRoot, zSd))) {
                     zDataLen = snprintf(zDataBuf, 8192,
-                            "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                            "{\"errNo\":%d,\"content\":\"[opsId: 1] %s\"}",
                             zResNo,
-                            zOpsId,
                             zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
                     zNetUtils_.send(zSd, zDataBuf, zDataLen);
                 }
-
-                pthread_mutex_unlock(& zRepoCreatLock);
-            } else if (0 == zOpsId) {
-                /* ping-pang 接口不检查结果 */
-                zRun_.p_sysInfo_->ops_tcp[1](zpJRoot, zSd);
             } else {
                 zDataLen = snprintf(zDataBuf, 8192,
                         "{\"errNo\":-2,\"content\":\"%s\"}",
@@ -525,10 +535,10 @@ zops_route_tcp_master(void *zp) {
         }
 
         cJSON_Delete(zpJRoot);
-        goto zMarkEnd;
+        goto zEndMark;
     }
 
-zMarkEnd:
+zEndMark:
     close(zSd);
     return NULL;
 }
@@ -565,24 +575,30 @@ zops_route_tcp(void *zp) {
      */
     if (zBYTES(6) > zDataLen) {
         zPRINT_ERR(errno, NULL, "recvd data too short(< 6bytes)");
-        goto zMarkEnd;
+        goto zEndMark;
     }
 
     /* 提取 value[OpsId] */
     cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
     cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
-    if (cJSON_IsNumber(zpOpsId)) {
+
+    if (! cJSON_IsNumber(zpOpsId)) {
+        zErrNo = -1;
+    } else {
         zOpsId = zpOpsId->valueint;
 
-        /* 检验 value[OpsId] 合法性 */
-        if (0 > zOpsId || zTCP_SERV_HASH_SIZ <= zOpsId || NULL == zRun_.p_sysInfo_->ops_tcp[zOpsId]) {
+        if (0 > zOpsId
+                || zTCP_SERV_HASH_SIZ <= zOpsId
+                || NULL == zRun_.p_sysInfo_->ops_tcp[zOpsId]) {
             zErrNo = -1;
+        } else if (1 == zOpsId) {
+            /* 若项目进程收到新建请求，直接返回错误 */
+            zErrNo = -35;
         } else {
             zErrNo = zRun_.p_sysInfo_->ops_tcp[zOpsId](zpJRoot, zSd);
         }
-    } else {
-        zErrNo = -1;
     }
+
     cJSON_Delete(zpJRoot);
 
     /*
@@ -606,7 +622,7 @@ zops_route_tcp(void *zp) {
         }
     }
 
-zMarkEnd:
+zEndMark:
     close(zSd);
     if (zpDataBuf != &(zDataBuf[0])) {
         free(zpDataBuf);

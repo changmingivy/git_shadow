@@ -14,6 +14,9 @@
 
 #define cJSON_V(zpJRoot, zpValueName) cJSON_GetObjectItemCaseSensitive((zpJRoot), (zpValueName))
 
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
 
@@ -484,8 +487,9 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     /* 顺序固定的元信息 */
     char *zpRepoInfo[8] = { NULL };
 
-    _i zResNo = 0;
     pid_t zPid = -1;
+    _i zResNo = -1,
+       zRepoId = -1;
 
     char zRepoIdStr[16];
 
@@ -497,7 +501,16 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zPRINT_ERR_EASY("");
         goto zEndMark;
     }
-    sprintf(zRepoIdStr, "%d", zpJ->valueint);
+    zRepoId = zpJ->valueint;
+
+    if (0 >= zRepoId
+            || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+        zResNo = -32;
+        zPRINT_ERR_EASY("");
+        goto zEndMark;
+    }
+
+    sprintf(zRepoIdStr, "%d", zRepoId);
     zpRepoInfo[0] = zRepoIdStr;
 
     zpJ = cJSON_V(zpJRoot, "pathOnHost");
@@ -577,16 +590,30 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
+    /* 检查项目 ID 是否冲突 */
+    pthread_mutex_lock(zRun_.p_repoStartLock);
+    if (zRun_.p_sysInfo_->masterPid
+            != zRun_.p_sysInfo_->repoPidVec[zRepoId]) {
+        pthread_mutex_unlock(zRun_.p_repoStartLock);
+
+        zResNo = -35;
+        goto zEndMark;
+    }
+
+    if (0 > (zPid = fork())) {
+        pthread_mutex_unlock(zRun_.p_repoStartLock);
+        zResNo = -126;
+        goto zEndMark;
+    }
+
     /*
      * DO creating...
      * 创建的最终结果通知，会由子进程发出
      */
-    if (0 > (zPid = fork())) {
-        zResNo = -126;
-        goto zEndMark;
-    } else if (0 == zPid) {
-        char **zppMeta;
+    if (0 == zPid) {
+        pthread_mutex_unlock(zRun_.p_repoStartLock);
 
+        char **zppMeta;
         {////
             char *zpData;
             _i zLen = 8;
@@ -612,6 +639,17 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
 
         zNativeOps_.repo_init(zppMeta, zSd);
     } else {
+        zRun_.p_sysInfo_->repoPidVec[zRepoId] = zPid;
+        pthread_mutex_unlock(zRun_.p_repoStartLock);
+
+        char zPathBuf[zUN_PATH_SIZ];
+        snprintf(zPathBuf, zUN_PATH_SIZ, ".s.%d", zRepoId);
+        while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]
+                    = zNetUtils_.conn(NULL, NULL, zPathBuf, zProtoUDP))) {
+            zPRINT_ERR_EASY("udp conn failed...");
+            sleep(1);
+        }
+
         zResNo = 0;
         goto zEndMark;
     }
@@ -1189,60 +1227,60 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     char *zpCommonBuf =
         zNativeOps_.alloc(2048 + 4 * zpRepo_->pathLen + 2 * zIpListStrLen);
 
-{////
-    /*
-     * 更新最近一次布署尝试的版本号
-     * 若 SSH 认证信息有变动，亦更新之
-     */
-    _i zLen = 0;
-    zLen = sprintf(zpCommonBuf,
-            "UPDATE repo_meta SET last_try_sig = '%s'",
-            zpRepo_->dpingSig);
+    {////
+        /*
+         * 更新最近一次布署尝试的版本号
+         * 若 SSH 认证信息有变动，亦更新之
+         */
+        _i zLen = 0;
+        zLen = sprintf(zpCommonBuf,
+                "UPDATE repo_meta SET last_try_sig = '%s'",
+                zpRepo_->dpingSig);
 
-    if (NULL != zpSSHUserName
-            && 0 != strcmp(zpSSHUserName, zpRepo_->sshUserName)) {
-        snprintf(zpRepo_->sshUserName, 256,
-                "%s", zpSSHUserName);
+        if (NULL != zpSSHUserName
+                && 0 != strcmp(zpSSHUserName, zpRepo_->sshUserName)) {
+            snprintf(zpRepo_->sshUserName, 256,
+                    "%s", zpSSHUserName);
 
-        zLen += sprintf(zpCommonBuf + zLen,
-                ",ssh_user_name = '%s'",
-                zpSSHUserName);
-    }
-
-    if (NULL != zpSSHPort
-            && 0 != strcmp(zpSSHPort, zpRepo_->sshPort)) {
-        snprintf(zpRepo_->sshPort, 6,
-                "%s", zpSSHPort);
-
-        zLen += sprintf(zpCommonBuf + zLen,
-                ",ssh_port = '%s'",
-                zpSSHPort);
-    }
-
-    sprintf(zpCommonBuf + zLen,
-            " WHERE repo_id = %d",
-            zpRepo_->id);
-
-    zpPgResHd_ = zPgSQL_.exec(
-            zpRepo_->p_pgConnHd_,
-            zpCommonBuf,
-            zFalse);
-    if (NULL == zpPgResHd_) {
-        /* 长连接可能意外中断，失败重连，再试一次 */
-        zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(
-                        zpRepo_->p_pgConnHd_,
-                        zpCommonBuf,
-                        zFalse))) {
-            zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-
-            /* 数据库不可用，停止服务 ? */
-            zPRINT_ERR_EASY("==== FATAL ====");
-            exit(1);
+            zLen += sprintf(zpCommonBuf + zLen,
+                    ",ssh_user_name = '%s'",
+                    zpSSHUserName);
         }
-    }
 
-    zPgSQL_.res_clear(zpPgResHd_, NULL);
+        if (NULL != zpSSHPort
+                && 0 != strcmp(zpSSHPort, zpRepo_->sshPort)) {
+            snprintf(zpRepo_->sshPort, 6,
+                    "%s", zpSSHPort);
+
+            zLen += sprintf(zpCommonBuf + zLen,
+                    ",ssh_port = '%s'",
+                    zpSSHPort);
+        }
+
+        sprintf(zpCommonBuf + zLen,
+                " WHERE repo_id = %d",
+                zpRepo_->id);
+
+        zpPgResHd_ = zPgSQL_.exec(
+                zpRepo_->p_pgConnHd_,
+                zpCommonBuf,
+                zFalse);
+        if (NULL == zpPgResHd_) {
+            /* 长连接可能意外中断，失败重连，再试一次 */
+            zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                            zpRepo_->p_pgConnHd_,
+                            zpCommonBuf,
+                            zFalse))) {
+                zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
+
+                /* 数据库不可用，停止服务 ? */
+                zPRINT_ERR_EASY("==== FATAL ====");
+                exit(1);
+            }
+        }
+
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }////
 
     /*
@@ -2576,52 +2614,52 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zSourceBranchLen = strlen(zpNewBranch);
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
-{////
-        /* 测试新的信息是否有效... */
-        char zRefs[sizeof("+refs/heads/:refs/heads/XXXXXXXX") + 2 * strlen(zpNewBranch)],
-             *zpRefs = zRefs;
-        sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
-                zpNewBranch, zpNewBranch);
-        if (0 > zLibGit_.remote_fetch(
-                    zpRepo_->p_gitCommHandler,
-                    zpNewURL,
-                    &zpRefs, 1,
-                    zErrBuf)) {
-            zPRINT_ERR_EASY(zErrBuf);
-            return -49;
-        }
+        {////
+            /* 测试新的信息是否有效... */
+            char zRefs[sizeof("+refs/heads/:refs/heads/XXXXXXXX") + 2 * strlen(zpNewBranch)],
+                 *zpRefs = zRefs;
+            sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
+                    zpNewBranch, zpNewBranch);
+            if (0 > zLibGit_.remote_fetch(
+                        zpRepo_->p_gitCommHandler,
+                        zpNewURL,
+                        &zpRefs, 1,
+                        zErrBuf)) {
+                zPRINT_ERR_EASY(zErrBuf);
+                return -49;
+            }
 
-        /*
-         * 若源库分支不存在，上述的 fetch 动作检测不到，
-         * 依然会返回 0，故需要此步进一步检测
-         */
-        zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                zpRepo_->p_gitCommHandler,
-                zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
-                0);
-        if (NULL == zpRevWalker) {
-            zPRINT_ERR_EASY("");
-            return -49;
-        } else {
-            zLibGit_.destroy_revwalker(zpRevWalker);
-        }
+            /*
+             * 若源库分支不存在，上述的 fetch 动作检测不到，
+             * 依然会返回 0，故需要此步进一步检测
+             */
+            zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
+                    zpRepo_->p_gitCommHandler,
+                    zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
+                    0);
+            if (NULL == zpRevWalker) {
+                zPRINT_ERR_EASY("");
+                return -49;
+            } else {
+                zLibGit_.destroy_revwalker(zpRevWalker);
+            }
         }////
 
-{////
-        char zSQLBuf[128 + zSourceUrlLen + zSourceBranchLen];
-        _i zResNo = -1;
+        {////
+            char zSQLBuf[128 + zSourceUrlLen + zSourceBranchLen];
+            _i zResNo = -1;
 
-        /* 首先更新 DB，无错则继续之后的动作 */
-        sprintf(zSQLBuf,
-                "UPDATE repo_meta SET source_url = '%s', source_branch = '%s' WHERE repo_id = %d",
-                zpNewURL,
-                zpNewBranch,
-                zpRepo_->id);
+            /* 首先更新 DB，无错则继续之后的动作 */
+            sprintf(zSQLBuf,
+                    "UPDATE repo_meta SET source_url = '%s', source_branch = '%s' WHERE repo_id = %d",
+                    zpNewURL,
+                    zpNewBranch,
+                    zpRepo_->id);
 
-        if (0 != (zResNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL))) {
-            pthread_rwlock_unlock(& zpRepo_->rwLock);
-            return zResNo;
-        }
+            if (0 != (zResNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL))) {
+                pthread_rwlock_unlock(& zpRepo_->rwLock);
+                return zResNo;
+            }
         }////
 
         /*
@@ -2694,6 +2732,7 @@ zudp_pang(void *zp __attribute__ ((__unused__)),
 }
 
 
+#undef zUN_PATH_SIZ
 #undef zERR_CLASS_NUM
 #undef zJSON_PARSE
 #undef zGENERATE_SSH_CMD

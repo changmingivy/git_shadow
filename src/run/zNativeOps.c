@@ -900,12 +900,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         exit(1);
     }
 
-    /* 检查项目 ID 是否冲突 */
-    if (0 != zRun_.p_sysInfo_->repoFinMark[zRepoId]) {
-        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[35]);
-        exit(1);
-    }
-
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMEM_C_ALLOC(zpRepo_, zRepo__, 1);
     zpRepo_->id = zRepoId;
@@ -970,169 +964,169 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zMEM_ALLOC(zpRepo_->p_aliasPath, char, zpRepo_->maxPathLen);
     zpRepo_->p_aliasPath[0] = '\0';
 
-{////
-    /*
-     * ================
-     *  服务端创建项目
-     * ================
-     */
-    struct stat zS_;
-    DIR *zpDIR = NULL;
-    struct dirent *zpItem = NULL;
-    char zPathBuf[zpRepo_->maxPathLen];
-    if (0 == stat(zpRepo_->p_path, &zS_)) {
-        /**
-         * 若是项目新建，则不允许存在同名路径
+    {////
+        /*
+         * ================
+         *  服务端创建项目
+         * ================
          */
-        if (0 <= zSd) {
-            zFREE_SOURCE();
-            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[36]);
-            exit(1);
-        } else {
-            if (! S_ISDIR(zS_.st_mode)) {
+        struct stat zS_;
+        DIR *zpDIR = NULL;
+        struct dirent *zpItem = NULL;
+        char zPathBuf[zpRepo_->maxPathLen];
+        if (0 == stat(zpRepo_->p_path, &zS_)) {
+            /**
+             * 若是项目新建，则不允许存在同名路径
+             */
+            if (0 <= zSd) {
                 zFREE_SOURCE();
-                zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[30]);
+                zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[36]);
                 exit(1);
             } else {
-                /* 全局 libgit2 Handler 初始化 */
-                if (NULL == (zpRepo_->p_gitCommHandler
-                            = zLibGit_.env_init(zpRepo_->p_path))) {
+                if (! S_ISDIR(zS_.st_mode)) {
                     zFREE_SOURCE();
-                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[46]);
+                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[30]);
                     exit(1);
-                }
+                } else {
+                    /* 全局 libgit2 Handler 初始化 */
+                    if (NULL == (zpRepo_->p_gitCommHandler
+                                = zLibGit_.env_init(zpRepo_->p_path))) {
+                        zFREE_SOURCE();
+                        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[46]);
+                        exit(1);
+                    }
 
-                /*
-                 * 兼容旧版本，创建空白分支
-                 * 删除所有除 .git 之外的文件与目录
-                 * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
-                 */
-                zCHECK_NULL_EXIT( zpDIR = opendir(zpRepo_->p_path) );
+                    /*
+                     * 兼容旧版本，创建空白分支
+                     * 删除所有除 .git 之外的文件与目录
+                     * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
+                     */
+                    zCHECK_NULL_EXIT( zpDIR = opendir(zpRepo_->p_path) );
 
-                errno = 0;
-                while (NULL != (zpItem = readdir(zpDIR))) {
-                    if (DT_DIR == zpItem->d_type) {
-                        if (0 != strcmp(".git", zpItem->d_name)
-                                && 0 != strcmp(".", zpItem->d_name)
-                                && 0 != strcmp("..", zpItem->d_name)) {
+                    errno = 0;
+                    while (NULL != (zpItem = readdir(zpDIR))) {
+                        if (DT_DIR == zpItem->d_type) {
+                            if (0 != strcmp(".git", zpItem->d_name)
+                                    && 0 != strcmp(".", zpItem->d_name)
+                                    && 0 != strcmp("..", zpItem->d_name)) {
 
+                                snprintf(zPathBuf, zpRepo_->maxPathLen, "%s/%s",
+                                        zpRepo_->p_path, zpItem->d_name);
+                                if (0 != zNativeUtils_.path_del(zPathBuf)) {
+                                    closedir(zpDIR);
+                                    zFREE_SOURCE();
+                                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[40]);
+                                    exit(1);
+                                }
+                            }
+                        } else {
                             snprintf(zPathBuf, zpRepo_->maxPathLen, "%s/%s",
                                     zpRepo_->p_path, zpItem->d_name);
-                            if (0 != zNativeUtils_.path_del(zPathBuf)) {
+                            if (0 != unlink(zPathBuf)) {
                                 closedir(zpDIR);
                                 zFREE_SOURCE();
                                 zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[40]);
                                 exit(1);
                             }
                         }
-                    } else {
+                    }
+
+                    zCHECK_NOTZERO_EXIT( errno );
+                    closedir(zpDIR);
+
+                    zLibGit_.branch_del(zpRepo_->p_gitCommHandler,
+                            "refs/heads/____baseXXXXXXXX");
+                    if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
+                                "refs/heads/____baseXXXXXXXX", ".", "_")) {
+                        zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[45]);
+                        exit(1);
+                    }
+
+                    /* 兼容旧版本，不必关心执行结果 */
+                    sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
+                    zLibGit_.branch_add(zpRepo_->p_gitCommHandler,
+                            zCommonBuf, "HEAD", zFalse);
+                }
+            }
+        } else {
+            /*
+             * git clone URL，内部会回调 git_init，
+             * 生成本项目 libgit2 Handler
+             * 会自动递归创建各级目录
+             */
+            if (0 != zLibGit_.clone(
+                        &zpRepo_->p_gitCommHandler,
+                        zppRepoMeta[2],
+                        zpRepo_->p_path, NULL, zFalse)) {
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-42);
+            }
+
+            /* git config user.name _ && git config user.email _@_ */
+            if (0 != zLibGit_.config_name_email(zpRepo_->p_path)) {
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-43);
+            }
+
+            /*
+             * 创建 {源分支名称}XXXXXXXX 分支
+             * 注：源库不能是空库，即：0 提交、0 分支
+             */
+            sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
+            if (0 != zLibGit_.branch_add(zpRepo_->p_gitCommHandler, zCommonBuf, "HEAD", zFalse)) {
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-44);
+            }
+
+            /*
+             * 删除所有除 .git 之外的文件与目录，提交到 ____baseXXXXXXXX 分支
+             * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
+             */
+            if (NULL == (zpDIR = opendir(zpRepo_->p_path))) {
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-40);
+            }
+
+            errno = 0;
+            while (NULL != (zpItem = readdir(zpDIR))) {
+                if (DT_DIR == zpItem->d_type) {
+                    if (0 != strcmp(".git", zpItem->d_name)
+                            && 0 != strcmp(".", zpItem->d_name)
+                            && 0 != strcmp("..", zpItem->d_name)) {
+
                         snprintf(zPathBuf, zpRepo_->maxPathLen, "%s/%s",
                                 zpRepo_->p_path, zpItem->d_name);
-                        if (0 != unlink(zPathBuf)) {
+                        if (0 != zNativeUtils_.path_del(zPathBuf)) {
                             closedir(zpDIR);
                             zFREE_SOURCE();
-                            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[40]);
-                            exit(1);
+                            zERR_CLEAN_AND_EXIT(-40);
                         }
                     }
-                }
-
-                zCHECK_NOTZERO_EXIT( errno );
-                closedir(zpDIR);
-
-                zLibGit_.branch_del(zpRepo_->p_gitCommHandler,
-                        "refs/heads/____baseXXXXXXXX");
-                if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
-                            "refs/heads/____baseXXXXXXXX", ".", "_")) {
-                    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[45]);
-                    exit(1);
-                }
-
-                /* 兼容旧版本，不必关心执行结果 */
-                sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
-                zLibGit_.branch_add(zpRepo_->p_gitCommHandler,
-                        zCommonBuf, "HEAD", zFalse);
-            }
-        }
-    } else {
-        /*
-         * git clone URL，内部会回调 git_init，
-         * 生成本项目 libgit2 Handler
-         * 会自动递归创建各级目录
-         */
-        if (0 != zLibGit_.clone(
-                    &zpRepo_->p_gitCommHandler,
-                    zppRepoMeta[2],
-                    zpRepo_->p_path, NULL, zFalse)) {
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-42);
-        }
-
-        /* git config user.name _ && git config user.email _@_ */
-        if (0 != zLibGit_.config_name_email(zpRepo_->p_path)) {
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-43);
-        }
-
-        /*
-         * 创建 {源分支名称}XXXXXXXX 分支
-         * 注：源库不能是空库，即：0 提交、0 分支
-         */
-        sprintf(zCommonBuf, "%sXXXXXXXX", zppRepoMeta[3]);
-        if (0 != zLibGit_.branch_add(zpRepo_->p_gitCommHandler, zCommonBuf, "HEAD", zFalse)) {
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-44);
-        }
-
-        /*
-         * 删除所有除 .git 之外的文件与目录，提交到 ____baseXXXXXXXX 分支
-         * readdir 的结果为 NULL 时，需要依 errno 判断是否出错
-         */
-        if (NULL == (zpDIR = opendir(zpRepo_->p_path))) {
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-40);
-        }
-
-        errno = 0;
-        while (NULL != (zpItem = readdir(zpDIR))) {
-            if (DT_DIR == zpItem->d_type) {
-                if (0 != strcmp(".git", zpItem->d_name)
-                        && 0 != strcmp(".", zpItem->d_name)
-                        && 0 != strcmp("..", zpItem->d_name)) {
-
+                } else {
                     snprintf(zPathBuf, zpRepo_->maxPathLen, "%s/%s",
                             zpRepo_->p_path, zpItem->d_name);
-                    if (0 != zNativeUtils_.path_del(zPathBuf)) {
+                    if (0 != unlink(zPathBuf)) {
                         closedir(zpDIR);
                         zFREE_SOURCE();
                         zERR_CLEAN_AND_EXIT(-40);
                     }
                 }
-            } else {
-                snprintf(zPathBuf, zpRepo_->maxPathLen, "%s/%s",
-                        zpRepo_->p_path, zpItem->d_name);
-                if (0 != unlink(zPathBuf)) {
-                    closedir(zpDIR);
-                    zFREE_SOURCE();
-                    zERR_CLEAN_AND_EXIT(-40);
-                }
+            }
+
+            if (0 != errno) {
+                closedir(zpDIR);
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-40);
+            }
+
+            closedir(zpDIR);
+
+            if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
+                        "refs/heads/____baseXXXXXXXX", ".", "_")) {
+                zFREE_SOURCE();
+                zERR_CLEAN_AND_EXIT(-40);
             }
         }
-
-        if (0 != errno) {
-            closedir(zpDIR);
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-40);
-        }
-
-        closedir(zpDIR);
-
-        if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
-                    "refs/heads/____baseXXXXXXXX", ".", "_")) {
-            zFREE_SOURCE();
-            zERR_CLEAN_AND_EXIT(-40);
-        }
-    }
     }////
 
     /*
@@ -1589,9 +1583,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 启动定时任务 */
     zThreadPool_.add(zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");
 
-    /* 标记初始化动作已全部完成 */
-    zRun_.p_sysInfo_->repoFinMark[zRepoId] = 1;
-
     /* clean... */
     free(zppRepoMeta);
 
@@ -1605,7 +1596,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /*
      * NEVER! REACH! HERE!
      */
-    exit(0);
+    exit(1);
 }
 
 
@@ -1714,6 +1705,25 @@ zinit_env(void) {
 
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zppMeta, -1);
+                } else {
+                    pthread_mutex_lock(zRun_.p_repoStartLock);
+                    zRun_.p_sysInfo_->repoPidVec[strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0)] = zPid;
+                    pthread_mutex_unlock(zRun_.p_repoStartLock);
+                }
+            }
+
+            _i zRepoId = -1;
+            char zPathBuf[zUN_PATH_SIZ];
+            for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
+                snprintf(zPathBuf, zUN_PATH_SIZ,
+                        ".s.%s",
+                        zpPgRes_->tupleRes_[i].pp_fields[0]);
+
+                zRepoId = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0);
+                while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]
+                            = zNetUtils_.conn(NULL, NULL, zPathBuf, zProtoUDP))) {
+                    zPRINT_ERR_EASY("udp conn failed...");
+                    sleep(1);
                 }
             }
         }

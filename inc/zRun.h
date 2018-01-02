@@ -448,20 +448,30 @@ typedef struct __zSysInfo__ {
     _uc netLoad;
     _uc diskLoad;
 
-    /*
-     * 若置 0，表示项目不存在，或尚未初始化完成
-     * 若置 1，表示项目存在，并且已经初始化完成
-     */
-    _c repoFinMark[zGLOB_REPO_NUM_LIMIT];
+    /* 主进程的 pid */
+    pid_t masterPid;
 
-    /* 存放每个项目进程的 UNIX domain sd 路径：".s.1234"*/
-    struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
+    /*
+     * 存放项目进程 pid，预置为主进程 pid
+     * 主进程使用 waitpid(pid, NULL, WNOHANG) 定时轮循检测项目进程在线状态
+     * 若返回 0 表示正常在线，返回 >0 值，则说明该项目进程已崩溃(成为僵尸进程)
+     */
+    pid_t repoPidVec[zGLOB_REPO_NUM_LIMIT];
 
     /*
      * 主进程 bind 之后的 UNIX domain sd
      * 使用它向项目进程发送业务 sd
      */
     _i masterUNSd;
+
+    /*
+     * 主进程与每个项目进程，均事先 connect
+     * 预置为 -1，以是否小于 0，判断项目进程是否已经就绪
+     */
+    _i masterPeerSdVec[zGLOB_REPO_NUM_LIMIT];
+
+    /* 存放每个项目进程的 UNIX domain sd 路径：".s.1234"*/
+    // struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
 
     /* 常量，其值恒等于 zGLOB_REPO_NUM_LIMIT */
     _s globRepoNumLimit;
@@ -498,6 +508,12 @@ typedef struct __zSysInfo__ {
 
 struct zRun__ {
     void (* run) (zPgLogin__ *);
+
+    /*
+     * 仅用于主进程中
+     * 确保同一项目不会重复启动多个进程
+     */
+    pthread_mutex_t *p_repoStartLock;
 
     zSysInfo__ *p_sysInfo_;
 };
