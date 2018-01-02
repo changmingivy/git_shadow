@@ -392,6 +392,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
     for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
+        zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
         snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
                 ".s.%d", i);
     }
