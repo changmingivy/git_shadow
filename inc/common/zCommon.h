@@ -202,7 +202,7 @@ typedef enum {
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 25 种
  */
 #define /*void*/ zIGNORE_ALL_SIGNAL(/*void*/) {\
-    _i zSigSet[24] = {\
+    _i zSigSet[25] = {\
         SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
         SIGTERM, SIGBUS, SIGHUP, SIGSYS, SIGALRM,\
         SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,\
