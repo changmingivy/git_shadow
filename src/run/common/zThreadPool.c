@@ -23,9 +23,9 @@ static _i zThreadPollSiz;
 static _i zOverflowMark;
 
 static zThreadTask__ **zppPoolStack_;
-static _i zStackHeader = -1;
 
-static pthread_mutex_t zStackHeaderLock = PTHREAD_MUTEX_INITIALIZER;
+static _i zStackHeader;
+static pthread_mutex_t zStackHeaderLock;
 
 static pthread_t zThreadPoolTidTrash;
 
@@ -136,6 +136,12 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
      */
     zThreadPollSiz = zSiz;
     zOverflowMark = zThreadPollSiz - 1;
+
+    /*
+     * 必须动态初始化为 -1
+     * 否则子进程继承父进程的栈索引，将带来异常
+     */
+    zStackHeader = -1;
 
     /*
      * 线程池栈结构空间
