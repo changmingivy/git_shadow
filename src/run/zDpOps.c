@@ -799,7 +799,6 @@ zdp_ccur(void *zp) {
             zpDpCcur_->errNo = zErrNo;
             zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
 
-            zDEL_SINGLE_QUOTATION(zErrBuf);
             zSTATE_CONFIRM("E1");
             goto zEndMark;
     }
@@ -820,7 +819,6 @@ zdp_ccur(void *zp) {
             zpDpCcur_->errNo = -23;
             zPRINT_ERR_EASY("");
 
-            zDEL_SINGLE_QUOTATION(zErrBuf);
             zSTATE_CONFIRM("E1");
             goto zEndMark;
         }
@@ -912,7 +910,6 @@ zdp_ccur(void *zp) {
                     zpDpCcur_->errNo = -12;
                     zPRINT_ERR_EASY("");
 
-                    zDEL_SINGLE_QUOTATION(zErrBuf);
                     zSTATE_CONFIRM("E2");
                     goto zEndMark;
                 }
@@ -920,7 +917,6 @@ zdp_ccur(void *zp) {
                 zpDpCcur_->errNo = -23;
                 zPRINT_ERR_EASY("");
 
-                zDEL_SINGLE_QUOTATION(zErrBuf);
                 zSTATE_CONFIRM("E2");
                 goto zEndMark;
             }
@@ -928,7 +924,6 @@ zdp_ccur(void *zp) {
             zpDpCcur_->errNo = -12;
             zPRINT_ERR_EASY("");
 
-            zDEL_SINGLE_QUOTATION(zErrBuf);
             zSTATE_CONFIRM("E2");
             goto zEndMark;
         }
@@ -1382,98 +1377,98 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpRepo_->dpBaseTimeStamp = time(NULL);
     zpRepo_->dpID = zpRepo_->dpBaseTimeStamp;
 
-    if (zIsSameSig) {
-        for (_i i = 0; i < zpRepo_->totalHost; i++) {
-            /*
-             * 检测是否存在重复IP
-             */
-            if (NULL != zpOldDpResHash_[zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ]
-                    && (0 != zpRepo_->p_dpResList_[i].clientAddr[0]
-                        || 0 != zpRepo_->p_dpResList_[i].clientAddr[1])) {
+    for (_i i = 0; i < zpRepo_->totalHost; i++) {
+        /*
+         * 检测是否存在重复IP
+         */
+        if (NULL != zpOldDpResHash_[zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ]
+                && (0 != zpRepo_->p_dpResList_[i].clientAddr[0]
+                    || 0 != zpRepo_->p_dpResList_[i].clientAddr[1])) {
 
-                /* 总任务计数递减 */
-                zpRepo_->dpTotalTask--;
+            /* 总任务计数递减 */
+            zpRepo_->dpTotalTask--;
 
-                zPRINT_ERR_EASY("same IP");
-                continue;
-            }
+            zPRINT_ERR_EASY("same IP");
+            continue;
+        }
 
-            /*
-             * IPnum 链表赋值
-             * 并转换字符串格式的 IPaddr 为数组 _ull[2]
-             */
-            zpRepo_->p_dpResList_[i].p_hostAddr = zRegRes_.pp_rets[i];
-            if (0 != zCONVERT_IPSTR_TO_NUM(zRegRes_.pp_rets[i],
-                        zpRepo_->p_dpResList_[i].clientAddr)) {
+        /*
+         * IPnum 链表赋值
+         * 并转换字符串格式的 IPaddr 为数组 _ull[2]
+         */
+        zpRepo_->p_dpResList_[i].selfIndex = i;
+        zpRepo_->p_dpResList_[i].p_hostAddr = zRegRes_.pp_rets[i];
+        if (0 != zCONVERT_IPSTR_TO_NUM(zRegRes_.pp_rets[i],
+                    zpRepo_->p_dpResList_[i].clientAddr)) {
 
-                /* 此种错误信息记录到哪里 ??? */
-                zPRINT_ERR_EASY("Invalid IP");
-                continue;
-            }
+            /* 此种错误信息记录到哪里 ??? */
+            zPRINT_ERR_EASY("Invalid IP");
+            continue;
+        }
 
-            /*
-             * 所在空间是使用 calloc 分配的，此处不必再手动置零
-             */
-            // zpRepo_->p_dpResList_[i].resState = 0;  /* 成功状态 */
-            // zpRepo_->p_dpResList_[i].errState = 0;  /* 错误状态 */
-            // zpRepo_->p_dpResList_[i].p_next = NULL;
+        /*
+         * 所在空间是使用 calloc 分配的，此处不必再手动置零
+         */
+        // zpRepo_->p_dpResList_[i].resState = 0;  /* 成功状态 */
+        // zpRepo_->p_dpResList_[i].errState = 0;  /* 错误状态 */
+        // zpRepo_->p_dpResList_[i].p_next = NULL;
 
-            /*
-             * 生成工作线程参数
-             */
+        /*
+         * 生成工作线程参数
+         */
 
-            /* 是否需要初始化 */
-            zpRepo_->p_dpCcur_[i].needInit = 'Y';
+        /* 是否需要初始化 */
+        zpRepo_->p_dpCcur_[i].needInit = 'Y';
 
-            /* 目标机 IP 在服务端链表中的索引 */
-            zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
+        /* 此项用作每次布署动的唯一标识 */
+        zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
 
-            /*
-             * 工作线程返回的错误码及 tid，预置为 0
-             */
-            zpRepo_->p_dpCcur_[i].errNo = 0;
-            zpRepo_->p_dpCcur_[i].startMark = 0;
+        /*
+         * 工作线程返回的错误码及 tid，预置为 0
+         */
+        zpRepo_->p_dpCcur_[i].errNo = 0;
+        zpRepo_->p_dpCcur_[i].startMark = 0;
 
-            /*
-             * 更新 HashMap
-             */
-            zpTmp_ = zpRepo_->p_dpResHash_[
-                zpRepo_->p_dpResList_[i].clientAddr[0]
-                    % zDP_HASH_SIZ
-            ];
+        /*
+         * 更新 HashMap
+         */
+        zpTmp_ = zpRepo_->p_dpResHash_[
+            zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ
+        ];
 
-            /*
-             * 若 HashMap 顶层为空，直接指向链表中对应的位置
-             */
-            if (NULL == zpTmp_) {
-                zpRepo_->p_dpResHash_[
-                    zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ
-                ] = & zpRepo_->p_dpResList_[i];
-            } else {
-                while (NULL != zpTmp_->p_next) {
-                    zpTmp_ = zpTmp_->p_next;
-                }
-
-                zpTmp_->p_next = & zpRepo_->p_dpResList_[i];
-            }
-
-            /*
-             * 基于旧的 HashMap 检测是否是新加入的目标机
-             */
-            zpTmp_ = zpOldDpResHash_[
+        /*
+         * 若 HashMap 顶层为空，直接指向链表中对应的位置
+         */
+        if (NULL == zpTmp_) {
+            zpRepo_->p_dpResHash_[
                 zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ
-            ];
+            ] = & zpRepo_->p_dpResList_[i];
+        } else {
+            while (NULL != zpTmp_->p_next) {
+                zpTmp_ = zpTmp_->p_next;
+            }
 
-            while (NULL != zpTmp_) {
-                /*
-                 * 若目标机 IPaddr 已存在
-                 * 且初始化结果是成功的
-                 * 则跳过远程初始化环节
-                 */
-                if ( zIPVEC_CMP(zpTmp_->clientAddr,
-                            zpRepo_->p_dpResList_[i].clientAddr)
-                        && zCHECK_BIT(zpTmp_->resState, 4)) {
+            zpTmp_->p_next = & zpRepo_->p_dpResList_[i];
+        }
 
+        /*
+         * 基于旧的 HashMap 检测是否是新加入的目标机
+         */
+        zpTmp_ = zpOldDpResHash_[
+            zpRepo_->p_dpResList_[i].clientAddr[0]
+                % zDP_HASH_SIZ
+        ];
+
+        while (NULL != zpTmp_) {
+            /*
+             * 若目标机 IPaddr 已存在
+             * 且初始化结果是成功的
+             * 则跳过远程初始化环节
+             */
+            if (zIPVEC_CMP(zpTmp_->clientAddr, zpRepo_->p_dpResList_[i].clientAddr)
+                    && zCHECK_BIT(zpTmp_->resState, 4)) {
+
+                if (zIsSameSig) {
                     /* 复制上一次的全部状态位 */
                     zpRepo_->p_dpResList_[i].resState = zpTmp_->resState;
 
@@ -1484,120 +1479,20 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     zpRepo_->p_dpCcur_[i].startMark = -1;
 
                     goto zSkipMark;
-                }
-
-                zpTmp_ = zpTmp_->p_next;
-            }
-
-            /*
-             * 执行布署
-             */
-            zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
-zSkipMark:;
-        }
-    } else {
-        for (_i i = 0; i < zpRepo_->totalHost; i++) {
-            /*
-             * 检测是否存在重复IP
-             */
-            if (NULL != zpOldDpResHash_[zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ]
-                    && (0 != zpRepo_->p_dpResList_[i].clientAddr[0]
-                        || 0 != zpRepo_->p_dpResList_[i].clientAddr[1])) {
-
-                /* 总任务计数递减 */
-                zpRepo_->dpTotalTask--;
-
-                zPRINT_ERR_EASY("same IP");
-                continue;
-            }
-
-            /*
-             * IPnum 链表赋值
-             * 并转换字符串格式的 IPaddr 为数组 _ull[2]
-             */
-            zpRepo_->p_dpResList_[i].p_hostAddr = zRegRes_.pp_rets[i];
-            if (0 != zCONVERT_IPSTR_TO_NUM(zRegRes_.pp_rets[i],
-                        zpRepo_->p_dpResList_[i].clientAddr)) {
-
-                /* 此种错误信息记录到哪里 ??? */
-                zPRINT_ERR_EASY("Invalid IP");
-                continue;
-            }
-
-            /*
-             * 所在空间是使用 calloc 分配的，此处不必再手动置零
-             */
-            // zpRepo_->p_dpResList_[i].resState = 0;  /* 成功状态 */
-            // zpRepo_->p_dpResList_[i].errState = 0;  /* 错误状态 */
-            // zpRepo_->p_dpResList_[i].p_next = NULL;
-
-            /*
-             * 生成工作线程参数
-             */
-
-            /* 是否需要初始化 */
-            zpRepo_->p_dpCcur_[i].needInit = 'Y';
-
-            /* 此项用作每次布署动的唯一标识 */
-            zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
-
-            /*
-             * 工作线程返回的错误码及 tid，预置为 0
-             */
-            zpRepo_->p_dpCcur_[i].errNo = 0;
-            zpRepo_->p_dpCcur_[i].startMark = 0;
-
-            /*
-             * 更新 HashMap
-             */
-            zpTmp_ = zpRepo_->p_dpResHash_[
-                zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ
-            ];
-
-            /*
-             * 若 HashMap 顶层为空，直接指向链表中对应的位置
-             */
-            if (NULL == zpTmp_) {
-                zpRepo_->p_dpResHash_[
-                    zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ
-                ] = & zpRepo_->p_dpResList_[i];
-            } else {
-                while (NULL != zpTmp_->p_next) {
-                    zpTmp_ = zpTmp_->p_next;
-                }
-
-                zpTmp_->p_next = & zpRepo_->p_dpResList_[i];
-            }
-
-            /*
-             * 基于旧的 HashMap 检测是否是新加入的目标机
-             */
-            zpTmp_ = zpOldDpResHash_[
-                zpRepo_->p_dpResList_[i].clientAddr[0]
-                    % zDP_HASH_SIZ
-            ];
-
-            while (NULL != zpTmp_) {
-                /*
-                 * 若目标机 IPaddr 已存在
-                 * 且初始化结果是成功的
-                 * 则跳过远程初始化环节
-                 */
-                if (zIPVEC_CMP(zpTmp_->clientAddr, zpRepo_->p_dpResList_[i].clientAddr)
-                        && zCHECK_BIT(zpTmp_->resState, 4)) {
-
+                } else {
                     /* 是否执行目标机初始化命令 */
                     zpRepo_->p_dpCcur_[i].needInit = 'N';
 
                     break;
                 }
-
-                zpTmp_ = zpTmp_->p_next;
             }
 
-            /* 执行布署 */
-            zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
+            zpTmp_ = zpTmp_->p_next;
         }
+
+        /* 执行布署 */
+        zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
+zSkipMark:;
     }
 
     /* release dpHashLock */
