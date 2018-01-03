@@ -2311,11 +2311,11 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
      * 首先生成一张临时表，以提高效率
      */
     pthread_mutex_lock(& (zpRepo_->commLock));
-    _i zTbNo = ++zpRepo_->tempTableNo;
+    _ui zTbNo = ++zpRepo_->tempTableNo;
     pthread_mutex_unlock(& (zpRepo_->commLock));
 
     sprintf(zSQLBuf,
-            "CREATE TABLE tmp_%d_%d as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
+            "CREATE TABLE tmp_%d_%u as SELECT host_ip,host_res,host_err,host_timespent,time_stamp FROM dp_log "
             "WHERE repo_id = %d AND time_stamp > %ld",
             zpRepo_->id, zTbNo,
             zpRepo_->id, time(NULL) - 3600 * 24 * 30);
@@ -2326,7 +2326,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
          * 删除可能存在的重名表
          */
         char zTmpBuf[64];
-        snprintf(zTmpBuf, 64, "DROP TABLE tmp_%d_%d", zpRepo_->id, zTbNo);
+        snprintf(zTmpBuf, 64, "DROP TABLE tmp_%d_%u", zpRepo_->id, zTbNo);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zTmpBuf, zFalse))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             free(zpStageBuf[0]);
@@ -2348,7 +2348,7 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
     }
 
     /* 目标机总台次 */
-    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp%u", zTbNo);
+    sprintf(zSQLBuf, "SELECT count(host_ip) FROM tmp_%d_%u", zpRepo_->id, zTbNo);
     zSQL_EXEC();
 
     _f zTotalTimes = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
@@ -2356,9 +2356,9 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
 
     /* 布署成功的总台次 */
     sprintf(zSQLBuf,
-            "SELECT count(host_ip) FROM tmp%u "
+            "SELECT count(host_ip) FROM tmp_%d_%u "
             "WHERE host_res[4] = '1'",
-            zTbNo);
+            zpRepo_->id, zTbNo);
     zSQL_EXEC();
 
     _f zSuccessTimes = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
@@ -2366,9 +2366,9 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
 
     /* 所有布署成功台次的耗时之和 */
     sprintf(zSQLBuf,
-            "SELECT sum(host_timespent) FROM tmp%u "
+            "SELECT sum(host_timespent) FROM tmp_%d_%u "
             "WHERE host_res[4] = '1'",
-            zTbNo);
+            zpRepo_->id, zTbNo);
     zSQL_EXEC();
 
     _f zSuccessTimeSpentAll = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
@@ -2391,7 +2391,8 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
             "sum(to_number(host_err[10], '9')),"
             "sum(to_number(host_err[11], '9')),"
             "sum(to_number(host_err[12], '9')) "
-            "FROM tmp%u", zTbNo);
+            "FROM tmp_%d_%u",
+            zpRepo_->id, zTbNo);
     zSQL_EXEC();
 
     _c zErrCnt[zERR_CLASS_NUM];
@@ -2433,9 +2434,9 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
         zGlobTimeSpent = time(NULL) - zpRepo_->dpBaseTimeStamp;
     } else {
         sprintf(zSQLBuf,
-                "SELECT max(host_timespent) FROM tmp%u "
+                "SELECT max(host_timespent) FROM tmp_%d_%u "
                 "WHERE time_stamp = %ld",
-                zTbNo,
+                zpRepo_->id, zTbNo,
                 zpRepo_->dpBaseTimeStamp);
         zSQL_EXEC();
 
