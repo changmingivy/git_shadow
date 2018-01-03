@@ -191,7 +191,7 @@ zserv_vec_init(void) {
      */
     zRun_.p_sysInfo_->ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
     zRun_.p_sysInfo_->ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
-    zRun_.p_sysInfo_->ops_tcp[2] = zDpOps_.sys_update;  /* 系统文件升级接口：下一次布署时需要重新初始化所有目标机 */
+    zRun_.p_sysInfo_->ops_tcp[2] = NULL;
     zRun_.p_sysInfo_->ops_tcp[3] = zDpOps_.repo_update;  /* 源库URL或分支更改 */
     zRun_.p_sysInfo_->ops_tcp[4] = NULL;  /* 删除项目接口预留 */
     zRun_.p_sysInfo_->ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */

@@ -1158,7 +1158,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     // zCHECK_PTHREAD_FUNC_EXIT(pthread_rwlockattr_destroy(& zpRepo_->rwLockAttr));
 
     /* 升级锁：系统本身升级时，需要排斥IP增量更新动作 */
-    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zpRepo_->sysUpdateLock, NULL) );
+    zCHECK_PTHREAD_FUNC_EXIT( pthread_rwlock_init(& zpRepo_->dpHashLock, NULL) );
 
     /* 内存池锁 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->memLock, NULL) );
@@ -1466,7 +1466,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 = zpPgRes_->tupleCnt;
             zpRepo_->resType = 0;
 
-            zDpRes__ *zpTmpDpRes_ = NULL;
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 /* 检测是否存在重复IP */
                 if (0 != zpRepo_->p_dpResList_[i].clientAddr[0]
@@ -1530,19 +1529,19 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 // zpRepo_->p_dpResList_[i].p_next = NULL;
 
                 /*
-                 * 更新HASH
-                 * 若顶层为空，直接指向数组中对应的位置
+                 * 启动时不再执行！以确保系统组件升级后，重启生效
+                 * 更新HASH，若顶层为空，直接指向数组中对应的位置
                  */
-                zpTmpDpRes_ = zpRepo_->p_dpResHash_[(zpRepo_->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ];
-                if (NULL == zpTmpDpRes_) {
-                    zpRepo_->p_dpResHash_[(zpRepo_->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ]
-                        = & zpRepo_->p_dpResList_[i];
-                } else {
-                    while (NULL != zpTmpDpRes_->p_next) {
-                        zpTmpDpRes_ = zpTmpDpRes_->p_next;
-                    }
-                    zpTmpDpRes_->p_next = & zpRepo_->p_dpResList_[i];
-                }
+                // zDpRes__ *zpTmpDpRes_ = zpRepo_->p_dpResHash_[(zpRepo_->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ];
+                // if (NULL == zpTmpDpRes_) {
+                //     zpRepo_->p_dpResHash_[(zpRepo_->p_dpResList_[i].clientAddr[0]) % zDP_HASH_SIZ]
+                //         = & zpRepo_->p_dpResList_[i];
+                // } else {
+                //     while (NULL != zpTmpDpRes_->p_next) {
+                //         zpTmpDpRes_ = zpTmpDpRes_->p_next;
+                //     }
+                //     zpTmpDpRes_->p_next = & zpRepo_->p_dpResList_[i];
+                // }
             }
         }
 

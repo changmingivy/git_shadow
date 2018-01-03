@@ -422,10 +422,9 @@ typedef struct __zRepo__ {
     char pad_7[128];
 
     /*
-     * 升级锁：系统本身升级时，
-     * 需要排斥 IP 增量更新动作
+     * IP 列表更新，不允许 state_confirm 同时运行
      */
-    pthread_rwlock_t sysUpdateLock;
+    pthread_rwlock_t dpHashLock;
 } zRepo__;
 
 

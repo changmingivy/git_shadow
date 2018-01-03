@@ -750,13 +750,13 @@ static void *
 zstate_confirm_inner_wrap(void *zp) {
     struct zInnerState__ *zpState_ = (struct zInnerState__ *) zp;
 
-    pthread_rwlock_rdlock(& zpRepo_->sysUpdateLock);
+    pthread_rwlock_rdlock(& zpRepo_->dpHashLock);
 
     /* 调用此函数时，必须加锁 */
     zstate_confirm_inner(zpState_->selfNodeIndex,
             zpRepo_->dpBaseTimeStamp, zpRepo_->dpingSig, zpState_->p_replyType, zpState_->errMsg);
 
-    pthread_rwlock_unlock(& zpRepo_->sysUpdateLock);
+    pthread_rwlock_unlock(& zpRepo_->dpHashLock);
 
     return NULL;
 }
@@ -1357,8 +1357,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
 
-    /* get sys_update_lock */
-    pthread_rwlock_rdlock(& zpRepo_->sysUpdateLock);
+    /* get dpHashLock */
+    pthread_rwlock_wrlock(& zpRepo_->dpHashLock);
 
     if (zIsSameSig) {
         for (_i i = 0; i < zpRepo_->totalHost; i++) {
@@ -1578,8 +1578,8 @@ zSkipMark:;
         }
     }
 
-    /* release sys_update_lock */
-    pthread_rwlock_unlock(& zpRepo_->sysUpdateLock);
+    /* release dpHashLock */
+    pthread_rwlock_unlock(& zpRepo_->dpHashLock);
 
     /* 释放旧的资源占用 */
     if (NULL != zpOldDpResList_) {
@@ -1782,7 +1782,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }
 
     /* 正文...遍历信息链 */
-    pthread_rwlock_rdlock(& zpRepo_->sysUpdateLock);
+    pthread_rwlock_rdlock(& zpRepo_->dpHashLock);
 
     for (zpTmp_ = zpRepo_->p_dpResHash_[zHostId[0] % zDP_HASH_SIZ];
             zpTmp_ != NULL;
@@ -1797,7 +1797,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         }
     }
 
-    pthread_rwlock_unlock(& zpRepo_->sysUpdateLock);
+    pthread_rwlock_unlock(& zpRepo_->dpHashLock);
 
     if (-1 == zIndex) {
         zPRINT_ERR_EASY("");
@@ -2529,28 +2529,6 @@ zprint_dp_process(cJSON *zpJRoot __attribute__ ((__unused__)), _i zSd) {
 
     /* clean... */
     free(zpStageBuf[0]);
-
-    return 0;
-}
-
-
-/*
- * NO.2
- * IP_HASH 清零，保证下一次布署动作会初始化所有目标机
- */
-static _i
-zsys_update(cJSON *zpJRoot __attribute__ ((__unused__)),
-        _i zSd __attribute__ ((__unused__))) {
-    pthread_rwlock_wrlock(& zpRepo_->sysUpdateLock);
-
-    for (_i i = 0; i < zDP_HASH_SIZ; i++) {
-        zpRepo_->p_dpResHash_[i] = NULL;
-    }
-
-    /* 使用上述的循环方式赋值，因为并不是所有平台上的 NULL 均被声明为 (void *)0 */
-    // memset(zRun_.p_repoVec[i]->p_dpResHash_, 0, zDP_HASH_SIZ * sizeof(void *));
-
-    pthread_rwlock_unlock(& zpRepo_->sysUpdateLock);
 
     return 0;
 }
