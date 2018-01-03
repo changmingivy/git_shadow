@@ -763,14 +763,19 @@ zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
     /*
+     * 必须在设置线程属性之前执行，
+     * 否则会存在非原子性操作之间的时间差问题
+     */
+    zpDpCcur_->tid = pthread_self();
+    zpDpCcur_->startMark = 1;
+
+    /*
      * 布署动作的线程可能需要中止
      * cancel 属性设置为立即退出
      */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
 
-    zpDpCcur_->tid = pthread_self();
-    zpDpCcur_->startMark = 1;
     // zpDpCcur_->errNo = 0;
 
     char zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
