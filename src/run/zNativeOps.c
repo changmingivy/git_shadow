@@ -1414,8 +1414,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
          * dpingSig
          */
         sprintf(zCommonBuf,
-                "SELECT time_stamp FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s' LIMIT 1",
+                "SELECT max(time_stamp) FROM dp_log "
+                "WHERE repo_id = %d AND rev_sig = '%s'",
                 zRepoId,
                 zpRepo_->dpingSig);
 
