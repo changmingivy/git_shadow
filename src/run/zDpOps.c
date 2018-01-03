@@ -1970,7 +1970,7 @@ zreq_file(cJSON *zpJRoot, _i zSd) {
     zpJ = cJSON_V(zpJRoot, "path");
     if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
         zPRINT_ERR_EASY("");
-        return -1;
+        return -7;
     }
 
     if (0 > (zFd = open(zpJ->valuestring, O_RDONLY))) {
