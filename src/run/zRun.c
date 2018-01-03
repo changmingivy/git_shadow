@@ -452,7 +452,7 @@ zops_route_tcp_master(void *zp) {
 
     /*
      * 必须使用 MSG_PEEK 标志
-     * json repoId 字段必须是第一个字段：
+     * json repoId 字段建议是第一个字段，有助于提高效率：
      * 格式：{"repoId":1,"...":...}
      */
     recv(zSd, zDataBuf, zBYTES(16), MSG_PEEK|MSG_NOSIGNAL);
@@ -462,20 +462,18 @@ zops_route_tcp_master(void *zp) {
      * 项目 ID 范围：1 - (zRun_.p_sysInfo_->globRepoNumLimit - 1)
      * 不允许使用 0
      */
-    zRepoId = strtol(zDataBuf + sizeof("{\"repoId\":") - 1, NULL, 10);
-    if (0 != strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
-        zNetUtils_.send(zSd,
-                "{\"errNo\":-7,\"content\":\"json parse err\"}",
-                sizeof("{\"errNo\":-7,\"content\":\"json parse err\"}") - 1);
-        goto zEndMark;
-    }
+    if (0 == strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
+        zRepoId = strtol(zDataBuf + sizeof("{\"repoId\":") - 1, NULL, 10);
 
-    if (0 >= zRepoId
-            || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
-        zNetUtils_.send(zSd,
-                "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
-                sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
-        goto zEndMark;
+        if (0 >= zRepoId
+                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+            zNetUtils_.send(zSd,
+                    "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
+                    sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
+            goto zEndMark;
+        }
+    } else {
+        goto zDirectServ;
     }
 
     /*
@@ -487,40 +485,66 @@ zops_route_tcp_master(void *zp) {
         zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoId], zSd, NULL, 0);
         goto zEndMark;
     } else {
+zDirectServ:;
         char zDataBuf[8192] = {'\0'};
         _i zDataLen = 0,
         zResNo = 0;
 
         cJSON *zpJRoot = NULL;
-        cJSON *zpOpsId = NULL;
+        cJSON *zpJ = NULL;
 
-        recv(zSd, zDataBuf, zBYTES(8192), MSG_NOSIGNAL);
+        recv(zSd, zDataBuf, zBYTES(8192), MSG_PEEK|MSG_NOSIGNAL);
 
         zpJRoot = cJSON_Parse(zDataBuf);
-        zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
 
-        if (cJSON_IsNumber(zpOpsId)) {
-            _i zOpsId = zpOpsId->valueint;
+        if (cJSON_IsNumber(zpJ)) {
+            _i zOpsId = zpJ->valueint;
 
             /*
-             * 若 opsId 指示的是新建项目，
-             * 则新建，否则返回项目不存在
+             * 首字段不是 repoId 的情况，在主进程直接解析
+             * 若 opsId 指示的是新建项目、ping-pang 或 请求转输文件，
+             * 则直接执行，否则进入常规流程
              */
-            if (1 == zOpsId) {
-                if (0 != (zResNo = zRun_.p_sysInfo_->ops_tcp[1](zpJRoot, zSd))) {
-                    zDataLen = snprintf(zDataBuf, 8192,
-                            "{\"errNo\":%d,\"content\":\"[opsId: 1] %s\"}",
-                            zResNo,
-                            zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
-                    zNetUtils_.send(zSd, zDataBuf, zDataLen);
-                }
-            } else {
-                zDataLen = snprintf(zDataBuf, 8192,
-                        "{\"errNo\":-2,\"content\":\"%s\"}",
-                        zRun_.p_sysInfo_->p_errVec[2]);
+            switch (zOpsId) {
+                case 0:
+                case 14:
+                case 1:
+                    if (0 > (zResNo = zRun_.p_sysInfo_->ops_tcp[zOpsId](zpJRoot, zSd))) {
+                        zDataLen = snprintf(zDataBuf, 8192,
+                                "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                                zResNo,
+                                zOpsId,
+                                zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
+                        zNetUtils_.send(zSd, zDataBuf, zDataLen);
+                    }
 
-                zNetUtils_.send(zSd, zDataBuf, zDataLen);
-            }
+                    break;
+                default:
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "repoId");
+                    if (cJSON_IsNumber(zpJ)) {
+                        zRepoId = zpJ->valueint;
+
+                        if (0 >= zRepoId
+                                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+                            zNetUtils_.send(zSd,
+                                    "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
+                                    sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
+                            break;
+                        } else {
+                            if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]) {
+                                zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoId], zSd, NULL, 0);
+                                break;
+                            }
+                        }
+                    }
+
+                    zDataLen = snprintf(zDataBuf, 8192,
+                            "{\"errNo\":-2,\"content\":\"%s\"}",
+                            zRun_.p_sysInfo_->p_errVec[2]);
+
+                    zNetUtils_.send(zSd, zDataBuf, zDataLen);
+            };
         } else {
             zDataLen = snprintf(zDataBuf, 8192,
                     "{\"errNo\":-7,\"content\":\"%s\"}",
@@ -607,14 +631,12 @@ zops_route_tcp(void *zp) {
             fprintf(stderr, "\n\033[31;01m[OrigMsg]:\033[00m %s\n", zpDataBuf);
         }
 
-        if (14 != zOpsId) {
-            zDataLen = snprintf(zpDataBuf, zDataBufSiz,
-                    "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
-                    zErrNo,
-                    zOpsId,
-                    zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
-            zNetUtils_.send(zSd, zpDataBuf, zDataLen);
-        }
+        zDataLen = snprintf(zpDataBuf, zDataBufSiz,
+                "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                zErrNo,
+                zOpsId,
+                zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
+        zNetUtils_.send(zSd, zpDataBuf, zDataLen);
     }
 
 zEndMark:
