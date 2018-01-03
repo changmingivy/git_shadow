@@ -716,8 +716,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
-            zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port,\
-            zpRepo_->id, zpRepo_->id);\
+            zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port);\
 } while(0)
 
 #define zDEL_SINGLE_QUOTATION(zpStr) {\
