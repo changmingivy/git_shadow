@@ -18,9 +18,6 @@ zContent="{\"repoId\":11,\"opsId\":9,\"dataType\":0}"
 # 实时进度查询
 # zContent="{\"repoId\":11,\"opsId\":15}"
 
-# 布署系统升级后，目标机组件更新
-# zContent="{\"opsId\":2}"
-
 # 更换源库 URL 或分支
 # zContent="{\"repoId\":11,\"opsId\":3,\"sourceURL\":\"https://githuhub.com/kt10/zgit_shadow.git\",\"sourceBranch\":\"master2\"}"
 
