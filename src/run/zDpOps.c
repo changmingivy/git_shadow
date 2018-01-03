@@ -686,7 +686,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             "kill `ps ax -o pid,ppid,cmd|grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
-            "printf '{\"opsId\":0}'>&5;"\
+            "printf '{\"repoId\":%d,\"opsId\":0}'>&5;"\
             "if [[ '!' != `cat<&5` ]];then exit 210;fi;"\
             "exec 5>&-;exec 5<&-;"\
             "git;if [[ 127 -eq $? ]];then exit 207;fi;"/* git 环境是否已安装 */\
@@ -717,7 +717,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
             zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port,\
-            zpRepo_->id, zpRepo_->id);\
+            zpRepo_->id, zpRepo_->id, zpRepo_->id);\
 } while(0)
 
 #define zDEL_SINGLE_QUOTATION(zpStr) {\

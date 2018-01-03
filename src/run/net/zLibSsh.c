@@ -195,18 +195,21 @@ zssh_exec(
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) {
         zwait_socket(zSd, zSession);
     }
+
     if(0 == zRet) {
         if (200 < (zErrNo = libssh2_channel_get_exit_status(zChannel))) {
             /* 自定义的 SHELL 错误码使用 201-255 范围 */
             zErrNo = -1 * (zErrNo - 200);
         } else if (0 < zErrNo) {
-            /* 未知错误/目标机系统生民的错误码 */
+            /* 未知错误/目标机系统生成的错误码 */
             zErrNo = -1;
         } else {
             //zErrNo = 0;
         }
 
         libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        zErrNo = -1;
     }
 
     if (NULL != zpExitSingal) {
