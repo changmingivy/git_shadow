@@ -52,7 +52,6 @@ static _i zudp_pang(void *zp, _i zSd,
         struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__)));
 
-static _i zsys_update(cJSON *zpJRoot, _i zSd);
 static _i zsource_info_update(cJSON *zpJRoot, _i zSd);
 
 /*
