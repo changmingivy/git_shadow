@@ -1342,6 +1342,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zDP_HASH_SIZ * sizeof(zDpRes__ *));
     zDpRes__ *zpOldDpResList_ = zpRepo_->p_dpResList_;
 
+    /* get dpHashLock */
+    pthread_rwlock_wrlock(& zpRepo_->dpHashLock);
+
     /*
      * 下次更新时要用到旧的 HASH 进行对比查询
      * 因此不能在项目内存池中分配
@@ -1374,9 +1377,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
-
-    /* get dpHashLock */
-    pthread_rwlock_wrlock(& zpRepo_->dpHashLock);
 
     /* 布署耗时基准与本次布署动作的 ID */
     zpRepo_->dpBaseTimeStamp = time(NULL);
