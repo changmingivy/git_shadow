@@ -2634,10 +2634,10 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         }////
 
         /*
-         * 取项目 commLock 锁
+         * 取项目 rwLock 锁
          * 用于暂停 code_sync 动作
          */
-        pthread_mutex_lock(& zpRepo_->commLock);
+        pthread_rwlock_wrlock(& zpRepo_->rwLock);
 
         /*
          * update...
@@ -2665,7 +2665,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
         zpRepo_->p_localRef =
             zpRepo_->p_codeSyncRefs + sizeof("+refs/heads/:") - 1 + zSourceBranchLen;
 
-        pthread_mutex_unlock(& zpRepo_->commLock);
+        pthread_rwlock_unlock(& zpRepo_->rwLock);
 
         zNetUtils_.send(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
     }

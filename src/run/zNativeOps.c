@@ -689,14 +689,14 @@ zcode_sync(_ui *zpCnter) {
         .dataType = zDATA_TYPE_COMMIT,
     };
 
-    pthread_mutex_lock(& zpRepo_->commLock);
+    pthread_rwlock_rdlock(& zpRepo_->rwLock);
 
     zErrNo = zLibGit_.remote_fetch(
                 zpRepo_->p_gitCommHandler, zpRepo_->p_codeSyncURL,
                 & zpRepo_->p_codeSyncRefs, 1,
                 NULL);
 
-    pthread_mutex_unlock(& zpRepo_->commLock);
+    pthread_rwlock_unlock(& zpRepo_->rwLock);
 
     if (0 > zErrNo) {
         (*zpCnter)++;
