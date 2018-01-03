@@ -58,14 +58,11 @@ zRecvContent=
 # 'SN': 阶段性成功上报
 # 'EN': 错误信息上报
 zTcpReply() {
-    # 目标机自请布署的场景，其 zTimeStamp 会被置为 -1，不会回复任何消息
-    if [[ 0 -lt ${zTimeStamp} ]]; then
-        exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-        printf "{\"opsId\":${1},\"repoId\":${zRepoId},\"hostAddr\":\"${zSelfIpStrAddr}\",\"revSig\":\"${2}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${3}\",\"content\":\"${4}\"}">&4
-        zRecvContent="`cat<&4`"  # bash tcp fd: 4
-        exec 4<&-
-        exec 4>&-
-    fi
+    exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
+    printf "{\"opsId\":${1},\"repoId\":${zRepoId},\"hostAddr\":\"${zSelfIpStrAddr}\",\"revSig\":\"${2}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${3}\",\"content\":\"${4}\"}">&4
+    zRecvContent="`cat<&4`"  # bash tcp fd: 4
+    exec 4<&-
+    exec 4>&-
 }
 
 # 任何一环节失败，将调用此函数处理错误并回撤至原先的版本

@@ -1378,6 +1378,10 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* get dpHashLock */
     pthread_rwlock_wrlock(& zpRepo_->dpHashLock);
 
+    /* 布署耗时基准与本次布署动作的 ID */
+    zpRepo_->dpBaseTimeStamp = time(NULL);
+    zpRepo_->dpID = zpRepo_->dpBaseTimeStamp;
+
     if (zIsSameSig) {
         for (_i i = 0; i < zpRepo_->totalHost; i++) {
             /*
@@ -1492,9 +1496,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 zSkipMark:;
         }
     } else {
-        /* 布署耗时基准：版本号与最新的已布署版本不同时才更新 */
-        zpRepo_->dpBaseTimeStamp = time(NULL);
-
         for (_i i = 0; i < zpRepo_->totalHost; i++) {
             /*
              * 检测是否存在重复IP
