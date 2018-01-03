@@ -774,9 +774,6 @@ zdp_ccur(void *zp) {
     zpDpCcur_->startMark = 1;
     // zpDpCcur_->errNo = 0;
 
-    _i zErrNo = 0;
-    char zErrBuf[256] = {'\0'};
-
     char zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
     char zRemoteRepoAddrBuf[64 + zpRepo_->pathLen];
 
@@ -785,6 +782,30 @@ zdp_ccur(void *zp) {
              zGitRefsBuf[0],
              zGitRefsBuf[1]
          };
+
+    _i zErrNo = 0;
+    char zErrBuf[256];
+
+    /* 直接借用 zErrBuf */
+    snprintf(zErrBuf, 256,
+        "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
+        "VALUES (%d,%ld,'%s','%s')",
+        zpRepo_->id,
+        zpRepo_->dpBaseTimeStamp,
+        zpRepo_->dpingSig,
+        zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr);
+
+    /* DB 连接池？ */
+    if (0 > (zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zErrBuf, NULL))) {
+            zpDpCcur_->errNo = zErrNo;
+            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
+
+            zDEL_SINGLE_QUOTATION(zErrBuf);
+            zSTATE_CONFIRM("E1");
+            goto zEndMark;
+    }
+
+    zErrBuf[0] = '\0';
 
     /* 判断是否需要执行目标机初始化环节 */
     if ('Y' == zpDpCcur_->needInit) {
@@ -1513,6 +1534,9 @@ zSkipMark:;
             /*
              * 生成工作线程参数
              */
+
+            /* 是否需要初始化 */
+            zpRepo_->p_dpCcur_[i].needInit = 'Y';
 
             /* 此项用作每次布署动的唯一标识 */
             zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
