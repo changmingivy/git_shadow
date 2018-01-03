@@ -1447,9 +1447,10 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],host_err[12],"
                 "host_detail "
                 "FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s'",
+                "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp >= %ld",
                 zRepoId,
-                zpRepo_->dpingSig);
+                zpRepo_->dpingSig,
+                zpRepo_->dpBaseTimeStamp);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
             zERR_CLEAN_AND_EXIT(-91);
