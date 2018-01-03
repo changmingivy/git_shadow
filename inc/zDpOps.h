@@ -55,8 +55,6 @@ struct zDpOps__ {
     _i (* tcp_pang) (cJSON *, _i);
     _i (* udp_pang) (void *, _i, struct sockaddr *, socklen_t);
 
-    _i (* sys_update) (cJSON *, _i);
-
     _i (* repo_update) (cJSON *, _i);
 };
 

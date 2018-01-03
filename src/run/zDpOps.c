@@ -77,7 +77,6 @@ struct zDpOps__ zDpOps_ = {
     .tcp_pang = ztcp_pang,
     .udp_pang = zudp_pang,
 
-    .sys_update = zsys_update,
     .repo_update = zsource_info_update,
 };
 
