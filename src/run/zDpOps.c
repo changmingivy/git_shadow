@@ -716,16 +716,10 @@ zssh_exec_simple(const char *zpSSHUserName,
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
-\
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/____req-deploy.sh\\\"}\" \"${HOME}/.____req-deploy.sh\";"\
-            "if [[ 0 -ne $? ]];then exit 212;fi;"\
-\
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsId\\\":14,\\\"repoId\\\":%d,\\\"path\\\":\\\"${zServPath}/tools/zhost_self_deploy.sh\\\"}\" \"${zPath}_SHADOW/zhost_self_deploy.sh\";"\
-            "if [[ 0 -ne $? ]];then exit 212;fi;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
             zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port,\
-            zpRepo_->id, zpRepo_->id, zpRepo_->id, zpRepo_->id);\
+            zpRepo_->id, zpRepo_->id);\
 } while(0)
 
 #define zDEL_SINGLE_QUOTATION(zpStr) {\
