@@ -788,7 +788,7 @@ zdp_ccur(void *zp) {
 
     /* 直接借用 zErrBuf */
     snprintf(zErrBuf, 256,
-        "INSERT INTO dp_log (proj_id,time_stamp,rev_sig,host_ip) "
+        "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
         "VALUES (%d,%ld,'%s','%s')",
         zpRepo_->id,
         zpRepo_->dpBaseTimeStamp,
