@@ -1496,7 +1496,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     pthread_rwlock_unlock(& zpRepo_->dpHashLock);
 
     /* 去除末尾多余的逗号 */
-    zpSQLBuf[zSQLLen] = '\0';
+    zpSQLBuf[zSQLLen - 1] = '\0';
 
     {////
         char zRepoIdStr[24];
