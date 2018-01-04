@@ -1226,7 +1226,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     zpSQLBuf = zNativeOps_.alloc(
                 sizeof("INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ") - 1
-                + (sizeof("($1,$2,'$3',''),") - 1) * zRegRes_.cnt
+                + (sizeof("($1,$2,$3,''),") - 1) * zRegRes_.cnt
                 + zIpListStrLen);
     {////
         /*
@@ -1392,7 +1392,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
          */
         zSQLLen += sprintf(zpSQLBuf + zSQLLen,
-                "($1,$2,'$3','%s'),",
+                "($1,$2,$3,'%s'),",
                 zRegRes_.pp_rets[i]);
 
         /*
