@@ -415,11 +415,13 @@ typedef struct __zRepo__ {
     pthread_mutex_t memLock;
     char pad_5[128];
 
+    /* libssh 并发锁 */
+    pthread_mutex_t sshLock;
+    char pad_7[128];
+
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t commLock;
     char pad_6[128];
-    pthread_cond_t commCond;
-    char pad_7[128];
 
     /*
      * IP 列表更新，不允许 state_confirm 同时运行

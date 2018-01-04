@@ -801,7 +801,7 @@ zdp_ccur(void *zp) {
                         zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                         zpRepo_->sshPort,
                         zpRepo_->p_sysDpCmd,
-                        & zpRepo_->dpSyncLock,
+                        & zpRepo_->sshLock,
                         zErrBuf))) {
             zSTATE_CONFIRM("S1");
         } else {
@@ -928,7 +928,7 @@ zdp_ccur(void *zp) {
                     zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                     zpRepo_->sshPort,
                     zpRepo_->p_userDpCmd,
-                    & zpRepo_->dpSyncLock,
+                    & zpRepo_->sshLock,
                     NULL)) {
 
             zpDpCcur_->errNo = -14;
