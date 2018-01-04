@@ -1672,6 +1672,14 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             pthread_join(zpRepo_->p_dpCcur_[i].tid, NULL);
         }
 
+        /*
+         * 尝试拿锁，无论 trylock 的结果如何，都需要放锁
+         * 拿不到锁，说明工线程程还未放锁，就被中止，此时需要放锁
+         * 拿到锁，说明锁状态正常，释放刚刚拿到的锁
+         */
+        pthread_mutex_trylock(& zpRepo_->sshLock);
+        pthread_mutex_unlock(& zpRepo_->sshLock);
+
         zResNo = -127;
         zPRINT_ERR_EASY("Deploy interrupted");
     }
