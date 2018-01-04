@@ -280,6 +280,7 @@ zglob_data_config(zPgLogin__ *zpPgLogin_) {
     zCHECK_NULL_EXIT( zpPWD = getpwnam(zRun_.p_sysInfo_->p_loginName) );
     zRun_.p_sysInfo_->p_homePath = zpPWD->pw_dir;
     zRun_.p_sysInfo_->homePathLen = strlen(zRun_.p_sysInfo_->p_homePath);
+    zRun_.p_sysInfo_->servPathLen = strlen(zRun_.p_sysInfo_->p_servPath);
 
     zMEM_ALLOC(zRun_.p_sysInfo_->p_sshPubKeyPath, char, zRun_.p_sysInfo_->homePathLen + sizeof("/.ssh/id_rsa.pub"));
     sprintf(zRun_.p_sysInfo_->p_sshPubKeyPath, "%s/.ssh/id_rsa.pub", zRun_.p_sysInfo_->p_homePath);

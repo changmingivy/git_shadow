@@ -763,19 +763,14 @@ zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
 
     /*
-     * 必须在设置线程属性之前执行，
-     * 否则会存在非原子性操作之间的时间差问题
-     */
-    zpDpCcur_->tid = pthread_self();
-    zpDpCcur_->startMark = 1;
-
-    /*
      * 布署动作的线程可能需要中止
      * cancel 属性设置为立即退出
      */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
 
+    zpDpCcur_->tid = pthread_self();
+    zpDpCcur_->startMark = 1;
     // zpDpCcur_->errNo = 0;
 
     char zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
@@ -788,27 +783,7 @@ zdp_ccur(void *zp) {
          };
 
     _i zErrNo = 0;
-    char zErrBuf[256];
-
-    /* 直接借用 zErrBuf */
-    snprintf(zErrBuf, 256,
-        "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
-        "VALUES (%d,%ld,'%s','%s')",
-        zpRepo_->id,
-        zpRepo_->dpBaseTimeStamp,
-        zpRepo_->dpingSig,
-        zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr);
-
-    /* DB 连接池？ */
-    if (0 > (zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zErrBuf, NULL))) {
-            zpDpCcur_->errNo = zErrNo;
-            zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
-
-            zSTATE_CONFIRM("E1");
-            goto zEndMark;
-    }
-
-    zErrBuf[0] = '\0';
+    char zErrBuf[256] = {'\0'};
 
     /* 判断是否需要执行目标机初始化环节 */
     if ('Y' == zpDpCcur_->needInit) {
@@ -1060,9 +1035,17 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zVecWrap__ *zpTopVecWrap_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
 
+    char *zpCommonBuf = NULL;
+    char *zpSQLBuf = NULL;
+    size_t zSQLLen = 0;
+
+    zbool_t zIsSameSig = zFalse;
+    zDpRes__ *zpTmp_ = NULL;
+
     _i zCacheId = -1,
        zCommitId = -1,
-       zDataType = -1;
+       zDataType = -1,
+       i = 0;
 
     char *zpIpList = NULL;
     _i zIpListStrLen = 0,
@@ -1236,9 +1219,15 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 预算本函数用到的最大 BufSiz
      * 在所有同步错误检查通过之后分配
      */
-    char *zpCommonBuf =
-        zNativeOps_.alloc(2048 + 4 * zpRepo_->pathLen + 2 * zIpListStrLen);
+    zpCommonBuf = zNativeOps_.alloc(
+            2048
+            + zRun_.p_sysInfo_->servPathLen
+            + zpRepo_->pathLen);
 
+    zpSQLBuf = zNativeOps_.alloc(
+                sizeof("INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ")
+                + sizeof("($1,$2,'$3','')") * zRegRes_.cnt
+                + zIpListStrLen);
     {////
         /*
          * 更新最近一次布署尝试的版本号
@@ -1363,9 +1352,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * ==== 正式开始布署动作 ====
      * ==========================
      */
-    zbool_t zIsSameSig = zFalse;
-    zDpRes__ *zpTmp_ = NULL;
-
     if (0 == strcmp(zpRepo_->dpingSig,
                 zpRepo_->lastDpSig)) {
         zIsSameSig = zTrue;
@@ -1382,7 +1368,10 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpRepo_->dpBaseTimeStamp = time(NULL);
     zpRepo_->dpID = zpRepo_->dpBaseTimeStamp;
 
-    for (_i i = 0; i < zpRepo_->totalHost; i++) {
+    /* 拼接预插入布署记录的 SQL 命令 */
+    zSQLLen = sprintf(zpSQLBuf, "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ");
+
+    for (i = 0; i < zpRepo_->totalHost; i++) {
         /*
          * 检测是否存在重复IP
          */
@@ -1396,6 +1385,15 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             zPRINT_ERR_EASY("same IP");
             continue;
         }
+
+        /*
+         * 拼接预插入布署记录的 SQL 命令
+         * 不能在 dp_ccur 内执行插入，
+         * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
+         */
+        zSQLLen += sprintf(zpSQLBuf + zSQLLen,
+                "($1,$2,'$3','%s')",
+                zRegRes_.pp_rets[i]);
 
         /*
          * IPnum 链表赋值
@@ -1482,26 +1480,63 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
                     /* 务必置为 -1，表示不存在对应的工作线程 */
                     zpRepo_->p_dpCcur_[i].startMark = -1;
-
-                    goto zSkipMark;
                 } else {
                     /* 是否执行目标机初始化命令 */
                     zpRepo_->p_dpCcur_[i].needInit = 'N';
-
-                    break;
                 }
+
+                break;
             }
 
             zpTmp_ = zpTmp_->p_next;
         }
-
-        /* 执行布署 */
-        zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
-zSkipMark:;
     }
 
     /* release dpHashLock */
     pthread_rwlock_unlock(& zpRepo_->dpHashLock);
+
+    {////
+        char zRepoIdStr[24];
+        char zTimeStamp[24];
+        const char *zpParam[3] = {
+            zRepoIdStr,
+            zTimeStamp,
+            zpRepo_->dpingSig
+        };
+
+        sprintf(zRepoIdStr, "%d", zpRepo_->id);
+        sprintf(zTimeStamp, "%ld", zpRepo_->dpBaseTimeStamp);
+
+        /* 预插入本次布署记录条目 */
+        zpPgResHd_ = zPgSQL_.exec_with_param(
+                zpRepo_->p_pgConnHd_,
+                zpSQLBuf,
+                3, zpParam,
+                zFalse);
+
+        if (NULL == zpPgResHd_) {
+            /* 长连接可能意外中断，失败重连，再试一次 */
+            zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
+                            zpRepo_->p_pgConnHd_,
+                            zpSQLBuf,
+                            3, zpParam,
+                            zFalse))) {
+                zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
+
+                /* 数据库不可用，停止服务 ? */
+                zPRINT_ERR_EASY("==== FATAL ====");
+                exit(1);
+            }
+        }
+    }////
+
+    /* 执行布署 */
+    for (i = 0; i < zpRepo_->totalHost; i++) {
+        if (0 == zpRepo_->dpCcur_[i].startMark) {
+            zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
+        }
+    }
 
     /* 释放旧的资源占用 */
     if (NULL != zpOldDpResList_) {

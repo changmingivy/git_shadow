@@ -469,21 +469,17 @@ typedef struct __zSysInfo__ {
     /* 常量，其值恒等于 zGLOB_REPO_NUM_LIMIT */
     _s globRepoNumLimit;
 
-    /*
-     * 服务端属主用户的家路径长度
-     * 例如：strlen("/home/git")
-     */
-    _s homePathLen;
-
     /* 服务端网络信息 */
     zNetSrv__ netSrv_;
 
     /* 服务端主程序的启动根路径 */
     char *p_servPath;
+    _s servPathLen;
 
     /* 服务端所属用户的登陆名称与家路径 */
-    char *p_loginName;
+    _s homePathLen;
     char *p_homePath;
+    char *p_loginName;
 
     /* 服务端的公私钥存储位置 */
     char *p_sshPubKeyPath;
