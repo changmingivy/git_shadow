@@ -662,7 +662,7 @@ static _i
 zssh_exec_simple(const char *zpSSHUserName,
         char *zpHostAddr, char *zpSSHPort,
         char *zpCmd,
-        pthread_mutex_t *zpCcurLock, char *zpErrBufOUT) {
+        sem_t *zpCcurSem, char *zpErrBufOUT) {
 
     return zLibSsh_.exec(
             zpHostAddr,
@@ -675,7 +675,7 @@ zssh_exec_simple(const char *zpSSHUserName,
             zPubKeyAuth,
             NULL,
             0,
-            zpCcurLock,
+            zpCcurSem,
             zpErrBufOUT);
 }
 
@@ -801,7 +801,7 @@ zdp_ccur(void *zp) {
                         zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                         zpRepo_->sshPort,
                         zpRepo_->p_sysDpCmd,
-                        & zpRepo_->sshLock,
+                        & zpRepo_->sshSem,
                         zErrBuf))) {
             zSTATE_CONFIRM("S1");
         } else {
@@ -884,7 +884,7 @@ zdp_ccur(void *zp) {
                             zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                             zpRepo_->sshPort,
                             zpRepo_->p_sysDpCmd,
-                            & zpRepo_->dpSyncLock,
+                            & zpRepo_->sshSem,
                             zErrBuf))) {
 
                 /* if init-ops success, then try deploy once more... */
@@ -928,7 +928,7 @@ zdp_ccur(void *zp) {
                     zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                     zpRepo_->sshPort,
                     zpRepo_->p_userDpCmd,
-                    & zpRepo_->sshLock,
+                    & zpRepo_->sshSem,
                     NULL)) {
 
             zpDpCcur_->errNo = -14;
@@ -1652,7 +1652,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 若是被新布署请求打断
          * 则清理所有尚未退出的工作线程
          */
-        for (_i i = 0; i < zpRepo_->totalHost; i++) {
+        for (i = 0; i < zpRepo_->totalHost; i++) {
             while (0 == zpRepo_->p_dpCcur_[i].startMark) {
                 /*
                  * 等待工作线程的属性调整成为接受 cancel
@@ -1668,17 +1668,20 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             pthread_cancel(zpRepo_->p_dpCcur_[i].tid);
         }
 
-        for (_i i = 0; i < zpRepo_->totalHost; i++) {
+        for (i = 0; i < zpRepo_->totalHost; i++) {
             pthread_join(zpRepo_->p_dpCcur_[i].tid, NULL);
         }
 
         /*
-         * 尝试拿锁，无论 trylock 的结果如何，都需要放锁
-         * 拿不到锁，说明工线程程还未放锁，就被中止，此时需要放锁
-         * 拿到锁，说明锁状态正常，释放刚刚拿到的锁
+         * 如果信号量值为 0，
+         * 则说明工作线程尚未释放自身占用的信号量的情况下，
+         * 被中止，此处恢复其原始值 1
          */
-        pthread_mutex_trylock(& zpRepo_->sshLock);
-        pthread_mutex_unlock(& zpRepo_->sshLock);
+        i = 0;
+        sem_getvalue(& zpRepo_->sshSem, &i);
+        if (0 == i) {
+            sem_post(& zpRepo_->sshSem);
+        }
 
         zResNo = -127;
         zPRINT_ERR_EASY("Deploy interrupted");

@@ -415,8 +415,11 @@ typedef struct __zRepo__ {
     pthread_mutex_t memLock;
     char pad_5[128];
 
-    /* libssh 并发锁 */
-    pthread_mutex_t sshLock;
+    /*
+     * 值为 1 的 libssh2 并发信号量
+     * 不用 mutexlock，规避线程中止时的死锁问题
+     */
+    sem_t sshSem;
     char pad_7[128];
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */

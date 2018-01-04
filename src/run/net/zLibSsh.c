@@ -4,14 +4,13 @@
 #include <sys/select.h>
 #include <stdio.h>
 #include <time.h>
-#include <pthread.h>
 
 #define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
 
 static _i zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
-        char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
+        char *zpRemoteOutPutBuf, _ui zSiz, sem_t *zpCcurSem, char *zpErrBufOUT);
 
 struct zLibSsh__ zLibSsh_ = {
     .exec = zssh_exec
@@ -69,7 +68,7 @@ zssh_exec(
         char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz,
-        pthread_mutex_t *zpCcurLock,
+        sem_t *zpCcurSem/* 值为 1 的信号量，用于并发控制，不用互拆锁，规避死锁问题 */,
         char *zpErrBufOUT __attribute__ ((__unused__))/* size: 256 */
         ) {
 
@@ -78,20 +77,22 @@ zssh_exec(
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
 
-    pthread_mutex_lock(zpCcurLock);
+    sem_wait(zpCcurSem);
+
     if (0 != (zRet = libssh2_init(0))) {
-        pthread_mutex_unlock(zpCcurLock);
+        sem_post(zpCcurSem);
         zPRINT_ERR(0, NULL, "libssh2_init(0): failed");
         return -1;
     }
 
     if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
-        pthread_mutex_unlock(zpCcurLock);
+        sem_post(zpCcurSem);
         libssh2_exit();
         zPRINT_ERR(0, NULL, "libssh2_session_init(): failed");
         return -1;
     }
-    pthread_mutex_unlock(zpCcurLock);
+
+    sem_post(zpCcurSem);
 
     if (0 > (zSd = zNetUtils_.conn(
                     zpHostIpAddr, zpHostPort,
