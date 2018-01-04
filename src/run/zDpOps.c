@@ -1225,8 +1225,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             + zpRepo_->pathLen);
 
     zpSQLBuf = zNativeOps_.alloc(
-                sizeof("INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ")
-                + sizeof("($1,$2,'$3','')") * zRegRes_.cnt
+                sizeof("INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ") - 1
+                + (sizeof("($1,$2,'$3',''),") - 1) * zRegRes_.cnt
                 + zIpListStrLen);
     {////
         /*
@@ -1392,7 +1392,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
          */
         zSQLLen += sprintf(zpSQLBuf + zSQLLen,
-                "($1,$2,'$3','%s')",
+                "($1,$2,'$3','%s'),",
                 zRegRes_.pp_rets[i]);
 
         /*
@@ -1494,6 +1494,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* release dpHashLock */
     pthread_rwlock_unlock(& zpRepo_->dpHashLock);
+
+    /* 去除末尾多余的逗号 */
+    zpSQLBuf[zSQLLen] = '\0';
 
     {////
         char zRepoIdStr[24];
