@@ -30,6 +30,11 @@ struct zThreadPool__ {
      * 用于限制主进程及所有项目进程的总线程数
      */
     sem_t *p_threadPoolSem;
+
+    /*
+     * 存放无用的 tid
+     */
+    pthread_t *p_tid;
 };
 
 #endif  // #ifndef ZTHREADPOOL_H

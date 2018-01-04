@@ -10,14 +10,6 @@
 static _i zthread_pool_init(_i zSiz, _i zGlobSiz);
 static _i zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam);
 
-/******************************
- * ====  对外公开的接口  ==== *
- ******************************/
-struct zThreadPool__ zThreadPool_ = {
-    .init = zthread_pool_init,
-    .add = zadd_to_thread_pool
-};
-
 /* 线程池栈结构 */
 static _i zThreadPollSiz;
 static _i zOverflowMark;
@@ -28,6 +20,15 @@ static _i zStackHeader;
 static pthread_mutex_t zStackHeaderLock;
 
 static pthread_t zThreadPoolTidTrash;
+
+/******************************
+ * ====  对外公开的接口  ==== *
+ ******************************/
+struct zThreadPool__ zThreadPool_ = {
+    .init = zthread_pool_init,
+    .add = zadd_to_thread_pool,
+    .p_tid = & zThreadPoolTidTrash,
+};
 
 
 /*
@@ -48,9 +49,7 @@ zthread_canceled_cleanup(void *zp_) {
 
 static void *
 zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
-    /*
-     * detach 自身
-     */
+    /* detach 自身 */
     pthread_detach(pthread_self());
 
     /*
@@ -188,10 +187,8 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
     while (0 > zStackHeader) {
         pthread_mutex_unlock(&zStackHeaderLock);
 
-        /* git_shadow 在系统全局范围内启动的总线程数 */
-        if (0 != sem_wait(zThreadPool_.p_threadPoolSem)) {
-            return -1;
-        }
+        /* 不能超过 git_shadow 在系统全局范围内启动的总线程数 */
+        sem_wait(zThreadPool_.p_threadPoolSem);
 
         pthread_create(
                 & zThreadPoolTidTrash,

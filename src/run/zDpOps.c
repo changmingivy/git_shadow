@@ -758,6 +758,12 @@ zstate_confirm_inner_wrap(void *zp) {
     return NULL;
 }
 
+/* 释放信号量 */
+static void
+zthread_canceled_cleanup(void *zp_ __attribute__ ((__unused__))) {
+    sem_post(zThreadPool_.p_threadPoolSem);
+}
+
 static void *
 zdp_ccur(void *zp) {
     zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
@@ -768,6 +774,9 @@ zdp_ccur(void *zp) {
      */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
+
+    /* 线程退出时的资源清理动作 */
+    pthread_cleanup_push(zthread_canceled_cleanup, NULL);
 
     zpDpCcur_->tid = pthread_self();
     zpDpCcur_->startMark = 1;
@@ -928,12 +937,7 @@ zdp_ccur(void *zp) {
     }
 
 zEndMark:
-    /*
-     * 任务完成之后，
-     * 恢复线程池的属性为：PTHREAD_CANCEL_DISABLE
-     */
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, 0);
-
+    pthread_cleanup_pop(1);
     return NULL;
 }
 
@@ -1537,7 +1541,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 执行布署 */
     for (i = 0; i < zpRepo_->totalHost; i++) {
         if (0 == zpRepo_->dpCcur_[i].startMark) {
-            zThreadPool_.add(zdp_ccur, & zpRepo_->p_dpCcur_[i]);
+            /* 工作线程退出时会释放信号量 */
+            sem_wait(zThreadPool_.p_threadPoolSem);
+            pthread_create(zThreadPool_.p_tid, NULL, zdp_ccur, & zpRepo_->p_dpCcur_[i]);
         }
     }
 
@@ -1660,6 +1666,10 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
              * 不会受到影响
              */
             pthread_cancel(zpRepo_->p_dpCcur_[i].tid);
+        }
+
+        for (_i i = 0; i < zpRepo_->totalHost; i++) {
+            pthread_join(zpRepo_->p_dpCcur_[i].tid, NULL);
         }
 
         zResNo = -127;
