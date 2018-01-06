@@ -667,14 +667,6 @@ zudp_daemon(void *zpUNPath) {
     char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
 
     struct msghdr zMsg_ = {
-        //.msg_name = NULL,
-
-        /*
-         * 传入时设置为缓冲区容量大小，
-         * recvmsg 成功返回时，会写入实际接收到的数据据长度
-         */
-        .msg_namelen = sizeof(struct sockaddr),
-
         .msg_iov = &zVec_,
         .msg_iovlen = 1,
 
@@ -718,8 +710,19 @@ zudp_daemon(void *zpUNPath) {
     for (;; i++) {
         zReqId = i % 256;
 
-        zVec_.iov_base = zUdpInfo_[zReqId].data;
         zMsg_.msg_name = & zUdpInfo_[zReqId].peerAddr;
+
+        /*
+         * 传入时设置为缓冲区容量大小，
+         * recvmsg 成功返回时，会写入实际接收到的数据据长度
+         */
+        zMsg_.msg_namelen = sizeof(struct sockaddr);
+
+        /* 常规数据缓冲区 */
+        zVec_.iov_base = zUdpInfo_[zReqId].data;
+
+        /* 需要清空旧内容 */
+        memset(zCmsgBuf, 0, CMSG_SPACE(sizeof(_i)));
 
         /*
          * == 1，则表明是 zsend_fd() 发送过来的套接字 sd，常规数据只有 1 个字节
