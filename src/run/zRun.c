@@ -397,17 +397,17 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
 }////
 
     /*
-     * 只运行于主进程，在启动项目进和前运行
-     * 用于目标机监控数据收集
-     * DB 表分区管理，由各项目进程自行负责
-     */
-    zThreadPool_.add(zudp_daemon, NULL);
-
-    /*
      * 项目库初始化
      * 每个项目对应一个独立的进程
      */
     zNativeOps_.repo_init_all();
+
+    /*
+     * 只运行于主进程
+     * 用于目标机监控数据收集
+     * DB 表分区管理，由各项目进程自行负责
+     */
+    zThreadPool_.add(zudp_daemon, NULL);
 
     /*
      * 主进程退出时，清理所有项目进程
