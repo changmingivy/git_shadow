@@ -815,23 +815,3 @@ zgit_config_name_and_email(char *zpRepoPath) {
 //
 //     //git_pathspec_new(NULL, NULL);
 // }
-
-
-// typedef void * (* zalloc_cb) (void *, void *);
-//
-// typedef struct {
-//     void *p_meta;
-//     size_t siz;
-// } zAllocParam__;
-//
-// void *
-// zsystem_alloc_wrap(void *zpParam) {
-//     void *zpRes = NULL;
-//     zMEM_ALLOC(zpRes, char, ((zAllocParam__ *) zpParam)->siz);
-//     return zpRes;
-// }
-//
-// void *
-// zrepo_alloc_wrap(void *zpParam) {
-//     return zalloc_cache(* ((_i *) ((zAllocParam__ *) zpParam)->p_meta), ((zAllocParam__ *) zpParam)->siz);
-// }

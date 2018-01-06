@@ -1579,9 +1579,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     /*
      * 项目进程线程池初始化
-     * 常备线程数量：8
+     * 常备线程数量：4
      */
-    zThreadPool_.init(8, -1);
+    zThreadPool_.init(4, -1);
 
     /* 启动定时任务 */
     zThreadPool_.add(zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");

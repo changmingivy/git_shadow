@@ -208,7 +208,7 @@ zserv_vec_init(void) {
 
     /* UDP serv vec */
     zRun_.p_sysInfo_->ops_udp[0] = zDpOps_.udp_pang;
-    zRun_.p_sysInfo_->ops_udp[1] = NULL;
+    zRun_.p_sysInfo_->ops_udp[1] = zDpOps_.state_confirm_inner;
     zRun_.p_sysInfo_->ops_udp[2] = NULL;
     zRun_.p_sysInfo_->ops_udp[3] = NULL;
     zRun_.p_sysInfo_->ops_udp[4] = NULL;
@@ -361,7 +361,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     /*
      * !!! 必须在初始化项目库之前运行
      * 主进程常备线程数量：32
-     * 项目进程常备线程数量：8
+     * 项目进程常备线程数量：4
      * 系统全局可启动线程数上限 1024
      */
     zThreadPool_.init(32, 1024);
@@ -389,6 +389,14 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
         zRun_.p_sysInfo_->masterPeerSdVec[i] = -1;
     }
 #undef zUN_PATH_SIZ
+}////
+
+    /*
+     * 只运行于主进程，在启动项目进和前运行
+     * 用于目标机监控数据收集
+     * DB 表分区管理，由各项目进程自行负责
+     */
+    zThreadPool_.add(zudp_daemon, NULL);
 
     /*
      * 项目库初始化
@@ -403,17 +411,9 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      */
     atexit(zexit_clean);
 
-    /*
-     * 只运行于主进程
-     * 用于目标机监控数据收集
-     * DB 表分区管理，由各项目进程负责
-     */
-    zThreadPool_.add(zudp_daemon, NULL);
-
 #ifndef _Z_BSD
     zThreadPool_.add(zsys_monitor, NULL);
 #endif
-}////
 
     /*
      * 返回的 socket 已经做完 bind 和 listen
@@ -649,64 +649,102 @@ zEndMark:
     return NULL;
 }
 
-/*
- * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
- * 收到的内容会传向新线程，
- * 使用静态变量数组防止负载高时造成线程参数混乱
- */
 static void *
 zudp_daemon(void *zpUNPath) {
     _i zServSd = -1;
     _uc zReqId = 0;
 
+    /*
+     * 监控数据收集服务
+     * 单个消息长度不能超过 510
+     */
+    struct iovec zVec_ = {
+        .iov_len = zBYTES(510),
+    };
+
+    char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
+
+    struct msghdr zMsg_ = {
+        .msg_name = NULL,
+
+        /*
+         * 传入时设置为缓冲区容量大小，
+         * recvmsg 成功返回时，会写入实际接收到的数据据长度
+         */
+        .msg_namelen = sizeof(struct sockaddr),
+
+        .msg_iov = &zVec_,
+        .msg_iovlen = 1,
+
+        .msg_control = zCmsgBuf,
+        .msg_controllen = CMSG_SPACE(sizeof(_i)),
+
+        .msg_flags = 0,
+    };
+
+    static zUdpInfo__ zUdpInfo_[256];
+    size_t zLen = 0;
+    _ui i = 0;
+
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     if (NULL == zpUNPath) {
         zServSd = zNetUtils_.gen_serv_sd(
                 zRun_.p_sysInfo_->netSrv_.p_ipAddr,
                 zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
-
-        /*
-         * 监控数据收集服务
-         * 单个消息长度不能超过 510
-         */
-        static zUdpInfo__ zUdpInfo_[256];
-        _ui i = 0;
-
-        for (; i < 256; i++) {
-            zUdpInfo_[i].sd = zServSd;
-        }
-
-        for (;; i++) {
-            zReqId = i % 256;
-            recvfrom(zServSd, zUdpInfo_[zReqId].data, zBYTES(510), MSG_NOSIGNAL,
-                    & zUdpInfo_[zReqId].peerAddr,
-                    & zUdpInfo_[zReqId].peerAddrLen);
-            zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
-        }
     } else {
         zServSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
+    }
+
+    for (; i < 256; i++) {
+        zUdpInfo_[i].sd = zServSd;
+    }
+
+    /*
+     * 收到的内容会传向新线程，
+     * 使用静态变量数组防止负载高时造成线程参数混乱
+     */
+    for (;; i++) {
+        zReqId = i % 256;
+
+        zVec_.iov_base = zUdpInfo_[zReqId].data;
+        zMsg_.msg_name = & zUdpInfo_[zReqId].peerAddr;
 
         /*
-         * TCP 套接字进程间传递服务
+         * == 1，则表明是 zsend_fd() 发送过来的套接字 sd，常规数据只有 1 个字节
+         * > 1，则表示传递的是常规数据，而非 sd
+         * < 1，表示出错
          */
-        static _i zSd[256] = {0};
-        for (_ui i = 0;; i++) {
-            zReqId = i % 256;
-            if (0 > (zSd[zReqId] = zNetUtils_.recv_fd(zServSd))) {
-                zPRINT_ERR_EASY_SYS();
+        if (1 == (zLen = recvmsg(zServSd, &zMsg_, MSG_NOSIGNAL))) {
+            if (NULL == CMSG_FIRSTHDR(&zMsg_)) {
+                zPRINT_ERR_EASY("recv fd err");
+                continue;
             } else {
-                zThreadPool_.add(zops_route_tcp, & zSd[zReqId]);
+                /*
+                 * TCP 套接字进程间传递
+                 * 只发送了一个 cmsghdr 结构体 + fd
+                 * 其最后的 data[] 存放的即是接收到的 fd
+                 */
+                zUdpInfo_[zReqId].sentSd = * (_i *) CMSG_DATA(CMSG_FIRSTHDR(& zMsg_));
+                zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqId].sentSd);
             }
+        } else if (1 < zLen){
+            zUdpInfo_[zReqId].peerAddrLen = zMsg_.msg_namelen;
+            zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
+        } else {
+            zPRINT_ERR_EASY("");
+            continue;
         }
     }
 
     return NULL;
 }
+
 
 /*
  * udp 路由函数，用于服务器内部

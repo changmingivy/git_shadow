@@ -49,6 +49,7 @@ struct zDpOps__ {
 
     _i (* glob_res_confirm) (cJSON *, _i);
     _i (* state_confirm) (cJSON *, _i);
+    _i (* state_confirm_inner) (void *, struct sockaddr *, socklen_t);
 
     _i (* req_file) (cJSON *, _i);
 

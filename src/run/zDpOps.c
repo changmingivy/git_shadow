@@ -43,7 +43,8 @@ static _i zbatch_deploy(cJSON *zpJRoot, _i zSd);
 
 static _i zglob_res_confirm(cJSON *zpJRoot, _i zSd);
 static _i zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
-static _i zstate_confirm_inner(_i zSelfNodeId, time_t zTimeStamp, char *zpRevSig, char *zpReplyType, char *zpErrContent);
+static _i zstate_confirm_ops(_i zSelfNodeId, time_t zTimeStamp, char *zpRevSig, char *zpReplyType, char *zpErrContent);
+static _i zstate_confirm_inner(void *zp, _i zSd, struct sockaddr *zpPeerAddr, socklen_t zPeerAddrLen);
 
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
 
@@ -70,6 +71,7 @@ struct zDpOps__ zDpOps_ = {
 
     .glob_res_confirm = zglob_res_confirm,
     .state_confirm = zstate_confirm,
+    .state_confirm_inner = zstate_confirm_inner,
 
     .req_file = zreq_file,
 
@@ -729,59 +731,55 @@ zssh_exec_simple(const char *zpSSHUserName,
 }
 
 #define zSTATE_CONFIRM(zpReplyType) {\
-    struct zInnerState__ *zpInnerState_ = zNativeOps_.alloc(sizeof(struct zInnerState__));\
-    zpInnerState_->p_replyType = zpReplyType;\
+    char zData[1 + sizeof(struct zInnerState__)];\
+\
+    zData[0] = '1';\
+    struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);\
+\
+    strncpy(zpInnerState_->replyType, zpReplyType, 3);\
+    zpInnerState_->replyType[3] = '\0';\
+\
     zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
     strcpy(zpInnerState_->errMsg, zErrBuf);\
 \
-    zThreadPool_.add(zstate_confirm_inner_wrap, zpInnerState_);\
+    /* TODO UDP send */zThreadPool_.add(zstate_confirm_inner_wrap, zInnerState_);\
 }
 
 struct zInnerState__ {
     _i selfNodeIndex;
-    char *p_replyType;
+    char replyType[4];
     char errMsg[256];
 };
 
-static void *
-zstate_confirm_inner_wrap(void *zp) {
-    struct zInnerState__ *zpState_ = (struct zInnerState__ *) zp;
+static _i
+zstate_confirm_inner(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+    zUdpInfo__ zUdpInfo_;
+    memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
+
+    struct zInnerState__ *zpState_ = (struct zInnerState__ *) (zUdpInfo_.data + 1);
 
     pthread_rwlock_rdlock(& zpRepo_->dpHashLock);
 
     /* 调用此函数时，必须加锁 */
-    zstate_confirm_inner(zpState_->selfNodeIndex,
-            zpRepo_->dpBaseTimeStamp, zpRepo_->dpingSig, zpState_->p_replyType, zpState_->errMsg);
+    _i zErrNo = zstate_confirm_ops(zpState_->selfNodeIndex,
+            zpRepo_->dpBaseTimeStamp, zpRepo_->dpingSig, zpState_->replyType, zpState_->errMsg);
 
     pthread_rwlock_unlock(& zpRepo_->dpHashLock);
 
-    return NULL;
+    return zErrNo;
 }
 
-/* 释放信号量 */
+/* atexit() 释放信号量 */
+// static void
+// zthread_canceled_cleanup(void *zp_ __attribute__ ((__unused__))) {
+//     sem_post(zThreadPool_.p_threadPoolSem);
+// }
+
 static void
-zthread_canceled_cleanup(void *zp_ __attribute__ ((__unused__))) {
-    sem_post(zThreadPool_.p_threadPoolSem);
-}
-
-static void *
-zdp_ccur(void *zp) {
-    zDpCcur__ *zpDpCcur_ = (zDpCcur__ *) zp;
-
-    /*
-     * 布署动作的线程可能需要中止
-     * cancel 属性设置为立即退出
-     */
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
-
-    /* 线程退出时的资源清理动作 */
-    pthread_cleanup_push(zthread_canceled_cleanup, NULL);
-
-    zpDpCcur_->tid = pthread_self();
-    zpDpCcur_->startMark = 1;
-    // zpDpCcur_->errNo = 0;
-
+zdp_ccur(zDpCcur__ *zpDpCcur_) {
     char zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
     char zRemoteRepoAddrBuf[64 + zpRepo_->pathLen];
 
@@ -793,6 +791,8 @@ zdp_ccur(void *zp) {
 
     _i zErrNo = 0;
     char zErrBuf[256] = {'\0'};
+
+    // zpDpCcur_->errNo = 0;
 
     /* 判断是否需要执行目标机初始化环节 */
     if ('Y' == zpDpCcur_->needInit) {
@@ -937,8 +937,7 @@ zdp_ccur(void *zp) {
     }
 
 zEndMark:
-    pthread_cleanup_pop(1);
-    return NULL;
+    return;
 }
 
 
@@ -1771,7 +1770,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         if ( zIPVEC_CMP(zpTmp_->clientAddr, zHostId) ) {
             zIndex = zpTmp_->selfIndex;
 
-            zResNo = zstate_confirm_inner(
+            zResNo = zstate_confirm_ops(
                     zIndex, zTimeStamp, zpRevSig, zpReplyType, zpErrContent);
 
             break;
@@ -1806,7 +1805,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 }
 
 static _i
-zstate_confirm_inner(_i zSelfNodeId, time_t zTimeStamp, char *zpRevSig,
+zstate_confirm_ops(_i zSelfNodeId, time_t zTimeStamp, char *zpRevSig,
         char *zpReplyType, char *zpErrContent) {
 
     _i zResNo = 0,

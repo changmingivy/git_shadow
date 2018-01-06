@@ -121,16 +121,8 @@ typedef struct __zDpCcur__ {
      * */
     _c errNo;
 
-    /*
-     * 工作线程标记布署动作已经开始运行
-     * 初始化为 0，进入工作线程后，置为 1
-     */
-    _c startMark;
-
-    /*
-     * 工作线程写出的自身的 tid
-     */
-    pthread_t tid;
+    /* 工作进程写出的自身的 pid */
+    pid_t pid;
 } zDpCcur__;
 
 
@@ -207,6 +199,9 @@ typedef struct __zRepo__ {
      * 每次布署时由用户指定
      */
     char *p_aliasPath;
+
+    /* UNIX domain socket */
+    _i zSd;
 
     /*
      * 项目内存池，预分配 8M 空间
@@ -518,6 +513,9 @@ struct zRun__ {
  */
 typedef struct __zUdpInfo__ {
     char data[510];
+
+    /* 主进程传递过来的 sd */
+    _i sentSd;
 
     /* 己端 sd */
     _i sd;
