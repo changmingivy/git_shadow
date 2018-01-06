@@ -656,8 +656,6 @@ zEndMark:
 
 static void *
 zudp_daemon(void *zpUNPath) {
-    _uc zReqId = 0;
-
     /*
      * 监控数据收集服务
      * 单个消息长度不能超过 510
@@ -689,20 +687,28 @@ zudp_daemon(void *zpUNPath) {
     static zUdpInfo__ zUdpInfo_[256];
     size_t zLen = 0;
     _ui i = 0;
+    _uc zReqId = 0;
+    _i zSd = 0;
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     if (NULL == zpUNPath) {
-        zpRepo_->unSd = zNetUtils_.gen_serv_sd(
+        /* 主进程用于收集监控信息的 UDP 服务 sd */
+        zRun_.p_sysInfo_->udpSd = zNetUtils_.gen_serv_sd(
                 zRun_.p_sysInfo_->netSrv_.p_ipAddr,
                 zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
+
+        zSd = zRun_.p_sysInfo_->udpSd;
     } else {
+        /* 项目进程所用的内部 UNIX domain socket */
         zpRepo_->unSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
+
+        zSd = zpRepo_->unSd;
     }
 
     /*
@@ -720,7 +726,7 @@ zudp_daemon(void *zpUNPath) {
          * > 1，则表示传递的是常规数据，而非 sd
          * < 1，表示出错
          */
-        if (1 == (zLen = recvmsg(zpRepo_->unSd, &zMsg_, MSG_NOSIGNAL))) {
+        if (1 == (zLen = recvmsg(zSd, &zMsg_, MSG_NOSIGNAL))) {
             if (NULL == CMSG_FIRSTHDR(&zMsg_)) {
                 zPRINT_ERR_EASY("recv fd err");
                 continue;

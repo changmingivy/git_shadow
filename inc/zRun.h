@@ -457,6 +457,9 @@ typedef struct __zSysInfo__ {
      */
     pid_t repoPidVec[zGLOB_REPO_NUM_LIMIT];
 
+    /* 主进程用于收集监控信息的 UDP 服务 sd */
+    _i udpSd;
+
     /*
      * 主进程与每个项目进程，均事先 connect
      * 预置为 -1，以是否小于 0，判断项目进程是否已经就绪
