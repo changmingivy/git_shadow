@@ -377,10 +377,15 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
     for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
         /* 每个项目进程对应的 UNIX domain sd 路径 */
-        // zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
-        // snprintf(zRun_.p_sysInfo_->unAddrVec_[i].sun_path, zUN_PATH_SIZ,
-        //         ".s.%d",
-        //         i);
+        zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
+
+        zRun_.p_sysInfo_->unAddrLenVec[i] =
+            (size_t) (((struct sockaddr_un *) 0)->sun_path)
+            + snprintf(
+                    zRun_.p_sysInfo_->unAddrVec_[i].sun_path,
+                    zUN_PATH_SIZ,
+                    ".s.%d",
+                    i);
 
         /* 以主进程 pid 的值，预置项目进程 pid */
         zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
@@ -651,7 +656,6 @@ zEndMark:
 
 static void *
 zudp_daemon(void *zpUNPath) {
-    _i zServSd = -1;
     _uc zReqId = 0;
 
     /*
@@ -688,21 +692,17 @@ zudp_daemon(void *zpUNPath) {
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     if (NULL == zpUNPath) {
-        zServSd = zNetUtils_.gen_serv_sd(
+        zpRepo_->unSd = zNetUtils_.gen_serv_sd(
                 zRun_.p_sysInfo_->netSrv_.p_ipAddr,
                 zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
     } else {
-        zServSd = zNetUtils_.gen_serv_sd(
+        zpRepo_->unSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
-    }
-
-    for (; i < 256; i++) {
-        zUdpInfo_[i].sd = zServSd;
     }
 
     /*
@@ -720,7 +720,7 @@ zudp_daemon(void *zpUNPath) {
          * > 1，则表示传递的是常规数据，而非 sd
          * < 1，表示出错
          */
-        if (1 == (zLen = recvmsg(zServSd, &zMsg_, MSG_NOSIGNAL))) {
+        if (1 == (zLen = recvmsg(zpRepo_->unSd, &zMsg_, MSG_NOSIGNAL))) {
             if (NULL == CMSG_FIRSTHDR(&zMsg_)) {
                 zPRINT_ERR_EASY("recv fd err");
                 continue;

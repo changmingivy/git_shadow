@@ -77,22 +77,36 @@ zssh_exec(
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
 
-    sem_wait(zpCcurSem);
+    /* 多进程单线程环境，不需要信号量控制*/
+    if (NULL == zpCcurSem) {
+        if (0 != (zRet = libssh2_init(0))) {
+            zPRINT_ERR(0, NULL, "libssh2_init(0): failed");
+            return -1;
+        }
 
-    if (0 != (zRet = libssh2_init(0))) {
+        if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
+            libssh2_exit();
+            zPRINT_ERR(0, NULL, "libssh2_session_init(): failed");
+            return -1;
+        }
+    } else {
+        sem_wait(zpCcurSem);
+
+        if (0 != (zRet = libssh2_init(0))) {
+            sem_post(zpCcurSem);
+            zPRINT_ERR(0, NULL, "libssh2_init(0): failed");
+            return -1;
+        }
+
+        if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
+            sem_post(zpCcurSem);
+            libssh2_exit();
+            zPRINT_ERR(0, NULL, "libssh2_session_init(): failed");
+            return -1;
+        }
+
         sem_post(zpCcurSem);
-        zPRINT_ERR(0, NULL, "libssh2_init(0): failed");
-        return -1;
     }
-
-    if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
-        sem_post(zpCcurSem);
-        libssh2_exit();
-        zPRINT_ERR(0, NULL, "libssh2_session_init(): failed");
-        return -1;
-    }
-
-    sem_post(zpCcurSem);
 
     if (0 > (zSd = zNetUtils_.conn(
                     zpHostIpAddr, zpHostPort,

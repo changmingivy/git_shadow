@@ -201,7 +201,7 @@ typedef struct __zRepo__ {
     char *p_aliasPath;
 
     /* UNIX domain socket */
-    _i zSd;
+    _i unSd;
 
     /*
      * 项目内存池，预分配 8M 空间
@@ -414,8 +414,8 @@ typedef struct __zRepo__ {
      * 值为 1 的 libssh2 并发信号量
      * 不用 mutexlock，规避线程中止时的死锁问题
      */
-    sem_t sshSem;
-    char pad_7[128];
+    //sem_t sshSem;
+    //char pad_7[128];
 
     /* 供那些没有必要单独开辟独立锁的动作使用的通用条件变量与锁 */
     pthread_mutex_t commLock;
@@ -464,7 +464,8 @@ typedef struct __zSysInfo__ {
     _i masterPeerSdVec[zGLOB_REPO_NUM_LIMIT];
 
     /* 存放每个项目进程的 UNIX domain sd 路径：".s.1234"*/
-    // struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
+    struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
+    _s unAddrLenVec[zGLOB_REPO_NUM_LIMIT];
 
     /* 常量，其值恒等于 zGLOB_REPO_NUM_LIMIT */
     _s globRepoNumLimit;
@@ -516,9 +517,6 @@ typedef struct __zUdpInfo__ {
 
     /* 主进程传递过来的 sd */
     _i sentSd;
-
-    /* 己端 sd */
-    _i sd;
 
     /* 对端地址 */
     struct sockaddr peerAddr;

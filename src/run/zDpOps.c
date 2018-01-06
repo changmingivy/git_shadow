@@ -742,7 +742,8 @@ zssh_exec_simple(const char *zpSSHUserName,
     zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
     strcpy(zpInnerState_->errMsg, zErrBuf);\
 \
-    /* TODO UDP send */zThreadPool_.add(zstate_confirm_inner_wrap, zInnerState_);\
+    sendto(zpRepo_->unSd, zpInnerState_, sizeof(struct zInnerState__), MSG_NOSIGNAL,\
+            (struct sockaddr *) & zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id], zRun_.p_sysInfo_->unAddrLenVec[zpRepo_->id]);\
 }
 
 struct zInnerState__ {
@@ -772,12 +773,6 @@ zstate_confirm_inner(void *zp,
     return zErrNo;
 }
 
-/* atexit() 释放信号量 */
-// static void
-// zthread_canceled_cleanup(void *zp_ __attribute__ ((__unused__))) {
-//     sem_post(zThreadPool_.p_threadPoolSem);
-// }
-
 static void
 zdp_ccur(zDpCcur__ *zpDpCcur_) {
     char zHostAddrBuf[INET6_ADDRSTRLEN] = {'\0'};
@@ -801,7 +796,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                         zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                         zpRepo_->sshPort,
                         zpRepo_->p_sysDpCmd,
-                        & zpRepo_->sshSem,
+                        NULL,
                         zErrBuf))) {
             zSTATE_CONFIRM("S1");
         } else {
@@ -884,7 +879,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                             zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                             zpRepo_->sshPort,
                             zpRepo_->p_sysDpCmd,
-                            & zpRepo_->sshSem,
+                            NULL,
                             zErrBuf))) {
 
                 /* if init-ops success, then try deploy once more... */
@@ -928,7 +923,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     zpRepo_->p_dpResList_[zpDpCcur_->selfNodeIndex].p_hostAddr,
                     zpRepo_->sshPort,
                     zpRepo_->p_userDpCmd,
-                    & zpRepo_->sshSem,
+                    NULL,
                     NULL)) {
 
             zpDpCcur_->errNo = -14;
@@ -1031,6 +1026,12 @@ zEndMark:
         zForceDpMark = toupper(zpJ->valuestring[0]);\
     }\
 } while(0)
+
+/* atexit() 释放信号量 */
+static void
+zdp_exit_clean(void) {
+    sem_post(zThreadPool_.p_threadPoolSem);
+}
 
 static _i
 zbatch_deploy(cJSON *zpJRoot, _i zSd) {
@@ -1430,10 +1431,10 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
 
         /*
-         * 工作线程返回的错误码及 tid，预置为 0
+         * 工作线程返回的错误码及 pid，预置为 0
          */
         zpRepo_->p_dpCcur_[i].errNo = 0;
-        zpRepo_->p_dpCcur_[i].startMark = 0;
+        zpRepo_->p_dpCcur_[i].pid = 0;
 
         /*
          * 更新 HashMap
@@ -1481,8 +1482,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     /* 总任务数递减 */
                     zpRepo_->dpTotalTask--;
 
-                    /* 务必置为 -1，表示不存在对应的工作线程 */
-                    zpRepo_->p_dpCcur_[i].startMark = -1;
+                    /* 务必置为 -1，表示不存在对应的工作进程 */
+                    zpRepo_->p_dpCcur_[i].pid = -1;
                 } else {
                     /* 是否执行目标机初始化命令 */
                     zpRepo_->p_dpCcur_[i].needInit = 'N';
@@ -1539,10 +1540,19 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* 执行布署 */
     for (i = 0; i < zpRepo_->totalHost; i++) {
-        if (0 == zpRepo_->dpCcur_[i].startMark) {
-            /* 工作线程退出时会释放信号量 */
+        if (-1 != zpRepo_->dpCcur_[i].pid) {
+            /* 工作进程退出时会释放信号量 */
             sem_wait(zThreadPool_.p_threadPoolSem);
-            pthread_create(zThreadPool_.p_tid, NULL, zdp_ccur, & zpRepo_->p_dpCcur_[i]);
+
+            zCHECK_NEGATIVE_EXIT(
+                    zpRepo_->dpCcur_[i].pid = fork()
+                    );
+
+            if (0 == zpRepo_->dpCcur_[i].pid) {
+                atexit(zdp_exit_clean);
+                zdp_ccur(& zpRepo_->dpCcur_[i]);
+                exit(0);
+            }
         }
     }
 
@@ -1647,39 +1657,18 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             pthread_rwlock_unlock(&zpRepo_->rwLock);
         }
     } else {
-        /*
-         * 若是被新布署请求打断
-         * 则清理所有尚未退出的工作线程
-         */
+        /* 若是被新布署请求打断 */
         for (i = 0; i < zpRepo_->totalHost; i++) {
-            while (0 == zpRepo_->p_dpCcur_[i].startMark) {
-                /*
-                 * 等待工作线程的属性调整成为接受 cancel
-                 * 应对新布署请求到来的太快的场景
-                 */
+            /* 终止尚未完工的布署进程 */
+            if (0 < zpRepo_->p_dpCcur_[i].pid) {
+                kill(zpRepo_->p_dpCcur_[i].pid, SIGUSR1);
             }
-
-            /*
-             * 通知尚未完工的工作线程终止
-             * 完工的线程的属性，已改恢复为不接受 cancel，
-             * 不会受到影响
-             */
-            pthread_cancel(zpRepo_->p_dpCcur_[i].tid);
         }
 
         for (i = 0; i < zpRepo_->totalHost; i++) {
-            pthread_join(zpRepo_->p_dpCcur_[i].tid, NULL);
-        }
-
-        /*
-         * 如果信号量值为 0，
-         * 则说明工作线程尚未释放自身占用的信号量的情况下，
-         * 被中止，此处恢复其原始值 1
-         */
-        i = 0;
-        sem_getvalue(& zpRepo_->sshSem, &i);
-        if (0 == i) {
-            sem_post(& zpRepo_->sshSem);
+            if (0 < zpRepo_->p_dpCcur_[i].pid) {
+                waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
+            }
         }
 
         zResNo = -127;
