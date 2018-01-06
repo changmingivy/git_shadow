@@ -757,10 +757,8 @@ zstate_confirm_inner(void *zp,
         _i zSd __attribute__ ((__unused__)),
         struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-    zUdpInfo__ zUdpInfo_;
-    memcpy(&zUdpInfo_, zp, sizeof(zUdpInfo__));
 
-    struct zInnerState__ *zpState_ = (struct zInnerState__ *) (zUdpInfo_.data + 1);
+    struct zInnerState__ *zpState_ = (struct zInnerState__ *) zp;
 
     pthread_rwlock_rdlock(& zpRepo_->dpHashLock);
 

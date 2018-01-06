@@ -764,7 +764,7 @@ zops_route_udp (void *zp) {
             && NULL != zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48]
             && 0 == zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48](
                 zUdpInfo_.data + 1,
-                zUdpInfo_.sd,
+                zpRepo_->unSd,
                 & zUdpInfo_.peerAddr,
                 zUdpInfo_.peerAddrLen)) {
         return NULL;
