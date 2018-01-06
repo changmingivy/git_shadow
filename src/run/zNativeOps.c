@@ -60,18 +60,17 @@ static void *
 zalloc_cache(size_t zSiz) {
     pthread_mutex_lock(& zpRepo_->memLock);
 
-    /*
-     * 检测当前内存池片区剩余空间是否充裕
-     */
+    /* 检测当前内存池片区剩余空间是否充裕 */
     if ((zSiz + zpRepo_->memPoolOffSet) > zMEM_POOL_SIZ) {
-        /*
-         * 新增一片内存，加入内存池
-         */
-        void *zpCur = NULL;
-        if (MAP_FAILED == (zpCur = mmap(NULL, zMEM_POOL_SIZ, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))) {
-            zPRINT_ERR_EASY_SYS();
+        /* 请求的内存不能超过单片区最大容量 */
+        if (zSiz > (zMEM_POOL_SIZ - sizeof(void *))) {
+            zPRINT_ERR_EASY("");
             exit(1);
         }
+
+        /* 新增一片内存，加入内存池 */
+        void *zpCur = NULL;
+        zMEM_ALLOC(zpCur, char, zMEM_POOL_SIZ);
 
         /*
          * 首部指针位，指向内存池中的前一片区

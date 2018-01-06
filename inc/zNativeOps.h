@@ -29,7 +29,7 @@
     void **zppPrev = zpRepo_->p_memPool;\
     while(NULL != zppPrev[0]) {\
         zppPrev = zppPrev[0];\
-        munmap(zpRepo_->p_memPool, zMEM_POOL_SIZ);\
+        free(zpRepo_->p_memPool);\
         zpRepo_->p_memPool = zppPrev;\
     }\
     zpRepo_->memPoolOffSet = sizeof(void *);\
