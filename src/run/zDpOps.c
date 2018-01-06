@@ -742,7 +742,7 @@ zssh_exec_simple(const char *zpSSHUserName,
     zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
     strcpy(zpInnerState_->errMsg, zErrBuf);\
 \
-    sendto(zpRepo_->unSd, zpInnerState_, sizeof(struct zInnerState__), MSG_NOSIGNAL,\
+    sendto(zpRepo_->unSd, zData, 1 + sizeof(struct zInnerState__), MSG_NOSIGNAL,\
             (struct sockaddr *) & zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id], zRun_.p_sysInfo_->unAddrLenVec[zpRepo_->id]);\
 }
 

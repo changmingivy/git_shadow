@@ -667,7 +667,7 @@ zudp_daemon(void *zpUNPath) {
     char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
 
     struct msghdr zMsg_ = {
-        .msg_name = NULL,
+        //.msg_name = NULL,
 
         /*
          * 传入时设置为缓冲区容量大小，
