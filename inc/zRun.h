@@ -243,15 +243,8 @@ typedef struct __zRepo__ {
      */
     time_t cacheId;
 
-    /*
-     * 本项目全局 git handler
-     */
-    git_repository *p_gitCommHandler;
-
-    /*
-     * 每次布署动作都要新开启一个 handler
-     */
-    git_repository *p_gitDpHandler;
+    /* 本项目全局 git handler */
+    git_repository *p_gitHandler;
 
     /*
      * 同步远程代码时对接的源库URL与分支名称

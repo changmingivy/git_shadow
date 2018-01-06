@@ -856,7 +856,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
 
     /* 向目标机 push 布署内容 */
     if (0 == (zErrNo = zLibGit_.remote_push(
-                    zpRepo_->p_gitDpHandler,
+                    zpRepo_->p_gitHandler,
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2,
                     zErrBuf))) {
@@ -882,7 +882,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
 
                 /* if init-ops success, then try deploy once more... */
                 if (0 == (zErrNo = zLibGit_.remote_push(
-                                zpRepo_->p_gitDpHandler,
+                                zpRepo_->p_gitHandler,
                                 zRemoteRepoAddrBuf,
                                 zpGitRefs, 2,
                                 zErrBuf))) {
@@ -1175,13 +1175,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 每次尝试将 ____shadowXXXXXXXX 分支删除
      * 避免该分支体积过大，不必关心执行结果
      */
-    zLibGit_.branch_del(zpRepo_->p_gitCommHandler, "____shadowXXXXXXXX");
+    zLibGit_.branch_del(zpRepo_->p_gitHandler, "____shadowXXXXXXXX");
 
     /*
      * 执行一次空提交到 ____shadowXXXXXXXX 分支
      * 确保每次 push 都能触发 post-update 勾子
      */
-    if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitCommHandler,
+    if (0 != zLibGit_.add_and_commit(zpRepo_->p_gitHandler,
                 "refs/heads/____shadowXXXXXXXX", ".", "_")) {
         zResNo = -15;
         zPRINT_ERR_EASY("libgit2 err");
@@ -1202,18 +1202,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     if (0 == zRegRes_.cnt || zIpCnt != zRegRes_.cnt) {
         zPRINT_ERR_EASY("host IPs'cnt err");
         zResNo = -28;
-        goto zCleanMark;
-    }
-
-    /*
-     * 工作线程可能会被中途打断，
-     * 不能释放 libgit2 内部的锁，
-     * 因此不能使用全局公用 handler
-     */
-    if (NULL == (zpRepo_->p_gitDpHandler
-                = zLibGit_.env_init(zpRepo_->p_path))) {
-        zPRINT_ERR_EASY("libgit2 env_init err");
-        zResNo = -46;
         goto zCleanMark;
     }
 
@@ -1594,7 +1582,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
              * 创建一个新分支，用于保证回撤的绝对可行性
              */
             if (0 != zLibGit_.branch_add(
-                        zpRepo_->p_gitCommHandler,
+                        zpRepo_->p_gitHandler,
                         zpRepo_->lastDpSig,
                         zpRepo_->lastDpSig,
                         zTrue)) {
@@ -1663,18 +1651,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             }
         }
 
-        for (i = 0; i < zpRepo_->totalHost; i++) {
-            if (0 < zpRepo_->p_dpCcur_[i].pid) {
-                waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
-            }
-        }
-
         zResNo = -127;
         zPRINT_ERR_EASY("Deploy interrupted");
     }
 
-    /* 清理本次布署新开启的 handler */
-    zLibGit_.env_clean(zpRepo_->p_gitDpHandler);
+    /* 无论布署成功还是被中断，均需要 wait，以消除僵尸进程 */
+    for (i = 0; i < zpRepo_->totalHost; i++) {
+        if (0 < zpRepo_->p_dpCcur_[i].pid) {
+            waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
+        }
+    }
 
 zCleanMark:
     /* ==== 释放布署主锁 ==== */
@@ -2561,7 +2547,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
             sprintf(zRefs, "+refs/heads/%s:refs/heads/%sXXXXXXXX",
                     zpNewBranch, zpNewBranch);
             if (0 > zLibGit_.remote_fetch(
-                        zpRepo_->p_gitCommHandler,
+                        zpRepo_->p_gitHandler,
                         zpNewURL,
                         &zpRefs, 1,
                         zErrBuf)) {
@@ -2574,7 +2560,7 @@ zsource_info_update(cJSON *zpJRoot, _i zSd) {
              * 依然会返回 0，故需要此步进一步检测
              */
             zGitRevWalk__ *zpRevWalker = zLibGit_.generate_revwalker(
-                    zpRepo_->p_gitCommHandler,
+                    zpRepo_->p_gitHandler,
                     zRefs + sizeof("+refs/heads/:") -1 + zSourceBranchLen,
                     0);
             if (NULL == zpRevWalker) {

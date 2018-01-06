@@ -712,6 +712,7 @@ zudp_daemon(void *zpUNPath) {
         zMsg_.msg_name = & zUdpInfo_[zReqId].peerAddr;
 
         /*
+         * !!! 如下两项 !!!
          * 传入时设置为缓冲区容量大小，
          * recvmsg 成功返回时，会写入实际接收到的数据据长度
          */
