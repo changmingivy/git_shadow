@@ -395,13 +395,14 @@ zconvert_ip_bin_to_str(_ull *zpIpNumeric/* _ull[2] */, zip_t zIpType, char *zpRe
 static _i
 zsend_fd(const _i zUN, const _i zFd, void *zpPeerAddr, _i zAddrSiz) {
     /*
-     * 只发送一个字节的常规数据
+     * 法1:可以只发送一个字节的常规数据，与连接连开区分
      * 用于判断 sendmsg 的执行结果
+     * 法2:也可以发送空内容
      */
-    struct iovec zVec_ = {
-        .iov_base = "",
-        .iov_len = zBYTES(1),
-    };
+    //struct iovec zVec_ = {
+    //    .iov_base = "",
+    //    .iov_len = zBYTES(1),
+    //};
 
     /*
      * 存放将要被发送的 fd 的所有必要信息的空间
@@ -416,8 +417,10 @@ zsend_fd(const _i zUN, const _i zFd, void *zpPeerAddr, _i zAddrSiz) {
         .msg_name = zpPeerAddr,
         .msg_namelen = zAddrSiz,
 
-        .msg_iov = &zVec_,
-        .msg_iovlen = 1,
+        //.msg_iov = &zVec_,
+        //.msg_iovlen = 1,
+        .msg_iov = NULL,
+        .msg_iovlen = 0,
 
         .msg_control = zCmsgBuf,
         .msg_controllen = CMSG_SPACE(sizeof(_i)),
@@ -456,9 +459,10 @@ zsend_fd(const _i zUN, const _i zFd, void *zpPeerAddr, _i zAddrSiz) {
     * (_i *) CMSG_DATA(zpCmsg) = zFd;
 
     /*
-     * 成功发送了一个字节的数据，即说明执行成功
+     * 成功发送了 1/0 个字节的数据，即说明执行成功
      */
-    if (1 == sendmsg(zUN, &zMsg_, MSG_NOSIGNAL)) {
+    //if (1 == sendmsg(zUN, &zMsg_, MSG_NOSIGNAL)) {
+    if (0 == sendmsg(zUN, &zMsg_, MSG_NOSIGNAL)) {
         return 0;
     } else {
         return -1;

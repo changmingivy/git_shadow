@@ -671,7 +671,6 @@ zudp_daemon(void *zpUNPath) {
         .msg_iovlen = 1,
 
         .msg_control = zCmsgBuf,
-        .msg_controllen = CMSG_SPACE(sizeof(_i)),
 
         .msg_flags = 0,
     };
@@ -717,19 +716,17 @@ zudp_daemon(void *zpUNPath) {
          * recvmsg 成功返回时，会写入实际接收到的数据据长度
          */
         zMsg_.msg_namelen = sizeof(struct sockaddr);
+        zMsg_.msg_controllen = CMSG_SPACE(sizeof(_i)),
 
         /* 常规数据缓冲区 */
         zVec_.iov_base = zUdpInfo_[zReqId].data;
 
-        /* 需要清空旧内容 */
-        memset(zCmsgBuf, 0, CMSG_SPACE(sizeof(_i)));
-
         /*
-         * == 1，则表明是 zsend_fd() 发送过来的套接字 sd，常规数据只有 1 个字节
-         * > 1，则表示传递的是常规数据，而非 sd
-         * < 1，表示出错
+         * == 0，则表明 zsend_fd() 发送过来的是套接字 sd
+         * > 0，则表示传递的是常规数据，而非 sd
+         * < 0，表示出错
          */
-        if (1 == (zLen = recvmsg(zSd, &zMsg_, MSG_NOSIGNAL))) {
+        if (0 == (zLen = recvmsg(zSd, &zMsg_, MSG_NOSIGNAL))) {
             if (NULL == CMSG_FIRSTHDR(&zMsg_)) {
                 zPRINT_ERR_EASY("recv fd err");
                 continue;
@@ -742,7 +739,7 @@ zudp_daemon(void *zpUNPath) {
                 zUdpInfo_[zReqId].sentSd = * (_i *) CMSG_DATA(CMSG_FIRSTHDR(& zMsg_));
                 zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqId].sentSd);
             }
-        } else if (1 < zLen){
+        } else if (0 < zLen){
             zUdpInfo_[zReqId].peerAddrLen = zMsg_.msg_namelen;
             zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
         } else {
