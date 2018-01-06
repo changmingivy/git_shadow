@@ -1143,7 +1143,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->commLock, NULL) );
 
     /* libssh2 并发信号量，值为 1 */
-    zCHECK_PTHREAD_FUNC_EXIT( sem_init(& zpRepo_->sshSem, 0, 1) );
+    //zCHECK_PTHREAD_FUNC_EXIT( sem_init(& zpRepo_->sshSem, 0, 1) );
 
     /* 布署锁与布署等待锁 */
     zCHECK_PTHREAD_FUNC_EXIT( pthread_mutex_init(& zpRepo_->dpLock, NULL) );
