@@ -771,7 +771,7 @@ zstate_confirm_inner(void *zp,
     if (zpState_->dpID != zpRepo_->dpID) {
         pthread_rwlock_unlock(& zpRepo_->cacheLock);
         zErrNo = -101;
-        zPRINT_ERR_EASY("msg out-of-date");
+        zPRINT_ERR_EASY(zpState_->hostAddr);
     } else {
         /* 调用此函数时，必须加锁 */
         zErrNo = zstate_confirm_ops(zpState_->dpID, zpState_->selfNodeIndex, zpState_->hostAddr,
@@ -811,7 +811,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
             zSTATE_CONFIRM("S1");
         } else {
             zpDpCcur_->errNo = -23;
-            zPRINT_ERR_EASY("");
+            zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
             zSTATE_CONFIRM("E1");
             goto zEndMark;
@@ -1769,7 +1769,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         pthread_rwlock_unlock(& zpRepo_->cacheLock);
 
         zResNo = -101;
-        zPRINT_ERR_EASY("msg out-of-date");
+        zPRINT_ERR_EASY(zpHostAddr);
     } else {
         for (zpTmp_ = zpRepo_->p_dpResHash_[zHostID[0] % zDP_HASH_SIZ];
                 zpTmp_ != NULL;
@@ -1785,14 +1785,14 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
         }
 
         pthread_rwlock_unlock(& zpRepo_->cacheLock);
+
+        if (-1 == zIndex) {
+            zResNo = -103;
+            zPRINT_ERR_EASY(zpHostAddr);
+        }
     }
 
-    if (-1 == zIndex) {
-        zPRINT_ERR_EASY("");
-        return -103;
-    } else {
-        return zResNo;
-    }
+    return zResNo;
 }
 
 
@@ -1825,7 +1825,7 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
     zRetBit = strtol(zpReplyType + 1, NULL, 10);
     if (0 >= zRetBit || 24 < zRetBit) {
         zResNo = -1;
-        zPRINT_ERR_EASY("UNknown reply type");
+        zPRINT_ERR_EASY(zpHostAddr);
         goto zEndMark;
     }
 
@@ -1860,7 +1860,7 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
 
         /* 设计 SQL 连接池 ??? */
         if (0 > zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCmdBuf, NULL)) {
-            zPRINT_ERR_EASY("DB record update err");
+            zPRINT_ERR_EASY(zpHostAddr);
         }
 
         zResNo = -102;
@@ -1889,14 +1889,14 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
         }
 
         if (0 > zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCmdBuf, NULL)) {
-            zPRINT_ERR_EASY("DB record update err");
+            zPRINT_ERR_EASY(zpHostAddr);
         }
 
         zResNo = 0;
         goto zEndMark;
     } else {
         zResNo = -1;
-        zPRINT_ERR_EASY("UNdefined reply type");
+        zPRINT_ERR_EASY(zpHostAddr);
         goto zEndMark;
     }
 
