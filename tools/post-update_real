@@ -25,7 +25,7 @@ zPathOnHost=`dirname \`pwd\``
 zMasterAddr=`echo $1 | awk -F@ '{print $2}' | sed 's/_/:/g'`
 zMasterPort=`echo $1 | awk -F@ '{print $3}'`
 
-zRepoId=`echo $1 | awk -F@ '{print $4}'`
+zRepoID=`echo $1 | awk -F@ '{print $4}'`
 
 # 传输过程中IPv6 地址中的冒号以 '_' 进行了替换，此处需要还原
 zSelfIpStrAddr=`echo $1 | awk -F@ '{print $5}' | sed 's/_/:/g'`
@@ -44,11 +44,11 @@ zForceDpMark=`echo $1 | awk -F@ '{print $10}'`
 zRepoOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
 # 当次布署的活动分支，仅用于所有动作完成后，进行清理
-zServBranch="s@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
-zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
+zServBranch="s@${zMasterAddr}@${zMasterPort}@${zRepoID}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
+zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zRepoID}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
 
 # 临时保存错误信息的位置
-zErrLogPath="/tmp/.${zRepoId}_${zTimeStamp}_errlog"
+zErrLogPath="/tmp/.${zRepoID}_${zTimeStamp}_errlog"
 
 # 预置为空
 zOldMasterSig=
@@ -61,7 +61,7 @@ zRecvContent=
 # 'EN': 错误信息上报
 zTcpReply() {
     exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-    printf "{\"repoId\":${zRepoId},\"opsId\":${1},\"hostAddr\":\"${zSelfIpStrAddr}\",\"dpID\":\"${zDpID}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${2}\",\"content\":\"${3}\"}">&4
+    printf "{\"repoID\":${zRepoID},\"opsID\":${1},\"hostAddr\":\"${zSelfIpStrAddr}\",\"dpID\":\"${zDpID}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${2}\",\"content\":\"${3}\"}">&4
     zRecvContent="`cat<&4`"  # bash tcp fd: 4
     exec 4<&-
     exec 4>&-
@@ -92,7 +92,7 @@ zExitClean() {
 
     # 清理分支
     git branch -D ${zServBranch}
-    git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
+    git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoID}@${zSelfIpStrAddr}"
 
     # 退出之前还原权限
     chmod 0755 ${zPathOnHost}/.git/hooks/post-update
@@ -142,7 +142,7 @@ zOldMasterSig=`git log master -1 --format=%H`
 # 比正在进行的版本更新，kill 之，并清理其创建的分支
 # 比正在进行的版本更老，通常是主机自请布署触发的动作，其时间戳会被置为 -1，此时什么都不需要做
 # ----????---- 同一版本，返回错误，同时要检测父进程号[BUG: 筛选结果不准确]
-for x in `ps ax -o pid,ppid,cmd|fgrep "post-update"|fgrep "@${zRepoId}@"|fgrep -v "grep"|sed 's/[[:blank:]]/-/g'|grep -vE "(${$}|${zWrapPid})-"`
+for x in `ps ax -o pid,ppid,cmd|fgrep "post-update"|fgrep "@${zRepoID}@"|fgrep -v "grep"|sed 's/[[:blank:]]/-/g'|grep -vE "(${$}|${zWrapPid})-"`
 do
     zExistTimeStamp=`echo ${x}|awk -F@ '{print $6}'`
     if [[ ${zTimeStamp} -gt ${zExistTimeStamp} ]]; then
@@ -264,7 +264,7 @@ do
         fi
 
         git branch -D ${zServBranch}
-        git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
+        git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoID}@${zSelfIpStrAddr}"
         exit 255
     else
         # 继续等待
@@ -274,7 +274,7 @@ done
 
 # 删除已用完的分支
 git branch -D ${zServBranch}
-git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}"
+git branch -M ${zShadowBranch} "meta@${zMasterAddr}@${zMasterPort}@${zRepoID}@${zSelfIpStrAddr}"
 
 # 清理可能存在的旧版布署系统的遗留文件
 rm -rf ${zRepoOnLinePath}_SHADOW
