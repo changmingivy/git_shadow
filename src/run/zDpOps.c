@@ -684,7 +684,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGENERATE_SSH_CMD(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
-            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;"\
+            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;zMd5=%s"\
             "kill `ps ax -o pid,ppid,cmd|grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
@@ -710,8 +710,10 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             " };"\
 \
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
-            "if [[ 0 -ne $? || %s != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
+            "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then "\
+                "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
+                "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
+            "fi;"\
             "chmod 0755 ${zPath}/.git/hooks/post-update;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
@@ -730,11 +732,6 @@ zssh_exec_simple(const char *zpSSHUserName,
 }
 
 #define zSTATE_CONFIRM(zpReplyType) {\
-    char zData[1 + sizeof(struct zInnerState__)];\
-\
-    zData[0] = '1';\
-    struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);\
-\
     zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
     zpInnerState_->dpID = zpDpCcur_->dpID;\
 \
@@ -742,7 +739,6 @@ zssh_exec_simple(const char *zpSSHUserName,
     zpInnerState_->replyType[3] = '\0';\
 \
     strcpy(zpInnerState_->hostAddr, zpDpCcur_->p_hostAddr);\
-    strcpy(zpInnerState_->errMsg, zErrBuf);\
 \
     sendto(zpRepo_->unSd, zData, 1 + sizeof(struct zInnerState__), MSG_NOSIGNAL,\
             (struct sockaddr *) & zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id], zRun_.p_sysInfo_->unAddrLenVec[zpRepo_->id]);\
@@ -795,7 +791,12 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
          };
 
     _i zErrNo = 0;
-    char zErrBuf[256] = {'\0'};
+    char zErrClass[24] = {'\0'};
+
+    char zData[1 + sizeof(struct zInnerState__)];
+
+    zData[0] = '1';
+    struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);
 
     // zpDpCcur_->errNo = 0;
 
@@ -807,13 +808,14 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                         zpRepo_->sshPort,
                         zpRepo_->p_sysDpCmd,
                         NULL,
-                        zErrBuf))) {
+                        zErrClass))) {
             zSTATE_CONFIRM("S1");
         } else {
             zpDpCcur_->errNo = -23;
             zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            zSTATE_CONFIRM("E1");
+            sprintf(zErrClass, "E%d", zErrNo);
+            zSTATE_CONFIRM(zErrClass);
             goto zEndMark;
         }
     }
@@ -873,7 +875,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     zpRepo_->p_gitHandler,
                     zRemoteRepoAddrBuf,
                     zpGitRefs, 2,
-                    zErrBuf))) {
+                    zpInnerState_->errMsg))) {
         zSTATE_CONFIRM("S2");
         goto zEndMark;
     } else {
@@ -892,35 +894,38 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                             zpRepo_->sshPort,
                             zpRepo_->p_sysDpCmd,
                             NULL,
-                            zErrBuf))) {
+                            NULL))) {
 
                 /* if init-ops success, then try deploy once more... */
                 if (0 == (zErrNo = zLibGit_.remote_push(
                                 zpRepo_->p_gitHandler,
                                 zRemoteRepoAddrBuf,
                                 zpGitRefs, 2,
-                                zErrBuf))) {
+                                zpInnerState_->errMsg))) {
                     zSTATE_CONFIRM("S2");
                     goto zEndMark;
                 } else {
                     zpDpCcur_->errNo = -12;
-                    zPRINT_ERR_EASY("");
+                    zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                    zSTATE_CONFIRM("E2");
+                    sprintf(zErrClass, "E%d", zErrNo);
+                    zSTATE_CONFIRM(zErrClass);
                     goto zEndMark;
                 }
             } else {
                 zpDpCcur_->errNo = -23;
-                zPRINT_ERR_EASY("");
+                zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                zSTATE_CONFIRM("E2");
+                sprintf(zErrClass, "E%d", zErrNo);
+                zSTATE_CONFIRM(zErrClass);
                 goto zEndMark;
             }
         } else {
             zpDpCcur_->errNo = -12;
-            zPRINT_ERR_EASY("");
+            zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            zSTATE_CONFIRM("E2");
+            sprintf(zErrClass, "E%d", zErrNo);
+            zSTATE_CONFIRM(zErrClass);
             goto zEndMark;
         }
     }
