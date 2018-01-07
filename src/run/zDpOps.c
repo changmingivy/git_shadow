@@ -1885,7 +1885,7 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
             snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                     "UPDATE dp_log SET host_res[%d] = '1',host_timespent = %ld "
                     "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND dp_id = %d",
-                    zRetBit, time(NULL) - zpRepo_->dpBaseTimeStamp,
+                    zRetBit, 1 + time(NULL) - zpRepo_->dpBaseTimeStamp,
                     zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
         } else {
             snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
