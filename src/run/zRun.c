@@ -435,13 +435,13 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      * 使用数组防止负载高时造成线程参数混乱
      */
     static _i zSd[256] = {0};
-    _uc zReqId = 0;
+    _uc zReqID = 0;
     for (_ui i = 0;; i++) {
-        zReqId = i % 256;
-        if (-1 == (zSd[zReqId] = accept(zMajorSd, NULL, 0))) {
+        zReqID = i % 256;
+        if (-1 == (zSd[zReqID] = accept(zMajorSd, NULL, 0))) {
             zPRINT_ERR_EASY_SYS();
         } else {
-            zThreadPool_.add(zops_route_tcp_master, & zSd[zReqId]);
+            zThreadPool_.add(zops_route_tcp_master, & zSd[zReqID]);
         }
     }
 }
@@ -454,12 +454,12 @@ zops_route_tcp_master(void *zp) {
     _i zSd = * ((_i *) zp);
 
     char zDataBuf[16] = {'\0'};
-    _i zRepoId = 0;
+    _i zRepoID = 0;
 
     /*
      * 必须使用 MSG_PEEK 标志
-     * json repoId 字段建议是第一个字段，有助于提高效率：
-     * 格式：{"repoId":1,"...":...}
+     * json repoID 字段建议是第一个字段，有助于提高效率：
+     * 格式：{"repoID":1,"...":...}
      */
     recv(zSd, zDataBuf, zBYTES(16), MSG_PEEK|MSG_NOSIGNAL);
 
@@ -468,14 +468,14 @@ zops_route_tcp_master(void *zp) {
      * 项目 ID 范围：1 - (zRun_.p_sysInfo_->globRepoNumLimit - 1)
      * 不允许使用 0
      */
-    if (0 == strncmp("{\"repoId\":", zDataBuf, sizeof("{\"repoId\":") - 1)) {
-        zRepoId = strtol(zDataBuf + sizeof("{\"repoId\":") - 1, NULL, 10);
+    if (0 == strncmp("{\"repoID\":", zDataBuf, sizeof("{\"repoID\":") - 1)) {
+        zRepoID = strtol(zDataBuf + sizeof("{\"repoID\":") - 1, NULL, 10);
 
-        if (0 >= zRepoId
-                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+        if (0 >= zRepoID
+                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoID) {
             zNetUtils_.send(zSd,
-                    "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
-                    sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
+                    "{\"errNo\":-32,\"content\":\"repoID invalid (hint: 1 - 1023)\"}",
+                    sizeof("{\"errNo\":-32,\"content\":\"repoID invalid (hint: 1 - 1023)\"}") - 1);
             goto zEndMark;
         }
     } else {
@@ -487,8 +487,8 @@ zops_route_tcp_master(void *zp) {
      * 若项目存在，但未就绪，提示正在创建过程中
      * 若项目不存在，则收取完整的 json 信息
      */
-    if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]) {
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoId], zSd, NULL, 0);
+    if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]) {
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoID], zSd, NULL, 0);
         goto zEndMark;
     } else {
 zDirectServ:;
@@ -502,44 +502,44 @@ zDirectServ:;
         recv(zSd, zDataBuf, zBYTES(8192), MSG_PEEK|MSG_NOSIGNAL);
 
         zpJRoot = cJSON_Parse(zDataBuf);
-        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsID");
 
         if (cJSON_IsNumber(zpJ)) {
-            _i zOpsId = zpJ->valueint;
+            _i zOpsID = zpJ->valueint;
 
             /*
-             * 首字段不是 repoId 的情况，在主进程直接解析
-             * 若 opsId 指示的是新建项目、ping-pang 或 请求转输文件，
+             * 首字段不是 repoID 的情况，在主进程直接解析
+             * 若 opsID 指示的是新建项目、ping-pang 或 请求转输文件，
              * 则直接执行，否则进入常规流程
              */
-            switch (zOpsId) {
+            switch (zOpsID) {
                 case 0:
                 case 14:
                 case 1:
-                    if (0 > (zResNo = zRun_.p_sysInfo_->ops_tcp[zOpsId](zpJRoot, zSd))) {
+                    if (0 > (zResNo = zRun_.p_sysInfo_->ops_tcp[zOpsID](zpJRoot, zSd))) {
                         zDataLen = snprintf(zDataBuf, 8192,
-                                "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                                "{\"errNo\":%d,\"content\":\"[opsID: %d] %s\"}",
                                 zResNo,
-                                zOpsId,
+                                zOpsID,
                                 zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
                         zNetUtils_.send(zSd, zDataBuf, zDataLen);
                     }
 
                     break;
                 default:
-                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "repoId");
+                    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "repoID");
                     if (cJSON_IsNumber(zpJ)) {
-                        zRepoId = zpJ->valueint;
+                        zRepoID = zpJ->valueint;
 
-                        if (0 >= zRepoId
-                                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoId) {
+                        if (0 >= zRepoID
+                                || zRun_.p_sysInfo_->globRepoNumLimit <= zRepoID) {
                             zNetUtils_.send(zSd,
-                                    "{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}",
-                                    sizeof("{\"errNo\":-32,\"content\":\"repoId invalid (hint: 1 - 1023)\"}") - 1);
+                                    "{\"errNo\":-32,\"content\":\"repoID invalid (hint: 1 - 1023)\"}",
+                                    sizeof("{\"errNo\":-32,\"content\":\"repoID invalid (hint: 1 - 1023)\"}") - 1);
                             break;
                         } else {
-                            if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoId]) {
-                                zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoId], zSd, NULL, 0);
+                            if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]) {
+                                zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoID], zSd, NULL, 0);
                                 break;
                             }
                         }
@@ -579,7 +579,7 @@ zops_route_tcp(void *zp) {
     char *zpDataBuf = zDataBuf;
 
     _i zErrNo = 0,
-       zOpsId = -1,
+       zOpsID = -1,
        zDataLen = -1,
        zDataBufSiz = 4096;
 
@@ -603,24 +603,24 @@ zops_route_tcp(void *zp) {
         goto zEndMark;
     }
 
-    /* 提取 value[OpsId] */
+    /* 提取 value[OpsID] */
     cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
-    cJSON *zpOpsId = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsId");
+    cJSON *zpOpsID = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsID");
 
-    if (! cJSON_IsNumber(zpOpsId)) {
+    if (! cJSON_IsNumber(zpOpsID)) {
         zErrNo = -1;
     } else {
-        zOpsId = zpOpsId->valueint;
+        zOpsID = zpOpsID->valueint;
 
-        if (0 > zOpsId
-                || zTCP_SERV_HASH_SIZ <= zOpsId
-                || NULL == zRun_.p_sysInfo_->ops_tcp[zOpsId]) {
+        if (0 > zOpsID
+                || zTCP_SERV_HASH_SIZ <= zOpsID
+                || NULL == zRun_.p_sysInfo_->ops_tcp[zOpsID]) {
             zErrNo = -1;
-        } else if (1 == zOpsId) {
+        } else if (1 == zOpsID) {
             /* 若项目进程收到新建请求，直接返回错误 */
             zErrNo = -35;
         } else {
-            zErrNo = zRun_.p_sysInfo_->ops_tcp[zOpsId](zpJRoot, zSd);
+            zErrNo = zRun_.p_sysInfo_->ops_tcp[zOpsID](zpJRoot, zSd);
         }
     }
 
@@ -638,9 +638,9 @@ zops_route_tcp(void *zp) {
         }
 
         zDataLen = snprintf(zpDataBuf, zDataBufSiz,
-                "{\"errNo\":%d,\"content\":\"[opsId: %d] %s\"}",
+                "{\"errNo\":%d,\"content\":\"[opsID: %d] %s\"}",
                 zErrNo,
-                zOpsId,
+                zOpsID,
                 zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
         zNetUtils_.send(zSd, zpDataBuf, zDataLen);
     }
@@ -678,7 +678,7 @@ zudp_daemon(void *zpUNPath) {
     static zUdpInfo__ zUdpInfo_[256];
     size_t zLen = 0;
     _ui i = 0;
-    _uc zReqId = 0;
+    _uc zReqID = 0;
     _i zSd = 0;
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
@@ -707,9 +707,9 @@ zudp_daemon(void *zpUNPath) {
      * 使用静态变量数组防止负载高时造成线程参数混乱
      */
     for (;; i++) {
-        zReqId = i % 256;
+        zReqID = i % 256;
 
-        zMsg_.msg_name = & zUdpInfo_[zReqId].peerAddr;
+        zMsg_.msg_name = & zUdpInfo_[zReqID].peerAddr;
 
         /*
          * !!! 如下两项 !!!
@@ -720,7 +720,7 @@ zudp_daemon(void *zpUNPath) {
         zMsg_.msg_controllen = CMSG_SPACE(sizeof(_i)),
 
         /* 常规数据缓冲区 */
-        zVec_.iov_base = zUdpInfo_[zReqId].data;
+        zVec_.iov_base = zUdpInfo_[zReqID].data;
 
         /*
          * == 0，则表明 zsend_fd() 发送过来的是套接字 sd
@@ -737,12 +737,12 @@ zudp_daemon(void *zpUNPath) {
                  * 只发送了一个 cmsghdr 结构体 + fd
                  * 其最后的 data[] 存放的即是接收到的 fd
                  */
-                zUdpInfo_[zReqId].sentSd = * (_i *) CMSG_DATA(CMSG_FIRSTHDR(& zMsg_));
-                zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqId].sentSd);
+                zUdpInfo_[zReqID].sentSd = * (_i *) CMSG_DATA(CMSG_FIRSTHDR(& zMsg_));
+                zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqID].sentSd);
             }
         } else if (0 < zLen){
-            zUdpInfo_[zReqId].peerAddrLen = zMsg_.msg_namelen;
-            zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqId]);
+            zUdpInfo_[zReqID].peerAddrLen = zMsg_.msg_namelen;
+            zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqID]);
         } else {
             zPRINT_ERR_EASY("");
             continue;

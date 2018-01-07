@@ -48,13 +48,6 @@ typedef struct {
 
 
 typedef struct __zDpRes__ {
-    _i selfIndex;
-
-    /*
-     * 目标机 IP
-     */
-    char *p_hostAddr;
-
     /*
      * unsigned long long int
      * IPv4 地址只使用第一个成员
@@ -101,12 +94,8 @@ typedef struct __zDpRes__ {
 
 
 typedef struct __zDpCcur__ {
-    /*
-     * 目标机 IP 在服务端 dpList 链中的节点索引
-     * 通过此索引获取目标机 IP
-     * 目标机端口从 zpRepo_ 中取
-     */
-    _i selfNodeIndex;
+    /* 目标机 IP */
+    char *p_hostAddr;
 
     /*
      * need to be initilized ?
@@ -147,11 +136,11 @@ typedef struct __zVecWrap__ {
 
 
 typedef struct __zCacheMeta__ {
-    _s opsId;  // 网络交互时，代表操作指令（从 1 开始的连续排列的非负整数）
-    _s commitId;  // 版本号
+    _s opsID;  // 网络交互时，代表操作指令（从 1 开始的连续排列的非负整数）
+    _s commitID;  // 版本号
     _s dataType;  // 缓存类型，zDATA_TYPE_COMMIT/zDATA_TYPE_DP
-    _i fileId;  // 单个文件在差异文件列表中 index
-    _l cacheId;  // 缓存版本代号（最新一次布署的时间戳）
+    _i fileID;  // 单个文件在差异文件列表中 index
+    _l cacheID;  // 缓存版本代号（最新一次布署的时间戳）
 
     char *p_filePath;  // git diff --name-only 获得的文件路径
     char *p_treeData;  // 经过处理的 Tree 图显示内容
@@ -241,7 +230,7 @@ typedef struct __zRepo__ {
      * 版本号列表、差异文件列表等缓存的 ID
      * 实质就是每次刷新缓存时的 UNIX 时间戳
      */
-    time_t cacheId;
+    time_t cacheID;
 
     /* 本项目全局 git handler */
     git_repository *p_gitHandler;
@@ -393,11 +382,12 @@ typedef struct __zRepo__ {
     /*
      * 布署成功之后，刷新项目缓存时需要此锁
      * 此锁将排斥所有查询类操作
+     * IP 列表更新时，不允许 state_confirm 同时运行
      * 读写锁属性：写者优先 ???
      */
-    pthread_rwlock_t rwLock;
+    pthread_rwlock_t cacheLock;
     char pad_4[128];
-    //pthread_rwlockattr_t zRWLockAttr;
+    //pthread_rwlockattr_t cacheLockAttr;
 
     /* 内存池锁，保证内存的原子性分配 */
     pthread_mutex_t memLock;
@@ -415,9 +405,9 @@ typedef struct __zRepo__ {
     char pad_6[128];
 
     /*
-     * IP 列表更新，不允许 state_confirm 同时运行
+     * 源库 URL 或分支变更时，需要暂停 git_fetch 动作
      */
-    pthread_rwlock_t dpHashLock;
+    pthread_mutex_t sourceUpdateLock;
 } zRepo__;
 
 

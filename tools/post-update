@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 chmod 0755 ${0}_real
-${0}_real $1 $$
+${0}_real $1 $$ &

@@ -23,7 +23,7 @@
 #define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
-#define zMEM_POOL_REST(zRepoId) do {\
+#define zMEM_POOL_REST(zRepoID) do {\
     pthread_mutex_lock(& zpRepo_->memLock);\
     \
     void **zppPrev = zpRepo_->p_memPool;\
@@ -40,11 +40,11 @@
 
 
 /* 用于提取深层对象 */
-#define zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_)
-#define zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_->p_refData_[zFileId].p_subVecWrap_)
+#define zGET_ONE_COMMIT_VEC_WRAP(zpTopVecWrap_, zCommitID) ((zpTopVecWrap_)->p_refData_[zCommitID].p_subVecWrap_)
+#define zGET_ONE_FILE_VEC_WRAP(zpTopVecWrap_, zCommitID, zFileID) ((zpTopVecWrap_)->p_refData_[zCommitID].p_subVecWrap_->p_refData_[zFileID].p_subVecWrap_)
 
-#define zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zCommitId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_data)
-#define zGET_ONE_FILE_PATH(zpTopVecWrap_, zCommitId, zFileId) ((zpTopVecWrap_)->p_refData_[zCommitId].p_subVecWrap_->p_refData_[zFileId].p_data)
+#define zGET_ONE_COMMIT_SIG(zpTopVecWrap_, zCommitID) ((zpTopVecWrap_)->p_refData_[zCommitID].p_data)
+#define zGET_ONE_FILE_PATH(zpTopVecWrap_, zCommitID, zFileID) ((zpTopVecWrap_)->p_refData_[zCommitID].p_subVecWrap_->p_refData_[zFileID].p_data)
 
 
 /* 用于提取原始数据 */

@@ -708,7 +708,7 @@ zgit_add_and_commit(git_repository *zpRepo,
         return -1;
     }
 
-    /* 将新生成的树对象、父节点 CommitId 联系起来，写到库中 */
+    /* 将新生成的树对象、父节点 CommitID 联系起来，写到库中 */
     if (0 != git_commit_create(&zCommitOid, zpRepo, zpRefName, zpMe, zpMe, "UTF-8", zpMsg, zpTree, zParentCnt, zppParentCommit)) {
         zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_signature_free(zpMe);
