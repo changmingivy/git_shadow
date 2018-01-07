@@ -1323,6 +1323,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         }
 
         zpRepo_->repoState = zCACHE_GOOD;
+        zpRepo_->dpID = 0;
 
         /* 子进程中的 sd 副本需要关闭 */
         zNetUtils_.send(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);
@@ -1357,9 +1358,10 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         /**
          * 获取最近一次成功布署的版本号
          * lastDpSig
+         * dpID
          */
         sprintf(zCommonBuf,
-                "SELECT last_dp_sig,last_try_sig FROM repo_meta "
+                "SELECT last_dp_sig,last_try_sig,last_dp_id FROM repo_meta "
                 "WHERE repo_id = %d",
                 zRepoID);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
@@ -1409,12 +1411,14 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             }
         }
 
+        /* 空值转换，会返回 0 */
+        zpRepo_->dpID = strtol(zpPgRes_->tupleRes_[0].pp_fields[2], NULL, 10);
+
         /* clean... */
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
 
         /**
          * 提取最近一次布署动作的时间戳（无论成功或失败）
-         * dpingSig
          */
         sprintf(zCommonBuf,
                 "SELECT max(time_stamp) FROM dp_log "
@@ -1565,9 +1569,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zppPrev[0] = NULL;
     zpRepo_->memPoolOffSet = sizeof(void *);
 
-    /* cacheID 与 dpID 初始化 */
+    /* cacheID 初始化 */
     zpRepo_->cacheID = 0;
-    zpRepo_->dpID = 0;
 
     /* 生成缓存 */
     zCacheMeta__ zMeta_;
@@ -1642,12 +1645,14 @@ zinit_env(void) {
             "ssh_port        varchar NOT NULL,"
             "alias_path      varchar DEFAULT '',"  /* 最近一次成功布署指定的路径别名 */
             "last_dp_sig     varchar DEFAULT '',"  /* 最近一次成功布署的版本号 */
-            "last_try_sig    varchar DEFAULT ''"  /* 最近一次尝试布署的版本号 */
+            "last_try_sig    varchar DEFAULT '',"  /* 最近一次尝试布署的版本号 */
+            "last_dp_id      bigint NOT NULL DEFAULT 0"  /* 最近一次尝试布署的 dpID */
             ");"
 
             "CREATE TABLE IF NOT EXISTS dp_log "
             "("
             "repo_id         int NOT NULL,"
+            "dp_id           bigint NOT NULL,"
             "time_stamp      bigint NOT NULL,"
             "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
             "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */

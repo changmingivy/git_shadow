@@ -1230,8 +1230,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             + zpRepo_->pathLen);
 
     zpSQLBuf = zNativeOps_.alloc(
-                sizeof("INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ") - 1
-                + (sizeof("($1,$2,$3,''),") - 1) * zRegRes_.cnt
+                sizeof("INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ") - 1
+                + (sizeof("($1,$2,$3,$4,''),") - 1) * zRegRes_.cnt
                 + zIpListStrLen);
     {////
         /*
@@ -1240,8 +1240,8 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          */
         _i zLen = 0;
         zLen = sprintf(zpCommonBuf,
-                "UPDATE repo_meta SET last_try_sig = '%s'",
-                zpRepo_->dpingSig);
+                "UPDATE repo_meta SET last_try_sig = '%s',last_dp_id = %u",
+                zpRepo_->dpingSig,zpRepo_->dpID);
 
         if (NULL != zpSSHUserName
                 && 0 != strcmp(zpSSHUserName, zpRepo_->sshUserName)) {
@@ -1373,7 +1373,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpRepo_->dpBaseTimeStamp = time(NULL);
 
     /* 拼接预插入布署记录的 SQL 命令 */
-    zSQLLen = sprintf(zpSQLBuf, "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ");
+    zSQLLen = sprintf(zpSQLBuf, "INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ");
 
     for (i = 0; i < zpRepo_->totalHost; i++) {
         /* 检测是否存在重复IP */
@@ -1394,7 +1394,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
          */
         zSQLLen += sprintf(zpSQLBuf + zSQLLen,
-                "($1,$2,$3,'%s'),",
+                "($1,$2,$3,$4,'%s'),",
                 zRegRes_.pp_rets[i]);
 
         /*
@@ -1497,21 +1497,24 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     {////
         char zRepoIDStr[24];
+        char zDpIDStr[24];
         char zTimeStamp[24];
-        const char *zpParam[3] = {
+        const char *zpParam[4] = {
             zRepoIDStr,
+            zDpIDStr,
             zTimeStamp,
             zpRepo_->dpingSig
         };
 
         sprintf(zRepoIDStr, "%d", zpRepo_->id);
+        sprintf(zDpIDStr, "%u", zpRepo_->dpID);
         sprintf(zTimeStamp, "%ld", zpRepo_->dpBaseTimeStamp);
 
         /* 预插入本次布署记录条目 */
         zpPgResHd_ = zPgSQL_.exec_with_param(
                 zpRepo_->p_pgConnHd_,
                 zpSQLBuf,
-                3, zpParam,
+                4, zpParam,
                 zFalse);
 
         if (NULL == zpPgResHd_) {
@@ -1520,7 +1523,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
                             zpRepo_->p_pgConnHd_,
                             zpSQLBuf,
-                            3, zpParam,
+                            4, zpParam,
                             zFalse))) {
                 zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
 
@@ -1589,7 +1592,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zPRINT_ERR_EASY("branch create err");
             }
 
-            /* 更新最新一次布署版本号，并写入 DB */
+            /* 更新最新一次布署版本号 */
             strcpy(zpRepo_->lastDpSig, zpRepo_->dpingSig);
 
             sprintf(zpCommonBuf,
