@@ -810,7 +810,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
             zpDpCcur_->errNo = -23;
             zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
             zSTATE_CONFIRM(zpInnerState_->replyType);
             goto zEndMark;
         }
@@ -904,7 +904,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     zpDpCcur_->errNo = -12;
                     zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                    snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+                    snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
                     zSTATE_CONFIRM(zpInnerState_->replyType);
                     goto zEndMark;
                 }
@@ -912,7 +912,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                 zpDpCcur_->errNo = -23;
                 zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+                snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
                 zSTATE_CONFIRM(zpInnerState_->replyType);
                 goto zEndMark;
             }
@@ -920,7 +920,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
             zpDpCcur_->errNo = -12;
             zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
             zSTATE_CONFIRM(zpInnerState_->replyType);
             goto zEndMark;
         }
