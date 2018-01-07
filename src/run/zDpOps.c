@@ -712,10 +712,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
             "if [[ 0 -ne $? ]];then exit 212;fi;"\
-            "chmod 0755 ${zPath}/.git/hooks/post-update;"\
-\
-            "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update_real\\\"}\" \"${zPath}/.git/hooks/post-update_real\";"\
-            "if [[ 0 -ne $? ]];then exit 212;fi;",\
+            "chmod 0755 ${zPath}/.git/hooks/post-update;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
             zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port);\
