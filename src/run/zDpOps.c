@@ -1393,15 +1393,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         }
 
         /*
-         * 拼接预插入布署记录的 SQL 命令
-         * 不能在 dp_ccur 内执行插入，
-         * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
-         */
-        zSQLLen += sprintf(zpSQLBuf + zSQLLen,
-                "($1,$2,$3,$4,'%s'),",
-                zRegRes_.pp_rets[i]);
-
-        /*
          * IPnum 链表赋值
          * 并转换字符串格式的 IPaddr 为数组 _ull[2]
          */
@@ -1481,16 +1472,28 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
                     /* 务必置为 -1，表示不存在对应的工作进程 */
                     zpRepo_->p_dpCcur_[i].pid = -1;
+
+                    goto zSkip;
                 } else {
                     /* 是否执行目标机初始化命令 */
                     zpRepo_->p_dpCcur_[i].needInit = 'N';
-                }
 
-                break;
+                    break;
+                }
             }
 
             zpTmp_ = zpTmp_->p_next;
         }
+
+        /*
+         * 拼接预插入布署记录的 SQL 命令
+         * 不能在 dp_ccur 内执行插入，
+         * 否则当其所在线程被中断时，其占用的 DB 资源将无法释放
+         */
+        zSQLLen += sprintf(zpSQLBuf + zSQLLen,
+                "($1,$2,$3,$4,'%s'),",
+                zRegRes_.pp_rets[i]);
+zSkip:;
     }
 
     /* release cacheLock */
