@@ -1646,7 +1646,7 @@ zinit_env(void) {
             "alias_path      varchar DEFAULT '',"  /* 最近一次成功布署指定的路径别名 */
             "last_dp_sig     varchar DEFAULT '',"  /* 最近一次成功布署的版本号 */
             "last_try_sig    varchar DEFAULT '',"  /* 最近一次尝试布署的版本号 */
-            "last_dp_id      bigint NOT NULL DEFAULT 0"  /* 最近一次尝试布署的 dpID */
+            "last_dp_id      bigint DEFAULT 0"  /* 最近一次尝试布署的 dpID */
             ");"
 
             "CREATE TABLE IF NOT EXISTS dp_log "
