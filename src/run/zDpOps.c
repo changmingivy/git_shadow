@@ -1579,7 +1579,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 若布署成功且版本号与上一次成功布署的不同时
          * 才需要刷新缓存
          */
-        if (0 == zpRepo_->resType && ! zIsSameSig) {
+        if (0 == zpRepo_->resType && !zIsSameSig) {
             /*
              * 以上一次成功布署的版本号为名称
              * 创建一个新分支，用于保证回撤的绝对可行性
@@ -1620,6 +1620,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             zPgSQL_.res_clear(zpPgResHd_, NULL);
 
+            /*
+             * 无论布署成功还是被中断，均需要 wait，以消除僵尸进程
+             * 必须在重置内存池之前执行，否则可能丢失 pid
+             */
+            for (i = 0; i < zpRepo_->totalHost; i++) {
+                if (0 < zpRepo_->p_dpCcur_[i].pid) {
+                    waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
+                }
+            }
+
             /* 获取写锁，此时将拒绝所有查询类请求 */
             pthread_rwlock_wrlock(&zpRepo_->cacheLock);
 
@@ -1645,6 +1655,12 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             /* 标记缓存为可用状态 */
             zpRepo_->repoState = zCACHE_GOOD;
+        } else {
+            for (i = 0; i < zpRepo_->totalHost; i++) {
+                if (0 < zpRepo_->p_dpCcur_[i].pid) {
+                    waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
+                }
+            }
         }
     } else {
         /* 更新布署动作 ID，必须在 cacheLock 内执行 */
@@ -1660,15 +1676,14 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             }
         }
 
+        for (i = 0; i < zpRepo_->totalHost; i++) {
+            if (0 < zpRepo_->p_dpCcur_[i].pid) {
+                waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
+            }
+        }
+
         zResNo = -127;
         zPRINT_ERR_EASY("Deploy interrupted");
-    }
-
-    /* 无论布署成功还是被中断，均需要 wait，以消除僵尸进程 */
-    for (i = 0; i < zpRepo_->totalHost; i++) {
-        if (0 < zpRepo_->p_dpCcur_[i].pid) {
-            waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
-        }
     }
 
 zCleanMark:
