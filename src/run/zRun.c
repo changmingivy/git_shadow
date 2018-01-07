@@ -18,6 +18,7 @@ extern struct zNativeOps__ zNativeOps_;
 extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
+extern struct zMd5Sum__ zMd5Sum_;
 
 static void zstart_server(zPgLogin__ *zpPgLogin_);
 static void * zops_route_tcp_master(void *zp);
@@ -267,7 +268,15 @@ static void
 zglob_data_config(zPgLogin__ *zpPgLogin_) {
     struct passwd *zpPWD = NULL;
     char zDBPassFilePath[1024];
+
     struct stat zS_;
+
+    char zHookPath[zRun_.p_sysInfo_->servPathLen + sizeof("/tools/post-update")];
+
+    sprintf(zHookPath, "%s/tools/post-update",
+            zRun_.p_sysInfo_->p_servPath);
+
+    zMd5Sum_.md5sum(zHookPath, zRun_.p_sysInfo_->gitHookMD5);
 
     zRun_.p_sysInfo_->udp_daemon = zudp_daemon,
 

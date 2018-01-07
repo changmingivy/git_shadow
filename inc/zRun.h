@@ -18,6 +18,7 @@
 #include "zPgSQL.h"
 #include "zDpOps.h"
 #include "cJSON.h"
+#include "zMd5Sum.h"
 
 #define zTCP_SERV_HASH_SIZ 16
 #define zUDP_SERV_HASH_SIZ 10
@@ -488,6 +489,9 @@ typedef struct __zSysInfo__ {
      * postgreSQL 全局认证信息
      */
     char pgConnInfo[2048];
+
+    /* md5sum post-update | grep -oE '^.{32}' | tr '[A-Z]' '[a-z]' */
+    char gitHookMD5[33];
 } zSysInfo__;
 
 

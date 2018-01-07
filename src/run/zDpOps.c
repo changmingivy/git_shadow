@@ -711,11 +711,13 @@ zssh_exec_simple(const char *zpSSHUserName,
             " };"\
 \
             "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
-            "if [[ 0 -ne $? ]];then exit 212;fi;"\
+            "if [[ 0 -ne $? || %s != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
             "chmod 0755 ${zPath}/.git/hooks/post-update;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
-            zRun_.p_sysInfo_->netSrv_.p_ipAddr, zRun_.p_sysInfo_->netSrv_.p_port);\
+            zRun_.p_sysInfo_->netSrv_.p_ipAddr,\
+            zRun_.p_sysInfo_->netSrv_.p_port,\
+            zRun_.p_sysInfo_->gitHookMD5);\
 } while(0)
 
 #define zDEL_SINGLE_QUOTATION(zpStr) {\
