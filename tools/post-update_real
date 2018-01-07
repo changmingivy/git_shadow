@@ -31,19 +31,21 @@ zRepoId=`echo $1 | awk -F@ '{print $4}'`
 zSelfIpStrAddr=`echo $1 | awk -F@ '{print $5}' | sed 's/_/:/g'`
 
 # 本次布署的唯一身份标识
-zTimeStamp=`echo $1 | awk -F@ '{print $6}'`
-zDpingSig=`echo $1 | awk -F@ '{print $7}'`
+zDpID=`echo $1 | awk -F@ '{print $6}'`
+
+zTimeStamp=`echo $1 | awk -F@ '{print $7}'`
+zDpingSig=`echo $1 | awk -F@ '{print $8}'`
 
 # 若用户想指定不同于项目创建时的运行路径，可使用此 alias 路径
-zRepoAliasPath=`echo $1 | awk -F@ '{print $8}'`
+zRepoAliasPath=`echo $1 | awk -F@ '{print $9}'`
 
-zForceDpMark=`echo $1 | awk -F@ '{print $9}'`
+zForceDpMark=`echo $1 | awk -F@ '{print $10}'`
 
 zRepoOnLinePath="`dirname \`dirname \\\`dirname ${zPathOnHost}\\\`\``/`basename ${zPathOnHost}`"
 
 # 当次布署的活动分支，仅用于所有动作完成后，进行清理
-zServBranch="s@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
-zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
+zServBranch="s@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
+zShadowBranch="S@${zMasterAddr}@${zMasterPort}@${zRepoId}@${zSelfIpStrAddr}@${zDpID}@${zTimeStamp}@${zDpingSig}@${zRepoAliasPath}@${zForceDpMark}"
 
 # 临时保存错误信息的位置
 zErrLogPath="/tmp/.${zRepoId}_${zTimeStamp}_errlog"
@@ -59,7 +61,7 @@ zRecvContent=
 # 'EN': 错误信息上报
 zTcpReply() {
     exec 4<>/dev/tcp/${zMasterAddr}/${zMasterPort}
-    printf "{\"repoId\":${zRepoId},\"opsId\":${1},\"hostAddr\":\"${zSelfIpStrAddr}\",\"revSig\":\"${2}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${3}\",\"content\":\"${4}\"}">&4
+    printf "{\"repoId\":${zRepoId},\"opsId\":${1},\"hostAddr\":\"${zSelfIpStrAddr}\",\"dpID\":\"${zDpID}\",\"timeStamp\":${zTimeStamp},\"replyType\":\"${2}\",\"content\":\"${3}\"}">&4
     zRecvContent="`cat<&4`"  # bash tcp fd: 4
     exec 4<&-
     exec 4>&-
@@ -86,7 +88,7 @@ zExitClean() {
     sed -i "s/\n/;/g" ${zErrLogPath}
 
     # 反馈错误信息至服务端
-    zTcpReply 8 ${zDpingSig} "${1}" "${2}"
+    zTcpReply 8 "${1}" "${2}"
 
     # 清理分支
     git branch -D ${zServBranch}
@@ -99,7 +101,7 @@ zExitClean() {
 }
 
 # 首先测试是否可与服务端正常通信
-zTcpReply 0 "" "" ""
+zTcpReply 0 "" ""
 if [[ "!" != ${zRecvContent} ]]; then
     exit 255
 fi
@@ -162,7 +164,7 @@ chmod 0444 ${zPathOnHost}/.git/hooks/post-update
 rm -f ${zPathOnHost}/.git/index.lock ${zPathOnHost}_SHADOW/.git/index.lock
 
 # 通知服务端已收到代码：上报阶段性成果
-zTcpReply 8 "${zDpingSig}" "S3" "" &
+zTcpReply 8 "S3" "" &
 
 # 还原代码到工作区
 git reset -q --hard ${zDpingSig}
@@ -233,7 +235,7 @@ else
 fi
 
 # 通知服务端已确认收到的内容准确无误：布署成功
-zTcpReply 8 ${zMasterSig} "S4" "" &
+zTcpReply 8 "S4" "" &
 
 # 布署成功，还原权限
 chmod 0755 ${zPathOnHost}/.git/hooks/post-update
@@ -244,7 +246,7 @@ chmod 0755 ${zPathOnHost}/.git/hooks/post-update
 sleep 5
 while :
 do
-    zTcpReply 7 "" "" ""
+    zTcpReply 7 "" ""
 
     if [[ "S" == ${zRecvContent} ]]; then
         break
