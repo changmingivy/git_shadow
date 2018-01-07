@@ -735,9 +735,6 @@ zssh_exec_simple(const char *zpSSHUserName,
     zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
     zpInnerState_->dpID = zpDpCcur_->dpID;\
 \
-    strncpy(zpInnerState_->replyType, zpReplyType, 3);\
-    zpInnerState_->replyType[3] = '\0';\
-\
     strcpy(zpInnerState_->hostAddr, zpDpCcur_->p_hostAddr);\
 \
     sendto(zpRepo_->unSd, zData, 1 + sizeof(struct zInnerState__), MSG_NOSIGNAL,\
@@ -791,7 +788,6 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
          };
 
     _i zErrNo = 0;
-    char zErrClass[24] = {'\0'};
 
     char zData[1 + sizeof(struct zInnerState__)];
 
@@ -808,14 +804,14 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                         zpRepo_->sshPort,
                         zpRepo_->p_sysDpCmd,
                         NULL,
-                        zErrClass))) {
+                        zpInnerState_->replyType))) {
             zSTATE_CONFIRM("S1");
         } else {
             zpDpCcur_->errNo = -23;
             zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            sprintf(zErrClass, "E%d", zErrNo);
-            zSTATE_CONFIRM(zErrClass);
+            snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+            zSTATE_CONFIRM(zpInnerState_->replyType);
             goto zEndMark;
         }
     }
@@ -908,24 +904,24 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     zpDpCcur_->errNo = -12;
                     zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                    sprintf(zErrClass, "E%d", zErrNo);
-                    zSTATE_CONFIRM(zErrClass);
+                    snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+                    zSTATE_CONFIRM(zpInnerState_->replyType);
                     goto zEndMark;
                 }
             } else {
                 zpDpCcur_->errNo = -23;
                 zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-                sprintf(zErrClass, "E%d", zErrNo);
-                zSTATE_CONFIRM(zErrClass);
+                snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+                zSTATE_CONFIRM(zpInnerState_->replyType);
                 goto zEndMark;
             }
         } else {
             zpDpCcur_->errNo = -12;
             zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
-            sprintf(zErrClass, "E%d", zErrNo);
-            zSTATE_CONFIRM(zErrClass);
+            snprintf(zpInnerState_->replyType, 4, "E%d", zErrNo);
+            zSTATE_CONFIRM(zpInnerState_->replyType);
             goto zEndMark;
         }
     }
