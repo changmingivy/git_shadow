@@ -1376,7 +1376,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     zpRepo_->dpBaseTimeStamp = time(NULL);
 
     /* 拼接预插入布署记录的 SQL 命令 */
-    zSQLLen = sprintf(zpSQLBuf, "INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ");
+    zSQLLen = sizeof("INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ") - 1;
 
     for (i = 0; i < zpRepo_->totalHost; i++) {
         /* 检测是否存在重复IP */
@@ -1472,7 +1472,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     /* 务必置为 -1，表示不存在对应的工作进程 */
                     zpRepo_->p_dpCcur_[i].pid = -1;
 
-                    goto zSkip;
+                    goto zSkipMark;
                 } else {
                     /* 是否执行目标机初始化命令 */
                     zpRepo_->p_dpCcur_[i].needInit = 'N';
@@ -1492,14 +1492,22 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zSQLLen += sprintf(zpSQLBuf + zSQLLen,
                 "($1,$2,$3,$4,'%s'),",
                 zRegRes_.pp_rets[i]);
-zSkip:;
+zSkipMark:;
     }
 
     /* release cacheLock */
     pthread_rwlock_unlock(& zpRepo_->cacheLock);
 
+    if (0 == zpRepo_->dpTotalTask) {
+        goto zCleanMark;
+    }
+
     /* 去除末尾多余的逗号 */
     zpSQLBuf[zSQLLen - 1] = '\0';
+
+    memcpy(zpSQLBuf,
+            "INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ",
+            sizeof("INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ") - 1);
 
     {////
         char zRepoIDStr[24];
