@@ -1123,16 +1123,16 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
      * 通知可能存在的旧的布署动作终止：
      * 阻塞等待布署主锁，用于保证同一时间，只有一个布署动作在运行
      */
-    pthread_mutex_trylock(& (zpRepo_->dpSyncLock));
+    pthread_mutex_trylock(& zpRepo_->dpSyncLock);
     zpRepo_->dpWaitMark = 1;
-    pthread_mutex_unlock(& (zpRepo_->dpSyncLock));
-    pthread_cond_signal( &zpRepo_->dpSyncCond );
+    pthread_mutex_unlock(& zpRepo_->dpSyncLock);
+    pthread_cond_signal(& zpRepo_->dpSyncCond);
 
     /*
      * 持有 dpLock 的布署动作，
      * 将 dpWaitMark 置 1
      */
-    pthread_mutex_lock(& (zpRepo_->dpLock));
+    pthread_mutex_lock(& zpRepo_->dpLock);
     zpRepo_->dpWaitMark = 0;
 
     pthread_mutex_unlock(& (zpRepo_->dpWaitLock));
@@ -1369,7 +1369,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
 
-    /* 必须在 cacheLock 内执行，布署耗时基准 */
+    /* 布署耗时基准 */
     zpRepo_->dpBaseTimeStamp = time(NULL);
 
     /* 拼接预插入布署记录的 SQL 命令 */
@@ -1650,7 +1650,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         /* 更新布署动作 ID，必须在 cacheLock 内执行 */
         pthread_rwlock_wrlock(&zpRepo_->cacheLock);
         zpRepo_->dpID++;
-        pthread_rwlock_wrlock(&zpRepo_->cacheLock);
+        pthread_rwlock_unlock(&zpRepo_->cacheLock);
 
         /* 若是被新布署请求打断 */
         for (i = 0; i < zpRepo_->totalHost; i++) {
