@@ -1670,6 +1670,10 @@ zSkipMark:;
             /* 标记缓存为可用状态 */
             zpRepo_->repoState = zCACHE_GOOD;
         } else {
+            pthread_rwlock_wrlock(&zpRepo_->cacheLock);
+            zpRepo_->dpID++;
+            pthread_rwlock_unlock(&zpRepo_->cacheLock);
+
             for (i = 0; i < zpRepo_->totalHost; i++) {
                 if (0 < zpRepo_->p_dpCcur_[i].pid) {
                     waitpid(zpRepo_->p_dpCcur_[i].pid, NULL, 0);
