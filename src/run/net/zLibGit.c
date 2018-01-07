@@ -82,7 +82,9 @@ zgit_cred_acquire_cb(git_cred **zppResOUT,
         unsigned int zpAllowedTypes __attribute__ ((__unused__)),
         void * zPayload __attribute__ ((__unused__))) {
 
-    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl, zRun_.p_SSHPubKeyPath, zRun_.p_SSHPrvKeyPath, NULL)) {
+    if (0 != git_cred_ssh_key_new(zppResOUT, zpUsernameFromUrl,
+				zRun_.p_sysInfo_->p_sshPubKeyPath, zRun_.p_sysInfo_->p_sshPrvKeyPath, NULL)) {
+
         if (NULL == giterr_last()) {
             fprintf(stderr, "\033[31;01m====Error message====\033[00m\nError without message.\n");
         } else {
@@ -706,7 +708,7 @@ zgit_add_and_commit(git_repository *zpRepo,
         return -1;
     }
 
-    /* 将新生成的树对象、父节点 CommitId 联系起来，写到库中 */
+    /* 将新生成的树对象、父节点 CommitID 联系起来，写到库中 */
     if (0 != git_commit_create(&zCommitOid, zpRepo, zpRefName, zpMe, zpMe, "UTF-8", zpMsg, zpTree, zParentCnt, zppParentCommit)) {
         zPRINT_ERR(0, NULL, NULL == giterr_last() ? "Error without message" : giterr_last()->message);
         git_signature_free(zpMe);
@@ -812,24 +814,4 @@ zgit_config_name_and_email(char *zpRepoPath) {
 //     zDiffOpts.pathspec.count = 1;
 //
 //     //git_pathspec_new(NULL, NULL);
-// }
-
-
-// typedef void * (* zalloc_cb) (void *, void *);
-//
-// typedef struct {
-//     void *p_meta;
-//     size_t siz;
-// } zAllocParam__;
-//
-// void *
-// zsystem_alloc_wrap(void *zpParam) {
-//     void *zpRes = NULL;
-//     zMEM_ALLOC(zpRes, char, ((zAllocParam__ *) zpParam)->siz);
-//     return zpRes;
-// }
-//
-// void *
-// zrepo_alloc_wrap(void *zpParam) {
-//     return zalloc_cache(* ((_i *) ((zAllocParam__ *) zpParam)->p_meta), ((zAllocParam__ *) zpParam)->siz);
 // }

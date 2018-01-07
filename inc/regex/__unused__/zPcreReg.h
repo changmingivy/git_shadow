@@ -14,7 +14,7 @@ typedef struct {
     _ui cnt;         //total num of matched substrings
 
     void * (* alloc_fn) (_i, size_t);
-    _i repoId;
+    _i repoID;
 } zPcreRes__;
 
 typedef struct {

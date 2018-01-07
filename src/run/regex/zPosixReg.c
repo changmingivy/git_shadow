@@ -55,7 +55,7 @@ zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject
     if (NULL == zpRegResOUT->alloc_fn) {
         zMEM_ALLOC(zpRegResOUT->pp_rets, char, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zDynSubjectlen);
     } else {
-        zpRegResOUT->pp_rets = zpRegResOUT->alloc_fn(zpRegResOUT->repoId, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zBYTES(zDynSubjectlen));
+        zpRegResOUT->pp_rets = zpRegResOUT->alloc_fn((sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zBYTES(zDynSubjectlen));
     }
 
     zpRegResOUT->p_resLen = (_i *)(zpRegResOUT->pp_rets + zDynSubjectlen);
@@ -118,7 +118,7 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     if (NULL == zpResOUT->alloc_fn) {
         zMEM_ALLOC(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     } else {
-        zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
+        zpResOUT->pp_rets = zpResOUT->alloc_fn(zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     }
 
     zpResOUT->p_resLen = (_i *) (zpResOUT->pp_rets + zMaxItemNum);
@@ -181,7 +181,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
     if (NULL == zpResOUT->alloc_fn) {
         zMEM_ALLOC(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zFullLen);
     } else {
-        zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
+        zpResOUT->pp_rets = zpResOUT->alloc_fn(zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     }
 
     zpResOUT->p_resLen = (_i *) (zpResOUT->pp_rets + zMaxItemNum);

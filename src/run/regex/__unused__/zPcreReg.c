@@ -55,7 +55,7 @@ zpcre_match(zPcreRes__ *zpPcreRes_Out, const zPcreInit__ *zpPcreInit_, const cha
     if (NULL != zpPcreRes_Out->alloc_fn) {
         zMEM_ALLOC(zpPcreRes_Out->p_rets[0], char, 2 * zDynSubjectLen);
     } else {
-        zpPcreRes_Out->p_rets[0] = zpPcreRes_Out->alloc_fn(zpPcreRes_Out->repoId, zBYTES(2 * zDynSubjectLen));
+        zpPcreRes_Out->p_rets[0] = zpPcreRes_Out->alloc_fn(zpPcreRes_Out->repoID, zBYTES(2 * zDynSubjectLen));
     }
 
     PCRE2_SIZE *zpResVector = NULL;

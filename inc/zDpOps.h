@@ -36,19 +36,6 @@
 #include "cJSON.h"
 
 
-struct zDpState__ {
-    char replyType[4];
-
-    _s repoId;
-    time_t timeStamp;
-
-    char hostAddr[INET6_ADDRSTRLEN];
-    char revSig[40];  /* 不含末尾的 '\0' */
-
-    char errContent[256];
-};
-
-
 struct zDpOps__ {
     _i (* show_dp_process) (cJSON *, _i);
 
@@ -59,20 +46,17 @@ struct zDpOps__ {
     _i (* creat) (cJSON *, _i);
 
     _i (* dp) (cJSON *, _i);
-    _i (* req_dp) (cJSON *, _i);
 
     _i (* glob_res_confirm) (cJSON *, _i);
-    _i (* state_confirm_wraper) (cJSON *, _i);
-    _i (* state_confirm) (void *, struct sockaddr *, socklen_t);
+    _i (* state_confirm) (cJSON *, _i);
+    _i (* state_confirm_inner) (void *, _i, struct sockaddr *, socklen_t);
 
     _i (* req_file) (cJSON *, _i);
 
     _i (* tcp_pang) (cJSON *, _i);
-    _i (* udp_pang) (void *, struct sockaddr *, socklen_t);
+    _i (* udp_pang) (void *, _i, struct sockaddr *, socklen_t);
 
-    _i (* sys_update) (cJSON *, _i);
-
-    _i (* SI_update) (cJSON *, _i);
+    _i (* repo_update) (cJSON *, _i);
 };
 
 

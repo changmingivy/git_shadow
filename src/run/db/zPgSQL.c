@@ -185,6 +185,8 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
 
 /*
  * 清理 SQL 查询结果相关资源
+ * !!! zpPgRes_ 中引用了 zpPgResHd_ 中的数据，
+ * 故两者必须同时清理，不能在清理前者后，继续使用后者 !!!
  */
 static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
