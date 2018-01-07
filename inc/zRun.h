@@ -48,6 +48,9 @@ typedef struct {
 
 
 typedef struct __zDpRes__ {
+    /* 目标机 IP 在服务端链表中的索引 */
+    _i selfNodeIndex;
+
     /*
      * unsigned long long int
      * IPv4 地址只使用第一个成员
@@ -94,6 +97,12 @@ typedef struct __zDpRes__ {
 
 
 typedef struct __zDpCcur__ {
+    /* 目标机 IP 在服务端链表中的索引 */
+    _i selfNodeIndex;
+
+    /* 接受布署任务时，系统的 dpID */
+    _ui dpID;
+
     /* 目标机 IP */
     char *p_hostAddr;
 
@@ -339,7 +348,7 @@ typedef struct __zRepo__ {
      * 单次布署动作的身份唯一性标识
      * 目前设置为 == dpBaseTimeStamp
      */
-    _l dpID;
+    _ui dpID;
 
     /*
      * 系统定义的布署前动作

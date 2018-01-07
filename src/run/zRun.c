@@ -148,7 +148,7 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[98] = "";
     zRun_.p_sysInfo_->p_errVec[99] = "";
     zRun_.p_sysInfo_->p_errVec[100] = "";
-    zRun_.p_sysInfo_->p_errVec[101] = "目标机返回的版本号与正在布署的不一致";
+    zRun_.p_sysInfo_->p_errVec[101] = "目标机返回的信息已失效（过时）";
     zRun_.p_sysInfo_->p_errVec[102] = "目标机 post-update 出错返回";
     zRun_.p_sysInfo_->p_errVec[103] = "收到未知的目标机 IP";
     zRun_.p_sysInfo_->p_errVec[104] = "";

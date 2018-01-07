@@ -43,7 +43,7 @@ static _i zbatch_deploy(cJSON *zpJRoot, _i zSd);
 
 static _i zglob_res_confirm(cJSON *zpJRoot, _i zSd);
 static _i zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__)));
-static _i zstate_confirm_ops(_i zSelfNodeID, time_t zTimeStamp, char *zpRevSig, char *zpReplyType, char *zpErrContent);
+static _i zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp, char *zpReplyType, char *zpErrContent);
 static _i zstate_confirm_inner(void *zp, _i zSd, struct sockaddr *zpPeerAddr, socklen_t zPeerAddrLen);
 
 static _i zreq_file(cJSON *zpJRoot, _i zSd);
@@ -736,6 +736,9 @@ zssh_exec_simple(const char *zpSSHUserName,
     zData[0] = '1';\
     struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);\
 \
+    zpInnerState_->selfNodeIndex = zpDpCcur_->selfNodeIndex;\
+    zpInnerState_->dpID = zpDpCcur_->dpID;\
+\
     strncpy(zpInnerState_->replyType, zpReplyType, 3);\
     zpInnerState_->replyType[3] = '\0';\
 \
@@ -747,8 +750,10 @@ zssh_exec_simple(const char *zpSSHUserName,
 }
 
 struct zInnerState__ {
-    char hostAddr[INET6_ADDRSTRLEN];
+    _i selfNodeIndex;
+    _ui dpID;
     char replyType[4];
+    char hostAddr[INET6_ADDRSTRLEN];
     char errMsg[256];
 };
 
@@ -759,14 +764,22 @@ zstate_confirm_inner(void *zp,
         socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
 
     struct zInnerState__ *zpState_ = (struct zInnerState__ *) zp;
+    _i zErrNo = 0;
 
     pthread_rwlock_rdlock(& zpRepo_->cacheLock);
 
-    /* 调用此函数时，必须加锁 */
-    _i zErrNo = zstate_confirm_ops(zpState_->selfNodeIndex,
-            zpRepo_->dpBaseTimeStamp, zpRepo_->dpingSig, zpState_->replyType, zpState_->errMsg);
+    /* 判断是否是延迟到达的信息 */
+    if (zpState_->dpID != zpRepo_->dpID) {
+        pthread_rwlock_unlock(& zpRepo_->cacheLock);
+        zErrNo = -101;
+        zPRINT_ERR_EASY("msg out-of-date");
+    } else {
+        /* 调用此函数时，必须加锁 */
+        zErrNo = zstate_confirm_ops(zpState_->dpID, zpState_->selfNodeIndex, zpState_->hostAddr,
+                zpRepo_->dpBaseTimeStamp, zpState_->replyType, zpState_->errMsg);
 
-    pthread_rwlock_unlock(& zpRepo_->cacheLock);
+        pthread_rwlock_unlock(& zpRepo_->cacheLock);
+    }
 
     return zErrNo;
 }
@@ -832,24 +845,26 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
 
     /* push TWO branchs together */
     snprintf(zpGitRefs[0], 256 + zpRepo_->pathLen,
-            "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%ld@%s@%s@%c",
+            "+refs/heads/%sXXXXXXXX:refs/heads/s@%s@%s@%d@%s@%u@%ld@%s@%s@%c",
             zpRepo_->p_codeSyncBranch,
             zRun_.p_sysInfo_->netSrv_.specStrForGit,
             zRun_.p_sysInfo_->netSrv_.p_port,
             zpRepo_->id,
             zHostAddrBuf,
             zpRepo_->dpID,
+            zpRepo_->dpBaseTimeStamp,
             zpRepo_->dpingSig,
             zpRepo_->p_aliasPath,
             zpRepo_->forceDpMark);
 
     snprintf(zpGitRefs[1], 256 + zpRepo_->pathLen,
-            "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%ld@%s@%s@%c",
+            "+refs/heads/____shadowXXXXXXXX:refs/heads/S@%s@%s@%d@%s@%u@%ld@%s@%s@%c",
             zRun_.p_sysInfo_->netSrv_.specStrForGit,
             zRun_.p_sysInfo_->netSrv_.p_port,
             zpRepo_->id,
             zHostAddrBuf,
             zpRepo_->dpID,
+            zpRepo_->dpBaseTimeStamp,
             zpRepo_->dpingSig,
             zpRepo_->p_aliasPath,
             zpRepo_->forceDpMark);
@@ -1354,17 +1369,14 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
 
-    /* 布署耗时基准与本次布署动作的 ID */
+    /* 必须在 cacheLock 内执行，布署耗时基准 */
     zpRepo_->dpBaseTimeStamp = time(NULL);
-    zpRepo_->dpID = zpRepo_->dpBaseTimeStamp;
 
     /* 拼接预插入布署记录的 SQL 命令 */
     zSQLLen = sprintf(zpSQLBuf, "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) VALUES ");
 
     for (i = 0; i < zpRepo_->totalHost; i++) {
-        /*
-         * 检测是否存在重复IP
-         */
+        /* 检测是否存在重复IP */
         if (NULL != zpOldDpResHash_[zpRepo_->p_dpResList_[i].clientAddr[0] % zDP_HASH_SIZ]
                 && (0 != zpRepo_->p_dpResList_[i].clientAddr[0]
                     || 0 != zpRepo_->p_dpResList_[i].clientAddr[1])) {
@@ -1389,6 +1401,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * IPnum 链表赋值
          * 并转换字符串格式的 IPaddr 为数组 _ull[2]
          */
+        zpRepo_->p_dpResList_[i].selfNodeIndex = i;
         if (0 != zCONVERT_IPSTR_TO_NUM(zRegRes_.pp_rets[i],
                     zpRepo_->p_dpResList_[i].clientAddr)) {
 
@@ -1408,11 +1421,13 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         /* 目标机 IP */
         zpRepo_->p_dpCcur_[i].p_hostAddr = zRegRes_.pp_rets[i];
 
-        /*
-         * 工作线程返回的错误码及 pid，预置为 0
-         */
+        /* 工作线程返回的错误码及 pid，预置为 0 */
         zpRepo_->p_dpCcur_[i].errNo = 0;
         zpRepo_->p_dpCcur_[i].pid = 0;
+
+        /* dpID and selfNodeIndex */
+        zpRepo_->p_dpCcur_[i].dpID = zpRepo_->dpID;
+        zpRepo_->p_dpCcur_[i].selfNodeIndex = i;
 
         /*
          * 更新 HashMap
@@ -1561,14 +1576,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          * 若布署成功且版本号与上一次成功布署的不同时
          * 才需要刷新缓存
          */
-        if (0 == zpRepo_->resType
-                && ! zIsSameSig) {
-            /*
-             * 获取写锁
-             * 此时将拒绝所有查询类请求
-             */
-            pthread_rwlock_wrlock(&zpRepo_->cacheLock);
-
+        if (0 == zpRepo_->resType && ! zIsSameSig) {
             /*
              * 以上一次成功布署的版本号为名称
              * 创建一个新分支，用于保证回撤的绝对可行性
@@ -1581,10 +1589,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zPRINT_ERR_EASY("branch create err");
             }
 
-            /*
-             * 更新最新一次布署版本号
-             * 并写入 DB
-             */
+            /* 更新最新一次布署版本号，并写入 DB */
             strcpy(zpRepo_->lastDpSig, zpRepo_->dpingSig);
 
             sprintf(zpCommonBuf,
@@ -1612,6 +1617,12 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
             zPgSQL_.res_clear(zpPgResHd_, NULL);
 
+            /* 获取写锁，此时将拒绝所有查询类请求 */
+            pthread_rwlock_wrlock(&zpRepo_->cacheLock);
+
+            /* 更新布署动作 ID，必须在 cacheLock 内执行 */
+            zpRepo_->dpID++;
+
             /* 项目内存池复位 */
             zMEM_POOL_REST( zpRepo_->id );
 
@@ -1627,13 +1638,17 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             /* update cacheID */
             zpRepo_->cacheID++;
 
+            pthread_rwlock_unlock(&zpRepo_->cacheLock);
+
             /* 标记缓存为可用状态 */
             zpRepo_->repoState = zCACHE_GOOD;
-
-            /* 释放缓存锁 */
-            pthread_rwlock_unlock(&zpRepo_->cacheLock);
         }
     } else {
+        /* 更新布署动作 ID，必须在 cacheLock 内执行 */
+        pthread_rwlock_wrlock(&zpRepo_->cacheLock);
+        zpRepo_->dpID++;
+        pthread_rwlock_wrlock(&zpRepo_->cacheLock);
+
         /* 若是被新布署请求打断 */
         for (i = 0; i < zpRepo_->totalHost; i++) {
             /* 终止尚未完工的布署进程 */
@@ -1667,9 +1682,9 @@ zEndMark:
  */
 static _i
 zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
+    _ui zDpID = 0;
     time_t zTimeStamp = 0;
     char *zpHostAddr = NULL;
-    char *zpRevSig = NULL;
     char *zpReplyType = NULL;
     char *zpErrContent = NULL;
 
@@ -1694,12 +1709,12 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     }
     zpHostAddr = zpJ->valuestring;
 
-    zpJ = cJSON_V(zpJRoot, "revSig");
-    if (! cJSON_IsString(zpJ) || '\0' == zpJ->valuestring[0]) {
+    zpJ = cJSON_V(zpJRoot, "dpID");
+    if (! cJSON_IsNumber(zpJ)) {
         zPRINT_ERR_EASY("");
         return -1;
     }
-    zpRevSig = zpJ->valuestring;
+    zDpID = zpJ->valuedouble;
 
     /* 格式，SN: S1..S9，EN: E3..E8 */
     zpJ = cJSON_V(zpJRoot, "replyType");
@@ -1728,20 +1743,32 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
     /* 正文...遍历信息链 */
     pthread_rwlock_rdlock(& zpRepo_->cacheLock);
 
-    for (zpTmp_ = zpRepo_->p_dpResHash_[zHostID[0] % zDP_HASH_SIZ];
-            zpTmp_ != NULL;
-            zpTmp_ = zpTmp_->p_next) {
-        if ( zIPVEC_CMP(zpTmp_->clientAddr, zHostID) ) {
-            zIndex = zpTmp_->selfIndex;
+    /*
+     * 判断是否是延迟到达的信息
+     * 已失效信息，直接略过，不记录
+     */
+    if (zDpID != zpRepo_->dpID) {
 
-            zResNo = zstate_confirm_ops(
-                    zIndex, zTimeStamp, zpRevSig, zpReplyType, zpErrContent);
+        pthread_rwlock_unlock(& zpRepo_->cacheLock);
 
-            break;
+        zResNo = -101;
+        zPRINT_ERR_EASY("msg out-of-date");
+    } else {
+        for (zpTmp_ = zpRepo_->p_dpResHash_[zHostID[0] % zDP_HASH_SIZ];
+                zpTmp_ != NULL;
+                zpTmp_ = zpTmp_->p_next) {
+            if ( zIPVEC_CMP(zpTmp_->clientAddr, zHostID) ) {
+                zIndex = zpTmp_->selfNodeIndex;
+
+                zResNo = zstate_confirm_ops(zDpID, zIndex,
+                        zpHostAddr, zTimeStamp, zpReplyType, zpErrContent);
+
+                break;
+            }
         }
-    }
 
-    pthread_rwlock_unlock(& zpRepo_->cacheLock);
+        pthread_rwlock_unlock(& zpRepo_->cacheLock);
+    }
 
     if (-1 == zIndex) {
         zPRINT_ERR_EASY("");
@@ -1769,7 +1796,7 @@ zstate_confirm(cJSON *zpJRoot, _i zSd __attribute__ ((__unused__))) {
 }
 
 static _i
-zstate_confirm_ops(_i zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp,
+zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp,
         char *zpReplyType, char *zpErrContent) {
 
     _i zResNo = 0,
@@ -1790,12 +1817,23 @@ zstate_confirm_ops(_i zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp
      * 'E[N]'：错误信息分类上报
      */
     if ('E' == zpReplyType[0]) {
-        /* 需要清除单引号 */
+        zSET_BIT(zpRepo_->p_dpResList_[zSelfNodeID].errState, zRetBit);
+
+        /* 发生错误，置位表示出错返回 */
+        zSET_BIT(zpRepo_->resType, 1);
+
+        /* 转存错误信息 */
+        strncpy(zpRepo_->p_dpResList_[zSelfNodeID].errMsg, zpErrContent, 255);
+        zpRepo_->p_dpResList_[zSelfNodeID].errMsg[255] = '\0';
+
+        zTASK_FIN_NOTICE();
+
+        /* 写入 DB 时需要清除单引号 */
         zDEL_SINGLE_QUOTATION(zpErrContent);
 
         /*
          * postgreSQL 的数组下标是从 1 开始的
-         * time_stamp 与 dp_id 结合，可以定位单次布署动作，不需要对比 revSig
+         * dp_id 可唯一定位单次布署动作，不需要对比 revSig
          */
         snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                 "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "
@@ -1808,31 +1846,18 @@ zstate_confirm_ops(_i zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp
             zPRINT_ERR_EASY("DB record update err");
         }
 
-        /* 判断是否是延迟到达的信息 */
-        if (zDpID != zpRepo_->dpID 
-                || zTimeStamp != zpRepo_->dpBaseTimeStamp) {
-
-            zResNo = -101;
-            zPRINT_ERR_EASY("msg out-of-date");
-            goto zEndMark;
-        }
-
-        zSET_BIT(zpRepo_->p_dpResList_[zSelfNodeID].errState, zRetBit);
-
-        /* 发生错误，置位表示出错返回 */
-        zSET_BIT(zpRepo_->resType, 1);
-
-        /* 转存错误信息 */
-        strncpy(zpRepo_->p_dpResList_[zSelfNodeID].errMsg, zpErrContent, 255);
-        zpRepo_->p_dpResList_[zSelfNodeID].errMsg[255] = '\0';
-
-        zTASK_FIN_NOTICE();
-
         zResNo = -102;
-        zPRINT_ERR_EASY("");
         goto zEndMark;
     } else if ('S' == zpReplyType[0]) {
+        zSET_BIT(zpRepo_->p_dpResList_[zSelfNodeID].resState, zRetBit);
+
+        /*
+         * 最终成功的状态到达时，
+         * 才需要递增全局计数，并通知完工信息
+         */
         if ('4' == zpReplyType[1]) {
+            zTASK_FIN_NOTICE();
+
             snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
                     "UPDATE dp_log SET host_res[%d] = '1',host_timespent = %ld "
                     "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND dp_id = %d",
@@ -1848,24 +1873,6 @@ zstate_confirm_ops(_i zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStamp
 
         if (0 > zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCmdBuf, NULL)) {
             zPRINT_ERR_EASY("DB record update err");
-        }
-
-        /* 判断是否是延迟到达的信息 */
-        if (zDpID != zpRepo_->dpID 
-                || zTimeStamp != zpRepo_->dpBaseTimeStamp) {
-            zResNo = -101;
-            zPRINT_ERR_EASY("msg out-of-date");
-            goto zEndMark;
-        }
-
-        zSET_BIT(zpRepo_->p_dpResList_[zSelfNodeID].resState, zRetBit);
-
-        /* 
-         * 最终成功的状态到达时，
-         * 才需要递增全局计数，并通知完工信息
-         */
-        if ('4' == zpReplyType[1]) {
-            zTASK_FIN_NOTICE();
         }
 
         zResNo = 0;
