@@ -1412,7 +1412,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         }
 
         /* 空值转换，会返回 0 */
-        zpRepo_->dpID = strtol(zpPgRes_->tupleRes_[0].pp_fields[2], NULL, 10);
+        zpRepo_->dpID = 1 + strtol(zpPgRes_->tupleRes_[0].pp_fields[2], NULL, 10);
 
         /* clean... */
         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
