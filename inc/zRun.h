@@ -510,17 +510,19 @@ typedef struct __zArgvInfo__ {
 } zArgvInfo__;
 
 
+/*
+ * 保留只用于主进程中的数据项于直接成员中，
+ * 项目进程间共享的数据，置于 zSysInfo__ 二级结构中
+ */
 struct zRun__ {
     void (* run) (zArgvInfo__ *);
 
     /*
-     * 仅用于主进程中
      * 确保同一项目不会重复启动多个进程
      * 同时用于保持日志的有序性
      */
     pthread_mutex_t *p_commLock;
 
-    /* 仅用于主进程 */
     _i logFd;
 
     zSysInfo__ *p_sysInfo_;

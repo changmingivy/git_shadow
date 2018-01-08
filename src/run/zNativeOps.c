@@ -34,9 +34,6 @@ extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zPgSQL__ zPgSQL_;
 
-extern struct zRun__ zRun_;
-extern zRepo__ *zpRepo_;
-
 extern char *zpProcName;
 extern size_t zProcNameBufLen;
 

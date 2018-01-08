@@ -11,6 +11,9 @@
 
 #include <sys/socket.h>
 
+extern char *zpProcName;
+extern size_t zProcNameBufLen;
+
 #define zBYTES(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSIZEOF(zObj) ((_i)sizeof(zObj))
 
