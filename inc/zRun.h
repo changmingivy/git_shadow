@@ -496,7 +496,7 @@ typedef struct __zSysInfo__ {
 
 
 struct zRun__ {
-    void (* run) (zPgLogin__ *);
+    void (* run) (zArgvInfo__ *);
 
     /*
      * 仅用于主进程中

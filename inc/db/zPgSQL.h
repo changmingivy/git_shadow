@@ -4,14 +4,16 @@
 #include "libpq-fe.h"
 #include "zCommon.h"
 
-typedef struct __zPgLogin__ {
-    char *p_host;
-    char *p_addr;
-    char *p_port;
-    char *p_userName;
-    char *p_passFilePath;
-    char *p_dbName;
-} zPgLogin__;
+typedef struct __zArgvInfo__ {
+    char *p_procName;
+
+    char *p_pgHost;
+    char *p_pgAddr;
+    char *p_pgPort;
+    char *p_pgUserName;
+    char *p_pgPassFilePath;
+    char *p_pgDBName;
+} zArgvInfo__;
 
 typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;

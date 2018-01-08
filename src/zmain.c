@@ -23,7 +23,7 @@ extern struct zRun__ zRun_;
 _i
 main(_i zArgc, char **zppArgv) {
     _i zOpt = 0;
-    zPgLogin__ zPgLogin_ = { NULL, NULL, NULL, NULL, NULL, NULL };
+    zArgvInfo__ zArgvInfo_ = { zppArgv[0], NULL, NULL, NULL, NULL, NULL, NULL };
 
     /*
      * mmap shared 的主进程及所有项目进程共享的区域 
@@ -60,17 +60,17 @@ main(_i zArgc, char **zppArgv) {
             case 'p':
                 zRun_.p_sysInfo_->netSrv_.p_port = optarg; break;
             case 'H':
-                zPgLogin_.p_host = optarg; break;
+                zArgvInfo_.p_pgHost = optarg; break;
             case 'A':
-                zPgLogin_.p_addr = optarg; break;
+                zArgvInfo_.p_pgAddr = optarg; break;
             case 'P':
-                zPgLogin_.p_port = optarg; break;
+                zArgvInfo_.p_pgPort = optarg; break;
             case 'U':
-                zPgLogin_.p_userName = optarg; break;
+                zArgvInfo_.p_pgUserName = optarg; break;
             case 'F':
-                zPgLogin_.p_passFilePath = optarg; break;
+                zArgvInfo_.p_pgPassFilePath = optarg; break;
             case 'D':
-                zPgLogin_.p_dbName = optarg; break;
+                zArgvInfo_.p_pgDBName = optarg; break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPRINT_TIME();
                 fprintf(stderr,
@@ -94,5 +94,5 @@ main(_i zArgc, char **zppArgv) {
     }
 
     /* 启动主服务 */
-    zRun_.run(& zPgLogin_);
+    zRun_.run(& zArgvInfo_);
 }

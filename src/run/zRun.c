@@ -20,7 +20,7 @@ extern struct zPgSQL__ zPgSQL_;
 extern struct zLibGit__ zLibGit_;
 extern struct zMd5Sum__ zMd5Sum_;
 
-static void zstart_server(zPgLogin__ *zpPgLogin_);
+static void zstart_server(zArgvInfo__ *zpArgvInfo_);
 static void * zops_route_tcp_master(void *zp);
 static void * zops_route_tcp (void *zp);
 
@@ -265,7 +265,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
  * 只需在主进程执行一次，项目进程会继承之
  */
 static void
-zglob_data_config(zPgLogin__ *zpPgLogin_) {
+zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
     struct passwd *zpPWD = NULL;
     char zDBPassFilePath[1024];
 
@@ -298,22 +298,22 @@ zglob_data_config(zPgLogin__ *zpPgLogin_) {
     sprintf(zRun_.p_sysInfo_->p_sshPrvKeyPath, "%s/.ssh/id_rsa", zRun_.p_sysInfo_->p_homePath);
 
     /* 确保 pgSQL 密钥文件存在并合法 */
-    if (NULL == zpPgLogin_->p_passFilePath) {
+    if (NULL == zpArgvInfo_->p_pgPassFilePath) {
         snprintf(zDBPassFilePath, 1024,
                 "%s/.pgpass",
                 zRun_.p_sysInfo_->p_homePath);
 
-        zpPgLogin_->p_passFilePath = zDBPassFilePath;
+        zpArgvInfo_->p_pgPassFilePath = zDBPassFilePath;
     }
 
-    zCHECK_NOTZERO_EXIT( stat(zpPgLogin_->p_passFilePath, &zS_) );
+    zCHECK_NOTZERO_EXIT( stat(zpArgvInfo_->p_pgPassFilePath, &zS_) );
 
     if (! S_ISREG(zS_.st_mode)) {
         zPRINT_ERR_EASY("");
         exit(1);
     }
 
-    zCHECK_NOTZERO_EXIT( chmod(zpPgLogin_->p_passFilePath, 00600) );
+    zCHECK_NOTZERO_EXIT( chmod(zpArgvInfo_->p_pgPassFilePath, 00600) );
 
     /* 生成连接 pgSQL 的元信息 */
     snprintf(zRun_.p_sysInfo_->pgConnInfo, 2048,
@@ -325,18 +325,18 @@ zglob_data_config(zPgLogin__ *zpPgLogin_) {
             "%s%s "
             "sslmode=allow "
             "connect_timeout=6",
-            NULL == zpPgLogin_->p_addr ? "host=" : "",
-            NULL == zpPgLogin_->p_addr ? (NULL == zpPgLogin_->p_host ? zRun_.p_sysInfo_->p_servPath : zpPgLogin_->p_host) : "",
-            NULL == zpPgLogin_->p_addr ? "" : "hostaddr=",
-            NULL == zpPgLogin_->p_addr ? "" : zpPgLogin_->p_addr,
-            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : "port="),
-            (NULL == zpPgLogin_->p_addr && NULL == zpPgLogin_->p_host)? "" : (NULL == zpPgLogin_->p_port ? "" : zpPgLogin_->p_port),
+            NULL == zpArgvInfo_->p_pgAddr ? "host=" : "",
+            NULL == zpArgvInfo_->p_pgAddr ? (NULL == zpArgvInfo_->p_pgHost ? zRun_.p_sysInfo_->p_servPath : zpArgvInfo_->p_pgHost) : "",
+            NULL == zpArgvInfo_->p_pgAddr ? "" : "hostaddr=",
+            NULL == zpArgvInfo_->p_pgAddr ? "" : zpArgvInfo_->p_pgAddr,
+            (NULL == zpArgvInfo_->p_pgAddr && NULL == zpArgvInfo_->p_pgHost)? "" : (NULL == zpArgvInfo_->p_pgPort ? "" : "port="),
+            (NULL == zpArgvInfo_->p_pgAddr && NULL == zpArgvInfo_->p_pgHost)? "" : (NULL == zpArgvInfo_->p_pgPort ? "" : zpArgvInfo_->p_pgPort),
             "user=",
-            NULL == zpPgLogin_->p_userName ? "git" : zpPgLogin_->p_userName,
+            NULL == zpArgvInfo_->p_pgUserName ? "git" : zpArgvInfo_->p_pgUserName,
             "passfile=",
-            zpPgLogin_->p_passFilePath,
+            zpArgvInfo_->p_pgPassFilePath,
             "dbname=",
-            NULL == zpPgLogin_->p_dbName ? "dpDB": zpPgLogin_->p_dbName);
+            NULL == zpArgvInfo_->p_pgDBName ? "dpDB": zpArgvInfo_->p_pgDBName);
 
     /* 初始化 serv_map 与 err_map */
     zserv_vec_init();
@@ -348,7 +348,7 @@ zglob_data_config(zPgLogin__ *zpPgLogin_) {
  * 服务启动入口
  */
 static void
-zstart_server(zPgLogin__ *zpPgLogin_) {
+zstart_server(zArgvInfo__ *zpArgvInfo_) {
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
         zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
@@ -365,7 +365,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
     zNativeUtils_.daemonize(zRun_.p_sysInfo_->p_servPath);
 
     /* 全局共享数据注册 */
-    zglob_data_config(zpPgLogin_);
+    zglob_data_config(zpArgvInfo_);
 
     /*
      * !!! 必须在初始化项目库之前运行
@@ -409,7 +409,7 @@ zstart_server(zPgLogin__ *zpPgLogin_) {
      * 项目库初始化
      * 每个项目对应一个独立的进程
      */
-    zNativeOps_.repo_init_all();
+    zNativeOps_.repo_init_all(zpArgvInfo_->p_procName);
 
     /*
      * 只运行于主进程
