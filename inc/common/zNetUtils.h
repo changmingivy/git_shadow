@@ -1,8 +1,8 @@
 #ifndef ZNETUTILS_H
 #define ZNETUTILS_H
 
-#include <netdb.h>
 #include "zCommon.h"
+#include <netdb.h>
 
 struct zNetUtils__ {
     _i (* gen_serv_sd) (char *, char *, char *, znet_proto_t);
