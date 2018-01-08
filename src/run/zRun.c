@@ -860,7 +860,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
                 zDataBuf[40] = '\0';
                 sprintf(zSQLBuf,
                         "INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip,host_res,host_timespent) "
-                        "VALUES (%ld,floor(random() * 1000000000),%s,'%s','%s',{'1','1','1','1'},floor(random() * 10))",
+                        "VALUES (%ld,floor(random() * 1000000000),%s,'%s','%s','{1,1,1,1}',floor(1 + random() * 10))",
                         strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
                         zDataBuf,
                         "::1");
