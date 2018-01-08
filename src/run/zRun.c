@@ -775,10 +775,13 @@ zudp_daemon(void *zpSd) {
                  * 只发送了一个 cmsghdr 结构体 + fd
                  * 其最后的 data[] 存放的即是接收到的 fd
                  */
+                /* sentSd 字段段存放接收者向发送者通信所需的句柄 */
                 zUdpInfo_[zReqID].sentSd = * (_i *) CMSG_DATA(CMSG_FIRSTHDR(& zMsg_));
                 zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqID].sentSd);
             }
         } else if (0 < zLen){
+            /* sentSd 字段段存放接收者向发送者通信所需的句柄 */
+            zUdpInfo_[zReqID].sentSd = zSd;
             zUdpInfo_[zReqID].peerAddrLen = zMsg_.msg_namelen;
             zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqID]);
         } else {
@@ -809,7 +812,7 @@ zops_route_udp (void *zp) {
             && NULL != zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48]
             && 0 == zRun_.p_sysInfo_->ops_udp[zUdpInfo_.data[0] - 48](
                 zUdpInfo_.data + 1,
-                zpRepo_->unSd,
+                zUdpInfo_.sentSd,
                 & zUdpInfo_.peerAddr,
                 zUdpInfo_.peerAddrLen)) {
         return NULL;
