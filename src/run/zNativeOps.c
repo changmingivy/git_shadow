@@ -897,7 +897,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
     snprintf(zpProcName, zProcNameBufLen,
-            "git_shadow: %s",
+            "[repoID: %s]",
             zppRepoMeta[0]);
 
     _us zSourceUrlLen = strlen(zppRepoMeta[2]),

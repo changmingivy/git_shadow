@@ -157,11 +157,11 @@ typedef enum {
         zRun_.p_sysInfo_->ops_udp[9](zBuf + 1, 0, NULL, 0);\
     } else {\
         zLen += snprintf(zBuf + zLen, 510 - zLen,\
-                "\033[31;01mpid:\033[00m %d; "\
-                "\033[31;01mfiLe:\033[00m %s; "\
-                "\033[31;01mline:\033[00m %d; "\
-                "\033[31;01mfunc:\033[00m %s; "\
-                "\033[31;01mcause:\033[00m %s; "\
+                "\033[31;01mpid:\033[00m %d "\
+                "\033[31;01mfiLe:\033[00m %s "\
+                "\033[31;01mline:\033[00m %d "\
+                "\033[31;01mfunc:\033[00m %s "\
+                "\033[31;01mcause:\033[00m %s "\
                 "\033[31;01mdetail:\033[00m %s %s\n",\
                 zPid,\
                 __FILE__,\
