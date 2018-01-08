@@ -34,8 +34,8 @@ extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zPgSQL__ zPgSQL_;
 
-extern char *zpProcName;
-extern size_t zProcNameBufLen;
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 static void * zalloc_cache(size_t zSiz);
 static void * zget_diff_content(void *zp);
