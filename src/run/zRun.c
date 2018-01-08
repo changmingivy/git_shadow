@@ -375,13 +375,13 @@ static void
 zstart_server(zArgvInfo__ *zpArgvInfo_) {
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        zPRINT_ERR(0, NULL, "!!! FATAL !!!");
         exit(1);
     }
 
     /* 检查 pgSQL 运行环境是否是线程安全的 */
     if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPRINT_ERR(0, NULL, "==== !!! FATAL !!! ====");
+        zPRINT_ERR(0, NULL, "!!! FATAL !!!");
         exit(1);
     }
 

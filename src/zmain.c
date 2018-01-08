@@ -21,11 +21,6 @@ main(_i zArgc, char **zppArgv) {
         zArgvInfo_.procNameBufSiz += 1 + strlen(zppArgv[i]);
     }
 
-    /* 主进程名称定制 */
-    memset(zppArgv[0], 0, zArgvInfo_.procNameBufSiz);
-    snprintf(zppArgv[0], zArgvInfo_.procNameBufSiz,
-            "git_shadow: MASTER [email: hui.fan@mail.ru]");
-
     /*
      * mmap shared 的主进程及所有项目进程共享的区域 
      * 存放系统全局信息
@@ -41,11 +36,16 @@ main(_i zArgc, char **zppArgv) {
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "x:u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'x':
-                zRun_.p_sysInfo_->p_servPath = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->p_servPath, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->p_servPath, optarg);
+                break;
             case 'u':
-                zRun_.p_sysInfo_->p_loginName = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->p_loginName, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->p_loginName, optarg);
+                break;
             case 'h':
-                zRun_.p_sysInfo_->netSrv_.p_ipAddr = optarg;
+                zMEM_ALLOC(zRun_.p_sysInfo_->netSrv_.p_ipAddr, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->netSrv_.p_ipAddr, optarg);
 
                 /* git push 会用此字符串作为分支名称的一部分 */
                 snprintf(zRun_.p_sysInfo_->netSrv_.specStrForGit, INET6_ADDRSTRLEN,
@@ -60,19 +60,33 @@ main(_i zArgc, char **zppArgv) {
 
                 break;
             case 'p':
-                zRun_.p_sysInfo_->netSrv_.p_port = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->netSrv_.p_port, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->netSrv_.p_port, optarg);
+                break;
             case 'H':
-                zArgvInfo_.p_pgHost = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgHost, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgHost, optarg);
+                break;
             case 'A':
-                zArgvInfo_.p_pgAddr = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgAddr, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgAddr, optarg);
+                break;
             case 'P':
-                zArgvInfo_.p_pgPort = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgPort, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgPort, optarg);
+                break;
             case 'U':
-                zArgvInfo_.p_pgUserName = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgUserName, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgUserName, optarg);
+                break;
             case 'F':
-                zArgvInfo_.p_pgPassFilePath = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgPassFilePath, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgPassFilePath, optarg);
+                break;
             case 'D':
-                zArgvInfo_.p_pgDBName = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgDBName, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgDBName, optarg);
+                break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
                 zPRINT_TIME();
                 fprintf(stderr,
@@ -94,6 +108,11 @@ main(_i zArgc, char **zppArgv) {
                 exit(1);
            }
     }
+
+    /* 主进程名称定制 */
+    memset(zppArgv[0], 0, zArgvInfo_.procNameBufSiz);
+    snprintf(zppArgv[0], zArgvInfo_.procNameBufSiz,
+            "git_shadow: MASTER [email: hui.fan@mail.ru]");
 
     /* 启动主服务 */
     zRun_.run(& zArgvInfo_);
