@@ -9,6 +9,8 @@
     #endif
 #endif
 
+#include <pthread.h>
+
 #include <sys/types.h>
 #include <sys/un.h>
 
@@ -26,8 +28,6 @@
 
 #include "zNativeOps.h"
 #include "zDpOps.h"
-
-#include <pthread.h>
 
 #define zTCP_SERV_HASH_SIZ 16
 #define zUDP_SERV_HASH_SIZ 10
