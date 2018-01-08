@@ -12,15 +12,20 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <pthread.h>
+
 #include "zCommon.h"
 #include "zNetUtils.h"
+#include "zNativeUtils.h"
 #include "zThreadPool.h"
+
+#include "cJSON.h"
+#include "zMd5Sum.h"
+#include "zPosixReg.h"
 
 #include "zLibSsh.h"
 #include "zLibGit.h"
 #include "zPgSQL.h"
-#include "cJSON.h"
-#include "zMd5Sum.h"
+#include "zNativeOps.h"
 #include "zDpOps.h"
 
 #define zTCP_SERV_HASH_SIZ 16
