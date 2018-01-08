@@ -19,6 +19,8 @@
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 
+#include "zRun.h"
+
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 

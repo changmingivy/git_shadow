@@ -18,12 +18,20 @@
 
 #include <libpq-fe.h>
 
+#include "zPosixReg.h"
+#include "zNativeUtils.h"
+#include "zNetUtils.h"
+#include "zThreadPool.h"
+#include "zLibGit.h"
+#include "zPgSQL.h"
+#include "zRun.h"
+//#include "zMd5Sum.h"
+
 extern struct zPosixReg__ zPosixReg_;
 extern struct zNativeUtils__ zNativeUtils_;
 extern struct zNetUtils__ zNetUtils_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
-extern struct zDpOps__ zDpOps_;
 extern struct zPgSQL__ zPgSQL_;
 
 extern struct zRun__ zRun_;

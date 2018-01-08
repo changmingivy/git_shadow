@@ -7,6 +7,9 @@
 
 #include "libssh2.h"
 
+#include "zNetUtils.h"
+#include "zRun.h"
+
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 

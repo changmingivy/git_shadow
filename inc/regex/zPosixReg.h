@@ -10,7 +10,6 @@
 #endif
 
 #include <regex.h>
-#include "zRun.h"
 #include "zCommon.h"
 
 typedef struct __zRegRes__ {

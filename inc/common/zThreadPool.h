@@ -9,7 +9,6 @@
     #endif
 #endif
 
-#include <pthread.h>
 #include <semaphore.h>
 #include "zCommon.h"
 

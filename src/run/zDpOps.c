@@ -12,10 +12,32 @@
 #include <time.h>
 #include <errno.h>
 
+#include <pthread.h>
+#include <semaphore.h>
+#include <libpq-fe.h>
+
+#include "zNativeUtils.h"
+#include "zNetUtils.h"
+
+#include "zLibSsh.h"
+#include "zLibGit.h"
+
+#include "zNativeOps.h"
+
+#include "zPosixReg.h"
+#include "zThreadPool.h"
+#include "zPgSQL.h"
+//#include "zMd5Sum.h"
+
+#include "zRun.h"
+
 #define cJSON_V(zpJRoot, zpValueName) cJSON_GetObjectItemCaseSensitive((zpJRoot), (zpValueName))
 
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 extern struct zNetUtils__ zNetUtils_;
 extern struct zNativeUtils__ zNativeUtils_;
@@ -28,9 +50,6 @@ extern struct zLibSsh__ zLibSsh_;
 extern struct zLibGit__ zLibGit_;
 
 extern struct zNativeOps__ zNativeOps_;
-
-extern struct zRun__ zRun_;
-extern zRepo__ *zpRepo_;
 
 static _i zadd_repo(cJSON *zpJRoot, _i zSd);
 

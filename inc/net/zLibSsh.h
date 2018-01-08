@@ -9,9 +9,7 @@
     #endif
 #endif
 
-#include "zRun.h"
 #include "zCommon.h"
-#include "zNetUtils.h"
 #include <semaphore.h>
 
 struct zLibSsh__ {

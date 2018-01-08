@@ -10,15 +10,6 @@
 #endif
 
 #include "zCommon.h"
-#include "zPosixReg.h"
-#include "zNativeUtils.h"
-#include "zNetUtils.h"
-#include "zThreadPool.h"
-#include "zLibGit.h"
-#include "zPgSQL.h"
-#include "zDpOps.h"
-#include "zRun.h"
-//#include "zMd5Sum.h"
 
 #define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 

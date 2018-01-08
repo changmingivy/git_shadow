@@ -10,7 +10,6 @@
 #endif
 
 #include <netdb.h>
-#include "zRun.h"
 #include "zCommon.h"
 
 struct zNetUtils__ {

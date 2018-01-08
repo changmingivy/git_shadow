@@ -2,7 +2,6 @@
 #define ZPGSQL_H
 
 #include "libpq-fe.h"
-#include "zRun.h"
 #include "zCommon.h"
 
 typedef PGconn zPgConnHd__;

@@ -15,26 +15,8 @@
     #endif
 #endif
 
-#include <pthread.h>  //  该头文件内部已使用 #define _PTHREAD_H 避免重复
-#include <semaphore.h>  //  该头文件内部已使用 #define _SEMAPHORE_H 避免重复
-#include <libpq-fe.h>  //  该头文件内部已使用 #define LIBPQ_FE_H 避免重复
-
 #include "zCommon.h"
-#include "zNativeUtils.h"
-#include "zNetUtils.h"
-
-#include "zLibSsh.h"
-#include "zLibGit.h"
-
-#include "zNativeOps.h"
-#include "zRun.h"
-
-#include "zPosixReg.h"
-#include "zThreadPool.h"
-#include "zPgSQL.h"
-//#include "zMd5Sum.h"
 #include "cJSON.h"
-
 
 struct zDpOps__ {
     _i (* show_dp_process) (cJSON *, _i);

@@ -7,6 +7,8 @@
 #include <time.h>
 #include <errno.h>
 
+#include "zRun.h"
+
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 

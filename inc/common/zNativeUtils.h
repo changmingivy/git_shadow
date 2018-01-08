@@ -2,7 +2,6 @@
 #define ZLOCALUTILS_H
 
 #include <stdio.h>
-#include "zRun.h"
 #include "zCommon.h"
 
 struct zNativeUtils__ {
