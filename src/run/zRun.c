@@ -371,8 +371,12 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 /*
  * 服务启动入口
  */
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
 zstart_server(zArgvInfo__ *zpArgvInfo_) {
+    static _i zServSd[2] = {-1};
+
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
         zPRINT_ERR(0, NULL, "!!! FATAL !!!");
@@ -398,10 +402,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 系统全局可启动线程数上限 1024
      */
     zThreadPool_.init(32, 1024);
-
-{////
-#define zUN_PATH_SIZ\
-        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 
     /* 项目进程唯一性保证；日志有序性保证 */
     zRun_.p_commLock = & zCommLock;
@@ -437,8 +437,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
         /* 主进程 connect 项目进程 UNIX domain socket 生成的 sd，预置为 -1 */
         zRun_.p_sysInfo_->masterPeerSdVec[i] = -1;
     }
-#undef zUN_PATH_SIZ
-}////
 
     /*
      * 项目库初始化
@@ -446,17 +444,25 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      */
     zNativeOps_.repo_init_all();
 
-    /*
-     * 只运行于主进程
-     * 用于目标机监控数据收集
-     */
-    zThreadPool_.add(zudp_daemon, NULL);
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
+    zServSd[0] = zNetUtils_.gen_serv_sd(
+            zRun_.p_sysInfo_->netSrv_.p_ipAddr,
+            zRun_.p_sysInfo_->netSrv_.p_port,
+            NULL,
+            zProtoUDP);
 
-    /*
-     * 只运行于主进程
-     * 负责统一记录整个系统的日志
-     */
-    zThreadPool_.add(zudp_daemon, zRun_.p_sysInfo_->unAddrMaster.sun_path);
+    /* 只运行于主进程，用于目标机监控数据收集 */
+    zThreadPool_.add(zudp_daemon, zServSd);
+
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
+    zServSd[1] = zNetUtils_.gen_serv_sd(
+            NULL,
+            NULL,
+            zRun_.p_sysInfo_->unAddrMaster.sun_path,
+            zProtoUDP);
+
+    /* 只运行于主进程，负责统一记录整个系统的日志 */
+    zThreadPool_.add(zudp_daemon, zServSd + 1);
 
     /*
      * 主进程退出时，清理所有项目进程
@@ -494,6 +500,8 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
         }
     }
 }
+#undef zUN_PATH_SIZ
+
 
 /*
  * 主进程路由函数
@@ -705,7 +713,9 @@ zEndMark:
 }
 
 static void *
-zudp_daemon(void *zpUNPath) {
+zudp_daemon(void *zpSd) {
+    _i zSd = * ((_i *) zpSd);
+
     /*
      * 监控数据收集服务
      * 单个消息长度不能超过 510
@@ -729,25 +739,6 @@ zudp_daemon(void *zpUNPath) {
     size_t zLen = 0;
     _ui i = 0;
     _uc zReqID = 0;
-    _i zSd = 0;
-
-    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    if (NULL == zpUNPath) {
-        /* 主进程用于收集监控信息的 UDP 服务 sd */
-        zSd = zNetUtils_.gen_serv_sd(
-                zRun_.p_sysInfo_->netSrv_.p_ipAddr,
-                zRun_.p_sysInfo_->netSrv_.p_port,
-                NULL,
-                zProtoUDP);
-
-    } else {
-        /* 项目进程所用的内部 UNIX domain socket */
-        zSd = zNetUtils_.gen_serv_sd(
-                NULL,
-                NULL,
-                zpUNPath,
-                zProtoUDP);
-    }
 
     /*
      * 收到的内容会传向新线程，

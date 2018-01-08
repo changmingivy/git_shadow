@@ -897,7 +897,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
     snprintf(zpProcName, zProcNameBufLen,
-            "git_shadow: worker [repoID %s]",
+            "git_shadow: %s",
             zppRepoMeta[0]);
 
     _us zSourceUrlLen = strlen(zppRepoMeta[2]),
@@ -1607,11 +1607,18 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* clean... */
     free(zppRepoMeta);
 
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
+    zpRepo_->unSd = zNetUtils_.gen_serv_sd(
+            NULL,
+            NULL,
+            zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path,
+            zProtoUDP);
+
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
      */
-    zRun_.p_sysInfo_->udp_daemon(zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path);
+    zRun_.p_sysInfo_->udp_daemon(& zpRepo_->unSd);
 
     /*
      * NEVER! REACH! HERE!
