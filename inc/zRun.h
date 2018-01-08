@@ -15,6 +15,7 @@
 #include "zNetUtils.h"
 #include "zThreadPool.h"
 
+#include "zLibGit.h"
 #include "zPgSQL.h"
 #include "zDpOps.h"
 #include "cJSON.h"
