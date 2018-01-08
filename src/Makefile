@@ -3,7 +3,7 @@ all: git_shadow
 CC = clang
 CCFLAGS = -g -O2 -std=c99 -Wall -Wextra
 
-ROOT_DIR = ${HOME}/zgit_shadow2
+ROOT_DIR = ${zGitShadowPath}
 
 # 默认值，会被外部传参覆盖：third party libs, absolute path
 SSH_LIB_DIR = $(ROOT_DIR)/lib/libssh2/lib
