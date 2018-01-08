@@ -5,18 +5,6 @@
 #include "zRun.h"
 #include "zCommon.h"
 
-typedef struct __zArgvInfo__ {
-    char *p_procName;
-    size_t procNameBufSiz;
-
-    char *p_pgHost;
-    char *p_pgAddr;
-    char *p_pgPort;
-    char *p_pgUserName;
-    char *p_pgPassFilePath;
-    char *p_pgDBName;
-} zArgvInfo__;
-
 typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;
 

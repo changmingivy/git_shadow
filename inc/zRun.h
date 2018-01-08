@@ -16,10 +16,11 @@
 #include "zThreadPool.h"
 
 #include "zLibGit.h"
+#include "zLibSsh.h"
 #include "zPgSQL.h"
-#include "zDpOps.h"
 #include "cJSON.h"
 #include "zMd5Sum.h"
+#include "zDpOps.h"
 
 #define zTCP_SERV_HASH_SIZ 16
 #define zUDP_SERV_HASH_SIZ 10
@@ -501,6 +502,19 @@ typedef struct __zSysInfo__ {
     /* md5sum post-update | grep -oE '^.{32}' | tr '[A-Z]' '[a-z]' */
     char gitHookMD5[33];
 } zSysInfo__;
+
+
+typedef struct __zArgvInfo__ {
+    char *p_procName;
+    size_t procNameBufSiz;
+
+    char *p_pgHost;
+    char *p_pgAddr;
+    char *p_pgPort;
+    char *p_pgUserName;
+    char *p_pgPassFilePath;
+    char *p_pgDBName;
+} zArgvInfo__;
 
 
 struct zRun__ {
