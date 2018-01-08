@@ -80,7 +80,7 @@ main(_i zArgc, char **zppArgv) {
                         "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
                         "Usage:\n"
                         "%s\n"
-                        "[-x serv_path]  /* server root path on master, usually /home/git/zgit_shadow2 */\n"
+                        "[-x serv_path]  /* server root path on master, usually /home/git/zgit_shadow */\n"
                         "[-u login_name]  /* username on server */\n"
                         "[-h host]  /* host name or domain name or host IP address */\n"
                         "[-p tcp_port]  /* tcp serv port */\n"
