@@ -859,8 +859,8 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
             while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH1)) {
                 zDataBuf[40] = '\0';
                 sprintf(zSQLBuf,
-                        "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
-                        "VALUES (%ld,%s,'%s','%s')",
+                        "INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) "
+                        "VALUES (%ld,floor(random() * 1000000000),%s,'%s','%s')",
                         strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
                         zDataBuf,
                         "::1");
