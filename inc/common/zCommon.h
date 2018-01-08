@@ -1,9 +1,9 @@
+#include <sys/socket.h>
+#include "zRun.h"
+
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
-#include <sys/socket.h>
-
-#include "zRun.h"
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
