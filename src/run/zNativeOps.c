@@ -1715,7 +1715,7 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
                     /* 项目进程名称更改为 git_shadow: <repoID> */
                     memset(zpProcName, 0, zProcNameBufSiz);
                     snprintf(zpProcName, zProcNameBufSiz,
-                            "git_shadow: proj worker repoID [%s]",
+                            "git_shadow: proj worker [repoID %s]",
                             zpPgRes_->tupleRes_[i].pp_fields[0]);
 
                     /* 项目进程初始化项目环境 */
