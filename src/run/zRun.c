@@ -799,7 +799,7 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     char zLogPathBuf[4096];
 
     char zDataBuf[4096];
-    char zSQLBuf[1024];
+    char zSQLBuf[4096];
 
     FILE *zpH0 = fopen(zpConfPath, "r");
     FILE *zpH1 = NULL;
@@ -811,7 +811,18 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH0)) {
         zPosixReg_.str_split(&zR_, zDataBuf, " ");
 
-        zNativeOps_.repo_init(zR_.pp_rets, -1);
+        sprintf(zSQLBuf, "INSERT INTO repo_meta "
+                "(repo_id,path_on_host,source_url,source_branch,source_vcs_type,need_pull,ssh_user_name,ssh_port) "
+                "VALUES ('%s','%s','%s','%s','%c','%c','%s','%s')",
+                zR_.pp_rets[0],
+                zR_.pp_rets[1],
+                zR_.pp_rets[2],
+                "master",
+                'G',
+                'Y',
+                "git",
+                "22");
+        zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
 
         sprintf(zLogPathBuf,
                 "/home/git/home/git/.____DpSystem/%s_SHADOW/log/deploy/meta",
