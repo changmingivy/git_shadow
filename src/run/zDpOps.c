@@ -591,17 +591,17 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     }
 
     /* 检查项目 ID 是否冲突 */
-    pthread_mutex_lock(zRun_.p_repoStartLock);
+    pthread_mutex_lock(zRun_.p_commLock);
     if (zRun_.p_sysInfo_->masterPid
             != zRun_.p_sysInfo_->repoPidVec[zRepoID]) {
-        pthread_mutex_unlock(zRun_.p_repoStartLock);
+        pthread_mutex_unlock(zRun_.p_commLock);
 
         zResNo = -35;
         goto zEndMark;
     }
 
     if (0 > (zPid = fork())) {
-        pthread_mutex_unlock(zRun_.p_repoStartLock);
+        pthread_mutex_unlock(zRun_.p_commLock);
         zResNo = -126;
         goto zEndMark;
     }
@@ -611,7 +611,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
      * 创建的最终结果通知，会由子进程发出
      */
     if (0 == zPid) {
-        pthread_mutex_unlock(zRun_.p_repoStartLock);
+        pthread_mutex_unlock(zRun_.p_commLock);
 
         char **zppMeta;
         {////
@@ -640,7 +640,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zNativeOps_.repo_init(zppMeta, zSd);
     } else {
         zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
-        pthread_mutex_unlock(zRun_.p_repoStartLock);
+        pthread_mutex_unlock(zRun_.p_commLock);
 
         char zPathBuf[zUN_PATH_SIZ];
         snprintf(zPathBuf, zUN_PATH_SIZ, ".s.%d", zRepoID);

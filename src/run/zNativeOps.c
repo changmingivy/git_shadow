@@ -1597,8 +1597,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
      */
-    sprintf(zCommonBuf, ".s.%d", zpRepo_->id);
-    zRun_.p_sysInfo_->udp_daemon(zCommonBuf);
+    zRun_.p_sysInfo_->udp_daemon(zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path);
 
     /*
      * NEVER! REACH! HERE!
@@ -1721,9 +1720,9 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zppMeta, -1);
                 } else {
-                    pthread_mutex_lock(zRun_.p_repoStartLock);
+                    pthread_mutex_lock(zRun_.p_commLock);
                     zRun_.p_sysInfo_->repoPidVec[strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0)] = zPid;
-                    pthread_mutex_unlock(zRun_.p_repoStartLock);
+                    pthread_mutex_unlock(zRun_.p_commLock);
                 }
             }
 

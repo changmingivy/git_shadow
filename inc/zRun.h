@@ -450,8 +450,12 @@ typedef struct __zSysInfo__ {
      */
     pid_t repoPidVec[zGLOB_REPO_NUM_LIMIT];
 
-    /* 主进程用于收集监控信息的 UDP 服务 sd */
-    _i udpSd;
+    /*
+     * 主进程 UNIX udp server 信息，
+     * 用于收集项目进程发收的 fatal log
+     */
+    struct sockaddr_un unAddrMaster;
+    _s unAddrLenMaster;
 
     /*
      * 主进程与每个项目进程，均事先 connect
@@ -501,8 +505,12 @@ struct zRun__ {
     /*
      * 仅用于主进程中
      * 确保同一项目不会重复启动多个进程
+     * 同时用于保持日志的有序性
      */
-    pthread_mutex_t *p_repoStartLock;
+    pthread_mutex_t *p_commLock;
+
+    /* 仅用于主进程 */
+    _i logFd;
 
     zSysInfo__ *p_sysInfo_;
 };

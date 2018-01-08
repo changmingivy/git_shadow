@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <signal.h>
 
 extern struct zThreadPool__ zThreadPool_;
@@ -37,7 +38,7 @@ struct zRun__ zRun_ = {
 };
 
 /* 项目并发启动控制 */
-static pthread_mutex_t zRepoStartLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * 项目进程内部分配空间，
@@ -45,6 +46,20 @@ static pthread_mutex_t zRepoStartLock = PTHREAD_MUTEX_INITIALIZER;
  */
 zRepo__ *zpRepo_;
 
+
+/* 记录日志 */
+static _i
+zwrite_log(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    pthread_mutex_lock(zRun_.p_commLock);
+    write(zRun_.logFd, zp, 1 + strlen(zp));
+    pthread_mutex_unlock(zRun_.p_commLock);
+
+    return 0;
+}
 
 void
 zerr_vec_init(void) {
@@ -217,7 +232,7 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[6] = NULL;
     zRun_.p_sysInfo_->ops_udp[7] = NULL;
     zRun_.p_sysInfo_->ops_udp[8] = NULL;
-    zRun_.p_sysInfo_->ops_udp[9] = NULL;
+    zRun_.p_sysInfo_->ops_udp[9] = zwrite_log;
 }
 
 /************
@@ -271,12 +286,21 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 
     struct stat zS_;
 
-    char zHookPath[zRun_.p_sysInfo_->servPathLen + sizeof("/tools/post-update")];
+    char zPath[zRun_.p_sysInfo_->servPathLen + sizeof("/tools/post-update")];
 
-    sprintf(zHookPath, "%s/tools/post-update",
+    /* 计算 post-update MD5sum */
+    sprintf(zPath, "%s/tools/post-update",
             zRun_.p_sysInfo_->p_servPath);
 
-    zMd5Sum_.md5sum(zHookPath, zRun_.p_sysInfo_->gitHookMD5);
+    zMd5Sum_.md5sum(zPath, zRun_.p_sysInfo_->gitHookMD5);
+
+    /* 打开全局日志文件 */
+    sprintf(zPath, "%s/log/log",
+            zRun_.p_sysInfo_->p_servPath);
+
+    zCHECK_NEGATIVE_EXIT(
+            zRun_.logFd = open(zPath, O_WRONLY|O_CREAT|O_APPEND, 0700)
+            );
 
     zRun_.p_sysInfo_->udp_daemon = zudp_daemon,
 
@@ -376,14 +400,25 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zThreadPool_.init(32, 1024);
 
 {////
-    /* 项目进程唯一性保证 */
-    zRun_.p_repoStartLock = & zRepoStartLock;
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+
+    /* 项目进程唯一性保证；日志有序性保证 */
+    zRun_.p_commLock = & zCommLock;
 
     /* 主进程 pid */
     zRun_.p_sysInfo_->masterPid = getpid();
 
-#define zUN_PATH_SIZ\
-        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+    /* 每个项目进程对应的 UNIX domain sd 路径 */
+    zRun_.p_sysInfo_->unAddrMaster.sun_family = PF_UNIX;
+
+    zRun_.p_sysInfo_->unAddrLenMaster =
+        (size_t) (((struct sockaddr_un *) 0)->sun_path)
+        + snprintf(
+                zRun_.p_sysInfo_->unAddrMaster.sun_path,
+                zUN_PATH_SIZ,
+                ".s.log");
+
     for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
         /* 每个项目进程对应的 UNIX domain sd 路径 */
         zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
@@ -414,9 +449,14 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     /*
      * 只运行于主进程
      * 用于目标机监控数据收集
-     * DB 表分区管理，由各项目进程自行负责
      */
     zThreadPool_.add(zudp_daemon, NULL);
+
+    /*
+     * 只运行于主进程
+     * 负责统一记录整个系统的日志
+     */
+    zThreadPool_.add(zudp_daemon, zRun_.p_sysInfo_->unAddrMaster.sun_path);
 
     /*
      * 主进程退出时，清理所有项目进程
@@ -694,22 +734,19 @@ zudp_daemon(void *zpUNPath) {
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     if (NULL == zpUNPath) {
         /* 主进程用于收集监控信息的 UDP 服务 sd */
-        zRun_.p_sysInfo_->udpSd = zNetUtils_.gen_serv_sd(
+        zSd = zNetUtils_.gen_serv_sd(
                 zRun_.p_sysInfo_->netSrv_.p_ipAddr,
                 zRun_.p_sysInfo_->netSrv_.p_port,
                 NULL,
                 zProtoUDP);
 
-        zSd = zRun_.p_sysInfo_->udpSd;
     } else {
         /* 项目进程所用的内部 UNIX domain socket */
-        zpRepo_->unSd = zNetUtils_.gen_serv_sd(
+        zSd = zNetUtils_.gen_serv_sd(
                 NULL,
                 NULL,
                 zpUNPath,
                 zProtoUDP);
-
-        zSd = zpRepo_->unSd;
     }
 
     /*
