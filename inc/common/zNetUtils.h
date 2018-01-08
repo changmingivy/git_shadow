@@ -1,14 +1,6 @@
 #ifndef ZNETUTILS_H
 #define ZNETUTILS_H
 
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
-#endif
-
 #include <netdb.h>
 #include "zCommon.h"
 

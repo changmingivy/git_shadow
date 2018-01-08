@@ -1,14 +1,6 @@
 #ifndef ZLOCALOPS_H
 #define ZLOCALOPS_H
 
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
-#endif
-
 #include "zCommon.h"
 
 #define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存

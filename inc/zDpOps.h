@@ -1,20 +1,6 @@
 #ifndef ZDPOPS_H
 #define ZDPOPS_H
 
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-    #define _XOPEN_SOURCE 700
-    #endif
-
-    #ifndef _DEFAULT_SOURCE
-    #define _DEFAULT_SOURCE
-    #endif
-
-    #ifndef _BSD_SOURCE
-    #define _BSD_SOURCE
-    #endif
-#endif
-
 #include "zCommon.h"
 #include "cJSON.h"
 

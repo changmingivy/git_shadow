@@ -1,21 +1,14 @@
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
-#endif
+#include "zCommon.h"
+#include <sys/mman.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <sys/mman.h>
 
 #include <string.h>
 #include <time.h>
 #include <errno.h>
 
-#include "zCommon.h"
 #include "zRun.h"
 
 extern struct zRun__ zRun_;
