@@ -1,8 +1,8 @@
 #ifndef ZPOSIXREG_H
 #define ZPOSIXREG_H
 
-#include <regex.h>
 #include "zCommon.h"
+#include <regex.h>
 
 typedef struct __zRegRes__ {
     char **pp_rets;  //matched results

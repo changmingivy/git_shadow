@@ -1,9 +1,9 @@
 #ifndef ZTHREADPOOL_H
 #define ZTHREADPOOL_H
 
+#include "zCommon.h"
 #include <pthread.h>
 #include <semaphore.h>
-#include "zCommon.h"
 
 typedef struct zThreadTask__ {
     pthread_cond_t condVar;

@@ -1,12 +1,12 @@
 #ifndef ZRUN_H
 #define ZRUN_H
 
+#include "zCommon.h"
 #include <pthread.h>
 
 #include <sys/types.h>
 #include <sys/un.h>
 
-#include "zCommon.h"
 #include "zNetUtils.h"
 #include "zNativeUtils.h"
 #include "zThreadPool.h"

@@ -1,7 +1,7 @@
 #ifndef MD5SUM_H
 #define MD5SUM_H
 
-#include "../inc/common/zCommon.h"
+#include "zCommon.h"
 
 
 struct zMd5Sum__ {

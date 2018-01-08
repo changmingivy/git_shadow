@@ -1,5 +1,3 @@
-#define _XOPEN_SOURCE 700
-
 #include "zNativeUtils.h"
 
 #include <sys/types.h>

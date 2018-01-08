@@ -1,8 +1,8 @@
 #ifndef ZLOCALUTILS_H
 #define ZLOCALUTILS_H
 
-#include <stdio.h>
 #include "zCommon.h"
+#include <stdio.h>
 
 struct zNativeUtils__ {
     void (* daemonize) (const char *);
