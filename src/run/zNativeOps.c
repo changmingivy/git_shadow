@@ -1608,7 +1608,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     free(zppRepoMeta);
 
     /* 关闭从父进程继承的所有无用的 fd */
-    zNativeUtils_.close_fds(getpid());
+    zNativeUtils_.close_fds(getpid(), PQsocket(zpRepo_->p_pgConnHd_));
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     zpRepo_->unSd = zNetUtils_.gen_serv_sd(

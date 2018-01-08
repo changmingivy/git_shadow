@@ -25,7 +25,7 @@
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
-static void zclose_fds(pid_t zPid);
+static void zclose_fds(pid_t zPid, _i zKeepSd);
 static void zdaemonize(const char *zpWorkDir);
 
 static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
@@ -100,18 +100,20 @@ struct zNativeUtils__ zNativeUtils_ = {
  * Daemonize a linux process to daemon.
  */
 static void
-zclose_fds(pid_t zPid) {
+zclose_fds(pid_t zPid, _i zKeepSd) {
     struct dirent *zpDir_;
     char zPath[64];
 
     sprintf(zPath, "/proc/%d/fd", zPid);
 
-    _i zFD;
+    _i zFd;
     DIR *zpDir = opendir(zPath);
 
     while (NULL != (zpDir_ = readdir(zpDir))) {
-        zFD = strtol(zpDir_->d_name, NULL, 10);
-        close(zFD);
+        zFd = strtol(zpDir_->d_name, NULL, 10);
+        if (zFd != zKeepSd) {
+            close(zFd);
+        }
     }
 
     closedir(zpDir);
@@ -143,7 +145,7 @@ zdaemonize(const char *zpWorkDir) {
         exit(0);
     }
 
-    zclose_fds(getpid());
+    zclose_fds(getpid(), -1);
 
     _i zFD = open("/dev/null", O_RDWR);
     dup2(zFD, 1);
