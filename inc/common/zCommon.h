@@ -151,7 +151,7 @@ typedef enum {
                 NULL == (zCause) ? "" : (zCause),\
                 NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
-        zRun_.p_sysInfo_->ops_udp[9](zBuf, 0, NULL, 0);\
+        zRun_.p_sysInfo_->ops_udp[9](zBuf + 1, 0, NULL, 0);\
     } else {\
         zLen += snprintf(zBuf + zLen, 510 - zLen,\
                 "\033[31;01mpid:\033[00m %d; "\
