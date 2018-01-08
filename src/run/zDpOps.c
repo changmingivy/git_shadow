@@ -763,6 +763,7 @@ zstate_confirm_inner(void *zp,
     /* 判断是否是延迟到达的信息 */
     if (zpState_->dpID != zpRepo_->dpID) {
         pthread_rwlock_unlock(& zpRepo_->cacheLock);
+
         zErrNo = -101;
         zPRINT_ERR_EASY(zpState_->hostAddr);
     } else {
@@ -809,7 +810,6 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
             zSTATE_CONFIRM();
         } else {
             zpDpCcur_->errNo = -23;
-            zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
             snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
             zSTATE_CONFIRM();
@@ -905,7 +905,6 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     goto zEndMark;
                 } else {
                     zpDpCcur_->errNo = -12;
-                    zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
                     snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
                     zSTATE_CONFIRM();
@@ -913,7 +912,6 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                 }
             } else {
                 zpDpCcur_->errNo = -23;
-                zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
                 snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
                 zSTATE_CONFIRM();
@@ -921,7 +919,6 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
             }
         } else {
             zpDpCcur_->errNo = -12;
-            zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
 
             snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
             zSTATE_CONFIRM();
@@ -943,7 +940,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                     NULL)) {
 
             zpDpCcur_->errNo = -14;
-            zPRINT_ERR_EASY("postDpCmd exec failed");
+            zPRINT_ERR_EASY(zpDpCcur_->p_hostAddr);
         }
     }
 
@@ -1154,7 +1151,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
         zpTopVecWrap_ = & zpRepo_->dpVecWrap_;
     } else {
         zResNo = -10;  /* 无法识别 */
-        zPRINT_ERR_EASY("==== BUG ====");
+        zPRINT_ERR_EASY("BUG !");
         goto zCleanMark;
     }
 
@@ -1284,7 +1281,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
 
                 /* 数据库不可用，停止服务 ? */
-                zPRINT_ERR_EASY("==== FATAL ====");
+                zPRINT_ERR_EASY("!!!! FATAL !!!!");
                 exit(1);
             }
         }
@@ -1387,7 +1384,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             /* 总任务计数递减 */
             zpRepo_->dpTotalTask--;
 
-            zPRINT_ERR_EASY("same IP");
+            zPRINT_ERR_EASY("same IP found");
             continue;
         }
 
@@ -1400,7 +1397,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                     zpRepo_->p_dpResList_[i].clientAddr)) {
 
             /* 此种错误信息记录到哪里 ??? */
-            zPRINT_ERR_EASY("Invalid IP");
+            zPRINT_ERR_EASY("invalid IP");
             continue;
         }
 

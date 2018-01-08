@@ -764,7 +764,7 @@ zpg_partition_mgmt(_ui *zpCnter) {
      * 若失败，将计数器调至 > 86400，以使 2s 后重新被 cron_ops() 调用
      */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
-        zPRINT_ERR(0, NULL, "Connect to pgSQL failed");
+        zPRINT_ERR_EASY("Connect to pgSQL failed");
         *zpCnter = 86400 + 1;
 
         return;
@@ -785,7 +785,7 @@ zpg_partition_mgmt(_ui *zpCnter) {
                 86400 * (zBaseID + zID + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-            zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
+            zPRINT_ERR_EASY("(errno: -91) pgSQL exec failed");
             continue;
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -799,7 +799,7 @@ zpg_partition_mgmt(_ui *zpCnter) {
                 zpRepo_->id, zBaseID - zID - 30);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-            zPRINT_ERR(0, NULL, "(errno: -91) pgSQL exec failed");
+            zPRINT_ERR_EASY("(errno: -91) pgSQL exec failed");
             continue;
         } else {
             zPgSQL_.res_clear(zpPgResHd_, NULL);
@@ -1681,7 +1681,7 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
         exit(1);
     } else {
         if (NULL == (zpPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
-            zPRINT_ERR(0, NULL, "NO VALID REPO FOUND!");
+            zPRINT_ERR_EASY("NO VALID REPO FOUND!");
         } else {
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
@@ -1716,6 +1716,9 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
                     snprintf(zpProcName, zProcNameBufSiz,
                             "git_shadow: proj worker [repoID %s]",
                             zpPgRes_->tupleRes_[i].pp_fields[0]);
+
+                    /* 用于项目进程的错误信息当中 */
+                    zpRepo_->p_procName = zpProcName;
 
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zppMeta, -1);

@@ -27,6 +27,11 @@ main(_i zArgc, char **zppArgv) {
         zArgvInfo_.procNameBufSiz += 1 + strlen(zppArgv[i]);
     }
 
+    /* 主进程名称定制 */
+    memset(zppArgv[0], 0, zArgvInfo_.procNameBufSiz);
+    snprintf(zppArgv[0], zArgvInfo_.procNameBufSiz,
+            "git_shadow: MASTER [email: hui.fan@mail.ru]");
+
     /*
      * mmap shared 的主进程及所有项目进程共享的区域 
      * 存放系统全局信息

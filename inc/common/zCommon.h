@@ -1,5 +1,9 @@
 #include <sys/socket.h>
 
+#include "zRun.h"
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
@@ -115,6 +119,7 @@ typedef enum {
     time_t zMarkNow = time(NULL);\
     struct tm *zpCurrentTime_ = localtime(&zMarkNow);\
     _i zLen = 1;\
+    pid_t zPid = getpid();\
     char zBuf[510];\
     zBuf[0] = '9';\
 \
@@ -127,22 +132,40 @@ typedef enum {
             zpCurrentTime_->tm_min,\
             zpCurrentTime_->tm_sec);\
 \
-    zLen += snprintf(zBuf + zLen, 510 - zLen,\
-            "\033[31;01mpid:\033[00m %ld; "\
-            "\033[31;01mfiLe:\033[00m %s; "\
-            "\033[31;01mline:\033[00m %d; "\
-            "\033[31;01mfunc:\033[00m %s; "\
-            "\033[31;01mcause:\033[00m %s; "\
-            "\033[31;01mdetail:\033[00m %s\n",\
-            getpid(),\
-            __FILE__,\
-            __LINE__,\
-            __func__,\
-            NULL == (zCause) ? "" : (zCause),\
-            NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
+    if (zPid == zRun_.p_sysInfo_->masterPid) {\
+        snprintf(zBuf + zLen, 510 - zLen,\
+                "\033[31;01mpid:\033[00m %d; "\
+                "\033[31;01mfiLe:\033[00m %s; "\
+                "\033[31;01mline:\033[00m %d; "\
+                "\033[31;01mfunc:\033[00m %s; "\
+                "\033[31;01mcause:\033[00m %s; "\
+                "\033[31;01mdetail:\033[00m MASTER %s\n",\
+                zPid,\
+                __FILE__,\
+                __LINE__,\
+                __func__,\
+                NULL == (zCause) ? "" : (zCause),\
+                NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
-    sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
-            (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
+        zRun_.p_sysInfo_->ops_udp[9](zBuf, 0, NULL, 0);\
+    } else {\
+        zLen += snprintf(zBuf + zLen, 510 - zLen,\
+                "\033[31;01mpid:\033[00m %d; "\
+                "\033[31;01mfiLe:\033[00m %s; "\
+                "\033[31;01mline:\033[00m %d; "\
+                "\033[31;01mfunc:\033[00m %s; "\
+                "\033[31;01mcause:\033[00m %s; "\
+                "\033[31;01mdetail:\033[00m %s %s\n",\
+                zPid,\
+                __FILE__,\
+                __LINE__,\
+                __func__,\
+                NULL == (zCause) ? "" : (zCause),\
+                zpRepo_->p_procName, NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
+\
+        sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
+    }\
 }
 
 #define zPRINT_ERR_EASY(zMsg) zGIT_SHADOW_LOG_ERR(0, NULL, (zMsg))

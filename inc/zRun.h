@@ -171,6 +171,9 @@ typedef struct __zCacheMeta__ {
  * 锁类型数据，空间间隔尽可能超过 128bytes，防止伪共享问题
  */
 typedef struct __zRepo__ {
+    /* 项目进程名称 */
+    char *p_procName;
+
     /* 项目 ID */
     _i id;
 

@@ -33,9 +33,8 @@ zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
     if (0 != (zErrNo = regcomp(zpRegInitOUT, zpRegPattern, REG_EXTENDED))) {
-        zPRINT_TIME();
         regerror(zErrNo, zpRegInitOUT, zErrBuf, zBYTES(256));
-        zPRINT_ERR(0, NULL, zErrBuf);
+        zPRINT_ERR_EASY(zErrBuf);
         regfree(zpRegInitOUT);
         exit(1);
     }
@@ -66,9 +65,8 @@ zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject
             if (REG_NOMATCH == zErrNo) {
                 break;
             } else {
-                zPRINT_TIME();
                 regerror(zErrNo, zpRegInit_, zErrBuf, zBYTES(256));
-                zPRINT_ERR(0, NULL, zErrBuf);
+                zPRINT_ERR_EASY(zErrBuf);
                 regfree(zpRegInit_);
                 exit(1);
             }
@@ -107,7 +105,7 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
        zMaxItemNum = 0;
 
     if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
-        zPRINT_ERR(0, NULL, "param invalid");
+        zPRINT_ERR_EASY("param invalid");
         exit(1);
     }
 
@@ -170,7 +168,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
        zMaxItemNum = 0;
 
     if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
-        zPRINT_ERR(0, NULL, "param invalid");
+        zPRINT_ERR_EASY("param invalid");
         exit(1);
     }
 

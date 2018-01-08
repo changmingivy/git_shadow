@@ -7,7 +7,6 @@
 #include <time.h>
 #include <errno.h>
 
-
 static zPgConnHd__ * zpg_conn(const char *zpConnInfo);
 static void zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
 static zPgResHd__ * zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet);
@@ -54,7 +53,7 @@ zpg_conn(const char *zpConnInfo) {
     if (CONNECTION_OK == PQstatus(zpPgConnHd_)) {
         return zpPgConnHd_;
     } else {
-        zPRINT_ERR(0, NULL, PQerrorMessage(zpPgConnHd_));
+        zPRINT_ERR_EASY(PQerrorMessage(zpPgConnHd_));
         PQfinish(zpPgConnHd_);
         return NULL;
     }
@@ -80,7 +79,7 @@ zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -96,7 +95,7 @@ zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, c
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -112,7 +111,7 @@ zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjNam
     if (PGRES_COMMAND_OK == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -128,7 +127,7 @@ zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCn
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPRINT_ERR(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
