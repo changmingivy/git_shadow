@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "libssh2.h"
-
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
