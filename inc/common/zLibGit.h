@@ -9,10 +9,9 @@
     #endif
 #endif
 
-#include "zRun.h"
 #include "zCommon.h"
-
 #include "git2.h"
+#include "zRun.h"
 
 typedef struct git_revwalk zGitRevWalk__;
 
