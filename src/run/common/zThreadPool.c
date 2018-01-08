@@ -1,6 +1,5 @@
 #include "zThreadPool.h"
 
-#include <pthread.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
