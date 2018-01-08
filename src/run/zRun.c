@@ -802,8 +802,10 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
     char zDataBuf[4096];
     char zSQLBuf[4096];
 
-    FILE *zpH0 = fopen(zpConfPath, "r");
+    FILE *zpH0 = NULL;
     FILE *zpH1 = NULL;
+
+    zCHECK_NULL_EXIT(zpH0 = fopen(zpConfPath, "r"));
 
     zRegRes__ zR_ = {
         .alloc_fn = NULL
@@ -825,20 +827,45 @@ zhistory_import (cJSON *zpJ __attribute__ ((__unused__)), _i zSd) {
                 "22");
         zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
 
+        _i zBaseID = time(NULL) / 86400 + 2;
+
+        sprintf(zSQLBuf,
+                "CREATE TABLE IF NOT EXISTS dp_log_%s "
+                "PARTITION OF dp_log FOR VALUES IN (%s) "
+                "PARTITION BY RANGE (time_stamp);"
+
+                "CREATE TABLE IF NOT EXISTS dp_log_%s_%d "
+                "PARTITION OF dp_log_%s FOR VALUES FROM (MINVALUE) TO (%d);",
+            zR_.pp_rets[0], zR_.pp_rets[0],
+            zR_.pp_rets[0], zBaseID, zR_.pp_rets[0], 86400 * zBaseID);
+
+        zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
+
+
+        for (_i zID = 0; zID < 10; zID++) {
+            sprintf(zSQLBuf,
+                    "CREATE TABLE IF NOT EXISTS dp_log_%s_%d "
+                    "PARTITION OF dp_log_%s FOR VALUES FROM (%d) TO (%d);",
+                    zR_.pp_rets[0], zBaseID + zID + 1, zR_.pp_rets[0], 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
+
+            zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
+        }
+
         sprintf(zLogPathBuf,
                 "/home/git/home/git/.____DpSystem/%s_SHADOW/log/deploy/meta",
                 zR_.pp_rets[1] + sizeof("/home/git/") -1);
 
-        zpH1 = fopen(zLogPathBuf, "r");
-        while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH1)) {
-            zDataBuf[40] = '\0';
-            sprintf(zSQLBuf,
-                    "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
-                    "VALUES (%ld,%s,'%s','%s')",
-                    strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
-                    zDataBuf,
-                    "::1");
-            zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
+        if (NULL != (zpH1 = fopen(zLogPathBuf, "r"))) {
+            while (NULL != zNativeUtils_.read_line(zDataBuf, 4096, zpH1)) {
+                zDataBuf[40] = '\0';
+                sprintf(zSQLBuf,
+                        "INSERT INTO dp_log (repo_id,time_stamp,rev_sig,host_ip) "
+                        "VALUES (%ld,%s,'%s','%s')",
+                        strtol(zR_.pp_rets[0], NULL, 10), zDataBuf + 41,
+                        zDataBuf,
+                        "::1");
+                zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zSQLBuf, NULL);
+            }
         }
 
         zPosixReg_.free_res(&zR_);
