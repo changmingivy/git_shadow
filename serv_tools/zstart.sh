@@ -6,7 +6,7 @@
 #   (3) 安装 openssl 开发库：CentOS/openssl-devel、Debian/openssl-dev
 
 # 布署系统全局共用变量
-export zGitShadowPath=${HOME}/zgit_shadow2
+export zGitShadowPath=${HOME}/zgit_shadow
 export zPgPath=${HOME}/.____PostgreSQL
 
 zServAddr=$1
