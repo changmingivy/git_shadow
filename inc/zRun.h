@@ -9,6 +9,7 @@
     #endif
 #endif
 
+        #define _XOPEN_SOURCE 700
 #include <pthread.h>
 
 #include <sys/types.h>
