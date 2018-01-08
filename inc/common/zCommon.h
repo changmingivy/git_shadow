@@ -111,8 +111,46 @@ typedef enum {
     NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 } while(0)
 
-#define zPRINT_ERR_EASY(zMsg) zPRINT_ERR(0, NULL, (zMsg))
-#define zPRINT_ERR_EASY_SYS() zPRINT_ERR(errno, "", NULL)
+#define zGIT_SHADOW_LOG_ERR(zErrNo, zCause, zMsg) {\
+    time_t zMarkNow = time(NULL);\
+    struct tm *zpCurrentTime_ = localtime(&zMarkNow);\
+    _i zLen = 1;\
+    char zBuf[510];\
+    zBuf[0] = '9';\
+\
+    zLen += snprintf(zBuf + zLen, 510 - zLen,\
+            "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
+            zpCurrentTime_->tm_year + 1900,\
+            zpCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
+            zpCurrentTime_->tm_mday,\
+            zpCurrentTime_->tm_hour,\
+            zpCurrentTime_->tm_min,\
+            zpCurrentTime_->tm_sec);\
+\
+    zLen += snprintf(zBuf + zLen, 510 - zLen,\
+            "\033[31;01mpid:\033[00m %ld; "\
+            "\033[31;01mfiLe:\033[00m %s; "\
+            "\033[31;01mline:\033[00m %d; "\
+            "\033[31;01mfunc:\033[00m %s; "\
+            "\033[31;01mcause:\033[00m %s; "\
+            "\033[31;01mdetail:\033[00m %s\n",\
+            getpid(),\
+            __FILE__,\
+            __LINE__,\
+            __func__,\
+            NULL == (zCause) ? "" : (zCause),\
+            NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
+\
+    sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
+            (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
+}
+
+#define zPRINT_ERR_EASY(zMsg) zGIT_SHADOW_LOG_ERR(0, NULL, (zMsg))
+#define zPRINT_ERR_EASY_SYS() zGIT_SHADOW_LOG_ERR(errno, "", NULL)
+
+#define zSYSLOG_ERR(zMSG) do{\
+    syslog(LOG_ERR|LOG_PID|LOG_CONS, "%s", zMSG);\
+} while(0)
 
 #define zCHECK_NULL_RETURN(zRes, __VA_ARGS__) do{\
     if (NULL == (zRes)) {\
@@ -163,10 +201,6 @@ typedef enum {
         zPRINT_ERR(zX, #zRet " != 0", "");\
         exit(1);\
     }\
-} while(0)
-
-#define zLOG_ERR(zMSG) do{\
-    syslog(LOG_ERR|LOG_PID|LOG_CONS, "%s", zMSG);\
 } while(0)
 
 /*
