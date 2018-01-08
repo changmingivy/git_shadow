@@ -128,7 +128,7 @@ typedef enum {
     zBuf[0] = '9';\
 \
     zLen += snprintf(zBuf + zLen, 510 - zLen,\
-            "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
+            "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m ",\
             zpCurrentTime_->tm_year + 1900,\
             zpCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
             zpCurrentTime_->tm_mday,\
@@ -138,12 +138,12 @@ typedef enum {
 \
     if (zPid == zRun_.p_sysInfo_->masterPid) {\
         snprintf(zBuf + zLen, 510 - zLen,\
-                "\033[31;01mpid:\033[00m %d; "\
-                "\033[31;01mfiLe:\033[00m %s; "\
-                "\033[31;01mline:\033[00m %d; "\
-                "\033[31;01mfunc:\033[00m %s; "\
-                "\033[31;01mcause:\033[00m %s; "\
-                "\033[31;01mdetail:\033[00m MASTER %s\n",\
+                "\033[31;01mpid:\033[00m %d "\
+                "\033[31;01mfiLe:\033[00m %s "\
+                "\033[31;01mline:\033[00m %d "\
+                "\033[31;01mfunc:\033[00m %s "\
+                "\033[31;01mcause:\033[00m %s "\
+                "\033[31;01mdetail:\033[00m %s\n",\
                 zPid,\
                 __FILE__,\
                 __LINE__,\
