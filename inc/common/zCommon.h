@@ -1,11 +1,7 @@
-#include <sys/socket.h>
-#include "zRun.h"
-
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
-extern struct zRun__ zRun_;
-extern zRepo__ *zpRepo_;
+#include <sys/socket.h>
 
 #define zBYTES(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSIZEOF(zObj) ((_i)sizeof(zObj))

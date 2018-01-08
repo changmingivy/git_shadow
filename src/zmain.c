@@ -19,6 +19,7 @@
 #include "zRun.h"
 
 extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 _i
 main(_i zArgc, char **zppArgv) {

@@ -28,8 +28,8 @@ extern struct zLibSsh__ zLibSsh_;
 extern struct zLibGit__ zLibGit_;
 
 extern struct zNativeOps__ zNativeOps_;
-extern struct zRun__ zRun_;
 
+extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
 static _i zadd_repo(cJSON *zpJRoot, _i zSd);

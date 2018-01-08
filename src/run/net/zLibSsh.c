@@ -5,8 +5,10 @@
 #include <stdio.h>
 #include <time.h>
 
-#define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 static _i zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,

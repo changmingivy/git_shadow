@@ -24,9 +24,9 @@ extern struct zNetUtils__ zNetUtils_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zLibGit__ zLibGit_;
 extern struct zDpOps__ zDpOps_;
-extern struct zRun__ zRun_;
 extern struct zPgSQL__ zPgSQL_;
 
+extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
 static void * zalloc_cache(size_t zSiz);

@@ -7,6 +7,9 @@
 #include <unistd.h>
 #include <errno.h>
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static git_repository * zgit_env_init(char *zpNativeRepoAddr);
 static void zgit_env_clean(git_repository *zpRepoCredHandler);
 static _i zgit_remote_push(git_repository *zpRepo, char *zpRemoteRepoAddr, char **zppRefs, _i zRefsCnt, char *zpErrBufOUT);

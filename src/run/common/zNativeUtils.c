@@ -22,6 +22,9 @@
 #include <time.h>
 #include <errno.h>
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static void zdaemonize(const char *zpWorkDir);
 static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
 static _i zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
@@ -170,7 +173,7 @@ static void *
 zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
     char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
     if (NULL == zpRes && (0 == feof(zpFile))) {
-        zPRINT_ERR(0, NULL, "<fgets> ERROR!");
+        zPRINT_ERR_EASY("<fgets> ERROR!");
         exit(1);
     }
     return zpRes;
@@ -193,7 +196,7 @@ zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
 // zget_str_content_1(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
 //     size_t zCnt = fread(zpBufOUT, zBYTES(1), zSiz, zpFile);
 //     if (zCnt < zSiz && (0 == feof(zpFile))) {
-//         zPRINT_ERR(0, NULL, "<fread> ERROR!");
+//         zPRINT_ERR_EASY("<fread> ERROR!");
 //         exit(1);
 //     }
 //     return zCnt;
@@ -279,16 +282,16 @@ zpath_del_cb(const char *zpPath, const struct stat *zpS __attribute__ ((__unused
 
     if (FTW_F == zType || FTW_SL == zType || FTW_SLN == zType) {
         if (0 != unlink(zpPath)) {
-            zPRINT_ERR(errno, zpPath, NULL);
+            zPRINT_ERR_EASY(zpPath);
             zErrNo = -1;
         }
     } else if (FTW_DP == zType) {
         if (0 != rmdir(zpPath)) {
-            zPRINT_ERR(errno, zpPath, NULL);
+            zPRINT_ERR_EASY(zpPath);
             zErrNo = -1;
         }
     } else {
-        zPRINT_ERR(0, NULL, "Unknown file type");
+        zPRINT_ERR_EASY("Unknown file type");
     }
 
     return zErrNo;
@@ -326,7 +329,7 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
         if (0 > (zWrFd = openat(zDestFd, zpPath + 2,
                         O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, zpS->st_mode))) {
             close(zRdFd);
-            zPRINT_ERR(errno, zpPath + 2, NULL);
+            zPRINT_ERR_EASY(zpPath + 2);
             return -1;
         }
 
@@ -334,7 +337,7 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
             if (zRdLen != write(zWrFd, zCopyBuf, zRdLen)) {
                 close(zRdFd);
                 close(zWrFd);
-                zPRINT_ERR(errno, zpPath + 2, NULL);
+                zPRINT_ERR_EASY(zpPath + 2);
                 return -1;
             }
         }
@@ -348,7 +351,7 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
         zCHECK_NEGATIVE_RETURN(symlinkat(zCopyBuf, zDestFd, zpPath + 2), -1);
     } else {
         /* 文件类型无法识别 */
-        zPRINT_ERR(0, NULL, zpPath);
+        zPRINT_ERR_EASY(zpPath);
         return -1;
     }
 
@@ -372,12 +375,12 @@ zpath_cp(char *zpDestpath, char *zpSrcPath) {
     pthread_mutex_lock( & zPathCopyLock );
     if (0 > (zDestFd = open(zpDestpath, O_RDONLY|O_DIRECTORY))) {
         zErrNo = -1;
-        zPRINT_ERR(errno, "", NULL);
+        zPRINT_ERR_EASY_SYS();
     } else {
         /* 此处必须使用相对路径 "." */
         if (0 != nftw(".", zpath_copy_cb, 124, FTW_PHYS)) {
             zErrNo = -1;
-            zPRINT_ERR(errno, "", NULL);
+            zPRINT_ERR_EASY_SYS();
         }
 
         close(zDestFd);

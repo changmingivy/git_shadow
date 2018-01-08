@@ -7,6 +7,9 @@
 #include <time.h>
 #include <errno.h>
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static zPgConnHd__ * zpg_conn(const char *zpConnInfo);
 static void zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
 static zPgResHd__ * zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet);

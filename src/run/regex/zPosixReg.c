@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <errno.h>
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static void zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern);
 static void zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject);
 static void zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);

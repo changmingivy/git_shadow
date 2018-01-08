@@ -19,6 +19,9 @@
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static _i zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUN, znet_proto_t zProtoType);
 static _i zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProtoType);
 
@@ -72,7 +75,7 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         zHints_.ai_protocol = (zProtoUDP == zProtoType) ? IPPROTO_UDP:IPPROTO_TCP;
 
         if (0 != (zErrNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
-            zPRINT_ERR(errno, NULL, gai_strerror(zErrNo));
+            zPRINT_ERR_EASY(gai_strerror(zErrNo));
             exit(1);
         }
 
@@ -229,7 +232,7 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
                         };
 
         if (0 != (zResNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
-            zPRINT_ERR(errno, NULL, gai_strerror(zResNo));
+            zPRINT_ERR_EASY(gai_strerror(zResNo));
             zResNo = -1;
             goto zEndMark;
         }
