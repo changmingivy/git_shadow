@@ -57,6 +57,10 @@ echo "unix_socket_directories = '${zShadowPath}'" >> ${zPgDataPath}/postgresql.c
 sed -i '/unix_socket_permissions/d' ${zPgDataPath}/postgresql.conf
 echo "unix_socket_permissions = 0700" >> ${zPgDataPath}/postgresql.conf
 
+# PG: 最大连接数
+sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
+echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
+
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/createdb -O `whoami` dpDB
