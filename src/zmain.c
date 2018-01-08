@@ -11,14 +11,17 @@
 
 #include "zRun.h"
 
+char *zpProcName = NULL;
+size_t zProcNameBufLen = 0;
+
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
 _i
 main(_i zArgc, char **zppArgv) {
-    zArgvInfo__ zArgvInfo_ = { zppArgv[0], 0, NULL, NULL, NULL, NULL, NULL, NULL };
+    zArgvInfo__ zArgvInfo_ = { NULL, NULL, NULL, NULL, NULL, NULL };
     for (_i i = 0; i < zArgc; i++) {
-        zArgvInfo_.procNameBufSiz += 1 + strlen(zppArgv[i]);
+        zProcNameBufLen += 1 + strlen(zppArgv[i]);
     }
 
     /*
@@ -110,9 +113,12 @@ main(_i zArgc, char **zppArgv) {
     }
 
     /* 主进程名称定制 */
-    memset(zppArgv[0], 0, zArgvInfo_.procNameBufSiz);
-    snprintf(zppArgv[0], zArgvInfo_.procNameBufSiz,
+    memset(zppArgv[0], 0, zProcNameBufLen);
+    snprintf(zppArgv[0], zProcNameBufLen,
             "git_shadow: ==== master process ====");
+
+    /* 项目进程使用此指针定制自身名称 */
+    zpProcName = zppArgv[0];
 
     /* 启动主服务 */
     zRun_.run(& zArgvInfo_);

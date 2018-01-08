@@ -444,7 +444,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 项目库初始化
      * 每个项目对应一个独立的进程
      */
-    zNativeOps_.repo_init_all(zpArgvInfo_->p_procName, zpArgvInfo_->procNameBufSiz);
+    zNativeOps_.repo_init_all();
 
     /*
      * 只运行于主进程

@@ -37,12 +37,15 @@ extern struct zPgSQL__ zPgSQL_;
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
+extern char *zpProcName;
+extern size_t zProcNameBufLen;
+
 static void * zalloc_cache(size_t zSiz);
 static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
 static void zinit_one_repo_env(char **zppRepoMeta, _i zSd);
-static void zinit_env(char *zpProcName, size_t zBufSiz);
+static void zinit_env(void);
 
 static void * zcron_ops(void *zp);
 
@@ -894,6 +897,12 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     char zCommonBuf[zGLOB_COMMON_BUF_SIZ];
 
+    /* 项目进程名称更改为 git_shadow: <repoID> */
+    memset(zpProcName, 0, zProcNameBufLen);
+    snprintf(zpProcName, zProcNameBufLen,
+            "git_shadow: worker [repoID %s]",
+            zppRepoMeta[0]);
+
     _us zSourceUrlLen = strlen(zppRepoMeta[2]),
         zSourceBranchLen = strlen(zppRepoMeta[3]),
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
@@ -1620,7 +1629,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
-zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
+zinit_env(void) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
@@ -1718,15 +1727,6 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
 
                         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
                     }////
-
-                    /* 项目进程名称更改为 git_shadow: <repoID> */
-                    memset(zpProcName, 0, zProcNameBufSiz);
-                    snprintf(zpProcName, zProcNameBufSiz,
-                            "git_shadow: proj worker [repoID %s]",
-                            zpPgRes_->tupleRes_[i].pp_fields[0]);
-
-                    /* 用于项目进程的错误信息当中 */
-                    zpRepo_->p_procName = zpProcName;
 
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zppMeta, -1);

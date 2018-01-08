@@ -165,7 +165,7 @@ typedef enum {
                 __LINE__,\
                 __func__,\
                 NULL == (zCause) ? "" : (zCause),\
-                zpRepo_->p_procName, NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
+                zpProcName, NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
         sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
