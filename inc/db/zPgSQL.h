@@ -6,6 +6,7 @@
 
 typedef struct __zArgvInfo__ {
     char *p_procName;
+    size_t procNameBufSiz;
 
     char *p_pgHost;
     char *p_pgAddr;

@@ -22,8 +22,10 @@ extern struct zRun__ zRun_;
 
 _i
 main(_i zArgc, char **zppArgv) {
-    _i zOpt = 0;
-    zArgvInfo__ zArgvInfo_ = { zppArgv[0], NULL, NULL, NULL, NULL, NULL, NULL };
+    zArgvInfo__ zArgvInfo_ = { zppArgv[0], 0, NULL, NULL, NULL, NULL, NULL, NULL };
+    for (_i i = 0; i < zArgc; i++) {
+        zArgvInfo_.procNameBufSiz += 1 + strlen(zppArgv[i]);
+    }
 
     /*
      * mmap shared 的主进程及所有项目进程共享的区域 
@@ -36,6 +38,7 @@ main(_i zArgc, char **zppArgv) {
     }
 
     /* 提取命令行参数 */
+    _i zOpt = 0;
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "x:u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'x':
