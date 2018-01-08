@@ -34,7 +34,7 @@ static void * zget_diff_content(void *zp);
 static void * zget_file_list(void *zp);
 static void zgenerate_cache(void *zp);
 static void zinit_one_repo_env(char **zppRepoMeta, _i zSd);
-static void zinit_env(void);
+static void zinit_env(char *zpProcName, size_t zBufSiz);
 
 static void * zcron_ops(void *zp);
 
@@ -1613,7 +1613,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
-zinit_env(void) {
+zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
     zPgConnHd__ *zpPgConnHd_ = NULL;
     zPgResHd__ *zpPgResHd_ = NULL;
     zPgRes__ *zpPgRes_ = NULL;
@@ -1711,6 +1711,12 @@ zinit_env(void) {
 
                         zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
                     }////
+
+                    /* 项目进程名称更改为 git_shadow: <repoID> */
+                    memset(zpProcName, 0, zProcNameBufSiz);
+                    snprintf(zpProcName, zProcNameBufSiz,
+                            "git_shadow: proj worker [repoID %s]",
+                            zpPgRes_->tupleRes_[i].pp_fields[0]);
 
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zppMeta, -1);

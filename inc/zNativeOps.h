@@ -60,7 +60,7 @@ struct zNativeOps__ {
     void * (* get_diff_contents) (void *);
 
     void (* repo_init) (char **, _i);
-    void (* repo_init_all) ();
+    void (* repo_init_all) (char *, size_t);
 
     void * (* alloc) (size_t);
 
