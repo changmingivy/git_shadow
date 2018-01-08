@@ -14,8 +14,6 @@
 #include "zNetUtils.h"
 #include <semaphore.h>
 
-#include "libssh2.h"
-
 struct zLibSsh__ {
     _i (* exec) (char *, char *, char *, const char *, const char *, const char *, const char *, znet_auth_t, char *, _ui, sem_t *, char *);
 };
