@@ -525,6 +525,7 @@ zDirectServ:;
                 case 0:
                 case 14:
                 case 1:
+                case 5:
                     if (0 > (zResNo = zRun_.p_sysInfo_->ops_tcp[zOpsID](zpJRoot, zSd))) {
                         zDataLen = snprintf(zDataBuf, 8192,
                                 "{\"errNo\":%d,\"content\":\"[opsID: %d] %s\"}",
