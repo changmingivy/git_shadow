@@ -25,17 +25,24 @@
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;
 
+static void zclose_fds(pid_t zPid);
 static void zdaemonize(const char *zpWorkDir);
+
 static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
 static _i zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
+
 static void zsleep(_d zSecs);
 static void * zthread_system(void *zpCmd);
+
 static _i zdel_linebreak(char *zpStr);
+
 static _i zpath_del(char *zpPath);
 static _i zpath_cp(char *zpDestpath, char *zpSrcPath);
 
 struct zNativeUtils__ zNativeUtils_ = {
+    .close_fds = zclose_fds,
     .daemonize = zdaemonize,
+
     .sleep = zsleep,
 
     .system = zthread_system,
@@ -95,26 +102,21 @@ struct zNativeUtils__ zNativeUtils_ = {
 static void
 zclose_fds(pid_t zPid) {
     struct dirent *zpDir_;
-    char zStrPid[8], zPath[64];
+    char zPath[64];
 
-    sprintf(zStrPid, "%d", zPid);
-
-    strcpy(zPath, "/proc/");
-    strcat(zPath, zStrPid);
-    strcat(zPath, "/fd");
+    sprintf(zPath, "/proc/%d/fd", zPid);
 
     _i zFD;
     DIR *zpDir = opendir(zPath);
+
     while (NULL != (zpDir_ = readdir(zpDir))) {
         zFD = strtol(zpDir_->d_name, NULL, 10);
-        if (2 != zFD) {
-            close(zFD);
-        }
+        close(zFD);
     }
+
     closedir(zpDir);
 }
 
-// 这个版本的daemonize会保持标准错误输出描述符处于打开状态
 static void
 zdaemonize(const char *zpWorkDir) {
     zIGNORE_ALL_SIGNAL();

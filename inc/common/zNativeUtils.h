@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 struct zNativeUtils__ {
+    void (* close_fds) (pid_t);
     void (* daemonize) (const char *);
     void (* sleep) (_d);
     void * (* system) (void *);
