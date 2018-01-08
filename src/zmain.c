@@ -112,7 +112,7 @@ main(_i zArgc, char **zppArgv) {
     /* 主进程名称定制 */
     memset(zppArgv[0], 0, zArgvInfo_.procNameBufSiz);
     snprintf(zppArgv[0], zArgvInfo_.procNameBufSiz,
-            "git_shadow: master process [email: hui.fan@mail.ru]");
+            "\033[31;01mgit_shadow: master process [email: hui.fan@mail.ru]\033[00m");
 
     /* 启动主服务 */
     zRun_.run(& zArgvInfo_);

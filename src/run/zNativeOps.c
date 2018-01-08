@@ -1747,8 +1747,12 @@ zinit_env(char *zpProcName, size_t zProcNameBufSiz) {
                 zRepoID = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0);
                 while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]
                             = zNetUtils_.conn(NULL, NULL, zPathBuf, zProtoUDP))) {
-                    zPRINT_ERR_EASY("udp conn failed...");
-                    sleep(1);
+                    if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[zRepoID], NULL, WNOHANG)) {
+                        zPRINT_ERR_EASY("process dead");
+                        break;
+                    } else {
+                        sleep(1);
+                    }
                 }
             }
         }
