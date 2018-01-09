@@ -641,6 +641,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
                 zLen += strlen(zpRepoInfo[j]);
             }
 
+            /* 不需要释放，留存用于项目重启 */
             zMEM_ALLOC(zppMeta, char, 8 * sizeof(void *) + zLen);
             zpData = (char *) (zppMeta + 8);
 

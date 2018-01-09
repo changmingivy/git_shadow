@@ -40,6 +40,11 @@ struct zRun__ zRun_ = {
 /* 项目并发启动控制 */
 static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 
+/* postgreSQL 连接池 */
+#define zDB_POOL_SIZ 256
+static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
+static _ui zDBReqID = 0;
+
 /*
  * 项目进程内部分配空间，
  * 主进程中不可见
@@ -57,6 +62,26 @@ zwrite_log(void *zp,
     pthread_mutex_lock(zRun_.p_commLock);
     write(zRun_.logFd, zp, 1 + strlen(zp));
     pthread_mutex_unlock(zRun_.p_commLock);
+
+    return 0;
+}
+
+/* 记录日志 */
+static _i
+zwrite_db(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    _i zKeepID;
+    pthread_mutex_lock(zRun_.p_commLock);
+    zKeepID = ++zDBReqID % zDB_POOL_SIZ;
+    pthread_mutex_unlock(zRun_.p_commLock);
+
+    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
+        /* 执行失败，记录日志 */
+        zwrite_log(zp, 0, NULL, 0);
+    }
 
     return 0;
 }
@@ -231,7 +256,7 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[5] = NULL;
     zRun_.p_sysInfo_->ops_udp[6] = NULL;
     zRun_.p_sysInfo_->ops_udp[7] = NULL;
-    zRun_.p_sysInfo_->ops_udp[8] = NULL;
+    zRun_.p_sysInfo_->ops_udp[8] = zwrite_db;
     zRun_.p_sysInfo_->ops_udp[9] = zwrite_log;
 }
 
@@ -251,24 +276,44 @@ zexit_clean(void) {
 /*
  * 定时获取系统全局负载信息
  * 监控项目进程运行状态
- * TODO 若有异常退出，自动重启之
- * 主进程使用 waitpid(pid, NULL, WNOHANG) 定时轮循检测项目进程在线状态
- * 若返回 0 表示正常在线，返回 >0 值，则说明该项目进程已崩溃(成为僵尸进程)
  */
 static void *
 zsys_monitor(void *zp __attribute__ ((__unused__))) {
     FILE *zpHandler = NULL;
-    _ul zTotalMem = 0,
-        zAvalMem = 0;
+
+    _ul zTotalMem,
+        zAvalMem;
+
+    pid_t zPid;
+    _ui i;
+    _i j;
 
     zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
+    sleep(10);
 
-    while(1) {
+    for (i = 0;; i++) {
         fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
         zRun_.p_sysInfo_->memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
         fseek(zpHandler, 0, SEEK_SET);
 
-        zNativeUtils_.sleep(0.1);
+        /* 每分钟遍历检查一次，若有项目进程异常退出，则重启之 */
+        if (59 == i % 60) {
+            for (j = 0; j < zGLOB_REPO_NUM_LIMIT; j++) {
+                if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[j], NULL, WNOHANG)) {
+                    zCHECK_NEGATIVE_EXIT(zPid = fork());
+
+                    if (0 == zPid) {
+                        zNativeOps_.repo_init(zRun_.p_sysInfo_->pp_repoMetaVec[j], -1);
+                    } else {
+                        pthread_mutex_lock(zRun_.p_commLock);
+                        zRun_.p_sysInfo_->repoPidVec[j] = zPid;
+                        pthread_mutex_unlock(zRun_.p_commLock);
+                    }
+                }
+            }
+        }
+
+        sleep(1);
     }
 
     return NULL;
@@ -376,6 +421,7 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 static void
 zstart_server(zArgvInfo__ *zpArgvInfo_) {
     static _i zServSd[2] = {-1};
+    _ui i = 0;
 
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
@@ -394,6 +440,13 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
     /* 全局共享数据注册 */
     zglob_data_config(zpArgvInfo_);
+
+    /* DB 连接池初始化 */
+    for (i = 0; i < zDB_POOL_SIZ; i++) {
+        zCHECK_NULL_EXIT(
+                zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
+                );
+    }
 
     /*
      * !!! 必须在初始化项目库之前运行
@@ -419,7 +472,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
                 zUN_PATH_SIZ,
                 ".s.log");
 
-    for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
+    for (i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
         /* 每个项目进程对应的 UNIX domain sd 路径 */
         zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
 
@@ -489,9 +542,9 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 会传向新线程，使用静态变量
      * 使用数组防止负载高时造成线程参数混乱
      */
+    _i zReqID = 0;
     static _i zSd[256] = {0};
-    _uc zReqID = 0;
-    for (_ui i = 0;; i++) {
+    for (i = 0;; i++) {
         zReqID = i % 256;
         if (-1 == (zSd[zReqID] = accept(zMajorSd, NULL, 0))) {
             zPRINT_ERR_EASY_SYS();

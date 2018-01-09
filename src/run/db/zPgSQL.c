@@ -80,7 +80,7 @@ zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
 
 /*
  * 执行 SQL cmd
- * zHaveRet 置非零值时，表时此 SQL 属于查询类，有结果需要返回
+ * zNeedRet 为 zTrue 时，表时此 SQL 属于查询类，有结果需要返回
  * */
 static zPgResHd__ *
 zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
