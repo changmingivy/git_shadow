@@ -145,13 +145,11 @@ typedef enum {
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
-                "\033[31;01mcause:\033[00m %s "\
                 "\n%s\n",\
                 zPid,\
                 __FILE__,\
                 __LINE__,\
                 __func__,\
-                NULL == (zCause) ? "" : (zCause),\
                 NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
         zRun_.p_sysInfo_->ops_udp[9](zBuf + 1, 0, NULL, 0);\
@@ -161,13 +159,11 @@ typedef enum {
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
-                "\033[31;01mcause:\033[00m %s "\
                 "\n%s %s\n",\
                 zPid,\
                 __FILE__,\
                 __LINE__,\
                 __func__,\
-                NULL == (zCause) ? "" : (zCause),\
                 zpProcName, NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
         sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
