@@ -900,6 +900,19 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             "[repoID: %s]",
             zppRepoMeta[0]);
 
+    /* 关闭从父进程继承的除参数中的 sd 之外的所有文件描述符 */
+    zNativeUtils_.close_fds(getpid(), zSd);
+
+    /*
+     * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
+     * 必须尽早生成，否则在启动项目 udp server 之前的错误，将无法被记录
+     */
+    zpRepo_->unSd = zNetUtils_.gen_serv_sd(
+            NULL,
+            NULL,
+            zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path,
+            zProtoUDP);
+
     _us zSourceUrlLen = strlen(zppRepoMeta[2]),
         zSourceBranchLen = strlen(zppRepoMeta[3]),
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
@@ -1607,16 +1620,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* clean... */
     free(zppRepoMeta);
 
-    /* 关闭从父进程继承的所有无用的 fd */
-    zNativeUtils_.close_fds(getpid(), PQsocket(zpRepo_->p_pgConnHd_));
-
-    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    zpRepo_->unSd = zNetUtils_.gen_serv_sd(
-            NULL,
-            NULL,
-            zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path,
-            zProtoUDP);
-
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
@@ -1745,17 +1748,20 @@ zinit_env(void) {
             }
 
             _i zRepoID = -1;
-            char zPathBuf[zUN_PATH_SIZ];
+            char zBuf[zUN_PATH_SIZ];
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
-                snprintf(zPathBuf, zUN_PATH_SIZ,
+                snprintf(zBuf, zUN_PATH_SIZ,
                         ".s.%s",
                         zpPgRes_->tupleRes_[i].pp_fields[0]);
 
                 zRepoID = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0);
                 while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]
-                            = zNetUtils_.conn(NULL, NULL, zPathBuf, zProtoUDP))) {
+                            = zNetUtils_.conn(NULL, NULL, zBuf, zProtoUDP))) {
                     if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[zRepoID], NULL, WNOHANG)) {
-                        zPRINT_ERR_EASY("process dead");
+                        snprintf(zBuf, zUN_PATH_SIZ,
+                                "[repoID %s] dead",
+                                zpPgRes_->tupleRes_[i].pp_fields[0]);
+                        zPRINT_ERR_EASY(zBuf);
                         break;
                     } else {
                         sleep(1);

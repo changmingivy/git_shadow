@@ -379,13 +379,13 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
-        zPRINT_ERR(0, NULL, "!!! FATAL !!!");
+        zPRINT_ERR_EASY("servPath lost!");
         exit(1);
     }
 
     /* 检查 pgSQL 运行环境是否是线程安全的 */
     if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPRINT_ERR(0, NULL, "!!! FATAL !!!");
+        zPRINT_ERR_EASY("thread env not safe!");
         exit(1);
     }
 
@@ -652,15 +652,6 @@ zops_route_tcp(void *zp) {
         zDataLen += recv(zSd, zpDataBuf + zDataLen, zDataBufSiz - zDataLen, MSG_NOSIGNAL);
     }
 
-    /*
-     * 最短的 json 字符串：{"a":}
-     * 长度合计 6 字节
-     */
-    if (zBYTES(6) > zDataLen) {
-        zPRINT_ERR(errno, NULL, "recvd data too short(< 6bytes)");
-        goto zEndMark;
-    }
-
     /* 提取 value[OpsID] */
     cJSON *zpJRoot = cJSON_Parse(zpDataBuf);
     cJSON *zpOpsID = cJSON_GetObjectItemCaseSensitive(zpJRoot, "opsID");
@@ -703,7 +694,6 @@ zops_route_tcp(void *zp) {
         zNetUtils_.send(zSd, zpDataBuf, zDataLen);
     }
 
-zEndMark:
     close(zSd);
     if (zpDataBuf != &(zDataBuf[0])) {
         free(zpDataBuf);
