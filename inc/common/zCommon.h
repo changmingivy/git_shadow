@@ -122,7 +122,7 @@ typedef enum {
     NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 } while(0)
 
-#define zGIT_SHADOW_LOG_ERR(zErrNo, zCause, zMsg) {\
+#define zGIT_SHADOW_LOG_ERR(zErrNo, zCause, zMsg) do {\
     time_t zMarkNow = time(NULL);\
     struct tm *zpCurrentTime_ = localtime(&zMarkNow);\
     _i zLen = 1;\
@@ -169,7 +169,7 @@ typedef enum {
         sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
     }\
-}
+} while(0)
 
 #define zPRINT_ERR_EASY(zMsg) zGIT_SHADOW_LOG_ERR(0, NULL, (zMsg))
 #define zPRINT_ERR_EASY_SYS() zGIT_SHADOW_LOG_ERR(errno, "", NULL)

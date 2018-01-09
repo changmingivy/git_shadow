@@ -1745,7 +1745,6 @@ zinit_env(void) {
                 }
             }
 
-            _i zRepoID = -1;
             char zBuf[zUN_PATH_SIZ];
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 snprintf(zBuf, zUN_PATH_SIZ,
