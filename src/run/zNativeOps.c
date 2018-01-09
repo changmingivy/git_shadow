@@ -897,6 +897,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         zSourceBranchLen = strlen(zppRepoMeta[3]),
         zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
+    /* 忽略不关心的信号 */
+    zIGNORE_ALL_SIGNAL();
+
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
     snprintf(zpProcName, zProcNameBufLen,
