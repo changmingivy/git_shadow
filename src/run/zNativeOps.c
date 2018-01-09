@@ -702,15 +702,10 @@ zcode_sync(_ui *zpCnter) {
         .dataType = zDATA_TYPE_COMMIT,
     };
 
-    /* 可能会长时间阻塞，不能与关键动作使用同一把锁 */
-    pthread_mutex_lock(& zpRepo_->sourceUpdateLock);
-
     zErrNo = zLibGit_.remote_fetch(
                 zpRepo_->p_gitHandler, zpRepo_->p_codeSyncURL,
                 & zpRepo_->p_codeSyncRefs, 1,
                 NULL);
-
-    pthread_mutex_unlock(& zpRepo_->sourceUpdateLock);
 
     if (0 > zErrNo) {
         (*zpCnter)++;
@@ -838,7 +833,10 @@ zcron_ops(void *zp) {
 
     if ('Y' == zpNeedPull[0]) {
         while (1) {
+            /* 可能会长时间阻塞，不能与关键动作使用同一把锁 */
+            pthread_mutex_lock(& zpRepo_->sourceUpdateLock);
             zcode_sync(& zCodeFetchCnter);
+            pthread_mutex_unlock(& zpRepo_->sourceUpdateLock);
 
             zDBPartitionCnter += 2;
             if (86400 < zDBPartitionCnter) {
@@ -846,17 +844,17 @@ zcron_ops(void *zp) {
                 zpg_partition_mgmt(& zDBPartitionCnter);
             }
 
-            sleep(2);
+            sleep(5);
         }
     } else {
         while (1) {
-            zDBPartitionCnter += 60;
+            zDBPartitionCnter += 600;
             if (86400 < zDBPartitionCnter) {
                 zDBPartitionCnter = 0;
                 zpg_partition_mgmt(& zDBPartitionCnter);
             }
 
-            sleep(60);
+            sleep(600);
         }
     }
 
