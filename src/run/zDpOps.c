@@ -1607,14 +1607,19 @@ zSkipMark:;
             /* 更新最新一次布署版本号 */
             strcpy(zpRepo_->lastDpSig, zpRepo_->dpingSig);
 
-            sprintf(zpCommonBuf,
+            /* 发送待写的 SQL(含末尾 '\0') 至 DB write 服务 */
+            i = 1;
+            zpCommonBuf[0] = '8';
+            i += sprintf(zpCommonBuf + 1,
                     "UPDATE repo_meta SET last_dp_sig = '%s',alias_path = '%s' "
                     "WHERE repo_id = %d",
                     zpRepo_->lastDpSig,
                     zpRepo_->p_aliasPath,
                     zpRepo_->id);
 
-            // TODO 发送待写的 SQL 至 DB write 服务
+            sendto(zpRepo_->unSd, zpCommonBuf, 1 + i, MSG_NOSIGNAL,
+                    (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                    zRun_.p_sysInfo_->unAddrLenMaster);
 
             /*
              * 无论布署成功还是被中断，均需要 wait，以消除僵尸进程
@@ -1818,7 +1823,8 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
         char *zpReplyType, char *zpErrContent) {
 
     _i zResNo = 0,
-       zRetBit = 0;
+       zRetBit = 0,
+       i;
 
     char zCmdBuf[zGLOB_COMMON_BUF_SIZ] = {'\0'};
 
@@ -1850,16 +1856,21 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
         zDEL_SINGLE_QUOTATION(zpErrContent);
 
         /*
+         * 发送待写的 SQL(含末尾 '\0') 至 DB write 服务
          * postgreSQL 的数组下标是从 1 开始的
          * dp_id 可唯一定位单次布署动作，不需要对比 revSig
          */
-        snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
+        i = 1;
+        zCmdBuf[0] = '8';
+        i += snprintf(zCmdBuf + 1, zGLOB_COMMON_BUF_SIZ - 1,
                 "UPDATE dp_log SET host_err[%d] = '1',host_detail = '%s' "
                 "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND dp_id = %d",
                 zRetBit, zpErrContent,
                 zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
 
-        // TODO 发送待写的 SQL 至 DB write 服务
+        sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster);
 
         zResNo = -102;
         goto zEndMark;
@@ -1868,25 +1879,31 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
 
         /*
          * 最终成功的状态到达时，
-         * 才需要递增全局计数，并通知完工信息
+         * 才需要递增全局计数，并通知完工信息；
+         * 发送待写的 SQL(含末尾 '\0') 至 DB write 服务
          */
+        i = 1;
+        zCmdBuf[0] = '8';
         if ('4' == zpReplyType[1]) {
             zTASK_FIN_NOTICE();
 
-            snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
+            i += snprintf(zCmdBuf + 1, zGLOB_COMMON_BUF_SIZ - 1,
                     "UPDATE dp_log SET host_res[%d] = '1',host_timespent = %ld "
                     "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND dp_id = %d",
                     zRetBit, 1 + time(NULL) - zpRepo_->dpBaseTimeStamp,
                     zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
         } else {
-            snprintf(zCmdBuf, zGLOB_COMMON_BUF_SIZ,
+            i += snprintf(zCmdBuf + 1, zGLOB_COMMON_BUF_SIZ - 1,
                     "UPDATE dp_log SET host_res[%d] = '1' "
                     "WHERE repo_id = %d AND host_ip = '%s' AND time_stamp = %ld AND dp_id = %d",
                     zRetBit,
                     zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
         }
 
-        // TODO 发送待写的 SQL 至 DB write 服务
+
+        sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster);
 
         zResNo = 0;
         goto zEndMark;
