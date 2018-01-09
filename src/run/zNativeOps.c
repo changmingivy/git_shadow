@@ -1647,7 +1647,7 @@ zinit_env(void) {
      * 尝试连接到 pgSQL server
      */
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
-        zPRINT_ERR_EASY("");
+        zPRINT_ERR_EASY("conn to postgreSQL failed");
         exit(1);
     }
 

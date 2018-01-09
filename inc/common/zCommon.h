@@ -146,7 +146,7 @@ typedef enum {
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
                 "\033[31;01mcause:\033[00m %s "\
-                "\033[31;01mdetail:\033[00m %s\n",\
+                "\n%s\n",\
                 zPid,\
                 __FILE__,\
                 __LINE__,\
@@ -162,7 +162,7 @@ typedef enum {
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
                 "\033[31;01mcause:\033[00m %s "\
-                "\033[31;01mdetail:\033[00m %s %s\n",\
+                "\n%s %s\n",\
                 zPid,\
                 __FILE__,\
                 __LINE__,\
