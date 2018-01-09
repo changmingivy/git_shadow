@@ -1451,7 +1451,11 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 zpRepo_->dpingSig,
                 zpRepo_->dpBaseTimeStamp);
 
-        if (0 == zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCommonBuf, &zpPgRes_)) {
+        if (0 == (zErrNo = zPgSQL_.exec_once(
+                        zRun_.p_sysInfo_->pgConnInfo,
+                        zCommonBuf,
+                        &zpPgRes_))) {
+
             zMEM_C_ALLOC(zpRepo_->p_dpResList_, zDpRes__, zpPgRes_->tupleCnt);
             // memset(zpRepo_->p_dpResHash_, 0, zDP_HASH_SIZ * sizeof(zDpRes__ *));
 
