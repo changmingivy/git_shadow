@@ -1616,6 +1616,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 启动定时任务 */
     zThreadPool_.add(zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");
 
+    /* clean... */
+    free(zppRepoMeta);
+
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
@@ -1641,7 +1644,6 @@ zinit_env(void) {
     zPgRes__ *zpPgRes_ = NULL;
 
     pid_t zPid = -1;
-    _i zRepoID = -1;
 
     /*
      * 尝试连接到 pgSQL server
@@ -1708,26 +1710,26 @@ zinit_env(void) {
             zPRINT_ERR_EASY("NO VALID REPO FOUND!");
         } else {
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
-                zRepoID = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10);
-
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
+
                 if (0 == zPid) {
+                    char **zppMeta;
+
                     {////
                         char *zpData;
                         _i zLen = zpPgRes_->fieldCnt;
                         _i j;
-
                         for (j = 0; j < zpPgRes_->fieldCnt; j++) {
                             zLen += strlen(zpPgRes_->tupleRes_[i].pp_fields[j]);
                         }
 
-                        /* 不需要释放，留存用于项目重启 */
-                        zMEM_ALLOC(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
-                        zpData = (char *) (zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID] + zpPgRes_->fieldCnt);
+						/* 不需要释放，留存作项目重启之用 */
+                        zMEM_ALLOC(zppMeta, char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
+                        zpData = (char *) (zppMeta + zpPgRes_->fieldCnt);
 
                         zLen = 0;
                         for (j = 0; j < zpPgRes_->fieldCnt; j++) {
-                            zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID][j] = zpData + zLen;
+                            zppMeta[j] = zpData + zLen;
 
                             zLen += sprintf(zpData + zLen, "%s", zpPgRes_->tupleRes_[i].pp_fields[j]);
                             zLen++;
@@ -1737,10 +1739,10 @@ zinit_env(void) {
                     }////
 
                     /* 项目进程初始化项目环境 */
-                    zinit_one_repo_env(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], -1);
+                    zinit_one_repo_env(zppMeta, -1);
                 } else {
                     pthread_mutex_lock(zRun_.p_commLock);
-                    zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
+                    zRun_.p_sysInfo_->repoPidVec[strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0)] = zPid;
                     pthread_mutex_unlock(zRun_.p_commLock);
                 }
             }

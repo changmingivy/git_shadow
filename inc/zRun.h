@@ -444,6 +444,9 @@ typedef struct __zSysInfo__ {
     /* 主进程的 pid */
     pid_t masterPid;
 
+    /* 每个项目启动时，所需要的元信息，用于项目重启 */
+    char **pp_repoMetaVec[zGLOB_REPO_NUM_LIMIT];
+
     /*
      * 存放项目进程 pid，预置为主进程 pid
      * 主进程使用 waitpid(pid, NULL, WNOHANG) 定时轮循检测项目进程在线状态
