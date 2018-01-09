@@ -272,7 +272,6 @@ zexit_clean(void) {
     kill(0, SIGUSR1);
 }
 
-#ifndef _Z_BSD
 /*
  * 定时获取系统全局负载信息
  * 监控项目进程运行状态
@@ -318,7 +317,6 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
 
     return NULL;
 }
-#endif
 
 /*
  * 提取必要的基础信息
@@ -425,13 +423,13 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
-        zPRINT_ERR_EASY("servPath lost!");
+        zPRINT_ERR(0, NULL, "servPath lost!");
         exit(1);
     }
 
     /* 检查 pgSQL 运行环境是否是线程安全的 */
     if (zFalse == zPgSQL_.thread_safe_check()) {
-        zPRINT_ERR_EASY("thread env not safe!");
+        zPRINT_ERR(0, NULL, "thread env not safe!");
         exit(1);
     }
 
@@ -457,7 +455,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zThreadPool_.init(32, 1024);
 
     /* 项目进程唯一性保证；日志有序性保证 */
-    zRun_.p_commLock = & zCommLock;
+    zRun_.p_commLock = &zCommLock;
 
     /* 主进程 pid */
     zRun_.p_sysInfo_->masterPid = getpid();
@@ -491,31 +489,34 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
         zRun_.p_sysInfo_->masterPeerSdVec[i] = -1;
     }
 
-    /*
-     * 项目库初始化
-     * 每个项目对应一个独立的进程
-     */
-    zNativeOps_.repo_init_all();
-
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     zServSd[0] = zNetUtils_.gen_serv_sd(
+            NULL,
+            NULL,
+            zRun_.p_sysInfo_->unAddrMaster.sun_path,
+            zProtoUDP);
+
+    /* 只运行于主进程，负责日志与数据库的写入 */
+    zThreadPool_.add(zudp_daemon, zServSd);
+
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
+    zServSd[1] = zNetUtils_.gen_serv_sd(
             zRun_.p_sysInfo_->netSrv_.p_ipAddr,
             zRun_.p_sysInfo_->netSrv_.p_port,
             NULL,
             zProtoUDP);
 
     /* 只运行于主进程，用于目标机监控数据收集 */
-    zThreadPool_.add(zudp_daemon, zServSd);
-
-    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    zServSd[1] = zNetUtils_.gen_serv_sd(
-            NULL,
-            NULL,
-            zRun_.p_sysInfo_->unAddrMaster.sun_path,
-            zProtoUDP);
-
-    /* 只运行于主进程，负责统一记录整个系统的日志 */
     zThreadPool_.add(zudp_daemon, zServSd + 1);
+
+    /* 只运行于主进程，系统状态监控 */
+    zThreadPool_.add(zsys_monitor, NULL);
+
+    /*
+     * 项目库初始化
+     * 每个项目对应一个独立的进程
+     */
+    zNativeOps_.repo_init_all();
 
     /*
      * 主进程退出时，清理所有项目进程
@@ -523,10 +524,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 否则任一项目进程退出，都会触发清理动作
      */
     atexit(zexit_clean);
-
-#ifndef _Z_BSD
-    zThreadPool_.add(zsys_monitor, NULL);
-#endif
 
     /*
      * 返回的 socket 已经做完 bind 和 listen

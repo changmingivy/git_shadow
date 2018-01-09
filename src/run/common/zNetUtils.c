@@ -90,15 +90,9 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         zCHECK_NEGATIVE_EXIT(zSd);
 
         /* 不等待，直接重用地址与端口 */
-#ifdef _Z_BSD
-        zCHECK_NEGATIVE_EXIT(
-                setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i))
-                );
-#else
         zCHECK_NEGATIVE_EXIT(
                 setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i))
                 );
-#endif
 
         zCHECK_NEGATIVE_EXIT(
                 bind(zSd, zpRes_->ai_addr,
@@ -124,15 +118,9 @@ zgenerate_serv_SD(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProt
         unlink(zpUNPath);
 
         /* 不等待，直接重用地址与端口 */
-#ifdef _Z_BSD
-        zCHECK_NEGATIVE_EXIT(
-                setsockopt(zSd, SOL_SOCKET, SO_REUSEPORT, &zSd, sizeof(_i))
-                );
-#else
         zCHECK_NEGATIVE_EXIT(
                 setsockopt(zSd, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, &zSd, sizeof(_i))
                 );
-#endif
 
         zCHECK_NEGATIVE_EXIT(
                 bind(zSd, (struct sockaddr *) &zUN, SUN_LEN(&zUN))

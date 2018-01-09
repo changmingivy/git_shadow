@@ -13,10 +13,6 @@
 #include <ftw.h>
 #include <pthread.h>
 
-#ifdef _Z_BSD
-    #include <netinet/in.h>
-#endif
-
 #include <time.h>
 #include <errno.h>
 
