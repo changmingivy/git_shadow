@@ -764,27 +764,17 @@ zcode_sync(_ui *zpCnter) {
  */
 static void
 zpg_partition_mgmt(_ui *zpCnter) {
-    zPgConnHd__ *zpPgConnHd_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
     char zCmdBuf[1024];
 
-    /*
-     * 尝试连接到 pgSQL server
-     * 若失败，将计数器调至 > 86400，以使 2s 后重新被 cron_ops() 调用
-     */
-    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
-        zPRINT_ERR_EASY("Connect to pgSQL failed");
-        *zpCnter = 86400 + 1;
-
-        return;
-    }
-
     _i zBaseID = time(NULL) / 86400,
-       zID = 0;
+       zID = 0,
+       i;
 
     /* 创建之后 10 天的分区表 */
     for (zID = 0; zID < 10; zID ++) {
-        sprintf(zCmdBuf,
+        i = 1;
+        zCmdBuf[0] = '8';
+        i += sprintf(zCmdBuf + 1,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
                 zpRepo_->id,
@@ -793,29 +783,31 @@ zpg_partition_mgmt(_ui *zpCnter) {
                 86400 * (zBaseID + zID),
                 86400 * (zBaseID + zID + 1));
 
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-            zPRINT_ERR_EASY("(errno: -91) pgSQL exec failed");
-            continue;
-        } else {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
+        if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster)) {
+
+            *zpCnter = 86400 + 1;
         }
     }
 
     /* 清除 30 天之前的分区表 */
     for (zID = 0; zID < 10; zID ++) {
-        sprintf(zCmdBuf,
+        i = 1;
+        zCmdBuf[0] = '8';
+        i += sprintf(zCmdBuf + 1,
                 "DROP TABLE IF EXISTS dp_log_%d_%d",
                 zpRepo_->id, zBaseID - zID - 30);
 
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zCmdBuf, zFalse))) {
-            zPRINT_ERR_EASY("(errno: -91) pgSQL exec failed");
-            continue;
-        } else {
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
+        if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster)) {
+
+            *zpCnter = 86400 + 1;
         }
     }
-
-    zPgSQL_.conn_clear(zpPgConnHd_);
 }
 
 
