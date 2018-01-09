@@ -499,26 +499,23 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     /* 只运行于主进程，负责日志与数据库的写入 */
     zThreadPool_.add(zudp_daemon, & zRun_.p_sysInfo_->masterSd);
 
-    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    static _i zMonitorSd;
-    zMonitorSd = zNetUtils_.gen_serv_sd(
-            zRun_.p_sysInfo_->netSrv_.p_ipAddr,
-            zRun_.p_sysInfo_->netSrv_.p_port,
-            NULL,
-            zProtoUDP);
-
     {////
-        /* 临时借用 zMonitorSd，等待 write_db udp daemon 就緒 */
+        /* 等待 write_db udp daemon 就緒 */
         char _;
+        _i zSd = zRun_.p_sysInfo_->masterSd = zNetUtils_.gen_serv_sd(NULL, NULL,
+                ".s____",
+                zProtoUDP);
         while (1) {
-            sendto(zMonitorSd, "0", zBYTES(1), MSG_NOSIGNAL,
+            sendto(zSd, "0", zBYTES(1), MSG_NOSIGNAL,
                     (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
                     zRun_.p_sysInfo_->unAddrLenMaster);
 
-            if (0 < recv(zMonitorSd, &_, zBYTES(1), MSG_NOSIGNAL|MSG_DONTWAIT)) {
+            if (0 < recv(zSd, &_, zBYTES(1), MSG_NOSIGNAL|MSG_DONTWAIT)) {
                 break;
             }
         }
+
+        close(zSd);
     }////
 
     /*
@@ -526,6 +523,14 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 每个项目对应一个独立的进程
      */
     zNativeOps_.repo_init_all();
+
+    /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
+    static _i zMonitorSd;
+    zMonitorSd = zNetUtils_.gen_serv_sd(
+            zRun_.p_sysInfo_->netSrv_.p_ipAddr,
+            zRun_.p_sysInfo_->netSrv_.p_port,
+            NULL,
+            zProtoUDP);
 
     /* 只运行于主进程，用于目标机监控数据收集 */
     zThreadPool_.add(zudp_daemon, & zMonitorSd);
