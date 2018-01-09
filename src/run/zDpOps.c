@@ -844,9 +844,9 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
     }
 
     /*
-     * ====
+     * !!!!
      * URL 中使用 IPv6 地址必须用中括号包住，否则无法解析
-     * ====
+     * !!!!
      */
     sprintf(zRemoteRepoAddrBuf, "ssh://%s@[%s]:%s%s%s/.git",
             zpRepo_->sshUserName,
@@ -953,7 +953,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
     }
 
     /*
-     * ==== 非核心功能 ====
+     * !!!! 非核心功能 !!!!
      * 运行用户指定的布署后动作，不提供执行结果保证
      */
     if (NULL != zpRepo_->p_userDpCmd) {
@@ -1076,7 +1076,6 @@ static _i
 zbatch_deploy(cJSON *zpJRoot, _i zSd) {
     _i zResNo = 0;
     zVecWrap__ *zpTopVecWrap_ = NULL;
-    zPgResHd__ *zpPgResHd_ = NULL;
 
     char *zpCommonBuf = NULL;
     char *zpSQLBuf = NULL;
@@ -1293,26 +1292,12 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 " WHERE repo_id = %d",
                 zpRepo_->id);
 
-        zpPgResHd_ = zPgSQL_.exec(
-                zpRepo_->p_pgConnHd_,
-                zpCommonBuf,
-                zFalse);
-        if (NULL == zpPgResHd_) {
-            /* 长连接可能意外中断，失败重连，再试一次 */
-            zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec(
-                            zpRepo_->p_pgConnHd_,
-                            zpCommonBuf,
-                            zFalse))) {
-                zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
 
-                /* 数据库不可用，停止服务 ? */
-                zPRINT_ERR_EASY("!!!! FATAL !!!!");
-                exit(1);
-            }
+        if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zpCommonBuf, NULL)) {
+            /* 数据库不可用，停止服务 ? */
+            zPRINT_ERR_EASY("!!!! FATAL !!!!");
+            exit(1);
         }
-
-        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }////
 
     /*
@@ -1379,9 +1364,9 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
             0, zDP_HASH_SIZ * sizeof(zDpRes__ *));
 
     /*
-     * ==========================
-     * ==== 正式开始布署动作 ====
-     * ==========================
+     * !!!!!!!!!!!!!!!!!!!!!!!!==
+     * !!!! 正式开始布署动作 !!!!
+     * !!!!!!!!!!!!!!!!!!!!!!!!==
      */
     if (0 == strcmp(zpRepo_->dpingSig,
                 zpRepo_->lastDpSig)) {
@@ -1548,26 +1533,15 @@ zSkipMark:;
         sprintf(zTimeStamp, "%ld", zpRepo_->dpBaseTimeStamp);
 
         /* 预插入本次布署记录条目 */
-        zpPgResHd_ = zPgSQL_.exec_with_param(
-                zpRepo_->p_pgConnHd_,
-                zpSQLBuf,
-                4, zpParam,
-                zFalse);
-
-        if (NULL == zpPgResHd_) {
-            /* 长连接可能意外中断，失败重连，再试一次 */
-            zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
-            if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
-                            zpRepo_->p_pgConnHd_,
-                            zpSQLBuf,
-                            4, zpParam,
-                            zFalse))) {
-                zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-
-                /* 数据库不可用，停止服务 ? */
-                zPRINT_ERR_EASY("==== FATAL ====");
-                exit(1);
-            }
+        if (0 != zPgSQL_.exec_with_param_once(
+                    zRun_.p_sysInfo_->pgConnInfo,
+                    zpSQLBuf,
+                    4,
+                    zpParam,
+                    NULL)) {
+            /* 数据库不可用，停止服务 ? */
+            zPRINT_ERR_EASY("!!!! FATAL !!!!");
+            exit(1);
         }
     }////
 
@@ -1639,23 +1613,7 @@ zSkipMark:;
                     zpRepo_->p_aliasPath,
                     zpRepo_->id);
 
-            zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zpCommonBuf, zFalse);
-            if (NULL == zpPgResHd_) {
-                /* 长连接可能意外中断，失败重连，再试一次 */
-                zPgSQL_.conn_reset(zpRepo_->p_pgConnHd_);
-                if (NULL == (zpPgResHd_ = zPgSQL_.exec(
-                                zpRepo_->p_pgConnHd_,
-                                zpCommonBuf,
-                                zFalse))) {
-                    zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
-
-                    /* 数据库不可用，停止服务 ? */
-                    zPRINT_ERR_EASY("==== FATAL ====");
-                    exit(1);
-                }
-            }
-
-            zPgSQL_.res_clear(zpPgResHd_, NULL);
+            // TODO 发送待写的 SQL 至 DB write 服务
 
             /*
              * 无论布署成功还是被中断，均需要 wait，以消除僵尸进程
@@ -1728,7 +1686,7 @@ zSkipMark:;
     }
 
 zCleanMark:
-    /* ==== 释放布署主锁 ==== */
+    /* !!!! 释放布署主锁 !!!! */
     pthread_mutex_unlock(& zpRepo_->dpLock);
 
 zEndMark:
@@ -1900,10 +1858,7 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
                 zRetBit, zpErrContent,
                 zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
 
-        /* 设计 SQL 连接池 ??? */
-        if (0 > zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCmdBuf, NULL)) {
-            zPRINT_ERR_EASY(zpHostAddr);
-        }
+        // TODO 发送待写的 SQL 至 DB write 服务
 
         zResNo = -102;
         goto zEndMark;
@@ -1930,9 +1885,7 @@ zstate_confirm_ops(_ui zDpID, _i zSelfNodeID, char *zpHostAddr, time_t zTimeStam
                     zpRepo_->id, zpHostAddr, zTimeStamp, zDpID);
         }
 
-        if (0 > zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCmdBuf, NULL)) {
-            zPRINT_ERR_EASY(zpHostAddr);
-        }
+        // TODO 发送待写的 SQL 至 DB write 服务
 
         zResNo = 0;
         goto zEndMark;
@@ -2053,7 +2006,7 @@ zglob_res_confirm(cJSON *zpJRoot, _i zSd) {
 /*
  * 15：布署进度实时查询接口，同时包含项目元信息，示例如下：
  */
-/** ==== 样例 ==== **
+/** !!!! 样例 !!!! **
  * {
  *   "RepoMeta": {
  *     "id": 9,

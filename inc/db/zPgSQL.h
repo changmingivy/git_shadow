@@ -14,6 +14,8 @@ typedef struct __zPgResTuple__ {
 } zPgResTuple__;
 
 typedef struct __zPgRes__ {
+    zPgResHd__ *p_pgResHd_;
+
     _i tupleCnt;
     _i fieldCnt;
 
@@ -41,6 +43,7 @@ struct zPgSQL__ {
     zbool_t (* conn_check) (const char *);
 
     _i (* exec_once) (char *, char *, zPgRes__ **);
+    _i (* exec_with_param_once) (char *, char *, _i, const char **, zPgRes__ **);
 };
 
 #endif  // #ifndef ZPGSQL_H

@@ -215,11 +215,6 @@ typedef struct __zRepo__ {
     _ui memPoolOffSet;
 
     /*
-     * 本项目全局 postgreSQL handler
-     */
-    zPgConnHd__ *p_pgConnHd_;
-
-    /*
      * 临时 SQL 表命名序号
      * 用以提升布署结果异步查询的性能
      */
