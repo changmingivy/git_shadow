@@ -92,15 +92,15 @@ typedef enum {
  * =>>> Print Current Time <<<=
  */
 #define /*_i*/ zPRINT_TIME(/*void*/) {\
-    time_t zMarkNow = time(NULL);  /* Mark the time when this process start */\
-    struct tm *zpCurrentTime_ = localtime(&zMarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
+    time_t MarkNow = time(NULL);  /* Mark the time when this process start */\
+    struct tm *pCurrentTime_ = localtime(&MarkNow);  /* Current time(total secends from 1900-01-01 00:00:00) */\
     fprintf(stderr, "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m",\
-            zpCurrentTime_->tm_year + 1900,\
-            zpCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
-            zpCurrentTime_->tm_mday,\
-            zpCurrentTime_->tm_hour,\
-            zpCurrentTime_->tm_min,\
-            zpCurrentTime_->tm_sec);\
+            pCurrentTime_->tm_year + 1900,\
+            pCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
+            pCurrentTime_->tm_mday,\
+            pCurrentTime_->tm_hour,\
+            pCurrentTime_->tm_min,\
+            pCurrentTime_->tm_sec);\
 }
 
 /*
@@ -123,50 +123,50 @@ typedef enum {
 } while(0)
 
 #define zGIT_SHADOW_LOG_ERR(zErrNo, zCause, zMsg) do {\
-    time_t zMarkNow = time(NULL);\
-    struct tm *zpCurrentTime_ = localtime(&zMarkNow);\
-    _i zLen = 1;\
-    pid_t zPid = getpid();\
-    char zBuf[510];\
-    zBuf[0] = '9';\
+    time_t MarkNow = time(NULL);\
+    struct tm *pCurrentTime_ = localtime(&MarkNow);\
+    _i Len = 1;\
+    pid_t Pid = getpid();\
+    char Buf[510];\
+    Buf[0] = '9';\
 \
-    zLen += snprintf(zBuf + zLen, 510 - zLen,\
+    Len += snprintf(Buf + Len, 510 - Len,\
             "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m ",\
-            zpCurrentTime_->tm_year + 1900,\
-            zpCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
-            zpCurrentTime_->tm_mday,\
-            zpCurrentTime_->tm_hour,\
-            zpCurrentTime_->tm_min,\
-            zpCurrentTime_->tm_sec);\
+            pCurrentTime_->tm_year + 1900,\
+            pCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
+            pCurrentTime_->tm_mday,\
+            pCurrentTime_->tm_hour,\
+            pCurrentTime_->tm_min,\
+            pCurrentTime_->tm_sec);\
 \
-    if (zPid == zRun_.p_sysInfo_->masterPid) {\
-        snprintf(zBuf + zLen, 510 - zLen,\
+    if (Pid == zRun_.p_sysInfo_->masterPid) {\
+        snprintf(Buf + Len, 510 - Len,\
                 "\033[31;01mpid:\033[00m %d "\
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
                 "\n%s\n",\
-                zPid,\
+                Pid,\
                 __FILE__,\
                 __LINE__,\
                 __func__,\
                 NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
-        zRun_.p_sysInfo_->ops_udp[9](zBuf + 1, 0, NULL, 0);\
+        zRun_.p_sysInfo_->ops_udp[9](Buf + 1, 0, NULL, 0);\
     } else {\
-        zLen += snprintf(zBuf + zLen, 510 - zLen,\
+        Len += snprintf(Buf + Len, 510 - Len,\
                 "\033[31;01mpid:\033[00m %d "\
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
                 "\n%s %s\n",\
-                zPid,\
+                Pid,\
                 __FILE__,\
                 __LINE__,\
                 __func__,\
                 zpProcName, NULL == (zCause) ? (NULL == (zMsg) ? "" : (zMsg)) : strerror(zErrNo));\
 \
-        sendto(zpRepo_->unSd, zBuf, zLen, MSG_NOSIGNAL,\
+        sendto(zpRepo_->unSd, Buf, Len, MSG_NOSIGNAL,\
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster, zRun_.p_sysInfo_->unAddrLenMaster);\
     }\
 } while(0)
@@ -262,43 +262,43 @@ typedef enum {
  * 信号处理，屏蔽除 SIGKILL、SIGSTOP、SIGSEGV、SIGCHLD、SIGCLD、SIGUSR1、SIGUSR2 之外的所有信号，合计 25 种
  */
 #define /*void*/ zIGNORE_ALL_SIGNAL(/*void*/) {\
-    _i zSigSet[25] = {\
+    _i SigSet[25] = {\
         SIGFPE, SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT,\
         SIGTERM, SIGBUS, SIGHUP, SIGSYS, SIGALRM,\
         SIGTSTP, SIGTTIN, SIGTTOU, SIGURG, SIGXCPU, SIGXFSZ,\
         SIGPROF, SIGWINCH, SIGCONT, SIGPIPE, SIGIOT, SIGIO\
     };\
 \
-    struct sigaction zSigAction_;\
-    zSigAction_.sa_handler = SIG_IGN;\
-    sigfillset(&zSigAction_.sa_mask);\
-    zSigAction_.sa_flags = 0;\
+    struct sigaction SigAction_;\
+    SigAction_.sa_handler = SIG_IGN;\
+    sigfillset(&SigAction_.sa_mask);\
+    SigAction_.sa_flags = 0;\
 \
-    sigaction(zSigSet[0], &zSigAction_, NULL);\
-    sigaction(zSigSet[1], &zSigAction_, NULL);\
-    sigaction(zSigSet[2], &zSigAction_, NULL);\
-    sigaction(zSigSet[3], &zSigAction_, NULL);\
-    sigaction(zSigSet[4], &zSigAction_, NULL);\
-    sigaction(zSigSet[5], &zSigAction_, NULL);\
-    sigaction(zSigSet[6], &zSigAction_, NULL);\
-    sigaction(zSigSet[7], &zSigAction_, NULL);\
-    sigaction(zSigSet[8], &zSigAction_, NULL);\
-    sigaction(zSigSet[9], &zSigAction_, NULL);\
-    sigaction(zSigSet[10], &zSigAction_, NULL);\
-    sigaction(zSigSet[11], &zSigAction_, NULL);\
-    sigaction(zSigSet[12], &zSigAction_, NULL);\
-    sigaction(zSigSet[13], &zSigAction_, NULL);\
-    sigaction(zSigSet[14], &zSigAction_, NULL);\
-    sigaction(zSigSet[15], &zSigAction_, NULL);\
-    sigaction(zSigSet[16], &zSigAction_, NULL);\
-    sigaction(zSigSet[17], &zSigAction_, NULL);\
-    sigaction(zSigSet[18], &zSigAction_, NULL);\
-    sigaction(zSigSet[19], &zSigAction_, NULL);\
-    sigaction(zSigSet[20], &zSigAction_, NULL);\
-    sigaction(zSigSet[21], &zSigAction_, NULL);\
-    sigaction(zSigSet[22], &zSigAction_, NULL);\
-    sigaction(zSigSet[23], &zSigAction_, NULL);\
-    sigaction(zSigSet[24], &zSigAction_, NULL);\
+    sigaction(SigSet[0], &SigAction_, NULL);\
+    sigaction(SigSet[1], &SigAction_, NULL);\
+    sigaction(SigSet[2], &SigAction_, NULL);\
+    sigaction(SigSet[3], &SigAction_, NULL);\
+    sigaction(SigSet[4], &SigAction_, NULL);\
+    sigaction(SigSet[5], &SigAction_, NULL);\
+    sigaction(SigSet[6], &SigAction_, NULL);\
+    sigaction(SigSet[7], &SigAction_, NULL);\
+    sigaction(SigSet[8], &SigAction_, NULL);\
+    sigaction(SigSet[9], &SigAction_, NULL);\
+    sigaction(SigSet[10], &SigAction_, NULL);\
+    sigaction(SigSet[11], &SigAction_, NULL);\
+    sigaction(SigSet[12], &SigAction_, NULL);\
+    sigaction(SigSet[13], &SigAction_, NULL);\
+    sigaction(SigSet[14], &SigAction_, NULL);\
+    sigaction(SigSet[15], &SigAction_, NULL);\
+    sigaction(SigSet[16], &SigAction_, NULL);\
+    sigaction(SigSet[17], &SigAction_, NULL);\
+    sigaction(SigSet[18], &SigAction_, NULL);\
+    sigaction(SigSet[19], &SigAction_, NULL);\
+    sigaction(SigSet[20], &SigAction_, NULL);\
+    sigaction(SigSet[21], &SigAction_, NULL);\
+    sigaction(SigSet[22], &SigAction_, NULL);\
+    sigaction(SigSet[23], &SigAction_, NULL);\
+    sigaction(SigSet[24], &SigAction_, NULL);\
 }
 
 #endif  //  #ifndef ZCOMMON_H
