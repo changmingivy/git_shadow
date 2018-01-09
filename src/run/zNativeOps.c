@@ -830,7 +830,7 @@ zcron_ops(void *zp) {
             zcode_sync(& zCodeFetchCnter);
             pthread_mutex_unlock(& zpRepo_->sourceUpdateLock);
 
-            zDBPartitionCnter += 2;
+            zDBPartitionCnter += 5;
             if (86400 < zDBPartitionCnter) {
                 zDBPartitionCnter = 0;
                 zpg_partition_mgmt(& zDBPartitionCnter);
