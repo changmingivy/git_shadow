@@ -568,8 +568,12 @@ zgenerate_cache(void *zp) {
     zCacheMeta__ *zpMeta_ = (zCacheMeta__ *) zp;
 
     time_t zTimeStamp = 0;
-    _i zVecDataLen = 0,
+
+    _i zErrNo = 0,
+       zVecDataLen = 0,
        i = 0;
+
+    zPgRes__ *zpPgRes_ = NULL;
 
     /* 计算本函数需要用到的最大 BufSiz */
     char zCommonBuf[256 + zpRepo_->pathLen + 12];
@@ -611,7 +615,6 @@ zgenerate_cache(void *zp) {
 
     } else if (zDATA_TYPE_DP == zpMeta_->dataType) {
         zpTopVecWrap_ = & zpRepo_->dpVecWrap_;
-        zPgRes__ *zpPgRes_ = NULL;
 
         /* 须使用 DISTINCT 关键字去重 */
         sprintf(zCommonBuf,
@@ -620,32 +623,33 @@ zgenerate_cache(void *zp) {
                 zpRepo_->id,
                 zCACHE_SIZ);
 
-        if (0 == zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCommonBuf, & zpPgRes_)) {
+        if (0 == (zErrNo = zPgSQL_.exec_once(
+                        zRun_.p_sysInfo_->pgConnInfo,
+                        zCommonBuf,
+                        &zpPgRes_))) {
+
+            /* 存储的是实际的对象数量 */
+            zpTopVecWrap_->vecSiz = (zCACHE_SIZ < zpPgRes_->tupleCnt) ? zCACHE_SIZ : zpPgRes_->tupleCnt;
+
+            zpRevSig[0] = zalloc_cache(zBYTES(41) * zpTopVecWrap_->vecSiz);
+            for (i = 0; i < zpTopVecWrap_->vecSiz; i++) {
+                zpRevSig[i] = zpRevSig[0] + i * zBYTES(41);
+
+                /*
+                 * 存储 RevSig 的 SQL 数据类型是 char(40)，只会存数据正文，不存 '\0'
+                 * 使用 libpq 取出来的值是 41 位，最后又会追加一个 '\0'
+                 */
+                strcpy(zpRevSig[i], zpPgRes_->tupleRes_[i].pp_fields[0]);
+                strcpy(zTimeStampVec + 16 * i, zpPgRes_->tupleRes_[i].pp_fields[1]);
+            }
+
             zPgSQL_.res_clear(zpPgRes_->p_pgResHd_, zpPgRes_);
+        } else if (-92 == zErrNo) {
+            zpTopVecWrap_->vecSiz = 0;
         } else {
             zPRINT_ERR_EASY("");
             exit(1);
         }
-
-        /* 存储的是实际的对象数量 */
-        if (NULL == zpPgRes_) {
-            zpTopVecWrap_->vecSiz = 0;
-        } else {
-            zpTopVecWrap_->vecSiz = (zCACHE_SIZ < zpPgRes_->tupleCnt) ? zCACHE_SIZ : zpPgRes_->tupleCnt;
-        }
-        zpTopVecWrap_->vecSiz = zpTopVecWrap_->vecSiz;
-
-        for (i = 0; i < zpTopVecWrap_->vecSiz; i++) {
-            zpRevSig[i] = zalloc_cache(zBYTES(41));
-            /*
-             * 存储 RevSig 的 SQL 数据类型是 char(40)，只会存数据正文，不存 '\0'
-             * 使用 libpq 取出来的值是 41 位，最后又会追加一个 '\0'
-             */
-            strcpy(zpRevSig[i], zpPgRes_->tupleRes_[i].pp_fields[0]);
-            strcpy(zTimeStampVec + 16 * i, zpPgRes_->tupleRes_[i].pp_fields[1]);
-        }
-
-        zPgSQL_.res_clear(NULL, zpPgRes_);
     } else {
         /* BUG! */
         zPRINT_ERR_EASY("");
