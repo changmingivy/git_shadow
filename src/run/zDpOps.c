@@ -662,21 +662,6 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
         pthread_mutex_unlock(zRun_.p_commLock);
 
-        char zBuf[zUN_PATH_SIZ];
-        snprintf(zBuf, zUN_PATH_SIZ, ".s.%d", zRepoID);
-
-        while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]
-                    = zNetUtils_.conn(NULL, NULL, zBuf, zProtoUDP))) {
-            if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[zRepoID], NULL, WNOHANG)) {
-
-                snprintf(zBuf, zUN_PATH_SIZ, "[repoID %s] dead", zpRepoInfo[0]);
-                zPRINT_ERR_EASY(zBuf);
-                break;
-            } else {
-                sleep(1);
-            }
-        }
-
         zResNo = 0;
         goto zEndMark;
     }

@@ -286,6 +286,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
     pid_t zPid;
     _ui i;
     _i j;
+    char zBuf[64];
 
     zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
     sleep(10);
@@ -307,6 +308,9 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         pthread_mutex_lock(zRun_.p_commLock);
                         zRun_.p_sysInfo_->repoPidVec[j] = zPid;
                         pthread_mutex_unlock(zRun_.p_commLock);
+
+                        sprintf(zBuf, "crash ==> repoID %d, restarting...", j);
+                        zwrite_log(zBuf, 0, NULL, 0);
                     }
                 }
             }
@@ -418,7 +422,6 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
 zstart_server(zArgvInfo__ *zpArgvInfo_) {
-    static _i zServSd[2] = {-1};
     _ui i = 0;
 
     /* 必须指定服务端的根路径 */
@@ -468,7 +471,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
         + snprintf(
                 zRun_.p_sysInfo_->unAddrMaster.sun_path,
                 zUN_PATH_SIZ,
-                ".s.log");
+                ".s.master");
 
     for (i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
         /* 每个项目进程对应的 UNIX domain sd 路径 */
@@ -484,39 +487,51 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
         /* 以主进程 pid 的值，预置项目进程 pid */
         zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
-
-        /* 主进程 connect 项目进程 UNIX domain socket 生成的 sd，预置为 -1 */
-        zRun_.p_sysInfo_->masterPeerSdVec[i] = -1;
     }
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    zServSd[0] = zNetUtils_.gen_serv_sd(
+    zRun_.p_sysInfo_->masterSd = zNetUtils_.gen_serv_sd(
             NULL,
             NULL,
             zRun_.p_sysInfo_->unAddrMaster.sun_path,
             zProtoUDP);
 
     /* 只运行于主进程，负责日志与数据库的写入 */
-    zThreadPool_.add(zudp_daemon, zServSd);
+    zThreadPool_.add(zudp_daemon, & zRun_.p_sysInfo_->masterSd);
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
-    zServSd[1] = zNetUtils_.gen_serv_sd(
+    static _i zMonitorSd;
+    zMonitorSd = zNetUtils_.gen_serv_sd(
             zRun_.p_sysInfo_->netSrv_.p_ipAddr,
             zRun_.p_sysInfo_->netSrv_.p_port,
             NULL,
             zProtoUDP);
 
-    /* 只运行于主进程，用于目标机监控数据收集 */
-    zThreadPool_.add(zudp_daemon, zServSd + 1);
+    {////
+        /* 临时借用 zMonitorSd，等待 write_db udp daemon 就緒 */
+        char _;
+        while (1) {
+            sendto(zMonitorSd, "0", zBYTES(1), MSG_NOSIGNAL,
+                    (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                    zRun_.p_sysInfo_->unAddrLenMaster);
 
-    /* 只运行于主进程，系统状态监控 */
-    zThreadPool_.add(zsys_monitor, NULL);
+            if (0 < recv(zMonitorSd, &_, zBYTES(1), MSG_NOSIGNAL|MSG_DONTWAIT)) {
+                break;
+            }
+        }
+    }////
 
     /*
      * 项目库初始化
      * 每个项目对应一个独立的进程
      */
     zNativeOps_.repo_init_all();
+
+    /* 只运行于主进程，用于目标机监控数据收集 */
+    zThreadPool_.add(zudp_daemon, & zMonitorSd);
+
+    /* 只运行于主进程，系统状态监控 */
+    zThreadPool_.add(zsys_monitor, NULL);
 
     /*
      * 主进程退出时，清理所有项目进程
@@ -594,8 +609,10 @@ zops_route_tcp_master(void *zp) {
      * 若项目存在，但未就绪，提示正在创建过程中
      * 若项目不存在，则收取完整的 json 信息
      */
-    if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]) {
-        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoID], zSd, NULL, 0);
+    if (zRun_.p_sysInfo_->masterPid != zRun_.p_sysInfo_->repoPidVec[zRepoID]) {
+        zNetUtils_.send_fd(zRun_.p_sysInfo_->masterSd, zSd,
+                & zRun_.p_sysInfo_->unAddrVec_[zRepoID],
+                zRun_.p_sysInfo_->unAddrLenVec[zRepoID]);
         goto zEndMark;
     } else {
 zDirectServ:;
@@ -646,8 +663,10 @@ zDirectServ:;
                                     sizeof("{\"errNo\":-32,\"content\":\"repoID invalid (hint: 1 - 1023)\"}") - 1);
                             break;
                         } else {
-                            if (0 < zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]) {
-                                zNetUtils_.send_fd(zRun_.p_sysInfo_->masterPeerSdVec[zRepoID], zSd, NULL, 0);
+                            if (zRun_.p_sysInfo_->masterPid != zRun_.p_sysInfo_->repoPidVec[zRepoID]) {
+                                zNetUtils_.send_fd(zRun_.p_sysInfo_->masterSd, zSd,
+                                        & zRun_.p_sysInfo_->unAddrVec_[zRepoID],
+                                        zRun_.p_sysInfo_->unAddrLenVec[zRepoID]);
                                 break;
                             }
                         }

@@ -1703,30 +1703,9 @@ zinit_env(void) {
                     /* 项目进程初始化项目环境 */
                     zinit_one_repo_env(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], -1);
                 } else {
-                    pthread_mutex_lock(zRun_.p_commLock);
+                    //pthread_mutex_lock(zRun_.p_commLock);
                     zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
-                    pthread_mutex_unlock(zRun_.p_commLock);
-                }
-            }
-
-            char zBuf[zUN_PATH_SIZ];
-            for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
-                snprintf(zBuf, zUN_PATH_SIZ,
-                        ".s.%s",
-                        zpPgRes_->tupleRes_[i].pp_fields[0]);
-
-                zRepoID = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 0);
-                while(0 > (zRun_.p_sysInfo_->masterPeerSdVec[zRepoID]
-                            = zNetUtils_.conn(NULL, NULL, zBuf, zProtoUDP))) {
-                    if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[zRepoID], NULL, WNOHANG)) {
-                        snprintf(zBuf, zUN_PATH_SIZ,
-                                "[master] repoID %s dead",
-                                zpPgRes_->tupleRes_[i].pp_fields[0]);
-                        zPRINT_ERR_EASY(zBuf);
-                        break;
-                    } else {
-                        sleep(1);
-                    }
+                    //pthread_mutex_unlock(zRun_.p_commLock);
                 }
             }
         }

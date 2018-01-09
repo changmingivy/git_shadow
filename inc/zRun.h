@@ -436,8 +436,9 @@ typedef struct __zSysInfo__ {
     _uc netLoad;
     _uc diskLoad;
 
-    /* 主进程的 pid */
+    /* 主进程的 pid 与 sd */
     pid_t masterPid;
+    _i masterSd;
 
     /* 每个项目启动时，所需要的元信息，用于项目重启 */
     char **pp_repoMetaVec[zGLOB_REPO_NUM_LIMIT];
@@ -455,12 +456,6 @@ typedef struct __zSysInfo__ {
      */
     struct sockaddr_un unAddrMaster;
     _s unAddrLenMaster;
-
-    /*
-     * 主进程与每个项目进程，均事先 connect
-     * 预置为 -1，以是否小于 0，判断项目进程是否已经就绪
-     */
-    _i masterPeerSdVec[zGLOB_REPO_NUM_LIMIT];
 
     /* 存放每个项目进程的 UNIX domain sd 路径：".s.1234"*/
     struct sockaddr_un unAddrVec_[zGLOB_REPO_NUM_LIMIT];
