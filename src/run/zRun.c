@@ -78,8 +78,8 @@ zwrite_db(void *zp,
     zKeepID = ++zDBReqID % zDB_POOL_SIZ;
     pthread_mutex_unlock(zRun_.p_commLock);
 
+    /* 若执行失败，记录日志 */
     if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
-        /* 执行失败，记录日志 */
         zwrite_log(zp, 0, NULL, 0);
     }
 
