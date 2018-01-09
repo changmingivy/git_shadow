@@ -882,7 +882,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zRegInit__ zRegInit_;
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
-    _s zStrLen = 0;
+    _s zRepoID = 0,
+       zStrLen = 0;
     _c zNeedPull = 'N';
 
     char *zpOrigPath = NULL,
@@ -892,10 +893,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zPgRes__ *zpPgRes_ = NULL;
 
     char zCommonBuf[zGLOB_COMMON_BUF_SIZ];
-
-    _us zSourceUrlLen = strlen(zppRepoMeta[2]),
-        zSourceBranchLen = strlen(zppRepoMeta[3]),
-        zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
 
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
@@ -908,7 +905,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMEM_C_ALLOC(zpRepo_, zRepo__, 1);
-
     /*
      * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
      * 必须尽早生成，否则在启动项目 udp server 之前的错误，将无法被记录
@@ -919,18 +915,21 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path,
             zProtoUDP);
 
+    _us zSourceUrlLen = strlen(zppRepoMeta[2]),
+        zSourceBranchLen = strlen(zppRepoMeta[3]),
+        zSyncRefsLen = sizeof("+refs/heads/:refs/heads/XXXXXXXX") -1 + 2 * zSourceBranchLen;
+
     /* 提取项目ID */
-    zpRepo_->id = strtol(zppRepoMeta[0], NULL, 10);
+    zRepoID = strtol(zppRepoMeta[0], NULL, 10);
 
     /* 检查项目 ID 是否超限 */
-    if (zGLOB_REPO_NUM_LIMIT <= zpRepo_->id
-            || 0 >= zpRepo_->id) {
-        free(zpRepo_);
-        zpRepo_ = NULL;
-
+    if (zGLOB_REPO_NUM_LIMIT <= zRepoID
+            || 0 >= zRepoID) {
         zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[32]);
         exit(1);
     }
+
+    zpRepo_->id = zRepoID;
 
     /* needPull */
     zNeedPull = toupper(zppRepoMeta[5][0]);
@@ -970,7 +969,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             "%s/%s/.____DpSystem/%d/%s",
             zRun_.p_sysInfo_->p_homePath,
             zpOrigPath,
-            zpRepo_->id,
+            zRepoID,
             zRegRes_.pp_rets[0]);
 
     zPosixReg_.free_res(&zRegRes_);
@@ -1251,8 +1250,8 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
-            zpRepo_->id, zpRepo_->id,
-            zpRepo_->id, zBaseID, zpRepo_->id, 86400 * zBaseID);
+            zRepoID, zRepoID,
+            zRepoID, zBaseID, zRepoID, 86400 * zBaseID);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zFalse))) {
             zERR_CLEAN_AND_EXIT(-91);
@@ -1265,7 +1264,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         sprintf(zCommonBuf,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                zpRepo_->id, zBaseID + zID + 1, zpRepo_->id, 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
+                zRepoID, zBaseID + zID + 1, zRepoID, 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zFalse))) {
             zERR_CLEAN_AND_EXIT(-91);
@@ -1359,7 +1358,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     } else {
         snprintf(zCommonBuf, zGLOB_COMMON_BUF_SIZ,
                 "SELECT create_time,alias_path FROM repo_meta WHERE repo_id = %d",
-                zpRepo_->id);
+                zRepoID);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
@@ -1391,7 +1390,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         sprintf(zCommonBuf,
                 "SELECT last_dp_sig,last_try_sig,last_dp_id FROM repo_meta "
                 "WHERE repo_id = %d",
-                zpRepo_->id);
+                zRepoID);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
             zPgSQL_.conn_clear(zpRepo_->p_pgConnHd_);
             zERR_CLEAN_AND_EXIT(-91);
@@ -1451,7 +1450,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         sprintf(zCommonBuf,
                 "SELECT max(time_stamp) FROM dp_log "
                 "WHERE repo_id = %d AND rev_sig = '%s'",
-                zpRepo_->id,
+                zRepoID,
                 zpRepo_->dpingSig);
 
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(
@@ -1483,7 +1482,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 "host_detail "
                 "FROM dp_log "
                 "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp >= %ld",
-                zpRepo_->id,
+                zRepoID,
                 zpRepo_->dpingSig,
                 zpRepo_->dpBaseTimeStamp);
         if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpRepo_->p_pgConnHd_, zCommonBuf, zTrue))) {
