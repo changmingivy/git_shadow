@@ -1722,7 +1722,7 @@ zinit_env(void) {
                             = zNetUtils_.conn(NULL, NULL, zBuf, zProtoUDP))) {
                     if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[zRepoID], NULL, WNOHANG)) {
                         snprintf(zBuf, zUN_PATH_SIZ,
-                                "[repoID %s] dead",
+                                "[master] repoID %s dead",
                                 zpPgRes_->tupleRes_[i].pp_fields[0]);
                         zPRINT_ERR_EASY(zBuf);
                         break;
