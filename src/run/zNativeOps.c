@@ -909,6 +909,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 分配项目信息的存储空间，务必使用 calloc */
     zMEM_C_ALLOC(zpRepo_, zRepo__, 1);
 
+    /* 提取项目ID */
+    zpRepo_->id = strtol(zppRepoMeta[0], NULL, 10);
+
     /*
      * 返回的 udp socket 已经做完 bind，若出错，其内部会 exit
      * 必须尽早生成，否则在启动项目 udp server 之前的错误，将无法被记录
@@ -918,9 +921,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             NULL,
             zRun_.p_sysInfo_->unAddrVec_[zpRepo_->id].sun_path,
             zProtoUDP);
-
-    /* 提取项目ID */
-    zpRepo_->id = strtol(zppRepoMeta[0], NULL, 10);
 
     /* 检查项目 ID 是否超限 */
     if (zGLOB_REPO_NUM_LIMIT <= zpRepo_->id
