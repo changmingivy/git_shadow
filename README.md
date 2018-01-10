@@ -3,7 +3,6 @@
 &emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景。
 #### 1. 系统环境需求    
 &emsp;&emsp;- [linux](https://www.kernel.org) 内核版本 >= 2.6.37    
-&emsp;&emsp;- 或 [FreeBSD](https://www.freebsd.org) 系统版本 >= 10.1    
 #### 2. 编译器需求    
 &emsp;&emsp;- [gcc](http://gcc.gnu.org) >= 4.4        
 &emsp;&emsp;- 或 [clang](http://llvm.org) >= 3.4      
@@ -38,7 +37,7 @@
 |**-F**|[可选] PostgreSQL pass file, default '$HOME/.pgpass'|
 |**-D**|[可选] which database to login, default 'dpDB'|    
 #### 8. 进程示例
->![](http://upload-images.jianshu.io/upload_images/5142096-5210e75b9bd13380.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+>![](http://images.cnblogs.com/cnblogs_com/hadex/909098/o_process-ps.png)
 # 二、服务接口   　　
 ## 总揽
 &emsp;&emsp;git_shadow 根据用户提供的 opsId 字段，map 到将被调用的接口；标注 “-” 的项表示系统内部私有接口，不对外开放。          
