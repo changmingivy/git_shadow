@@ -40,7 +40,7 @@
 |**-F**|[可选] PostgreSQL pass file, default '$HOME/.pgpass'|
 |**-D**|[可选] which database to login, default 'dpDB'|    
 #### 8. 设计模型
->**master process(multi threads) > project process(multi threads) > deploy process(single thread)**    
+**master process(multi threads) > project process(multi threads) > deploy process(single thread)**    
 >![](http://images.cnblogs.com/cnblogs_com/hadex/909098/o_process-ps.png)
 # 二、服务接口   　　
 ## 总揽
