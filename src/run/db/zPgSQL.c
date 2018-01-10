@@ -7,6 +7,10 @@
 #include <time.h>
 #include <errno.h>
 
+#include "zRun.h"
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 static zPgConnHd__ * zpg_conn(const char *zpConnInfo);
 static void zpg_conn_reset(zPgConnHd__ *zpPgConnHd_);
@@ -15,11 +19,14 @@ static zPgResHd__ * zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zp
 static zPgResHd__ * zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt);
 static zPgResHd__ * zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet);
 static zPgRes__ * zpg_parse_res(zPgResHd__ *zpPgResHd_);
+
 static void zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_);
 static void zpg_conn_clear(zPgConnHd__ *zpPgConnHd_);
 static zbool_t zpg_conn_check(const char *zpConnInfo);
 static zbool_t zpg_thread_safe_check();
+
 static _i zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_);
+static _i zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char **zppParam, zPgRes__ **zppPgRes_);
 
 /*
  * Public 接口
@@ -41,7 +48,8 @@ struct zPgSQL__ zPgSQL_ = {
     .thread_safe_check = zpg_thread_safe_check,
     .conn_check = zpg_conn_check,
 
-    .exec_once = zpg_exec_once
+    .exec_once = zpg_exec_once,
+    .exec_with_param_once = zpg_exec_with_param_once,
 };
 
 
@@ -54,7 +62,7 @@ zpg_conn(const char *zpConnInfo) {
     if (CONNECTION_OK == PQstatus(zpPgConnHd_)) {
         return zpPgConnHd_;
     } else {
-        zPrint_Err(0, NULL, PQerrorMessage(zpPgConnHd_));
+        zPRINT_ERR_EASY(PQerrorMessage(zpPgConnHd_));
         PQfinish(zpPgConnHd_);
         return NULL;
     }
@@ -72,7 +80,7 @@ zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
 
 /*
  * 执行 SQL cmd
- * zHaveRet 置非零值时，表时此 SQL 属于查询类，有结果需要返回
+ * zNeedRet 为 zTrue 时，表时此 SQL 属于查询类，有结果需要返回
  * */
 static zPgResHd__ *
 zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
@@ -80,7 +88,7 @@ zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -96,7 +104,7 @@ zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, c
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -112,7 +120,7 @@ zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjNam
     if (PGRES_COMMAND_OK == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -128,7 +136,7 @@ zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCn
     if ((zTrue == zNeedRet ? PGRES_TUPLES_OK : PGRES_COMMAND_OK) == PQresultStatus(zpPgResHd_)) {
         return zpPgResHd_;
     } else {
-        zPrint_Err(0, NULL, PQresultErrorMessage(zpPgResHd_));
+        zPRINT_ERR_EASY(PQresultErrorMessage(zpPgResHd_));
         PQclear(zpPgResHd_);
         return NULL;
     }
@@ -153,7 +161,7 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
     }
     zFieldCnt = PQnfields(zpPgResHd_);
 
-    zMem_Alloc(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
+    zMEM_ALLOC(zpPgRes_, char, sizeof(zPgRes__) + zTupleCnt * sizeof(zPgResTuple__)
             + zFieldCnt * sizeof(void *)  /* for zpPgRes_->fieldNames_.pp_fields */
             + zTupleCnt * (zFieldCnt * sizeof(void *)));  /* for zpPgRes_->tupleRes_[0].pp_fields */
 
@@ -185,9 +193,12 @@ zpg_parse_res(zPgResHd__ *zpPgResHd_) {
 
 /*
  * 清理 SQL 查询结果相关资源
+ * !!! zpPgRes_ 中引用了 zpPgResHd_ 中的数据，
+ * 故两者必须同时清理，不能在清理前者后，继续使用后者 !!!
  */
 static void
 zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
+    /* 顺序不可变 */
     if (NULL != zpPgResHd_) {
         PQclear(zpPgResHd_);
     };
@@ -238,17 +249,62 @@ zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_) {
     if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zpConnInfo))) {
         return -90;
     } else {
-        if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zpCmd, NULL == zppPgRes_ ? zFalse : zTrue))) {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec(
+                        zpPgConnHd_,
+                        zpCmd,
+                        NULL == zppPgRes_ ? zFalse : zTrue))) {
             zPgSQL_.conn_clear(zpPgConnHd_);
             return -91;
         }
 
-        if (NULL != zppPgRes_) {
-            *zppPgRes_ = zPgSQL_.parse_res(zpPgResHd_);
+        if (NULL == zppPgRes_) {
+            zpg_res_clear(zpPgResHd_, NULL);
+        } else if (NULL == (*zppPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+            zpg_res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            return -92;
+        } else {
+            /* 必须在 parse_res 之后 */
+            (*zppPgRes_)->p_pgResHd_ = zpPgResHd_;
         }
 
         zPgSQL_.conn_clear(zpPgConnHd_);
-        zPgSQL_.res_clear(zpPgResHd_, NULL);
+    }
+
+    return 0;
+}
+
+
+static _i
+zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char **zppParam, zPgRes__ **zppPgRes_) {
+    zPgConnHd__ *zpPgConnHd_ = NULL;
+    zPgResHd__ *zpPgResHd_ = NULL;
+
+    if (NULL == (zpPgConnHd_ = zPgSQL_.conn(zpConnInfo))) {
+        return -90;
+    } else {
+        if (NULL == (zpPgResHd_ = zPgSQL_.exec_with_param(
+                        zpPgConnHd_,
+                        zpCmd,
+                        zParamCnt,
+                        zppParam,
+                        NULL == zppPgRes_ ? zFalse : zTrue))) {
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            return -91;
+        }
+
+        if (NULL == zppPgRes_) {
+            zpg_res_clear(zpPgResHd_, NULL);
+        } else if (NULL == (*zppPgRes_ = zPgSQL_.parse_res(zpPgResHd_))) {
+            zpg_res_clear(zpPgResHd_, NULL);
+            zPgSQL_.conn_clear(zpPgConnHd_);
+            return -92;
+        } else {
+            /* 必须在 parse_res 之后 */
+            (*zppPgRes_)->p_pgResHd_ = zpPgResHd_;
+        }
+
+        zPgSQL_.conn_clear(zpPgConnHd_);
     }
 
     return 0;

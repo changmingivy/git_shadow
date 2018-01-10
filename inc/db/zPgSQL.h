@@ -1,32 +1,25 @@
 #ifndef ZPGSQL_H
 #define ZPGSQL_H
 
-#include "libpq-fe.h"
 #include "zCommon.h"
-
-typedef struct __zPgLogin__ {
-    char * p_host;
-    char * p_addr;
-    char * p_port;
-    char * p_userName;
-    char * p_passFilePath;
-    char * p_dbName;
-} zPgLogin__;
+#include "libpq-fe.h"
 
 typedef PGconn zPgConnHd__;
 typedef PGresult zPgResHd__;
 
 typedef struct __zPgResTuple__ {
-    _i *p_taskCnt;
+    //_i *p_taskCnt;
 
     char **pp_fields;
 } zPgResTuple__;
 
 typedef struct __zPgRes__ {
+    zPgResHd__ *p_pgResHd_;
+
     _i tupleCnt;
     _i fieldCnt;
 
-    _i taskCnt;
+    //_i taskCnt;
 
     zPgResTuple__ fieldNames_;
     zPgResTuple__ tupleRes_[];
@@ -50,6 +43,7 @@ struct zPgSQL__ {
     zbool_t (* conn_check) (const char *);
 
     _i (* exec_once) (char *, char *, zPgRes__ **);
+    _i (* exec_with_param_once) (char *, char *, _i, const char **, zPgRes__ **);
 };
 
 #endif  // #ifndef ZPGSQL_H

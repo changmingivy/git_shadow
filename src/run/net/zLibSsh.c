@@ -4,14 +4,18 @@
 #include <sys/select.h>
 #include <stdio.h>
 #include <time.h>
-#include <pthread.h>
 
-#define OPENSSL_THREAD_DEFINES
 #include "libssh2.h"
+
+#include "zNetUtils.h"
+#include "zRun.h"
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 static _i zssh_exec(char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
-        char *zpRemoteOutPutBuf, _ui zSiz, pthread_mutex_t *zpCcurLock, char *zpErrBufOUT);
+        char *zpRemoteOutPutBuf, _ui zSiz, sem_t *zpCcurSem, char *zpErrBufOUT);
 
 struct zLibSsh__ zLibSsh_ = {
     .exec = zssh_exec
@@ -69,7 +73,7 @@ zssh_exec(
         char *zpHostIpAddr, char *zpHostPort, char *zpCmd,
         const char *zpUserName, const char *zpPubKeyPath, const char *zpPrivateKeyPath, const char *zpPassWd, znet_auth_t zAuthType,
         char *zpRemoteOutPutBuf, _ui zSiz,
-        pthread_mutex_t *zpCcurLock,
+        sem_t *zpCcurSem/* 值为 1 的信号量，用于并发控制，不用互拆锁，规避死锁问题 */,
         char *zpErrBufOUT __attribute__ ((__unused__))/* size: 256 */
         ) {
 
@@ -78,25 +82,44 @@ zssh_exec(
     LIBSSH2_CHANNEL *zChannel;
     char *zpExitSingal=(char *) -1;
 
-    pthread_mutex_lock(zpCcurLock);
-    if (0 != (zRet = libssh2_init(0))) {
-        pthread_mutex_unlock(zpCcurLock);
-        zPrint_Err(0, NULL, "libssh2_init(0): failed");
-        return -1;
+    /* 多进程单线程环境，不需要信号量控制*/
+    if (NULL == zpCcurSem) {
+        if (0 != (zRet = libssh2_init(0))) {
+            zPRINT_ERR_EASY("libssh2_init(0): failed");
+            return -1;
+        }
+
+        if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
+            libssh2_exit();
+            zPRINT_ERR_EASY("libssh2_session_init(): failed");
+            return -1;
+        }
+    } else {
+        sem_wait(zpCcurSem);
+
+        if (0 != (zRet = libssh2_init(0))) {
+            sem_post(zpCcurSem);
+            zPRINT_ERR_EASY("libssh2_init(0): failed");
+            return -1;
+        }
+
+        if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
+            sem_post(zpCcurSem);
+            libssh2_exit();
+            zPRINT_ERR_EASY("libssh2_session_init(): failed");
+            return -1;
+        }
+
+        sem_post(zpCcurSem);
     }
 
-    if (NULL == (zSession = libssh2_session_init())) {  // need lock ???
-        pthread_mutex_unlock(zpCcurLock);
-        libssh2_exit();
-        zPrint_Err(0, NULL, "libssh2_session_init(): failed");
-        return -1;
-    }
-    pthread_mutex_unlock(zpCcurLock);
-
-    if (0 > (zSd = zNetUtils_.tcp_conn(zpHostIpAddr, zpHostPort, AI_NUMERICHOST | AI_NUMERICSERV))) {
+    if (0 > (zSd = zNetUtils_.conn(
+                    zpHostIpAddr, zpHostPort,
+                    NULL,
+                    zProtoTCP))) {
         libssh2_session_free(zSession);
         libssh2_exit();
-        zPrint_Err(0, NULL, "libssh2 tcp connect: failed");
+        zPRINT_ERR_EASY("libssh2 tcp connect: failed");
         return -2;  /* 网络不通 */
     }
 
@@ -109,7 +132,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_session_handshake failed");
+        zPRINT_ERR_EASY("libssh2_session_handshake failed");
         return -2;  /* 网络不通 */
     }
 
@@ -125,7 +148,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2: user auth failed(password and publickey)");
+        zPRINT_ERR_EASY("libssh2: user auth failed(password and publickey)");
         return -3;  /* 认证失败 */
     }
 
@@ -139,7 +162,7 @@ zssh_exec(
         libssh2_session_free(zSession);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_channel_open_session failed");
+        zPRINT_ERR_EASY("libssh2_channel_open_session failed");
         return -1;
     }
 
@@ -155,7 +178,7 @@ zssh_exec(
         libssh2_channel_free(zChannel);
         libssh2_exit();
         close(zSd);
-        zPrint_Err(0, NULL, "libssh2_channel_exec failed");
+        zPRINT_ERR_EASY("libssh2_channel_exec failed");
         return -1;
     }
 
@@ -173,7 +196,7 @@ zssh_exec(
                         libssh2_session_free(zSession);
                         libssh2_exit();
                         close(zSd);
-                        zPrint_Err(0, NULL, "libssh2_channel_read: failed");
+                        zPRINT_ERR_EASY("libssh2_channel_read: failed");
                         return -1;
                     }
                 }
@@ -192,18 +215,21 @@ zssh_exec(
     while(LIBSSH2_ERROR_EAGAIN == (zRet = libssh2_channel_close(zChannel))) {
         zwait_socket(zSd, zSession);
     }
+
     if(0 == zRet) {
         if (200 < (zErrNo = libssh2_channel_get_exit_status(zChannel))) {
             /* 自定义的 SHELL 错误码使用 201-255 范围 */
             zErrNo = -1 * (zErrNo - 200);
         } else if (0 < zErrNo) {
-            /* 未知错误/目标机系统生民的错误码 */
+            /* 未知错误/目标机系统生成的错误码 */
             zErrNo = -1;
         } else {
             //zErrNo = 0;
         }
 
         libssh2_channel_get_exit_signal(zChannel, &zpExitSingal, NULL, NULL, NULL, NULL, NULL);
+    } else {
+        zErrNo = -1;
     }
 
     if (NULL != zpExitSingal) {

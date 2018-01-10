@@ -30,7 +30,7 @@ static void
 zpcre_get_err(const _i zErrNo) {
     PCRE2_UCHAR zErrBuf[256];
     pcre2_get_error_message(zErrNo, zErrBuf, sizeof(zErrBuf));
-    zPrint_Err(errno, NULL, (char *)zErrBuf);
+    zPRINT_ERR(errno, NULL, (char *)zErrBuf);
 }
 
 static void
@@ -53,9 +53,9 @@ zpcre_match(zPcreRes__ *zpPcreRes_Out, const zPcreInit__ *zpPcreInit_, const cha
 
     /* 将足够大的内存一次性分配给成员 [0]，后续成员通过指针位移的方式获取内存 */
     if (NULL != zpPcreRes_Out->alloc_fn) {
-        zMem_Alloc(zpPcreRes_Out->p_rets[0], char, 2 * zDynSubjectLen);
+        zMEM_ALLOC(zpPcreRes_Out->p_rets[0], char, 2 * zDynSubjectLen);
     } else {
-        zpPcreRes_Out->p_rets[0] = zpPcreRes_Out->alloc_fn(zpPcreRes_Out->repoId, zBytes(2 * zDynSubjectLen));
+        zpPcreRes_Out->p_rets[0] = zpPcreRes_Out->alloc_fn(zpPcreRes_Out->repoID, zBYTES(2 * zDynSubjectLen));
     }
 
     PCRE2_SIZE *zpResVector = NULL;

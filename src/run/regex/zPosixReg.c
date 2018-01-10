@@ -7,6 +7,11 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include "zRun.h"
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 static void zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern);
 static void zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject);
 static void zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim);
@@ -33,9 +38,8 @@ zreg_init(zRegInit__ *zpRegInitOUT, const char *zpRegPattern) {
     _i zErrNo;
     char zErrBuf[256];
     if (0 != (zErrNo = regcomp(zpRegInitOUT, zpRegPattern, REG_EXTENDED))) {
-        zPrint_Time();
-        regerror(zErrNo, zpRegInitOUT, zErrBuf, zBytes(256));
-        zPrint_Err(0, NULL, zErrBuf);
+        regerror(zErrNo, zpRegInitOUT, zErrBuf, zBYTES(256));
+        zPRINT_ERR_EASY(zErrBuf);
         regfree(zpRegInitOUT);
         exit(1);
     }
@@ -53,9 +57,9 @@ zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject
 
     /* 将足够大的内存一次性分配，后续成员通过指针位移的方式获取内存 */
     if (NULL == zpRegResOUT->alloc_fn) {
-        zMem_Alloc(zpRegResOUT->pp_rets, char, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zDynSubjectlen);
+        zMEM_ALLOC(zpRegResOUT->pp_rets, char, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zDynSubjectlen);
     } else {
-        zpRegResOUT->pp_rets = zpRegResOUT->alloc_fn(zpRegResOUT->repoId, (sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zBytes(zDynSubjectlen));
+        zpRegResOUT->pp_rets = zpRegResOUT->alloc_fn((sizeof(void *) + sizeof(_i)) * zDynSubjectlen + 2 * zBYTES(zDynSubjectlen));
     }
 
     zpRegResOUT->p_resLen = (_i *)(zpRegResOUT->pp_rets + zDynSubjectlen);
@@ -66,9 +70,8 @@ zreg_match(zRegRes__ *zpRegResOUT, regex_t *zpRegInit_, const char *zpRegSubject
             if (REG_NOMATCH == zErrNo) {
                 break;
             } else {
-                zPrint_Time();
-                regerror(zErrNo, zpRegInit_, zErrBuf, zBytes(256));
-                zPrint_Err(0, NULL, zErrBuf);
+                regerror(zErrNo, zpRegInit_, zErrBuf, zBYTES(256));
+                zPRINT_ERR_EASY(zErrBuf);
                 regfree(zpRegInit_);
                 exit(1);
             }
@@ -107,7 +110,7 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
        zMaxItemNum = 0;
 
     if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
-        zPrint_Err(0, NULL, "param invalid");
+        zPRINT_ERR_EASY("param invalid");
         exit(1);
     }
 
@@ -116,9 +119,9 @@ zstr_split(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
 
     /* 将足够大的内存一次性分配 */
     if (NULL == zpResOUT->alloc_fn) {
-        zMem_Alloc(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBytes(zFullLen));
+        zMEM_ALLOC(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     } else {
-        zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBytes(zFullLen));
+        zpResOUT->pp_rets = zpResOUT->alloc_fn(zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     }
 
     zpResOUT->p_resLen = (_i *) (zpResOUT->pp_rets + zMaxItemNum);
@@ -170,7 +173,7 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
        zMaxItemNum = 0;
 
     if ( ! (zpResOUT && zpOrigStr && zpDelim)) {
-        zPrint_Err(0, NULL, "param invalid");
+        zPRINT_ERR_EASY("param invalid");
         exit(1);
     }
 
@@ -179,9 +182,9 @@ zstr_split_fast(zRegRes__ *zpResOUT, char *zpOrigStr, char *zpDelim) {
 
     /* 将足够大的内存一次性分配 */
     if (NULL == zpResOUT->alloc_fn) {
-        zMem_Alloc(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zFullLen);
+        zMEM_ALLOC(zpResOUT->pp_rets, char, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zFullLen);
     } else {
-        zpResOUT->pp_rets = zpResOUT->alloc_fn(zpResOUT->repoId, zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBytes(zFullLen));
+        zpResOUT->pp_rets = zpResOUT->alloc_fn(zMaxItemNum * (sizeof(void *) + sizeof(_i)) + zBYTES(zFullLen));
     }
 
     zpResOUT->p_resLen = (_i *) (zpResOUT->pp_rets + zMaxItemNum);

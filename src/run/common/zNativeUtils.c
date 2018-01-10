@@ -1,5 +1,3 @@
-#define _XOPEN_SOURCE 700
-
 #include "zNativeUtils.h"
 
 #include <sys/types.h>
@@ -15,24 +13,32 @@
 #include <ftw.h>
 #include <pthread.h>
 
-#ifdef _Z_BSD
-    #include <netinet/in.h>
-#endif
-
 #include <time.h>
 #include <errno.h>
 
+#include "zRun.h"
+
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
+static void zclose_fds(pid_t zPid, _i zKeepSd);
 static void zdaemonize(const char *zpWorkDir);
+
 static void * zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile);
 static _i zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile);
+
 static void zsleep(_d zSecs);
 static void * zthread_system(void *zpCmd);
+
 static _i zdel_linebreak(char *zpStr);
+
 static _i zpath_del(char *zpPath);
 static _i zpath_cp(char *zpDestpath, char *zpSrcPath);
 
 struct zNativeUtils__ zNativeUtils_ = {
+    .close_fds = zclose_fds,
     .daemonize = zdaemonize,
+
     .sleep = zsleep,
 
     .system = zthread_system,
@@ -59,7 +65,7 @@ struct zNativeUtils__ zNativeUtils_ = {
 //     char zRightOffset[zMax], zLeftOffset[zMax];
 //
 //     char *zRes;
-//     zMem_Alloc(zRes, char, zResLen);
+//     zMEM_ALLOC(zRes, char, zResLen);
 //
 //     _i i, j;
 //
@@ -77,7 +83,7 @@ struct zNativeUtils__ zNativeUtils_ = {
 //     _c mask = 63;
 //     zRes[0] = zRightOffset[0] & mask;
 //
-//     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i] | zLeftOffset[i-1]) & mask; }
+//     for (i = 1; i < zMax; i++) { zRes[i] = (zRightOffset[i]|zLeftOffset[i-1]) & mask; }
 //     zRes[zMax - 1] = zLeftOffset[zMax - 2] & mask;
 //
 //     for (i = 0; i < zMax; i++) { zRes[i] = zBase64Dict[(_i)zRes[i]]; }
@@ -90,41 +96,38 @@ struct zNativeUtils__ zNativeUtils_ = {
  * Daemonize a linux process to daemon.
  */
 static void
-zclose_fds(pid_t zPid) {
+zclose_fds(pid_t zPid, _i zKeepSd) {
     struct dirent *zpDir_;
-    char zStrPid[8], zPath[64];
+    char zPath[64];
 
-    sprintf(zStrPid, "%d", zPid);
+    sprintf(zPath, "/proc/%d/fd", zPid);
 
-    strcpy(zPath, "/proc/");
-    strcat(zPath, zStrPid);
-    strcat(zPath, "/fd");
-
-    _i zFD;
+    _i zFd;
     DIR *zpDir = opendir(zPath);
+
     while (NULL != (zpDir_ = readdir(zpDir))) {
-        zFD = strtol(zpDir_->d_name, NULL, 10);
-        if (2 != zFD) {
-            close(zFD);
+        zFd = strtol(zpDir_->d_name, NULL, 10);
+        if (zFd != zKeepSd) {
+            close(zFd);
         }
     }
+
     closedir(zpDir);
 }
 
-// 这个版本的daemonize会保持标准错误输出描述符处于打开状态
 static void
 zdaemonize(const char *zpWorkDir) {
-    zIgnoreAllSignal();
+    zIGNORE_ALL_SIGNAL();
 
 //  sigset_t zSigToBlock;
 //  sigfillset(&zSigToBlock);
 //  pthread_sigmask(SIG_BLOCK, &zSigToBlock, NULL);
 
     umask(0);
-    zCheck_Negative_Return(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
+    zCHECK_NEGATIVE_RETURN(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
 
     pid_t zPid = fork();
-    zCheck_Negative_Return(zPid,);
+    zCHECK_NEGATIVE_RETURN(zPid,);
 
     if (zPid > 0) {
         exit(0);
@@ -132,13 +135,13 @@ zdaemonize(const char *zpWorkDir) {
 
     setsid();
     zPid = fork();
-    zCheck_Negative_Return(zPid,);
+    zCHECK_NEGATIVE_RETURN(zPid,);
 
     if (zPid > 0) {
         exit(0);
     }
 
-    zclose_fds(getpid());
+    zclose_fds(getpid(), -1);
 
     _i zFD = open("/dev/null", O_RDWR);
     dup2(zFD, 1);
@@ -152,7 +155,7 @@ zdaemonize(const char *zpWorkDir) {
 // void
 // zfork_do_exec(const char *zpCommand, char **zppArgv) {
 //     pid_t zPid = fork();
-//     zCheck_Negative_Exit(zPid);
+//     zCHECK_NEGATIVE_EXIT(zPid);
 //
 //     if (0 == zPid) {
 //         execve(zpCommand, zppArgv, NULL);
@@ -170,7 +173,7 @@ static void *
 zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
     char *zpRes = fgets(zpBufOUT, zSiz, zpFile);
     if (NULL == zpRes && (0 == feof(zpFile))) {
-        zPrint_Err(0, NULL, "<fgets> ERROR!");
+        zPRINT_ERR_EASY("<fgets> ERROR!");
         exit(1);
     }
     return zpRes;
@@ -184,16 +187,16 @@ zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
 static _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt;
-    zCheck_Negative_Exit( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
+    zCHECK_NEGATIVE_EXIT( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
     return zCnt;
 }
 
 // // 注意：fread 版的实现会将行末的换行符处理掉
 // _i
 // zget_str_content_1(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
-//     size_t zCnt = fread(zpBufOUT, zBytes(1), zSiz, zpFile);
+//     size_t zCnt = fread(zpBufOUT, zBYTES(1), zSiz, zpFile);
 //     if (zCnt < zSiz && (0 == feof(zpFile))) {
-//         zPrint_Err(0, NULL, "<fread> ERROR!");
+//         zPRINT_ERR_EASY("<fread> ERROR!");
 //         exit(1);
 //     }
 //     return zCnt;
@@ -242,7 +245,7 @@ zthread_system(void *zpCmd) {
 // _i
 // zCheck_Dir_Existence(char *zpDirPath) {
 //     _i zFd;
-//     if (-1 == (zFd = open(zpDirPath, O_RDONLY | O_DIRECTORY))) {
+//     if (-1 == (zFd = open(zpDirPath, O_RDONLY|O_DIRECTORY))) {
 //         if (EEXIST == errno) {
 //             return 1;
 //         } else {
@@ -279,16 +282,16 @@ zpath_del_cb(const char *zpPath, const struct stat *zpS __attribute__ ((__unused
 
     if (FTW_F == zType || FTW_SL == zType || FTW_SLN == zType) {
         if (0 != unlink(zpPath)) {
-            zPrint_Err(errno, zpPath, NULL);
+            zPRINT_ERR_EASY(zpPath);
             zErrNo = -1;
         }
     } else if (FTW_DP == zType) {
         if (0 != rmdir(zpPath)) {
-            zPrint_Err(errno, zpPath, NULL);
+            zPRINT_ERR_EASY(zpPath);
             zErrNo = -1;
         }
     } else {
-        zPrint_Err(0, NULL, "Unknown file type");
+        zPRINT_ERR_EASY("Unknown file type");
     }
 
     return zErrNo;
@@ -296,7 +299,7 @@ zpath_del_cb(const char *zpPath, const struct stat *zpS __attribute__ ((__unused
 
 static _i
 zpath_del(char *zpPath) {
-    return nftw(zpPath, zpath_del_cb, 124, FTW_PHYS | FTW_DEPTH);
+    return nftw(zpPath, zpath_del_cb, 124, FTW_PHYS|FTW_DEPTH);
 }
 
 
@@ -319,14 +322,14 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
             return 0;
         }
 
-        zCheck_Negative_Return(mkdirat(zDestFd, zpPath + 2, zpS->st_mode), -1);
+        zCHECK_NEGATIVE_RETURN(mkdirat(zDestFd, zpPath + 2, zpS->st_mode), -1);
     } else if (FTW_F == zType) {
-        zCheck_Negative_Return(zRdFd = open(zpPath, O_RDONLY), -1);
+        zCHECK_NEGATIVE_RETURN(zRdFd = open(zpPath, O_RDONLY), -1);
 
         if (0 > (zWrFd = openat(zDestFd, zpPath + 2,
-                        O_WRONLY | O_CREAT | O_TRUNC | O_EXCL, zpS->st_mode))) {
+                        O_WRONLY|O_CREAT|O_TRUNC|O_EXCL, zpS->st_mode))) {
             close(zRdFd);
-            zPrint_Err(errno, zpPath + 2, NULL);
+            zPRINT_ERR_EASY(zpPath + 2);
             return -1;
         }
 
@@ -334,7 +337,7 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
             if (zRdLen != write(zWrFd, zCopyBuf, zRdLen)) {
                 close(zRdFd);
                 close(zWrFd);
-                zPrint_Err(errno, zpPath + 2, NULL);
+                zPRINT_ERR_EASY(zpPath + 2);
                 return -1;
             }
         }
@@ -342,13 +345,13 @@ zpath_copy_cb(const char *zpPath, const struct stat *zpS,
         close(zRdFd);
         close(zWrFd);
     } else if (FTW_SL == zType || FTW_SLN == zType) {
-        zCheck_Negative_Return(zRdLen = readlink(zpPath, zCopyBuf, 4096), -1);
+        zCHECK_NEGATIVE_RETURN(zRdLen = readlink(zpPath, zCopyBuf, 4096), -1);
         zCopyBuf[zRdLen] = '\0';
 
-        zCheck_Negative_Return(symlinkat(zCopyBuf, zDestFd, zpPath + 2), -1);
+        zCHECK_NEGATIVE_RETURN(symlinkat(zCopyBuf, zDestFd, zpPath + 2), -1);
     } else {
         /* 文件类型无法识别 */
-        zPrint_Err(0, NULL, zpPath);
+        zPRINT_ERR_EASY(zpPath);
         return -1;
     }
 
@@ -360,7 +363,7 @@ zpath_cp(char *zpDestpath, char *zpSrcPath) {
     _i zErrNo = 0;
 
     /* 首先切换至源路径 */
-    zCheck_Negative_Return(chdir(zpSrcPath), -1);
+    zCHECK_NEGATIVE_RETURN(chdir(zpSrcPath), -1);
 
     /* 尝试创建目标路径，不必关心结果 */
     mkdir(zpDestpath, 0755);
@@ -372,12 +375,12 @@ zpath_cp(char *zpDestpath, char *zpSrcPath) {
     pthread_mutex_lock( & zPathCopyLock );
     if (0 > (zDestFd = open(zpDestpath, O_RDONLY|O_DIRECTORY))) {
         zErrNo = -1;
-        zPrint_Err(errno, "", NULL);
+        zPRINT_ERR_EASY_SYS();
     } else {
         /* 此处必须使用相对路径 "." */
         if (0 != nftw(".", zpath_copy_cb, 124, FTW_PHYS)) {
             zErrNo = -1;
-            zPrint_Err(errno, "", NULL);
+            zPRINT_ERR_EASY_SYS();
         }
 
         close(zDestFd);

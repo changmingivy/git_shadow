@@ -1,24 +1,15 @@
 #ifndef ZPOSIXREG_H
 #define ZPOSIXREG_H
 
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
-#endif
-
-#include <regex.h>
 #include "zCommon.h"
+#include <regex.h>
 
 typedef struct __zRegRes__ {
     char **pp_rets;  //matched results
     _i *p_resLen;  // results' strlen
     _i cnt;         //total num of matched substrings
 
-    void * (* alloc_fn) (_i, _ui);
-    _i repoId;
+    void * (* alloc_fn) (size_t);
 } zRegRes__ ;
 
 typedef regex_t zRegInit__;

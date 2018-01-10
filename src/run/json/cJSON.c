@@ -622,7 +622,7 @@ static unsigned char utf16_literal_to_utf8(const unsigned char * const input_poi
 
 
         /* calculate the unicode codepoint from the surrogate pair */
-        codepoint = 0x10000 + (((first_code & 0x3FF) << 10) | (second_code & 0x3FF));
+        codepoint = 0x10000 + (((first_code & 0x3FF) << 10)|(second_code & 0x3FF));
     }
     else
     {
@@ -666,13 +666,13 @@ static unsigned char utf16_literal_to_utf8(const unsigned char * const input_poi
     for (utf8_position = (unsigned char)(utf8_length - 1); utf8_position > 0; utf8_position--)
     {
         /* 10xxxxxx */
-        (*output_pointer)[utf8_position] = (unsigned char)((codepoint | 0x80) & 0xBF);
+        (*output_pointer)[utf8_position] = (unsigned char)((codepoint|0x80) & 0xBF);
         codepoint >>= 6;
     }
     /* encode first byte */
     if (utf8_length > 1)
     {
-        (*output_pointer)[0] = (unsigned char)((codepoint | first_byte_mark) & 0xFF);
+        (*output_pointer)[0] = (unsigned char)((codepoint|first_byte_mark) & 0xFF);
     }
     else
     {
@@ -2556,7 +2556,7 @@ CJSON_PUBLIC(cJSON_bool) cJSON_IsBool(const cJSON * const item)
         return false;
     }
 
-    return (item->type & (cJSON_True | cJSON_False)) != 0;
+    return (item->type & (cJSON_True|cJSON_False)) != 0;
 }
 CJSON_PUBLIC(cJSON_bool) cJSON_IsNull(const cJSON * const item)
 {

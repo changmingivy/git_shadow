@@ -6,7 +6,7 @@
 #   (3) 安装 openssl 开发库：CentOS/openssl-devel、Debian/openssl-dev
 
 # 布署系统全局共用变量
-export zGitShadowPath=${HOME}/zgit_shadow2
+export zGitShadowPath=${HOME}/zgit_shadow
 export zPgPath=${HOME}/.____PostgreSQL
 
 zServAddr=$1
@@ -45,6 +45,19 @@ zPgLibPath=${zPgPath}/lib
 zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
 
+# PG: 留空表示仅接受本地 UNIX 域套接字连接
+sed -i '/listen_addresses/d' ${zPgDataPath}/postgresql.conf
+echo "listen_addresses = ''" >> ${zPgDataPath}/postgresql.conf
+
+# PG: 以源码根路径作为 UNIX 域套接字存放路径
+sed -i '/unix_socket_directories/d' ${zPgDataPath}/postgresql.conf
+echo "unix_socket_directories = '${zShadowPath}'" >> ${zPgDataPath}/postgresql.conf
+
+# PG: UNIX 域套接字权限
+sed -i '/unix_socket_permissions/d' ${zPgDataPath}/postgresql.conf
+echo "unix_socket_permissions = 0700" >> ${zPgDataPath}/postgresql.conf
+
+# PG: 最大连接数
 sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
 echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
 
@@ -69,6 +82,7 @@ zLibSshPath=${zShadowPath}/lib/libssh2/lib64
 if [[ 0 -eq  `\ls ${zLibSshPath} | wc -l` ]]; then zLibSshPath=${zShadowPath}/lib/libssh2/lib; fi
 
 # build libgit2
+# 线程安全由调度者保证，不需要此库自身保证
 mkdir ${zShadowPath}/lib/libgit2_source/____build
 if [[ 0 -eq $? ]]; then
     cd ${zShadowPath}/lib/libgit2_source/____build && rm -rf * .*

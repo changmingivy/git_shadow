@@ -1,65 +1,102 @@
-#ifndef _Z_BSD
-    #ifndef _XOPEN_SOURCE
-        #define _XOPEN_SOURCE 700
-        #define _DEFAULT_SOURCE
-        #define _BSD_SOURCE
-    #endif
-#endif
+#include "zCommon.h"
+#include <sys/mman.h>
 
 #include <sys/types.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
 #include <string.h>
 #include <time.h>
 #include <errno.h>
 
-#include "zCommon.h"
 #include "zRun.h"
 
+char *zpProcName = NULL;
+size_t zProcNameBufLen = 0;
+
 extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
 
 _i
 main(_i zArgc, char **zppArgv) {
+    zArgvInfo__ zArgvInfo_ = { NULL, NULL, NULL, NULL, NULL, NULL };
+    for (_i i = 0; i < zArgc; i++) {
+        zProcNameBufLen += 1 + strlen(zppArgv[i]);
+    }
+
+    /*
+     * mmap shared 的主进程及所有项目进程共享的区域 
+     * 存放系统全局信息
+     */
+    if (MAP_FAILED ==
+            (zRun_.p_sysInfo_ = mmap(NULL, sizeof(zSysInfo__), PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_SHARED, -1, 0))) {
+        zPRINT_ERR_EASY_SYS();
+        exit(1);
+    }
+
+    /* 提取命令行参数 */
     _i zOpt = 0;
     while (-1 != (zOpt = getopt(zArgc, zppArgv, "x:u:h:p:H:P:U:F:D:"))) {
         switch (zOpt) {
             case 'x':
-                zRun_.p_servPath = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->p_servPath, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->p_servPath, optarg);
+                break;
             case 'u':
-                zRun_.p_loginName = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->p_loginName, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->p_loginName, optarg);
+                break;
             case 'h':
-                zRun_.netSrv_.p_ipAddr = optarg;
+                zMEM_ALLOC(zRun_.p_sysInfo_->netSrv_.p_ipAddr, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->netSrv_.p_ipAddr, optarg);
 
                 /* git push 会用此字符串作为分支名称的一部分 */
-                snprintf(zRun_.netSrv_.specStrForGit, INET6_ADDRSTRLEN, "%s", zRun_.netSrv_.p_ipAddr);
-                for (_i i = 0; '\0' != zRun_.netSrv_.specStrForGit[i]; i++) {
-                    if (':' == zRun_.netSrv_.specStrForGit[i]) {
-                        zRun_.netSrv_.specStrForGit[i] = '_';
+                snprintf(zRun_.p_sysInfo_->netSrv_.specStrForGit, INET6_ADDRSTRLEN,
+                        "%s",
+                        zRun_.p_sysInfo_->netSrv_.p_ipAddr);
+
+                for (_i i = 0; '\0' != zRun_.p_sysInfo_->netSrv_.specStrForGit[i]; i++) {
+                    if (':' == zRun_.p_sysInfo_->netSrv_.specStrForGit[i]) {
+                        zRun_.p_sysInfo_->netSrv_.specStrForGit[i] = '_';
                     }
                 }
 
                 break;
             case 'p':
-                zRun_.netSrv_.p_port = optarg; break;
+                zMEM_ALLOC(zRun_.p_sysInfo_->netSrv_.p_port, char, 1 + strlen(optarg));
+                strcpy(zRun_.p_sysInfo_->netSrv_.p_port, optarg);
+                break;
             case 'H':
-                zRun_.pgLogin_.p_host = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgHost, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgHost, optarg);
+                break;
             case 'A':
-                zRun_.pgLogin_.p_addr = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgAddr, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgAddr, optarg);
+                break;
             case 'P':
-                zRun_.pgLogin_.p_port = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgPort, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgPort, optarg);
+                break;
             case 'U':
-                zRun_.pgLogin_.p_userName = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgUserName, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgUserName, optarg);
+                break;
             case 'F':
-                zRun_.pgLogin_.p_passFilePath = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgPassFilePath, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgPassFilePath, optarg);
+                break;
             case 'D':
-                zRun_.pgLogin_.p_dbName = optarg; break;
+                zMEM_ALLOC(zArgvInfo_.p_pgDBName, char, 1 + strlen(optarg));
+                strcpy(zArgvInfo_.p_pgDBName, optarg);
+                break;
             default: // zOpt == '?'  // 若指定了无效的选项，报错退出
-                zPrint_Time();
+                zPRINT_TIME();
                 fprintf(stderr,
                         "\n\033[31;01m==== Invalid option: [-%c] ====\033[00m\n"
                         "Usage:\n"
                         "%s\n"
-                        "[-x serv_path]  /* server root path on master, usually /home/git/zgit_shadow2 */\n"
+                        "[-x serv_path]  /* server root path on master, usually /home/git/zgit_shadow */\n"
                         "[-u login_name]  /* username on server */\n"
                         "[-h host]  /* host name or domain name or host IP address */\n"
                         "[-p tcp_port]  /* tcp serv port */\n"
@@ -75,6 +112,14 @@ main(_i zArgc, char **zppArgv) {
            }
     }
 
+    /* 主进程名称定制 */
+    memset(zppArgv[0], 0, zProcNameBufLen);
+    snprintf(zppArgv[0], zProcNameBufLen,
+            "git_shadow|==> ID: MASTER");
+
+    /* 项目进程使用此指针定制自身名称 */
+    zpProcName = zppArgv[0];
+
     /* 启动主服务 */
-    zRun_.run();
+    zRun_.run(& zArgvInfo_);
 }

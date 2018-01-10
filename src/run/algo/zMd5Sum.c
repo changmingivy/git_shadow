@@ -4,8 +4,6 @@
  * 针对大文件性能很差
  * 配置文件的大小通常在1M以内
  */
-#define _DEFAULT_SOURCE
-
 #include "zMd5Sum.h"
 
 #include <stdio.h>
@@ -33,11 +31,11 @@ typedef struct {
     _uc buffer[64];
 } MD5_CTX;
 
-#define F(x,y,z) ((x & y) | (~x & z))
-#define G(x,y,z) ((x & z) | (y & ~z))
+#define F(x,y,z) ((x & y)|(~x & z))
+#define G(x,y,z) ((x & z)|(y & ~z))
 #define H(x,y,z) (x^y^z)
-#define I(x,y,z) (y ^ (x | ~z))
-#define ROTATE_LEFT(x,n) ((x << n) | (x >> (32-n)))
+#define I(x,y,z) (y ^ (x|~z))
+#define ROTATE_LEFT(x,n) ((x << n)|(x >> (32-n)))
 
 #define FF(a,b,c,d,x,s,ac) { \
     a += F(b,c,d) + x + ac; \
@@ -236,7 +234,7 @@ zgenerate_file_sig_md5(char *zpFilePath, char *zpResOUT/* char [33] */) {
     _uc zOrigRes[16] = {0},
         zBuf[4096];
 
-    zCheck_Negative_Return(zFd = open(zpFilePath, O_RDONLY), -1);
+    zCHECK_NEGATIVE_RETURN(zFd = open(zpFilePath, O_RDONLY), -1);
 
     MD5Init(&zMd5Handler);
 
