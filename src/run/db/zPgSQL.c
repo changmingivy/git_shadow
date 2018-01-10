@@ -62,7 +62,7 @@ zpg_conn(const char *zpConnInfo) {
     if (CONNECTION_OK == PQstatus(zpPgConnHd_)) {
         return zpPgConnHd_;
     } else {
-        zPRINT_ERR_EASY(NULL == zpPgConnHd_? "DB server not exist": PQerrorMessage(zpPgConnHd_));
+        zPRINT_ERR_EASY(PQerrorMessage(zpPgConnHd_));
         PQfinish(zpPgConnHd_);
         return NULL;
     }
