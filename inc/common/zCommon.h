@@ -137,7 +137,7 @@ typedef enum {
             pCurrentTime_->tm_min,\
             pCurrentTime_->tm_sec);\
 \
-    if (Pid == zRun_.p_sysInfo_->masterPid) {\
+    if (NULL == zpRepo_) {\
         snprintf(Buf + Len, 510 - Len,\
                 "\033[31;01mpid:\033[00m %d "\
                 "\033[31;01mfiLe:\033[00m %s "\
