@@ -45,6 +45,9 @@ static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
 static _ui zDBReqID = 0;
 
+#define zUN_PATH_SIZ\
+        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
+
 /*
  * 项目进程内部分配空间，
  * 主进程中不可见
@@ -335,6 +338,38 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 
     char zPath[zRun_.p_sysInfo_->servPathLen + sizeof("/tools/post-update")];
 
+    /* 项目进程唯一性保证；日志有序性保证 */
+    zRun_.p_commLock = &zCommLock;
+
+    /* 主进程 pid */
+    zRun_.p_sysInfo_->masterPid = getpid();
+
+    /* 每个项目进程对应的 UNIX domain sd 路径 */
+    zRun_.p_sysInfo_->unAddrMaster.sun_family = PF_UNIX;
+
+    zRun_.p_sysInfo_->unAddrLenMaster =
+        (size_t) (((struct sockaddr_un *) 0)->sun_path)
+        + snprintf(
+                zRun_.p_sysInfo_->unAddrMaster.sun_path,
+                zUN_PATH_SIZ,
+                ".s.master");
+
+    for (_i i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
+        /* 每个项目进程对应的 UNIX domain sd 路径 */
+        zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
+
+        zRun_.p_sysInfo_->unAddrLenVec[i] =
+            (size_t) (((struct sockaddr_un *) 0)->sun_path)
+            + snprintf(
+                    zRun_.p_sysInfo_->unAddrVec_[i].sun_path,
+                    zUN_PATH_SIZ,
+                    ".s.%d",
+                    i);
+
+        /* 以主进程 pid 的值，预置项目进程 pid */
+        zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
+    }
+
     /* 计算 post-update MD5sum */
     sprintf(zPath, "%s/tools/post-update",
             zRun_.p_sysInfo_->p_servPath);
@@ -418,12 +453,8 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 /*
  * 服务启动入口
  */
-#define zUN_PATH_SIZ\
-        sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 static void
 zstart_server(zArgvInfo__ *zpArgvInfo_) {
-    _ui i = 0;
-
     /* 必须指定服务端的根路径 */
     if (NULL == zRun_.p_sysInfo_->p_servPath) {
         zPRINT_ERR(0, NULL, "servPath lost!");
@@ -443,7 +474,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zglob_data_config(zpArgvInfo_);
 
     /* DB 连接池初始化 */
-    for (i = 0; i < zDB_POOL_SIZ; i++) {
+    for (_i i = 0; i < zDB_POOL_SIZ; i++) {
         zCHECK_NULL_EXIT(
                 zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
                 );
@@ -456,38 +487,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      * 系统全局可启动线程数上限 1024
      */
     zThreadPool_.init(32, 1024);
-
-    /* 项目进程唯一性保证；日志有序性保证 */
-    zRun_.p_commLock = &zCommLock;
-
-    /* 主进程 pid */
-    zRun_.p_sysInfo_->masterPid = getpid();
-
-    /* 每个项目进程对应的 UNIX domain sd 路径 */
-    zRun_.p_sysInfo_->unAddrMaster.sun_family = PF_UNIX;
-
-    zRun_.p_sysInfo_->unAddrLenMaster =
-        (size_t) (((struct sockaddr_un *) 0)->sun_path)
-        + snprintf(
-                zRun_.p_sysInfo_->unAddrMaster.sun_path,
-                zUN_PATH_SIZ,
-                ".s.master");
-
-    for (i =0; i < zGLOB_REPO_NUM_LIMIT; i++) {
-        /* 每个项目进程对应的 UNIX domain sd 路径 */
-        zRun_.p_sysInfo_->unAddrVec_[i].sun_family = PF_UNIX;
-
-        zRun_.p_sysInfo_->unAddrLenVec[i] =
-            (size_t) (((struct sockaddr_un *) 0)->sun_path)
-            + snprintf(
-                    zRun_.p_sysInfo_->unAddrVec_[i].sun_path,
-                    zUN_PATH_SIZ,
-                    ".s.%d",
-                    i);
-
-        /* 以主进程 pid 的值，预置项目进程 pid */
-        zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
-    }
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     zRun_.p_sysInfo_->masterSd = zNetUtils_.gen_serv_sd(
@@ -560,7 +559,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      */
     _i zReqID = 0;
     static _i zSd[256] = {0};
-    for (i = 0;; i++) {
+    for (_ui i = 0;; i++) {
         zReqID = i % 256;
         if (-1 == (zSd[zReqID] = accept(zMajorSd, NULL, 0))) {
             zPRINT_ERR_EASY_SYS();
