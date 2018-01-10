@@ -896,7 +896,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
     snprintf(zpProcName, zProcNameBufLen,
-            "git_shadow: [ repoID %s ]",
+            "git_shadow|==> ID: %s",
             zppRepoMeta[0]);
 
     /* 关闭从父进程继承的除参数中的 sd 之外的所有文件描述符 */
