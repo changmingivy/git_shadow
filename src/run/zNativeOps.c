@@ -879,7 +879,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     zRegRes__ zRegRes_ = { .alloc_fn = NULL };
 
     _s zErrNo = 0,
-       zStrLen = 0;
+       zLen = 0;
     _c zNeedPull = 'N';
 
     char *zpOrigPath = NULL,
@@ -948,16 +948,16 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     }
 
     zpOrigPath = zppRepoMeta[1];
-    zStrLen = strlen(zpOrigPath);
-    zKeepValue = zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1];
-    zpOrigPath[zStrLen - zRegRes_.p_resLen[0] - 1] = '\0';
+    zLen = strlen(zpOrigPath);
+    zKeepValue = zpOrigPath[zLen - zRegRes_.p_resLen[0] - 1];
+    zpOrigPath[zLen - zRegRes_.p_resLen[0] - 1] = '\0';
 
     while ('/' == zpOrigPath[0]) {  /* 去除多余的 '/' */
         zpOrigPath++;
     }
 
     zMEM_ALLOC(zpRepo_->p_path, char,
-            sizeof("//.____DpSystem//") + zRun_.p_sysInfo_->homePathLen + zStrLen + 16 + zRegRes_.p_resLen[0]);
+            sizeof("//.____DpSystem//") + zRun_.p_sysInfo_->homePathLen + zLen + 16 + zRegRes_.p_resLen[0]);
 
     zpRepo_->pathLen =
         sprintf(zpRepo_->p_path,
@@ -969,7 +969,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
     zPosixReg_.free_res(&zRegRes_);
 
-    zppRepoMeta[1][zStrLen - zRegRes_.p_resLen[0] - 1]
+    zppRepoMeta[1][zLen - zRegRes_.p_resLen[0] - 1]
         = zKeepValue;  /* 恢复原始字符串，上层调用者需要使用 */
 
     /*
@@ -1247,15 +1247,18 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         }
     }
 
+    zCommonBuf[0] = '8';
     for (_i zID = 0; zID < 10; zID++) {
-        sprintf(zCommonBuf,
+        zLen = 1;
+        zLen += sprintf(zCommonBuf + 1,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                zpRepo_->id, zBaseID + zID + 1, zpRepo_->id, 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
+                zpRepo_->id, zBaseID + zID + 1,
+                zpRepo_->id, 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
 
-        if (0 != (zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCommonBuf, NULL))) {
-            zERR_CLEAN_AND_EXIT(zErrNo);
-        }
+        sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster);
     }
 
     /*
@@ -1264,7 +1267,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
      * 既有项目从 DB 中提取
      */
     if (0 <= zSd) {
-        _ui zLen = 0;
+        zLen = 0;
         for (_i i = 0; i < 7; i++) {
             zLen += strlen(zppRepoMeta[i]);
         }

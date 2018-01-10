@@ -500,11 +500,10 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zThreadPool_.add(zudp_daemon, & zRun_.p_sysInfo_->masterSd);
 
     {////
-        /* 等待 write_db udp daemon 就緒 */
         char _;
-        _i zSd = zRun_.p_sysInfo_->masterSd = zNetUtils_.gen_serv_sd(NULL, NULL,
-                ".s____",
-                zProtoUDP);
+        _i zSd = zNetUtils_.gen_serv_sd(NULL, NULL, ".s____", zProtoUDP);
+
+        /* 等待 write_db udp daemon 就緒 */
         while (1) {
             sendto(zSd, "0", zBYTES(1), MSG_NOSIGNAL,
                     (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
