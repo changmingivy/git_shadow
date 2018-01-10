@@ -1,4 +1,3 @@
-> 篇幅较长，建议到 wiki 分页查看：https://github.com/kt10/zgit_shadow/wiki                             
 # 一、概述    
 &emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景；同时具备监控数据收集、分析功能。
 #### 1. 系统环境需求    
