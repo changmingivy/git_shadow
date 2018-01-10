@@ -619,8 +619,33 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
+    {////
+        char *zpData;
+        _i zLen = 8;
+        _i j;
+        for (j = 0; j < 8; j++) {
+            zLen += strlen(zpRepoInfo[j]);
+        }
+
+        /* 不需要释放，留存用于项目重启 */
+        zMEM_ALLOC(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], char, 8 * sizeof(void *) + zLen);
+        zpData = (char *) (zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID] + 8);
+
+        zLen = 0;
+        for (j = 0; j < 8; j++) {
+            zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID][j] = zpData + zLen;
+
+            zLen += sprintf(zpData + zLen, "%s", zpRepoInfo[j]);
+            zLen++;
+        }
+
+        /* 子进程中的副本需要清理 */
+        cJSON_Delete(zpJRoot);
+    }////
+
     if (0 > (zPid = fork())) {
         pthread_mutex_unlock(zRun_.p_commLock);
+
         zResNo = -126;
         goto zEndMark;
     }
@@ -632,32 +657,7 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 == zPid) {
         pthread_mutex_unlock(zRun_.p_commLock);
 
-        char **zppMeta;
-        {////
-            char *zpData;
-            _i zLen = 8;
-            _i j;
-            for (j = 0; j < 8; j++) {
-                zLen += strlen(zpRepoInfo[j]);
-            }
-
-            /* 不需要释放，留存用于项目重启 */
-            zMEM_ALLOC(zppMeta, char, 8 * sizeof(void *) + zLen);
-            zpData = (char *) (zppMeta + 8);
-
-            zLen = 0;
-            for (j = 0; j < 8; j++) {
-                zppMeta[j] = zpData + zLen;
-
-                zLen += sprintf(zpData + zLen, "%s", zpRepoInfo[j]);
-                zLen++;
-            }
-
-            /* 子进程中的副本需要清理 */
-            cJSON_Delete(zpJRoot);
-        }////
-
-        zNativeOps_.repo_init(zppMeta, zSd);
+        zNativeOps_.repo_init(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], zSd);
     } else {
         zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
         pthread_mutex_unlock(zRun_.p_commLock);

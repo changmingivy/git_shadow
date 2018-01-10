@@ -1580,6 +1580,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 启动定时任务 */
     zThreadPool_.add(zcron_ops, ('Y' == zNeedPull) ? "Y" : "N");
 
+    /* 释放项目进程的副本 */
+    free(zRun_.p_sysInfo_->pp_repoMetaVec[zpRepo_->id]);
+
     /*
      * 只运行于项目进程
      * 服务器内部使用的基于 PF_UNIX 的 UDP 服务器
@@ -1606,6 +1609,10 @@ zinit_env(void) {
 
     pid_t zPid = -1;
     _i zRepoID = -1;
+
+    char *zpData = NULL;
+    _i zLen = 0;
+    _i j = 0;
 
     /*
      * 尝试连接到 pgSQL server
@@ -1673,34 +1680,27 @@ zinit_env(void) {
         } else {
             for (_i i = 0; i < zpPgRes_->tupleCnt; i++) {
                 zRepoID = strtol(zpPgRes_->tupleRes_[i].pp_fields[0], NULL, 10);
+                zLen = zpPgRes_->fieldCnt;
+
+                for (j = 0; j < zpPgRes_->fieldCnt; j++) {
+                    zLen += strlen(zpPgRes_->tupleRes_[i].pp_fields[j]);
+                }
+
+                zMEM_ALLOC(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
+                zpData = (char *) (zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID] + zpPgRes_->fieldCnt);
+
+                zLen = 0;
+                for (j = 0; j < zpPgRes_->fieldCnt; j++) {
+                    zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID][j] = zpData + zLen;
+
+                    zLen += sprintf(zpData + zLen, "%s", zpPgRes_->tupleRes_[i].pp_fields[j]);
+                    zLen++;
+                }
 
                 zCHECK_NEGATIVE_EXIT( zPid = fork() );
+
                 if (0 == zPid) {
-                    {////
-                        char *zpData;
-                        _i zLen = zpPgRes_->fieldCnt;
-                        _i j;
-
-                        for (j = 0; j < zpPgRes_->fieldCnt; j++) {
-                            zLen += strlen(zpPgRes_->tupleRes_[i].pp_fields[j]);
-                        }
-
-                        /* 不需要释放，留存用于项目重启 */
-                        zMEM_ALLOC(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], char, zpPgRes_->fieldCnt * sizeof(void *) + zLen);
-                        zpData = (char *) (zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID] + zpPgRes_->fieldCnt);
-
-                        zLen = 0;
-                        for (j = 0; j < zpPgRes_->fieldCnt; j++) {
-                            zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID][j] = zpData + zLen;
-
-                            zLen += sprintf(zpData + zLen, "%s", zpPgRes_->tupleRes_[i].pp_fields[j]);
-                            zLen++;
-                        }
-
-                        zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
-                    }////
-
-                    /* 项目进程初始化项目环境 */
+                    zPgSQL_.res_clear(zpPgResHd_, zpPgRes_);
                     zinit_one_repo_env(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], -1);
                 } else {
                     //pthread_mutex_lock(zRun_.p_commLock);
