@@ -1,8 +1,10 @@
 > 篇幅较长，建议到 wiki 分页查看：https://github.com/kt10/zgit_shadow/wiki                             
 # 一、概述    
-&emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景。
+&emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景；同时具备监控数据收集、分析功能。
 #### 1. 系统环境需求    
-&emsp;&emsp;- [linux](https://www.kernel.org) 内核版本 >= 2.6.37    
+&emsp;&emsp;- 服务端 [linux](https://www.kernel.org) 内核版本 >= 2.6.37    
+&emsp;&emsp;- 目标端 git  命令可用    
+&emsp;&emsp;- 目标端 md5sum 命令可用    
 #### 2. 编译器需求    
 &emsp;&emsp;- [gcc](http://gcc.gnu.org) >= 4.4        
 &emsp;&emsp;- 或 [clang](http://llvm.org) >= 3.4      
@@ -13,8 +15,9 @@
 &emsp;&emsp;- [libgit2](https://libgit2.github.com) = 0.26 [cmake options: THREADSAFE=ON]    
 &emsp;&emsp;- [cJSON](https://github.com/DaveGamble/cJSON) = 1.6.0    
 #### 5. 布署环境需求      
-&emsp;&emsp;- 服务端可连接所有目标机的 SSH 服务器；        
-&emsp;&emsp;- 所有目标机可连接服务端的 TCP 端口，通常是 20000。   
+&emsp;&emsp;- 服务端可连接所有目标机的 SSH 服务；        
+&emsp;&emsp;- 所有目标机可连接服务端的 TCP 端口，通常是 20000；      
+&emsp;&emsp;- 所有目标机可连接服务端的 UDP 端口，通常是 20000（若不使用监控数据收集功能，则不需要）。      
 #### 6. 安装、启/停方法    
 &emsp;&emsp;- 可使用源码路径下的 serv_tools/zstart.sh 脚本一键下载、编译、启动 git_shadow 及数据库、第三方库；    
 &emsp;&emsp;- 用户无须手动配置上述 3、4 步所述需求；    
@@ -36,13 +39,14 @@
 |**-U**|[可选] PostgreSQL login name, default 'git'|
 |**-F**|[可选] PostgreSQL pass file, default '$HOME/.pgpass'|
 |**-D**|[可选] which database to login, default 'dpDB'|    
-#### 8. 进程示例
+#### 8. 设计模型：master process > slave process > worker threads
 >![](http://images.cnblogs.com/cnblogs_com/hadex/909098/o_process-ps.png)
 # 二、服务接口   　　
 ## 总揽
-&emsp;&emsp;git_shadow 根据用户提供的 opsId 字段，map 到将被调用的接口；标注 “-” 的项表示系统内部私有接口，不对外开放。          
+&emsp;&emsp;git_shadow 根据用户提供的 opsID 字段，map 到将被调用的接口；标注 “-” 的项表示系统内部私有接口，不对外开放。
+&emsp;&emsp;**！注！**：强烈建议将所有请求中的 repoID 字段置于首位，可提升服务端响应速度。              
 
-|opsId|描述|
+|opsID|描述|
 | :-: | :- |
 |**0**|服务在线状态确认，接收到任意内容，均会会回复一个 "!"|
 |**1**|新建项目|
@@ -61,7 +65,7 @@
 |**14**|-|
 |**15**|查询项目元信息与最近一次布署的实时状态|
 ## A、项目管理类接口    
-### [opsId 1] 新建项目    
+### [opsID 1] 新建项目    
 >1. **功能描述**       
         
     - 创建新项目。    
@@ -69,8 +73,8 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 1,
-    "repoId": 9,
+    "repoID": 9,
+    "opsID": 1,
     "pathOnHost": "/home/git/zgit_shadow2",
     "sshUserName": "john",
     "sshPort": "22",
@@ -82,7 +86,7 @@
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 将要创建的项目 ID|
+|**repoID**|[int] 将要创建的项目 ID|
 |**pathOnHost**|[string] 新项目文件在目标机上的存放路径|
 |**sshUserName**|[string] 服务端使用哪个用户身份登陆该项目的所有目标机|
 |**sshPort**|[string] 本项目所有目标机的 SSH 服务端口|
@@ -110,10 +114,10 @@
 |**content**|存放错误信息|
 >4. **注意事项**       
     - 返回成功仅表示服务端所有动作执行成功，各项信息确认无误并写入数据库。       
-### [opsId 4] 删除项目    
-&emsp;&emsp;暂无
+### [opsID 4] 删除项目    
+&emsp;&emsp;暂不开放
 ## B、查询类接口    
-### [opsId 9] 打印版本号列表
+### [opsID 9] 打印版本号列表
 >1. **功能描述**       
         
     - 打印最近一次布署之后新产生的版本号列表；
@@ -122,29 +126,29 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 9,
-    "repoId": 35,
+    "repoID": 35,
+    "opsID": 9,
     "dataType": 0
 }
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 项目 ID|
+|**repoID**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
 >3. **json 返回示例**    
 ```
 **成功返回**
 {
   “errNo”: 0,
-  "cacheId": 1555555555,
+  "cacheID": 1555555555,
   ”data”: [
     {
-      “revId”: 0,
+      “revID”: 0,
       “revSig”: "3d93f7220b58a395ba2c56dab024b6d252c5a10e",
       “revTimeStamp”: 1555555555
     },
     {
-      “revId”: 1,
+      “revID”: 1,
       “revSig”: "3d93f7220b58a395ba2c56dab024b6d252c5a10a",
       “revTimeStamp”: 1555555550
     }
@@ -162,13 +166,13 @@
 | :- | :- |
 |**errNo**|[int] 0 表示成功，否则表示出错|
 |**data**|[obj array] 存放数据正文|
-|**data/revId**|[int] 版本号 ID|
+|**data/revID**|[int] 版本号 ID|
 |**data/revSig**|[string] 版本号|
 |**data/revTimeStamp**|[int] 版本号 UNIX 时间戳|
 |**content**|[string] 存放错误信息|
 >4. **注意事项**           
     - 仅会显示最新的 64 条记录，无论 dataType 是 0 还是 1。
-### [opsId 10] 打印两个版本之间的差异文件列表
+### [opsID 10] 打印两个版本之间的差异文件列表
 >1. **功能描述**       
         
     - 打印全部有变动的文件的路径（基于项目顶层的相对路径）。
@@ -176,19 +180,19 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 10,
-    "repoId": 35,
+    "repoID": 35,
+    "opsID": 10,
     "dataType": 0,
-    "revId": 3,
-    "cacheId": 1555555555
+    "revID": 3,
+    "cacheID": 1555555555
 }
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 项目 ID|
+|**repoID**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
-|**revId**|[int] 查询版本号列表时，服务端返回的 revId 字段值|
-|**cacheId**|[int] 查询版本号列表时，服务端返回的 cacheId 字段值|
+|**revID**|[int] 查询版本号列表时，服务端返回的 revID 字段值|
+|**cacheID**|[int] 查询版本号列表时，服务端返回的 cacheID 字段值|
 
 >3. **json 返回示例**    
 ```
@@ -197,11 +201,11 @@
   “errNo”: 0,
   ”data”: [
     {
-      “fileId”: 0,
+      “fileID”: 0,
       “filePath”: "doc/README"
     },
     {
-      “fileId”: 1,
+      “fileID”: 1,
       “filePath”: "index.php"
     }
   ]
@@ -218,17 +222,17 @@
 | :- | :- |
 |**errNo**|[int] 0 表示成功，否则表示出错|
 |**data**|[obj array] 存放数据正文|
-|**data/fileId**|[int] 差异文件 ID|
+|**data/fileID**|[int] 差异文件 ID|
 |**data/filePath**|[string] 差异文件相对于项目顶层目录的路径|
 |**content**|[string] 存放错误信息|
 >4. **注意事项**           
     - 差异文件数量 <=24 时，     
         - 以类似 tree 命令视图的形式显示路径的层级关系，         
-        - 此时 fileId 为 -1 的条目，存放各级目录的名称，       
-        - fileId >= 0 的条目，存放最终的差异文件名称；             
+        - 此时 fileID 为 -1 的条目，存放各级目录的名称，       
+        - fileID >= 0 的条目，存放最终的差异文件名称；             
     - 差异文件数量 > 24 时，       
         - 以类似 git diff --name-only 命令视图的形式显示原始的路径字符串。       
-### [opsId 11] 打印两个版本之间的同一个文件的差异内容
+### [opsID 11] 打印两个版本之间的同一个文件的差异内容
 >1. **功能描述**       
         
     - 打印单一文件的变动内容。
@@ -236,21 +240,21 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 11,
-    "repoId": 35,
+    "repoID": 35,
+    "opsID": 11,
     "dataType": 0,
-    "revId": 3,
-    "fileId": 8,
-    "cacheId": 1555555555
+    "revID": 3,
+    "fileID": 8,
+    "cacheID": 1555555555
 }
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 项目 ID|
+|**repoID**|[int] 项目 ID|
 |**dataType**|[int] 请求查询的数据类型，0 表示新产生的版本号列表，1 表示已布署版本号列表|
-|**revId**|[int] 查询版本号列表时，服务端返回的 revId 字段值|
-|**fileId**|[int] 查询差异文件列表时，服务端返回的 fileId 字段值|
-|**cacheId**|[int] 查询版本号列表时，服务端返回的 cacheId 字段值|
+|**revID**|[int] 查询版本号列表时，服务端返回的 revID 字段值|
+|**fileID**|[int] 查询差异文件列表时，服务端返回的 fileID 字段值|
+|**cacheID**|[int] 查询版本号列表时，服务端返回的 cacheID 字段值|
 
 >3. **json 返回示例**    
 ```
@@ -277,7 +281,7 @@
 |**data**|[obj array] 存放数据正文|
 |**data/content**|[int] 同一文件在不同版本之间的差异内容|
 |**content**|[string] 存放错误信息|
-### [opsId 15] 实时进度查询（核心接口）    
+### [opsID 15] 实时进度查询（核心接口）    
 >1. **功能描述**       
         
     - 查询最近一次布署的实时进度，包含项目元信息。
@@ -285,13 +289,13 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 15,
-    "repoId": 35
+    "repoID": 35,
+    "opsID": 15
 }
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 项目 ID|
+|**repoID**|[int] 项目 ID|
 
 >3. **json 返回示例**    
 ```
@@ -444,7 +448,7 @@
 |...|...|
 |...|...|
 ## C、布署类接口
-### [opsId 3] 源库 URL 或分支名称更新    
+### [opsID 3] 源库 URL 或分支名称更新    
 >1. **功能描述**       
   
     - 更新源库的地址或分支名称，多用于测试场景。     
@@ -452,15 +456,15 @@
 >2. **json 请求示例**    
 ```
 {
-    "opsId": 13,
-    "repoId": 35,
+    "repoID": 35,
+    "opsID": 13,
     "sourceURL": "https://github.com/kt10/zgit_shadow.git",
     "sourceBranch": "dev-tree"
 }
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 创建项目时指定的 ID|
+|**repoID**|[int] 创建项目时指定的 ID|
 |**sourceURL**|[string 可选] 新的源库地址|
 |**sourceBranch**|[string 可选] 新的源库分支名称，即服务端要和哪个分支保持同步|
 >3. **json 返回示例**    
@@ -484,19 +488,19 @@
 >4. **注意事项**       
     - 更新成功之后，在下一次更新之前，会一直生效；       
     - 线上正式环境，不建议频繁更新，可能会产生无法自动处理的文件冲突 。
-### [opsId 12] 常规布署（核心接口）    
+### [opsID 12] 布署（核心接口）    
 >1. **功能描述**       
   
     - 批量布署。     
 
 >2. **json 请求示例**    
 ```
-**使用 revId 布署**
+**使用 revID 布署**
 {
-    "opsId": 12,
-    "repoId": 9,
-    "cacheId": 1555555555,
-    "revId": 5,
+    "repoID": 9,
+    "opsID": 12,
+    "cacheID": 1555555555,
+    "revID": 5,
     "dataType": 1,
     "forceDp": "Yes",
     "aliasPath": "/home/git/www",
@@ -510,8 +514,8 @@
 
 **使用 revSig 布署**
 {
-    "opsId": 12,
-    "repoId": 9,
+    "repoID": 9,
+    "opsID": 12,
     "revSig": "abcdefg12345678abcdefg12345678qwertyui"
     "dataType": 1,
     "forceDp": "N",
@@ -526,10 +530,10 @@
 ```
 |字段|描述|
 | :- | :- |
-|**repoId**|[int] 创建项目时指定的 ID|
-|**cacheId**|[int 条件可选] 查询版本号列表时取得的 cacheId，未指定 revSig 时此项不能为空|
-|**revId**|[int 条件可选] 查询版本号列表时取得的 revId，未指定 revSig 时此项不能为空|
-|**revSig**|[string 条件可选] 版本号字符串，若指定了此项，则 cacheId 与 revId 两项将被忽略|
+|**repoID**|[int] 创建项目时指定的 ID|
+|**cacheID**|[int 条件可选] 查询版本号列表时取得的 cacheID，未指定 revSig 时此项不能为空|
+|**revID**|[int 条件可选] 查询版本号列表时取得的 revID，未指定 revSig 时此项不能为空|
+|**revSig**|[string 条件可选] 版本号字符串，若指定了此项，则 cacheID 与 revID 两项将被忽略|
 |**forceDp**|[string 可选] 强制布署标志，若指定为 "Y"，则目标机端的冲突文件将会被直接清除，默认为 "N"|
 |**aliasPath**|[string 可选] 新建链接到项目路径|
 |**ipCnt**|[int] 目标机数量|
@@ -559,11 +563,11 @@
 ## D、系统内部接口    
 **!!! ==== 仅供了解，用户无需调用 ==== !!!**      
 >- ping-pang：测试服务器在线状态，向服务端发送 "?”，若正常在线会回复 “!”；  
->- sys-update：系统版本升级后，调用此接口将所有目标机置为未初始化状态，下一次布署时将执行全量初始化，从而所有目标机上的必要组件都会得到更新；
 >- history-import：系统升级后，导入旧版历史数据；
 >- glob_res_confirm：已确认自身布署成功的目标机，通过此接口请求服务端的全局布署结果，若全局布署结果是失败，则该目标机将回滚至原有状态；
 >- state_confirm：目标机通过此接口上报布署结果及错误信息；
->- req_file：目标机通过此接口，请求服务端发送指定的文件，如 post-update 缺失时。
+>- req_file：目标机通过此接口，请求服务端发送指定的文件，如 post-update 缺失时；
+>- ... ...
 # 三、常见问题
 >1. **无限量大规模布署实现原理？**       
 
@@ -574,7 +578,7 @@
 
 >2. **目标机 100% 原子性、一致性保证？**    
 
-    - 保证最终一致性，但会存在时间差。    
+    - 保证最终一致性，但推送代码或失败回滚的过程中，难免会存在时间差。    
 
 >3. **用户定制的布署后动作结果，如何保证？**    
 
@@ -591,4 +595,3 @@
 >- log/：shell 重定向产生的日志信息，非必须。
 # 五、宏观架构图 [已过时，需要更新]    
 >![](http://upload-images.jianshu.io/upload_images/5142096-5210e75b9bd13380.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
