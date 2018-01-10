@@ -1641,7 +1641,7 @@ zinit_env(void) {
             "net_io_s        bigint NOT NULL,"  /* net spent */
             "disk_mu         bigint NOT NULL,"  /* disk max usage: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
             "loadavg5        smallint NOT NULL"  /* system load average recent 5 mins */
-            ") PARTITION BY LIST (repo_id);"
+            ") PARTITION BY RANGE (time_stamp);"
 
             "CREATE TABLE IF NOT EXISTS repo_meta "
             "("
