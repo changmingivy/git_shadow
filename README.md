@@ -37,7 +37,9 @@
 |**-U**|[可选] PostgreSQL login name, default 'git'|
 |**-F**|[可选] PostgreSQL pass file, default '$HOME/.pgpass'|
 |**-D**|[可选] which database to login, default 'dpDB'|    
-# 二、服务接口    
+#### 8. 进程示例
+>![](http://upload-images.jianshu.io/upload_images/5142096-5210e75b9bd13380.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+# 二、服务接口   　　
 ## 总揽
 &emsp;&emsp;git_shadow 根据用户提供的 opsId 字段，map 到将被调用的接口；标注 “-” 的项表示系统内部私有接口，不对外开放。          
 
