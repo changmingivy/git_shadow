@@ -1629,20 +1629,6 @@ zinit_env(void) {
      * 启动时尝试创建基础表
      */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
-            "CREATE TABLE IF NOT EXISTS supervising_log"
-            "("
-            "ip              inet NOT NULL,"
-            "time_stamp      bigint NOT NULL,"
-            "cpu_t           bigint NOT NULL,"  /* cpu total */
-            "cpu_s           bigint NOT NULL,"  /* cpu spent */
-            "mem_t           int NOT NULL,"  /* mem total */
-            "mem_s           int NOT NULL,"  /* mem spent */
-            "disk_io_s       bigint NOT NULL,"  /* io spent */
-            "net_io_s        bigint NOT NULL,"  /* net spent */
-            "disk_mu         bigint NOT NULL,"  /* disk max usage: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
-            "loadavg5        smallint NOT NULL"  /* system load average recent 5 mins */
-            ") PARTITION BY RANGE (time_stamp);"
-
             "CREATE TABLE IF NOT EXISTS repo_meta "
             "("
             "repo_id         int NOT NULL PRIMARY KEY,"

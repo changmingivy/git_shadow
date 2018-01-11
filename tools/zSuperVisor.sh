@@ -186,7 +186,7 @@ do
     fi
 
     # '8' is a command !!!
-    echo "8INSERT INTO supervising_log VALUES (${zSelfAddr},`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5})">&7
+    echo "8INSERT INTO supervisor_log VALUES (${zSelfAddr},`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5})">&7
 
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}

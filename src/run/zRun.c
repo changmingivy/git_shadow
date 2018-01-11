@@ -450,6 +450,65 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 }
 
 
+/* 监控模块 DB 预建 */
+static void *
+zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
+    _i zLen = 0;
+
+    /* +2 的意义: 防止恰好在临界时间添加记录导致异常 */
+    _i zBaseID = time(NULL) / 3600 + 2;
+
+    char zSQLBuf[512];
+    zSQLBuf[0] = '8';
+
+    if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
+            "CREATE TABLE IF NOT EXISTS supervisor_log"
+            "("
+            "ip              inet NOT NULL,"
+            "time_stamp      bigint NOT NULL,"
+            "cpu_t           bigint NOT NULL,"  /* cpu total */
+            "cpu_s           bigint NOT NULL,"  /* cpu spent */
+            "mem_t           int NOT NULL,"  /* mem total */
+            "mem_s           int NOT NULL,"  /* mem spent */
+            "disk_io_s       bigint NOT NULL,"  /* io spent */
+            "net_io_s        bigint NOT NULL,"  /* net spent */
+            "disk_mu         bigint NOT NULL,"  /* disk max usage: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
+            "loadavg5        smallint NOT NULL"  /* system load average recent 5 mins */
+            ") PARTITION BY RANGE (time_stamp);",
+            NULL)) {
+
+        zPRINT_ERR_EASY("");
+        exit(1);
+    }
+
+    /* 每次启动时尝试创建必要的表，按小时分区（1天 == 3600秒） */
+    zLen = 1;
+    zLen += sprintf(zSQLBuf + 1,
+            "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
+            "PARTITION OF supervisor_log FOR VALUES FROM (MINVALUE) TO (%d);",
+            zBaseID, 3600 * zBaseID);
+
+    sendto(zpRepo_->unSd, zSQLBuf, 1 + zLen, MSG_NOSIGNAL,
+            (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+            zRun_.p_sysInfo_->unAddrLenMaster);
+
+    for (_i zID = 0; zID < 10; zID++) {
+        zLen = 1;
+        zLen += sprintf(zSQLBuf+ 1,
+                "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
+                "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d);",
+                zBaseID + zID + 1,
+                3600 * (zBaseID + zID), 3600 * (zBaseID + zID + 1));
+
+        sendto(zpRepo_->unSd, zSQLBuf, 1 + zLen, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster);
+    }
+
+    return NULL;
+}
+
+
 /*
  * 服务启动入口
  */
@@ -522,6 +581,16 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
      */
     zNativeOps_.repo_init_all();
 
+    /*
+     * 主进程退出时，清理所有项目进程
+     * 必须在项目进程启动之后执行，
+     * 否则任一项目进程退出，都会触发清理动作
+     */
+    atexit(zexit_clean);
+
+    /* 监控模块 DB 分区表预建 */
+    zThreadPool_.add(zsupervisor_prepare, NULL);
+
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     static _i zMonitorSd;
     zMonitorSd = zNetUtils_.gen_serv_sd(
@@ -535,13 +604,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
     /* 只运行于主进程，系统状态监控 */
     zThreadPool_.add(zsys_monitor, NULL);
-
-    /*
-     * 主进程退出时，清理所有项目进程
-     * 必须在项目进程启动之后执行，
-     * 否则任一项目进程退出，都会触发清理动作
-     */
-    atexit(zexit_clean);
 
     /*
      * 返回的 socket 已经做完 bind 和 listen
