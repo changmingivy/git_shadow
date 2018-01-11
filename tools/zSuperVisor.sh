@@ -190,7 +190,7 @@ do
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}
     zDiskIOPrev=${zDiskIOCur}
-    zNetIOtPrev=${zNetIOCur}
+    zNetIOPrev=${zNetIOCur}
 done
 
 
