@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <time.h>
 #include <errno.h>
 
@@ -28,6 +29,19 @@ static zbool_t zpg_thread_safe_check();
 static _i zpg_exec_once(char *zpConnInfo, char *zpCmd, zPgRes__ **zppPgRes_);
 static _i zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char **zppParam, zPgRes__ **zppPgRes_);
 
+static void zpg_conn_pool_init(void);
+
+static _i zwrite_db(void *zp, _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__)));
+
+/* postgreSQL 连接池 */
+#define zDB_POOL_SIZ 256
+static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
+static _s zDBPoolStack[zDB_POOL_SIZ];
+static _s zDBPoolStackHeader;
+static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
+
 /*
  * Public 接口
  */
@@ -50,8 +64,28 @@ struct zPgSQL__ zPgSQL_ = {
 
     .exec_once = zpg_exec_once,
     .exec_with_param_once = zpg_exec_with_param_once,
+
+    .conn_pool_init = zpg_conn_pool_init,
+    .write_db = zwrite_db,
 };
 
+/* DB 连接池初始化 */
+static void
+zpg_conn_pool_init(void) {
+    //zCHECK_NULL_EXIT(
+    //        zPgSQL_.p_ccurSem = sem_open("git_shadow_DB", O_CREAT|O_RDWR, 0700, zDB_POOL_SIZ / 4)
+    //        );
+
+    zDBPoolStackHeader = zDB_POOL_SIZ - 1;
+
+    for (_i i = 0; i < zDB_POOL_SIZ; i++) {
+        zDBPoolStack[i] = i;
+
+        zCHECK_NULL_EXIT(
+                zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
+                );
+    }
+}
 
 /*
  * 连接 pgSQL server
@@ -306,6 +340,43 @@ zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char
 
         zPgSQL_.conn_clear(zpPgConnHd_);
     }
+
+    return 0;
+}
+
+
+/* 只写动作，无返回内容 */
+static _i
+zwrite_db(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    _i zKeepID;
+
+    /* 出栈 */
+    pthread_mutex_lock(& zDBPoolLock);
+
+    while (0 > zDBPoolStackHeader) {
+        pthread_mutex_unlock(& zDBPoolLock);
+        sleep(1);
+        pthread_mutex_lock(& zDBPoolLock);
+    }
+
+    zKeepID = zDBPoolStack[zDBPoolStackHeader];
+    zDBPoolStackHeader--;
+
+    pthread_mutex_unlock(& zDBPoolLock);
+
+    /* 若执行失败，记录日志 */
+    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
+        zRun_.write_log(zp, 0, NULL, 0);
+    }
+
+    /* 入栈 */
+    pthread_mutex_lock(& zDBPoolLock);
+    zDBPoolStack[++zDBPoolStackHeader] = zKeepID;
+    pthread_mutex_unlock(& zDBPoolLock);
 
     return 0;
 }

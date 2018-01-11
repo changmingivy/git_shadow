@@ -156,7 +156,7 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
     if (0 < zGlobSiz) {
         sem_unlink("git_shadow");
         if (SEM_FAILED ==
-                (zThreadPool_.p_threadPoolSem = sem_open("git_shadow", O_CREAT|O_RDWR, 0700, zGlobSiz))) {
+                (zThreadPool_.p_threadPoolSem = sem_open("git_shadow_thread", O_CREAT|O_RDWR, 0700, zGlobSiz))) {
             return -1;
         }
     }

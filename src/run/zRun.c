@@ -28,23 +28,20 @@ static void * zops_route_tcp (void *zp);
 static void * zudp_daemon(void *zp);
 static void * zops_route_udp (void *zp);
 
+static _i zwrite_log(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__)));
+
 static _i zhistory_import (cJSON *zpJ, _i zSd);
 
 struct zRun__ zRun_ = {
     .run = zstart_server,
+    .write_log = zwrite_log,
 
     /* mmap in 'main' func */
     .p_sysInfo_ = NULL,
 };
-
-/* 项目并发启动控制 */
-static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
-
-/* postgreSQL 连接池 */
-#define zDB_POOL_SIZ 256
-static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
-static _s zDBPoolStack[zDB_POOL_SIZ];
-static _s zDBPoolStackHeader;
 
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
@@ -55,61 +52,10 @@ static _s zDBPoolStackHeader;
  */
 zRepo__ *zpRepo_;
 
+/* 项目并发启动控制 */
+static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 
-/* 记录日志 */
-static _i
-zwrite_log(void *zp,
-        _i zSd __attribute__ ((__unused__)),
-        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
-        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-
-    pthread_mutex_lock(zRun_.p_commLock);
-    write(zRun_.logFd, zp, 1 + strlen(zp));
-    pthread_mutex_unlock(zRun_.p_commLock);
-
-    return 0;
-}
-
-/* 记录日志 */
-static _i
-zwrite_db(void *zp,
-        _i zSd __attribute__ ((__unused__)),
-        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
-        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-
-    _i zKeepID;
-
-    /* 出栈 */
-    pthread_mutex_lock(zRun_.p_commLock);
-
-    while (0 > zDBPoolStackHeader) {
-        pthread_mutex_unlock(zRun_.p_commLock);
-        sleep(1);
-        pthread_mutex_lock(zRun_.p_commLock);
-    }
-
-    zKeepID = zDBPoolStack[zDBPoolStackHeader];
-
-    zDBPoolStackHeader--;
-
-    pthread_mutex_unlock(zRun_.p_commLock);
-
-    /* 若执行失败，记录日志 */
-    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
-        zwrite_log(zp, 0, NULL, 0);
-    }
-
-    /* 入栈 */
-    pthread_mutex_lock(zRun_.p_commLock);
-
-    zDBPoolStack[++zDBPoolStackHeader] = zKeepID;
-
-    pthread_mutex_unlock(zRun_.p_commLock);
-
-    return 0;
-}
-
-void
+static void
 zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[0] = "";
     zRun_.p_sysInfo_->p_errVec[1] = "无法识别或未定义的操作请求";
@@ -241,7 +187,7 @@ zerr_vec_init(void) {
     zRun_.p_sysInfo_->p_errVec[127] = "被新的布署请求打断";
 }
 
-void
+static void
 zserv_vec_init(void) {
     /*
      * TCP、UDP 路由函数
@@ -279,8 +225,8 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[5] = NULL;
     zRun_.p_sysInfo_->ops_udp[6] = NULL;
     zRun_.p_sysInfo_->ops_udp[7] = NULL;
-    zRun_.p_sysInfo_->ops_udp[8] = zwrite_db;
-    zRun_.p_sysInfo_->ops_udp[9] = zwrite_log;
+    zRun_.p_sysInfo_->ops_udp[8] = zPgSQL_.write_db;
+    zRun_.p_sysInfo_->ops_udp[9] = zRun_.write_log;
 }
 
 /************
@@ -356,7 +302,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         3600 * (zBaseID + zID),
                         3600 * (zBaseID + zID + 1));
 
-                zwrite_db(zBuf, 0, NULL, 0);
+                zPgSQL_.write_db(zBuf, 0, NULL, 0);
             }
 
             /* 清除 30 天之前的 supervisor_log 分区表 */
@@ -365,7 +311,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         "DROP TABLE IF EXISTS supervisor_log_%d",
                         zBaseID - zID - 30 * 24);
 
-                zwrite_db(zBuf, 0, NULL, 0);
+                zPgSQL_.write_db(zBuf, 0, NULL, 0);
             }
         }
 
@@ -497,6 +443,17 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
     /* 初始化 serv_map 与 err_map */
     zserv_vec_init();
     zerr_vec_init();
+
+    /* DB 连接池初始化 */
+    zPgSQL_.conn_pool_init();
+
+    /*
+     * !!! 必须在初始化项目库之前运行
+     * 主进程常备线程数量：32
+     * 项目进程常备线程数量：4
+     * 系统全局可启动线程数上限 1024
+     */
+    zThreadPool_.init(32, 1024);
 }
 
 
@@ -534,7 +491,7 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
             "PARTITION OF supervisor_log FOR VALUES FROM (MINVALUE) TO (%d);",
             zBaseID, 3600 * zBaseID);
 
-    zwrite_db(zSQLBuf, 0, NULL, 0);
+    zPgSQL_.write_db(zSQLBuf, 0, NULL, 0);
 
     /* 预建 10 天的分区表 */
     for (_i zID = 0; zID < 10 * 24; zID++) {
@@ -544,7 +501,7 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
                 zBaseID + zID + 1,
                 3600 * (zBaseID + zID), 3600 * (zBaseID + zID + 1));
 
-        zwrite_db(zSQLBuf, 0, NULL, 0);
+        zPgSQL_.write_db(zSQLBuf, 0, NULL, 0);
     }
 
     return NULL;
@@ -573,23 +530,6 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
 
     /* 全局共享数据注册 */
     zglob_data_config(zpArgvInfo_);
-
-    /* DB 连接池初始化 */
-    zDBPoolStackHeader = zDB_POOL_SIZ - 1;
-    for (_i i = 0; i < zDB_POOL_SIZ; i++) {
-        zDBPoolStack[i] = i;
-        zCHECK_NULL_EXIT(
-                zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
-                );
-    }
-
-    /*
-     * !!! 必须在初始化项目库之前运行
-     * 主进程常备线程数量：32
-     * 项目进程常备线程数量：4
-     * 系统全局可启动线程数上限 1024
-     */
-    zThreadPool_.init(32, 1024);
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     zRun_.p_sysInfo_->masterSd = zNetUtils_.gen_serv_sd(
@@ -991,6 +931,22 @@ zops_route_udp (void *zp) {
         return (void *) -1;
     }
 }
+
+
+/* 写日志 */
+static _i
+zwrite_log(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    pthread_mutex_lock(zRun_.p_commLock);
+    write(zRun_.logFd, zp, 1 + strlen(zp));
+    pthread_mutex_unlock(zRun_.p_commLock);
+
+    return 0;
+}
+
 
 /**************************************************************
  * 临时接口，用于导入旧版布署系统的项目信息及已产生的布署日志 *

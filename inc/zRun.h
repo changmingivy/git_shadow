@@ -509,6 +509,7 @@ typedef struct __zArgvInfo__ {
  */
 struct zRun__ {
     void (* run) (zArgvInfo__ *);
+    _i (* write_log) (void *, _i, struct sockaddr *, socklen_t zPeerAddrLen);
 
     /*
      * 确保同一项目不会重复启动多个进程
