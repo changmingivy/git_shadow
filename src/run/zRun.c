@@ -926,6 +926,9 @@ zudp_daemon(void *zpSd) {
                 zThreadPool_.add(zops_route_tcp, & zUdpInfo_[zReqID].sentSd);
             }
         } else if (0 < zLen){
+            /* 客户端发送的字符串可能不是以 '\0' 结尾 */
+            zUdpInfo_[zReqID].data[zLen] = '\0';
+
             /* sentSd 字段段存放接收者向发送者通信所需的句柄 */
             zUdpInfo_[zReqID].sentSd = zSd;
             zUdpInfo_[zReqID].peerAddrLen = zMsg_.msg_namelen;
