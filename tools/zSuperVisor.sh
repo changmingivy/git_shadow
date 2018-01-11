@@ -161,16 +161,18 @@ zCpuSpentPrev=${zCpuSpentCur}
 zDiskIOPrev=${zDiskIOCur}
 zNetIOPrev=${zNetIOCur}
 
-# generate one udp socket
-exec 7>/dev/udp/${zServAddr}/${zServPort}
-
 # clean old process...
-if [[ 0 -lt `ps ax | grep $0 | grep \`cat /tmp/.supervisor.pid\` | wc -l` ]]
+if [[ 0 -lt `ps ax | grep "$0" | grep \`cat /tmp/.supervisor.pid\` | wc -l` ]]
 then
     kill `cat /tmp/.supervisor.pid`
 fi
 
 echo $$ >/tmp/.supervisor.pid
+
+# generate one udp socket
+exec 7>&-
+exec 7<&-
+exec 7>/dev/udp/${zServAddr}/${zServPort}
 
 # start...
 while :
