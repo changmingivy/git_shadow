@@ -4,26 +4,26 @@ zServAddr=$1
 zServPort=$2
 zSelfAddr=$3
 
-zCpuTotalPrev=
-zCpuTotalCur=
+zCpuTotalPrev=0
+zCpuTotalCur=0
 
-zCpuSpentPrev=
-zCpuSpentCur=
+zCpuSpentPrev=0
+zCpuSpentCur=0
 
-zDiskIOPrev=
-zDiskIOCur=
+zDiskIOPrev=0
+zDiskIOCur=0
 
-zNetIOPrev=
-zNetIOCur=
+zNetIOPrev=0
+zNetIOCur=0
 
-zCpuTotal=
-zCpuSpent=
-zMemTotal=
-zMemSpent=
-zDiskIOSpent=
-zNetIOSpent=
-zDiskUsage=
-zLoadAvg5=
+zCpuTotal=0
+zCpuSpent=0
+zMemTotal=0
+zMemSpent=0
+zDiskIOSpent=0
+zNetIOSpent=0
+zDiskUsage=0
+zLoadAvg5=0
 
 zReadData() {
     # CPU: total = user + system ＋nice + idle, spent = total - idle
@@ -151,7 +151,7 @@ zReadData() {
 
     # LOADAVG5 /proc/loadavg
     zCPUNum=`cat /proc/cpuinfo | grep -c processor`  # Warning: CPU hot-plug
-    zLoadAvg5=`echo "\`cat /proc/loadavg | awk -F' ' '{print $3}'\` * 100 / ${zCPUNum}" | bc | grep -o '^[0-9]\+'`
+    zLoadAvg5=`echo "\`cat /proc/loadavg | awk -F' ' '{print $3}'\` * 10000 / ${zCPUNum}" | bc | grep -o '^[0-9]\+'`
 }
 
 # pre-exec once
@@ -178,16 +178,20 @@ while :
 do
     sleep 10
 
-    if [[ 0 -gt zReadData ]]
+    zReadData
+
+    if [[ 0 -gt $? ]]
     then
         continue
     fi
 
     # '8' is a command !!!
-    echo "8\
-        INSERT INTO supervising_log VALUES (\
-        ${zSelfAddr},`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5}\
-        )" >&7
+    echo "8INSERT INTO supervising_log VALUES (${zSelfAddr},`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5})">&7
+
+    zCpuTotalPrev=${zCpuTotalCur}
+    zCpuSpentPrev=${zCpuSpentCur}
+    zDiskIOPrev=${zDiskIOCur}
+    zNetIOtPrev=${zNetIOCur}
 done
 
 
