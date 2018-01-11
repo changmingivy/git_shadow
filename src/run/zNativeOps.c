@@ -1413,8 +1413,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
          * 提取最近一次布署动作的时间戳（无论成功或失败）
          */
         sprintf(zCommonBuf,
-                "SELECT max(time_stamp) FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s'",
+                "SELECT time_stamp FROM dp_log "
+                "WHERE repo_id = %d AND rev_sig = '%s' "
+                "ORDER BY time_stamp LIMIT 1",
                 zpRepo_->id,
                 zpRepo_->dpingSig);
 
