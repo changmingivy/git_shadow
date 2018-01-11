@@ -1421,7 +1421,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],host_err[12],"
                 "host_detail "
                 "FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp == %ld",
+                "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp = %ld",
                 zpRepo_->id,
                 zpRepo_->dpingSig,
                 zpRepo_->dpBaseTimeStamp);
