@@ -126,7 +126,7 @@ zReadData() {
 
     # NET tps: /proc/net/dev
     zNetIOCur=0;
-    for x in `cat /proc/net/dev | fgrep -v '|' | grep -vP '^\s*lo:' | awk -F' ' '{print $3,$11}'`
+    for x in `cat /proc/net/dev | fgrep -v '|' | grep -vP '^\s*lo:' | sed 's/:/ /' | awk -F' ' '{print $3,$11}'`
     do
         let zNetIOCur+=$x
     done
