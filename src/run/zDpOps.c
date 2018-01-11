@@ -1244,14 +1244,19 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 + (sizeof("($1,$2,$3,$4,''),") - 1) * zRegRes_.cnt
                 + zIpListStrLen);
     {////
+        /* 布署耗时基准 */
+        zpRepo_->dpBaseTimeStamp = time(NULL);
+
         /*
-         * 更新最近一次布署尝试的版本号
+         * 更新最近一次布署尝试的版本号与时间戳
          * 若 SSH 认证信息有变动，亦更新之
          */
         _i zLen = 0;
         zLen = sprintf(zpCommonBuf,
-                "UPDATE repo_meta SET last_try_sig = '%s',last_dp_id = %u",
-                zpRepo_->dpingSig,zpRepo_->dpID);
+                "UPDATE repo_meta SET last_try_sig = '%s',last_dp_id = %u,last_dp_ts = %ld",
+                zpRepo_->dpingSig,
+                zpRepo_->dpID,
+                zpRepo_->dpBaseTimeStamp);
 
         if (NULL != zpSSHUserName
                 && 0 != strcmp(zpSSHUserName, zpRepo_->sshUserName)) {
@@ -1364,9 +1369,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
-
-    /* 布署耗时基准 */
-    zpRepo_->dpBaseTimeStamp = time(NULL);
 
     /* 拼接预插入布署记录的 SQL 命令 */
     zSQLLen = sizeof("INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ") - 1;
@@ -1595,7 +1597,7 @@ zSkipMark:;
             i = 1;
             zpCommonBuf[0] = '8';
             i += sprintf(zpCommonBuf + 1,
-                    "UPDATE repo_meta SET last_dp_sig = '%s',alias_path = '%s' "
+                    "UPDATE repo_meta SET last_success_sig = '%s',alias_path = '%s' "
                     "WHERE repo_id = %d",
                     zpRepo_->lastDpSig,
                     zpRepo_->p_aliasPath,
