@@ -48,9 +48,6 @@ struct zPgSQL__ {
 
     void (* conn_pool_init) (void);
     _i (* write_db) (void *, _i, struct sockaddr *, socklen_t);
-
-    /* DB 连接池之外的游离连接并发限制：zDB_POOL_SIZ / 4 */
-    //sem_t *p_ccurSem;
 };
 
 #endif  // #ifndef ZPGSQL_H

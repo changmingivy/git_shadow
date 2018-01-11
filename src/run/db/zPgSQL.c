@@ -72,10 +72,6 @@ struct zPgSQL__ zPgSQL_ = {
 /* DB 连接池初始化 */
 static void
 zpg_conn_pool_init(void) {
-    //zCHECK_NULL_EXIT(
-    //        zPgSQL_.p_ccurSem = sem_open("git_shadow_DB", O_CREAT|O_RDWR, 0700, zDB_POOL_SIZ / 4)
-    //        );
-
     zDBPoolStackHeader = zDB_POOL_SIZ - 1;
 
     for (_i i = 0; i < zDB_POOL_SIZ; i++) {
