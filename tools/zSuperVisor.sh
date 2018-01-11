@@ -159,7 +159,7 @@ zReadData
 zCpuTotalPrev=${zCpuTotalCur}
 zCpuSpentPrev=${zCpuSpentCur}
 zDiskIOPrev=${zDiskIOCur}
-zNetIOtPrev=${zNetIOCur}
+zNetIOPrev=${zNetIOCur}
 
 # generate one udp socket
 exec 7>/dev/udp/${zServAddr}/${zServPort}
