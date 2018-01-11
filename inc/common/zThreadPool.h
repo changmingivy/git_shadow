@@ -2,6 +2,7 @@
 #define ZTHREADPOOL_H
 
 #include "zCommon.h"
+#include "zRun.h"
 #include <pthread.h>
 #include <semaphore.h>
 

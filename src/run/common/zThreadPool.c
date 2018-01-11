@@ -21,6 +21,9 @@ static pthread_mutex_t zStackHeaderLock;
 
 static pthread_t zThreadPoolTidTrash;
 
+extern struct zRun__ zRun_;
+extern zRepo__ *zpRepo_;
+
 /******************************
  * ====  对外公开的接口  ==== *
  ******************************/
@@ -157,17 +160,19 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
         sem_unlink("git_shadow_thread");
         if (SEM_FAILED ==
                 (zThreadPool_.p_threadPoolSem = sem_open("git_shadow_thread", O_CREAT|O_RDWR, 0700, zGlobSiz))) {
-            return -1;
+            zPRINT_ERR_EASY_SYS();
+            exit(1);
         }
     }
 
     for (_i i = 0; i < zThreadPollSiz; i++) {
         if (0 != sem_trywait(zThreadPool_.p_threadPoolSem)) {
-            return -2;
+            zPRINT_ERR_EASY_SYS();
+            exit(1);
         } else {
-            zCHECK_PTHREAD_FUNC_RETURN(
-                    pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL),
-                    -3);
+            zCHECK_PTHREAD_FUNC_EXIT(
+                    pthread_create(& zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL)
+                    );
         }
     }
 
