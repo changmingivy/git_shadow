@@ -278,18 +278,23 @@ zexit_clean(void) {
 /*
  * 定时获取系统全局负载信息
  * 监控项目进程运行状态
+ * 定期扩展 DB 监控分区表
  */
 static void *
 zsys_monitor(void *zp __attribute__ ((__unused__))) {
     FILE *zpHandler = NULL;
 
-    _ul zTotalMem,
-        zAvalMem;
+    _ul zTotalMem = 0,
+        zAvalMem = 0;
 
-    pid_t zPid;
-    _ui i;
-    _i j;
-    char zBuf[64];
+    _ui i = 0;
+    pid_t zPid = 0;
+
+    _i zBaseID = 0,
+       zID = 0,
+       j = 0;
+
+    char zBuf[512];
 
     zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
     sleep(10);
@@ -316,6 +321,31 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         zwrite_log(zBuf, 0, NULL, 0);
                     }
                 }
+            }
+        }
+
+        /* 每天执行一次 */
+        if (86399 == i % 86400) {
+            /* 创建之后 10 天的 supervisor_log 分区表 */
+            zBaseID = time(NULL) /3600;
+            for (zID = 0; zID < 10 * 24; zID++) {
+                sprintf(zBuf,
+                        "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
+                        "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d);",
+                        zBaseID + zID + 1,
+                        3600 * (zBaseID + zID),
+                        3600 * (zBaseID + zID + 1));
+
+                zwrite_db(zBuf, 0, NULL, 0);
+            }
+
+            /* 清除 30 天之前的 supervisor_log 分区表 */
+            for (zID = 0; zID < 10 * 24; zID++) {
+                sprintf(zBuf,
+                        "DROP TABLE IF EXISTS supervisor_log_%d",
+                        zBaseID - zID - 30 * 24);
+
+                zwrite_db(zBuf, 0, NULL, 0);
             }
         }
 
@@ -453,13 +483,10 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 /* 监控模块 DB 预建 */
 static void *
 zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
-    _i zLen = 0;
-
     /* +2 的意义: 防止恰好在临界时间添加记录导致异常 */
     _i zBaseID = time(NULL) / 3600 + 2;
 
     char zSQLBuf[512];
-    zSQLBuf[0] = '8';
 
     if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
             "CREATE TABLE IF NOT EXISTS supervisor_log"
@@ -482,28 +509,22 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
     }
 
     /* 每次启动时尝试创建必要的表，按小时分区（1天 == 3600秒） */
-    zLen = 1;
-    zLen += sprintf(zSQLBuf + 1,
+    sprintf(zSQLBuf,
             "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
             "PARTITION OF supervisor_log FOR VALUES FROM (MINVALUE) TO (%d);",
             zBaseID, 3600 * zBaseID);
 
-    sendto(zpRepo_->unSd, zSQLBuf, 1 + zLen, MSG_NOSIGNAL,
-            (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
-            zRun_.p_sysInfo_->unAddrLenMaster);
+    zwrite_db(zSQLBuf, 0, NULL, 0);
 
-    /* 预建 10 天的分区表，与 dp_log 保持同步 */
+    /* 预建 10 天的分区表 */
     for (_i zID = 0; zID < 10 * 24; zID++) {
-        zLen = 1;
-        zLen += sprintf(zSQLBuf+ 1,
+        sprintf(zSQLBuf,
                 "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
                 "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID + 1,
                 3600 * (zBaseID + zID), 3600 * (zBaseID + zID + 1));
 
-        sendto(zpRepo_->unSd, zSQLBuf, 1 + zLen, MSG_NOSIGNAL,
-                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
-                zRun_.p_sysInfo_->unAddrLenMaster);
+        zwrite_db(zSQLBuf, 0, NULL, 0);
     }
 
     return NULL;
