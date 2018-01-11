@@ -43,7 +43,8 @@ static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 /* postgreSQL 连接池 */
 #define zDB_POOL_SIZ 256
 static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
-static _ui zDBReqID = 0;
+static _s zDBPoolStack[zDB_POOL_SIZ];
+static _s zDBPoolStackHeader;
 
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
@@ -77,14 +78,33 @@ zwrite_db(void *zp,
         socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
 
     _i zKeepID;
+
+    /* 出栈 */
     pthread_mutex_lock(zRun_.p_commLock);
-    zKeepID = ++zDBReqID % zDB_POOL_SIZ;
+
+    while (0 > zDBPoolStackHeader) {
+        pthread_mutex_unlock(zRun_.p_commLock);
+        sleep(1);
+        pthread_mutex_lock(zRun_.p_commLock);
+    }
+
+    zKeepID = zDBPoolStack[zDBPoolStackHeader];
+
+    zDBPoolStackHeader--;
+
     pthread_mutex_unlock(zRun_.p_commLock);
 
     /* 若执行失败，记录日志 */
     if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
         zwrite_log(zp, 0, NULL, 0);
     }
+
+    /* 入栈 */
+    pthread_mutex_lock(zRun_.p_commLock);
+
+    zDBPoolStack[++zDBPoolStackHeader] = zKeepID;
+
+    pthread_mutex_unlock(zRun_.p_commLock);
 
     return 0;
 }
@@ -555,7 +575,9 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zglob_data_config(zpArgvInfo_);
 
     /* DB 连接池初始化 */
+    zDBPoolStackHeader = zDB_POOL_SIZ - 1;
     for (_i i = 0; i < zDB_POOL_SIZ; i++) {
+        zDBPoolStack[i] = i;
         zCHECK_NULL_EXIT(
                 zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
                 );

@@ -639,7 +639,6 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zLen++;
         }
 
-        /* 子进程中的副本需要清理 */
         cJSON_Delete(zpJRoot);
     }////
 
