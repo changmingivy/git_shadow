@@ -492,7 +492,8 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
             (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
             zRun_.p_sysInfo_->unAddrLenMaster);
 
-    for (_i zID = 0; zID < 10; zID++) {
+    /* 预建 10 天的分区表，与 dp_log 保持同步 */
+    for (_i zID = 0; zID < 10 * 24; zID++) {
         zLen = 1;
         zLen += sprintf(zSQLBuf+ 1,
                 "CREATE TABLE IF NOT EXISTS supervisor_log_%d "

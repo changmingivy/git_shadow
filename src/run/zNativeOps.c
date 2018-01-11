@@ -764,16 +764,16 @@ zcode_sync(_ui *zpCnter) {
  */
 static void
 zpg_partition_mgmt(_ui *zpCnter) {
-    char zCmdBuf[1024];
-
     _i zBaseID = time(NULL) / 86400,
        zID = 0,
        i;
 
-    /* 创建之后 10 天的分区表 */
-    for (zID = 0; zID < 10; zID ++) {
+    char zCmdBuf[512];
+    zCmdBuf[0] = '8';
+
+    /* 创建之后 10 天的 dp_log 分区表 */
+    for (zID = 0; zID < 10; zID++) {
         i = 1;
-        zCmdBuf[0] = '8';
         i += sprintf(zCmdBuf + 1,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
@@ -783,28 +783,63 @@ zpg_partition_mgmt(_ui *zpCnter) {
                 86400 * (zBaseID + zID),
                 86400 * (zBaseID + zID + 1));
 
-        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
                 zRun_.p_sysInfo_->unAddrLenMaster)) {
 
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
             *zpCnter = 86400 + 1;
         }
     }
 
-    /* 清除 30 天之前的分区表 */
-    for (zID = 0; zID < 10; zID ++) {
+    /* 清除 30 天之前的 dp_log 分区表 */
+    for (zID = 0; zID < 10; zID++) {
         i = 1;
-        zCmdBuf[0] = '8';
         i += sprintf(zCmdBuf + 1,
                 "DROP TABLE IF EXISTS dp_log_%d_%d",
                 zpRepo_->id, zBaseID - zID - 30);
 
-        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
                 zRun_.p_sysInfo_->unAddrLenMaster)) {
 
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
+            *zpCnter = 86400 + 1;
+        }
+    }
+
+    /* 创建之后 10 天的 supervisor_log 分区表 */
+    zBaseID = (zBaseID - 1) * 24;
+    for (zID = 0; zID < 10 * 24; zID++) {
+        i = 1;
+        i += sprintf(zCmdBuf + 1,
+                "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
+                "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d);",
+                zBaseID + zID + 1,
+                3600 * (zBaseID + zID),
+                3600 * (zBaseID + zID + 1));
+
+        if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster)) {
+
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
+            *zpCnter = 86400 + 1;
+        }
+    }
+
+    /* 清除 30 天之前的 supervisor_log 分区表 */
+    for (zID = 0; zID < 10 * 24; zID++) {
+        i = 1;
+        i += sprintf(zCmdBuf + 1,
+                "DROP TABLE IF EXISTS supervisor_log_%d",
+                zBaseID - zID - 30 * 24);
+
+        if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
+                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                zRun_.p_sysInfo_->unAddrLenMaster)) {
+
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
             *zpCnter = 86400 + 1;
         }
     }
