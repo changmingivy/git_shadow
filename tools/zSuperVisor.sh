@@ -58,9 +58,8 @@ zReadData() {
     #        Relatively temporary storage for raw disk blocks that shouldn't get tremendously large (20MB or so).
     # Cached %lu
     #        In-memory cache for files read from the disk (the page cache).  Doesn't include SwapCached.
-    zMemTotal=`cat /proc/meminfo | fgrep 'MemTotal' | grep -o '[0-9]\+'`  # Warning: memory hot-plug
-    zMemSpent=$((${zMemTotal} -\
-        `cat /proc/meminfo | grep -E '^(MemFree|Buffers|Cached)' | grep -o '[0-9]\+' | tr '\n' '+' | grep -oP '.*(?=\+$)' | bc`))
+    zMemTotal=`cat /proc/meminfo | fgrep 'MemTotal' | grep -o '[0-9]\+'`  # Warning: memory hot-plug; Same as `free | fgrep -i 'mem' | awk -F' ' '{print $2}'`
+    zMemSpent=`free | fgrep -i 'mem' | awk -F' ' '{print $3}'`  # different kernel is different, so use free utils...
 
     # DISK tps: /proc/diskstats
     #
@@ -151,7 +150,7 @@ zReadData() {
 
     # LOADAVG5 /proc/loadavg
     zCPUNum=`cat /proc/cpuinfo | grep -c processor`  # Warning: CPU hot-plug
-    zLoadAvg5=`echo "\`cat /proc/loadavg | awk -F' ' '{print $3}'\` * 10000 / ${zCPUNum}" | bc | grep -o '^[0-9]\+'`
+    zLoadAvg5=`echo "\`cat /proc/loadavg | awk -F' ' '{print $2}'\` * 10000 / ${zCPUNum}" | bc | grep -o '^[0-9]\+'`
 }
 
 # pre-exec once
