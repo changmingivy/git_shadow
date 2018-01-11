@@ -154,7 +154,7 @@ zthread_pool_init(_i zSiz, _i zGlobSiz) {
      *     zGlobSiz 置为负数或 0，自动继承主进程的 handler
      */
     if (0 < zGlobSiz) {
-        sem_unlink("git_shadow");
+        sem_unlink("git_shadow_thread");
         if (SEM_FAILED ==
                 (zThreadPool_.p_threadPoolSem = sem_open("git_shadow_thread", O_CREAT|O_RDWR, 0700, zGlobSiz))) {
             return -1;
