@@ -115,7 +115,7 @@ main(_i zArgc, char **zppArgv) {
     /* 主进程名称定制 */
     memset(zppArgv[0], 0, zProcNameBufLen);
     snprintf(zppArgv[0], zProcNameBufLen,
-            "git_shadow|==> ID: MASTER");
+            "git_shadow|==> MASTER");
 
     /* 项目进程使用此指针定制自身名称 */
     zpProcName = zppArgv[0];
