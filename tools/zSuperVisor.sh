@@ -186,8 +186,8 @@ do
         continue
     fi
 
-    # '8' is a command !!!
-    echo "8INSERT INTO supervisor_log VALUES ('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5})">&7
+    # 开头的 '8 '：是服务端的 udp 服务路径索引；其后紧跟的空格，代表非紧急事务，等待服务端缓存空间装满之后，批量写入
+    echo "8 INSERT INTO supervisor_log VALUES ('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5});">&7
 
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}

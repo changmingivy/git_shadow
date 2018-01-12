@@ -46,24 +46,40 @@ zPgBinPath=${zPgPath}/bin
 zPgDataPath=${zPgPath}/data
 
 # PG: 留空表示仅接受本地 UNIX 域套接字连接
-sed -i '/listen_addresses/d' ${zPgDataPath}/postgresql.conf
+sed -i '/#*listen_addresses =/d' ${zPgDataPath}/postgresql.conf
 echo "listen_addresses = ''" >> ${zPgDataPath}/postgresql.conf
 
 # PG: 以源码根路径作为 UNIX 域套接字存放路径
-sed -i '/unix_socket_directories/d' ${zPgDataPath}/postgresql.conf
+sed -i '/#*unix_socket_directories =/d' ${zPgDataPath}/postgresql.conf
 echo "unix_socket_directories = '${zShadowPath}'" >> ${zPgDataPath}/postgresql.conf
 
 # PG: UNIX 域套接字权限
-sed -i '/unix_socket_permissions/d' ${zPgDataPath}/postgresql.conf
+sed -i '/#*unix_socket_permissions =/d' ${zPgDataPath}/postgresql.conf
 echo "unix_socket_permissions = 0700" >> ${zPgDataPath}/postgresql.conf
 
 # PG: 最大连接数
-sed -i '/max_connections/d' ${zPgDataPath}/postgresql.conf
+sed -i '/#*max_connections =/d' ${zPgDataPath}/postgresql.conf
 echo "max_connections = 1024" >> ${zPgDataPath}/postgresql.conf
 
 # PG: 事务锁上限
-sed -i '/max_locks_per_transaction/d' ${zPgDataPath}/postgresql.conf
-echo "max_locks_per_transaction = 192" >> ${zPgDataPath}/postgresql.conf
+sed -i '/#*max_locks_per_transaction =/d' ${zPgDataPath}/postgresql.conf
+echo "max_locks_per_transaction = 512" >> ${zPgDataPath}/postgresql.conf
+
+# PG: shared buffers siz，设置为总内存的 1/3
+sed -i '/#*shared_buffers =/d' ${zPgDataPath}/postgresql.conf
+echo "shared_buffers = $((`free -m | fgrep -i 'mem' | awk -F' ' '{print $2}'` / 3))MB" >> ${zPgDataPath}/postgresql.conf
+
+# PG: max_wal_size，设置为总内存的 1/2
+sed -i '/#*max_wal_size =/d' ${zPgDataPath}/postgresql.conf
+echo "max_wal_size = $((`free -m | fgrep -i 'mem' | awk -F' ' '{print $2}'` / 2))MB" >> ${zPgDataPath}/postgresql.conf
+
+# PG: work_mem，设置为 64MB
+sed -i '/#*work_mem =/d' ${zPgDataPath}/postgresql.conf
+echo "work_mem = 64MB" >> ${zPgDataPath}/postgresql.conf
+
+# PG: max_stack_depth，设置为系统线程栈的大小
+sed -i '/#*max_stack_depth =/d' ${zPgDataPath}/postgresql.conf
+echo "max_stack_depth = $((`ulimit -s` / 1024))MB" >> ${zPgDataPath}/postgresql.conf
 
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
