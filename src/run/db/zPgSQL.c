@@ -37,14 +37,15 @@ static _i zwrite_db(void *zp, _i zSd __attribute__ ((__unused__)),
 
 /* postgreSQL 连接池 */
 #define zDB_POOL_SIZ 256
+static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
 static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
 static _s zDBPoolStack[zDB_POOL_SIZ];
 static _s zDBPoolStackHeader;
-static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
 
-/* 数据以 4k 为单位，批量写入 */
-static char zBufVec[zDB_POOL_SIZ][4096];
-static _s zBufSpaceVec[zDB_POOL_SIZ] = { zDB_POOL_SIZ };
+/* 数据以 8k 为单位，批量写入 */
+static pthread_mutex_t zDBPoolBufLock = PTHREAD_MUTEX_INITIALIZER;
+static char zOptiBuf[8192];
+static _s zOptiDataLen = 0;
 
 
 /*
@@ -350,12 +351,8 @@ zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char
  * 通用的只写动作，无返回内容
  * 原生写入，没有 prepared 优化
  */
-static _i
-zwrite_db(void *zp,
-        _i zSd __attribute__ ((__unused__)),
-        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
-        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-
+static void
+zwrite_db_real(char *zpCmd) {
     _i zKeepID;
 
     /* 出栈 */
@@ -373,14 +370,50 @@ zwrite_db(void *zp,
     pthread_mutex_unlock(& zDBPoolLock);
 
     /* 若执行失败，记录日志 */
-    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zp, zFalse)) {
-        zRun_.write_log(zp, 0, NULL, 0);
+    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zpCmd, zFalse)) {
+        zRun_.write_log(zpCmd, 0, NULL, 0);
     }
 
     /* 入栈 */
     pthread_mutex_lock(& zDBPoolLock);
     zDBPoolStack[++zDBPoolStackHeader] = zKeepID;
     pthread_mutex_unlock(& zDBPoolLock);
+}
+
+
+/*
+ * 首字符为空格的请求，执行缓存后批量写入
+ * 否则即时写入
+ */
+static _i
+zwrite_db(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    char *zpCmd = zp;
+
+    if (' ' == zpCmd[0]) {
+        if (0 == pthread_mutex_trylock(& zDBPoolBufLock)) {
+            /*
+             * 缓冲的数据量达到 8192 - 509 时，执行批量写入
+             * udp 接收的缓冲区大小 510，
+             * 除去开头的索引字符，最多只会传递 509bytes
+             */
+            if ((8192 - 509) < zOptiDataLen) {
+                zwrite_db_real(zOptiBuf);
+                zOptiDataLen = 0;
+            }
+
+            zOptiDataLen += sprintf(zOptiBuf + zOptiDataLen, "%s", zpCmd + 1);
+
+            pthread_mutex_unlock(& zDBPoolBufLock);
+        } else {
+            zwrite_db_real(zpCmd + 1);
+        }
+    } else {
+        zwrite_db_real(zpCmd);
+    }
 
     return 0;
 }
