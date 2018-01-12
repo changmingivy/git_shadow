@@ -77,9 +77,9 @@ echo "max_wal_size = $((`free -m | fgrep -i 'mem' | awk -F' ' '{print $2}'` / 2)
 sed -i '/#*work_mem =/d' ${zPgDataPath}/postgresql.conf
 echo "work_mem = 64MB" >> ${zPgDataPath}/postgresql.conf
 
-# PG: max_stack_depth，设置为系统线程栈的大小
+# PG: max_stack_depth，设置为系统线程栈的大小 - 1M
 sed -i '/#*max_stack_depth =/d' ${zPgDataPath}/postgresql.conf
-echo "max_stack_depth = $((`ulimit -s` / 1024))MB" >> ${zPgDataPath}/postgresql.conf
+echo "max_stack_depth = $((`ulimit -s` / 1024 - 1))MB" >> ${zPgDataPath}/postgresql.conf
 
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
