@@ -638,12 +638,13 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zLen += sprintf(zpData + zLen, "%s", zpRepoInfo[j]);
             zLen++;
         }
-
-        cJSON_Delete(zpJRoot);
     }////
 
     if (0 > (zPid = fork())) {
         pthread_mutex_unlock(zRun_.p_commLock);
+
+        /* 子进程释放资源副本，父进程的资源会在调度函数末尾处理 */
+        cJSON_Delete(zpJRoot);
 
         zResNo = -126;
         goto zEndMark;
