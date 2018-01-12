@@ -1688,6 +1688,11 @@ zinit_env(void) {
                     //pthread_mutex_lock(zRun_.p_commLock);
                     zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
                     //pthread_mutex_unlock(zRun_.p_commLock);
+
+                    /* 防止过多项目并发启动导致 DB 压力太大 */
+                    if (24 == i % 25) {
+                        sleep(5);
+                    }
                 }
             }
         }

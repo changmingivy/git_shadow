@@ -177,7 +177,7 @@ exec 7>/dev/udp/${zServAddr}/${zServPort}
 # start...
 while :
 do
-    sleep 10
+    sleep 1
 
     zReadData
 
