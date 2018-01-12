@@ -1254,7 +1254,7 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
          */
         _i zLen = 0;
         zLen = sprintf(zpCommonBuf,
-                "UPDATE repo_meta SET last_try_sig = '%s',last_dp_id = %u,last_dp_ts = %ld",
+                "UPDATE repo_meta SET last_dp_sig = '%s',last_dp_id = %u,last_dp_ts = %ld",
                 zpRepo_->dpingSig,
                 zpRepo_->dpID,
                 zpRepo_->dpBaseTimeStamp);
