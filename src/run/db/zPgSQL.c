@@ -42,6 +42,11 @@ static _s zDBPoolStack[zDB_POOL_SIZ];
 static _s zDBPoolStackHeader;
 static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
 
+/* 数据以 4k 为单位，批量写入 */
+static char zBufVec[zDB_POOL_SIZ][4096];
+static _s zBufSpaceVec[zDB_POOL_SIZ] = { zDB_POOL_SIZ };
+
+
 /*
  * Public 接口
  */
@@ -341,7 +346,10 @@ zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char
 }
 
 
-/* 只写动作，无返回内容 */
+/*
+ * 通用的只写动作，无返回内容
+ * 原生写入，没有 prepared 优化
+ */
 static _i
 zwrite_db(void *zp,
         _i zSd __attribute__ ((__unused__)),
