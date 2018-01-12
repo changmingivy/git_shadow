@@ -803,11 +803,20 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
     _i zErrNo = 0;
 
     char zData[1 + sizeof(struct zInnerState__)];
-
-    zData[0] = '1';
     struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);
+    zData[0] = '1';
 
     // zpDpCcur_->errNo = 0;
+
+    /*
+     * 项目进程名称更改为
+     * git_shadow: <repoID>, TASK: <hostAddr>
+     */
+    memset(zpProcName, 0, zProcNameBufLen);
+    snprintf(zpProcName, zProcNameBufLen,
+            "git_shadow|==> id: %d, dp-to: %s",
+            zpRepo_->id,
+            zpDpCcur_->p_hostAddr);
 
     /* 判断是否需要执行目标机初始化环节 */
     if ('Y' == zpDpCcur_->needInit) {
