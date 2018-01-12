@@ -509,11 +509,9 @@ typedef struct __zArgvInfo__ {
  */
 struct zRun__ {
     void (* run) (zArgvInfo__ *);
+    _i (* write_log) (void *, _i, struct sockaddr *, socklen_t zPeerAddrLen);
 
-    /*
-     * 确保同一项目不会重复启动多个进程
-     * 同时用于保持日志的有序性
-     */
+    /* 确保同一项目不会重复启动多个进程 */
     pthread_mutex_t *p_commLock;
 
     _i logFd;

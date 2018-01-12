@@ -764,16 +764,16 @@ zcode_sync(_ui *zpCnter) {
  */
 static void
 zpg_partition_mgmt(_ui *zpCnter) {
-    char zCmdBuf[1024];
-
     _i zBaseID = time(NULL) / 86400,
        zID = 0,
        i;
 
-    /* 创建之后 10 天的分区表 */
-    for (zID = 0; zID < 10; zID ++) {
+    char zCmdBuf[512];
+    zCmdBuf[0] = '8';
+
+    /* 创建之后 10 天的 dp_log 分区表 */
+    for (zID = 0; zID < 10; zID++) {
         i = 1;
-        zCmdBuf[0] = '8';
         i += sprintf(zCmdBuf + 1,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
@@ -783,28 +783,27 @@ zpg_partition_mgmt(_ui *zpCnter) {
                 86400 * (zBaseID + zID),
                 86400 * (zBaseID + zID + 1));
 
-        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
                 zRun_.p_sysInfo_->unAddrLenMaster)) {
 
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
             *zpCnter = 86400 + 1;
         }
     }
 
-    /* 清除 30 天之前的分区表 */
-    for (zID = 0; zID < 10; zID ++) {
+    /* 清除 30 天之前的 dp_log 分区表 */
+    for (zID = 0; zID < 10; zID++) {
         i = 1;
-        zCmdBuf[0] = '8';
         i += sprintf(zCmdBuf + 1,
                 "DROP TABLE IF EXISTS dp_log_%d_%d",
                 zpRepo_->id, zBaseID - zID - 30);
 
-        /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
                 zRun_.p_sysInfo_->unAddrLenMaster)) {
 
+            /* 若失败，将计数器调至 > 86400，以重新被 cron_ops() 调用 */
             *zpCnter = 86400 + 1;
         }
     }
@@ -896,7 +895,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     /* 项目进程名称更改为 git_shadow: <repoID> */
     memset(zpProcName, 0, zProcNameBufLen);
     snprintf(zpProcName, zProcNameBufLen,
-            "git_shadow|==> ID: %s",
+            "git_shadow|==> id: %s",
             zppRepoMeta[0]);
 
     /* 关闭从父进程继承的除参数中的 sd 之外的所有文件描述符 */
@@ -1360,7 +1359,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
          * dpID
          */
         sprintf(zCommonBuf,
-                "SELECT last_dp_sig,last_try_sig,last_dp_id FROM repo_meta "
+                "SELECT last_success_sig,last_dp_sig,last_dp_id,last_dp_ts FROM repo_meta "
                 "WHERE repo_id = %d",
                 zpRepo_->id);
         if (0 == (zErrNo = zPgSQL_.exec_once(
@@ -1381,6 +1380,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             }
 
             zpRepo_->dpID = 1 + strtol(zpPgRes_->tupleRes_[0].pp_fields[2], NULL, 10);
+            zpRepo_->dpBaseTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[3], NULL, 10);
 
             /* clean... */
             zPgSQL_.res_clear(zpPgRes_->p_pgResHd_, zpPgRes_);
@@ -1406,28 +1406,6 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
 
             zpRepo_->repoState = zCACHE_GOOD;
             zpRepo_->dpID = 0;
-        } else {
-            zERR_CLEAN_AND_EXIT(zErrNo);
-        }
-
-        /**
-         * 提取最近一次布署动作的时间戳（无论成功或失败）
-         */
-        sprintf(zCommonBuf,
-                "SELECT max(time_stamp) FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s'",
-                zpRepo_->id,
-                zpRepo_->dpingSig);
-
-        if (0 == (zErrNo = zPgSQL_.exec_once(
-                        zRun_.p_sysInfo_->pgConnInfo,
-                        zCommonBuf,
-                        &zpPgRes_))) {
-            zpRepo_->dpBaseTimeStamp = strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
-
-            /* clean... */
-            zPgSQL_.res_clear(zpPgRes_->p_pgResHd_, zpPgRes_);
-        } else if (-92 == zErrNo) {
             zpRepo_->dpBaseTimeStamp = 0;
         } else {
             zERR_CLEAN_AND_EXIT(zErrNo);
@@ -1443,7 +1421,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
                 "host_err[1],host_err[2],host_err[3],host_err[4],host_err[5],host_err[6],host_err[7],host_err[8],host_err[9],host_err[10],host_err[11],host_err[12],"
                 "host_detail "
                 "FROM dp_log "
-                "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp >= %ld",
+                "WHERE repo_id = %d AND rev_sig = '%s' AND time_stamp = %ld",
                 zpRepo_->id,
                 zpRepo_->dpingSig,
                 zpRepo_->dpBaseTimeStamp);
@@ -1631,32 +1609,33 @@ zinit_env(void) {
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,
             "CREATE TABLE IF NOT EXISTS repo_meta "
             "("
-            "repo_id         int NOT NULL PRIMARY KEY,"
-            "create_time     timestamp with time zone NOT NULL DEFAULT current_timestamp(0),"
-            "path_on_host    varchar NOT NULL,"
-            "source_url      varchar NOT NULL,"
-            "source_branch   varchar NOT NULL,"
-            "source_vcs_type char(1) NOT NULL,"  /* 'G': git, 'S': svn */
-            "need_pull       char(1) NOT NULL,"
-            "ssh_user_name   varchar NOT NULL,"
-            "ssh_port        varchar NOT NULL,"
-            "alias_path      varchar DEFAULT '',"  /* 最近一次成功布署指定的路径别名 */
-            "last_dp_sig     varchar DEFAULT '',"  /* 最近一次成功布署的版本号 */
-            "last_try_sig    varchar DEFAULT '',"  /* 最近一次尝试布署的版本号 */
-            "last_dp_id      bigint DEFAULT 0"  /* 最近一次尝试布署的 dpID */
+            "repo_id               int NOT NULL PRIMARY KEY,"
+            "create_time           timestamp with time zone NOT NULL DEFAULT current_timestamp(0),"
+            "path_on_host          varchar NOT NULL,"
+            "source_url            varchar NOT NULL,"
+            "source_branch         varchar NOT NULL,"
+            "source_vcs_type       char(1) NOT NULL,"  /* 'G': git, 'S': svn */
+            "need_pull             char(1) NOT NULL,"
+            "ssh_user_name         varchar NOT NULL,"
+            "ssh_port              varchar NOT NULL,"
+            "alias_path            varchar DEFAULT '',"  /* 最近一次成功布署指定的路径别名 */
+            "last_success_sig      varchar DEFAULT '',"  /* 最近一次成功布署的版本号 */
+            "last_dp_sig           varchar DEFAULT '',"  /* 最近一次尝试布署的版本号 */
+            "last_dp_ts            bigint DEFAULT 0,"  /* 最近一次尝试布署的时间戳 */
+            "last_dp_id            bigint DEFAULT 0"  /* 最近一次尝试布署的 dpID */
             ");"
 
-            "CREATE TABLE IF NOT EXISTS dp_log "
+            "CREATE TABLE IF       NOT EXISTS dp_log "
             "("
-            "repo_id         int NOT NULL,"
-            "dp_id           bigint NOT NULL,"
-            "time_stamp      bigint NOT NULL,"
-            "rev_sig         char(40) NOT NULL,"  /* '\0' 不会被存入 */
-            "host_ip         inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
-            "host_res        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，一一对应于布署过程中的各个阶段性成功 */
-            "host_err        char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
-            "host_timespent  smallint NOT NULL DEFAULT 0,"
-            "host_detail     varchar"
+            "repo_id               int NOT NULL,"
+            "dp_id                 bigint NOT NULL,"
+            "time_stamp            bigint NOT NULL,"
+            "rev_sig               char(40) NOT NULL,"  /* '\0' 不会被存入 */
+            "host_ip               inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
+            "host_res              char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，一一对应于布署过程中的各个阶段性成功 */
+            "host_err              char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
+            "host_timespent        smallint NOT NULL DEFAULT 0,"
+            "host_detail           varchar"
             ") PARTITION BY LIST (repo_id);",
 
             zFalse);
@@ -1709,6 +1688,11 @@ zinit_env(void) {
                     //pthread_mutex_lock(zRun_.p_commLock);
                     zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
                     //pthread_mutex_unlock(zRun_.p_commLock);
+
+                    /* 防止过多项目并发启动导致 DB 压力太大 */
+                    if (24 == i % 25) {
+                        sleep(5);
+                    }
                 }
             }
         }

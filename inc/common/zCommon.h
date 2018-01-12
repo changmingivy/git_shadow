@@ -129,7 +129,7 @@ typedef enum {
     Buf[0] = '9';\
 \
     Len += snprintf(Buf + Len, 510 - Len,\
-            "\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m ",\
+            "\n\033[31m[ %d-%d-%d %d:%d:%d ]\033[00m ",\
             pCurrentTime_->tm_year + 1900,\
             pCurrentTime_->tm_mon + 1,  /* Month (0-11) */\
             pCurrentTime_->tm_mday,\
@@ -137,13 +137,13 @@ typedef enum {
             pCurrentTime_->tm_min,\
             pCurrentTime_->tm_sec);\
 \
-    if (Pid == zRun_.p_sysInfo_->masterPid) {\
+    if (NULL == zpRepo_) {\
         snprintf(Buf + Len, 510 - Len,\
                 "\033[31;01mpid:\033[00m %d "\
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
-                "\n%s\n",\
+                "\n%s",\
                 Pid,\
                 __FILE__,\
                 __LINE__,\
@@ -157,7 +157,7 @@ typedef enum {
                 "\033[31;01mfiLe:\033[00m %s "\
                 "\033[31;01mline:\033[00m %d "\
                 "\033[31;01mfunc:\033[00m %s "\
-                "\n%s %s\n",\
+                "\n%s %s",\
                 Pid,\
                 __FILE__,\
                 __LINE__,\

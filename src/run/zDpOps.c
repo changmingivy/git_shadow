@@ -638,13 +638,13 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
             zLen += sprintf(zpData + zLen, "%s", zpRepoInfo[j]);
             zLen++;
         }
-
-        /* 子进程中的副本需要清理 */
-        cJSON_Delete(zpJRoot);
     }////
 
     if (0 > (zPid = fork())) {
         pthread_mutex_unlock(zRun_.p_commLock);
+
+        /* 子进程释放资源副本，父进程的资源会在调度函数末尾处理 */
+        cJSON_Delete(zpJRoot);
 
         zResNo = -126;
         goto zEndMark;
@@ -803,11 +803,20 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
     _i zErrNo = 0;
 
     char zData[1 + sizeof(struct zInnerState__)];
-
-    zData[0] = '1';
     struct zInnerState__ *zpInnerState_ = (struct zInnerState__ *) (zData + 1);
+    zData[0] = '1';
 
     // zpDpCcur_->errNo = 0;
+
+    /*
+     * 项目进程名称更改为
+     * git_shadow: <repoID>, TASK: <hostAddr>
+     */
+    memset(zpProcName, 0, zProcNameBufLen);
+    snprintf(zpProcName, zProcNameBufLen,
+            "git_shadow|==> id: %d, dp-to: %s",
+            zpRepo_->id,
+            zpDpCcur_->p_hostAddr);
 
     /* 判断是否需要执行目标机初始化环节 */
     if ('Y' == zpDpCcur_->needInit) {
@@ -1245,14 +1254,19 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
                 + (sizeof("($1,$2,$3,$4,''),") - 1) * zRegRes_.cnt
                 + zIpListStrLen);
     {////
+        /* 布署耗时基准 */
+        zpRepo_->dpBaseTimeStamp = time(NULL);
+
         /*
-         * 更新最近一次布署尝试的版本号
+         * 更新最近一次布署尝试的版本号与时间戳
          * 若 SSH 认证信息有变动，亦更新之
          */
         _i zLen = 0;
         zLen = sprintf(zpCommonBuf,
-                "UPDATE repo_meta SET last_try_sig = '%s',last_dp_id = %u",
-                zpRepo_->dpingSig,zpRepo_->dpID);
+                "UPDATE repo_meta SET last_dp_sig = '%s',last_dp_id = %u,last_dp_ts = %ld",
+                zpRepo_->dpingSig,
+                zpRepo_->dpID,
+                zpRepo_->dpBaseTimeStamp);
 
         if (NULL != zpSSHUserName
                 && 0 != strcmp(zpSSHUserName, zpRepo_->sshUserName)) {
@@ -1365,9 +1379,6 @@ zbatch_deploy(cJSON *zpJRoot, _i zSd) {
 
     /* 于此处更新项目结构中的强制布署标志 */
     zpRepo_->forceDpMark = zForceDpMark;
-
-    /* 布署耗时基准 */
-    zpRepo_->dpBaseTimeStamp = time(NULL);
 
     /* 拼接预插入布署记录的 SQL 命令 */
     zSQLLen = sizeof("INSERT INTO dp_log (repo_id,dp_id,time_stamp,rev_sig,host_ip) VALUES ") - 1;
@@ -1596,7 +1607,7 @@ zSkipMark:;
             i = 1;
             zpCommonBuf[0] = '8';
             i += sprintf(zpCommonBuf + 1,
-                    "UPDATE repo_meta SET last_dp_sig = '%s',alias_path = '%s' "
+                    "UPDATE repo_meta SET last_success_sig = '%s',alias_path = '%s' "
                     "WHERE repo_id = %d",
                     zpRepo_->lastDpSig,
                     zpRepo_->p_aliasPath,

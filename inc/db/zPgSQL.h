@@ -2,6 +2,7 @@
 #define ZPGSQL_H
 
 #include "zCommon.h"
+#include <semaphore.h>
 #include "libpq-fe.h"
 
 typedef PGconn zPgConnHd__;
@@ -44,6 +45,9 @@ struct zPgSQL__ {
 
     _i (* exec_once) (char *, char *, zPgRes__ **);
     _i (* exec_with_param_once) (char *, char *, _i, const char **, zPgRes__ **);
+
+    void (* conn_pool_init) (void);
+    _i (* write_db) (void *, _i, struct sockaddr *, socklen_t);
 };
 
 #endif  // #ifndef ZPGSQL_H
