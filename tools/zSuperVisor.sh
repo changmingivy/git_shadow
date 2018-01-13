@@ -187,7 +187,8 @@ do
     fi
 
     # 开头的 '7'：是服务端的 udp 服务索引，请求记录监控信息
-    echo "7('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5}),">&7
+    # 不使用 echo，避免末尾自动追加 '\n'
+    printf "7('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5}),">&7
 
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}

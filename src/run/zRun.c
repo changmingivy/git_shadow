@@ -254,7 +254,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     atexit(zexit_clean);
 
     /* 监控模块 DB 分区表预建 */
-    zThreadPool_.add(zsupervisor_prepare, NULL);
+    zsupervisor_prepare(NULL);
 
     /* 返回的 udp socket 已经做完 bind，若出错，其内部会 exit */
     static _i zMonitorSd;
