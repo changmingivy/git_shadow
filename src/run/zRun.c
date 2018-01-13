@@ -650,7 +650,7 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[4] = NULL;
     zRun_.p_sysInfo_->ops_udp[5] = NULL;
     zRun_.p_sysInfo_->ops_udp[6] = NULL;
-    zRun_.p_sysInfo_->ops_udp[7] = NULL;
+    zRun_.p_sysInfo_->ops_udp[7] = zwrite_db_supersivor;
     zRun_.p_sysInfo_->ops_udp[8] = zPgSQL_.write_db;
     zRun_.p_sysInfo_->ops_udp[9] = zRun_.write_log;
 }

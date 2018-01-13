@@ -186,8 +186,8 @@ do
         continue
     fi
 
-    # 开头的 '8 '：是服务端的 udp 服务索引，请求记录监控信息
-    echo "8('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5}),">&7
+    # 开头的 '7'：是服务端的 udp 服务索引，请求记录监控信息
+    echo "7('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5}),">&7
 
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}
