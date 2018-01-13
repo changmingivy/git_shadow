@@ -1634,7 +1634,7 @@ zinit_env(void) {
             "host_ip               inet NOT NULL,"  /* postgreSQL 内置 inet 类型，用于存放 ipv4/ipv6 地址 */
             "host_res              char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，一一对应于布署过程中的各个阶段性成功 */
             "host_err              char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
-            "host_timespent        smallint NOT NULL DEFAULT 0,"
+            "host_timespent        int NOT NULL DEFAULT 0,"
             "host_detail           varchar"
             ") PARTITION BY LIST (repo_id);",
 

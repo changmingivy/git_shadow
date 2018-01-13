@@ -154,7 +154,7 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
             "disk_io_s       bigint NOT NULL,"  /* io spent */
             "net_io_s        bigint NOT NULL,"  /* net spent */
             "disk_mu         bigint NOT NULL,"  /* disk max usage: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
-            "loadavg5        smallint NOT NULL"  /* system load average recent 5 mins */
+            "loadavg5        int NOT NULL"  /* system load average recent 5 mins */
             ") PARTITION BY RANGE (time_stamp);",
             NULL)) {
 
