@@ -42,15 +42,8 @@ static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
 static _s zDBPoolStack[zDB_POOL_SIZ];
 static _s zDBPoolStackHeader;
 
-/* 数据以 8k 为单位，批量写入 */
-static pthread_mutex_t zDBPoolBufLock = PTHREAD_MUTEX_INITIALIZER;
-static char zOptiBuf[8192];
-static _s zOptiDataLen = 0;
 
-
-/*
- * Public 接口
- */
+/* Public 接口 */
 struct zPgSQL__ zPgSQL_ = {
     .conn = zpg_conn,
     .conn_reset = zpg_conn_reset,
@@ -89,9 +82,7 @@ zpg_conn_pool_init(void) {
     }
 }
 
-/*
- * 连接 pgSQL server
- */
+/* 连接 pgSQL server */
 static zPgConnHd__ *
 zpg_conn(const char *zpConnInfo) {
     zPgConnHd__ *zpPgConnHd_ = PQconnectdb(zpConnInfo);
@@ -105,9 +96,7 @@ zpg_conn(const char *zpConnInfo) {
 }
 
 
-/*
- * 断线重连
- */
+/* 断线重连 */
 static void
 zpg_conn_reset(zPgConnHd__ *zpPgConnHd_) {
     PQreset(zpPgConnHd_);
@@ -131,9 +120,7 @@ zpg_exec(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, zbool_t zNeedRet) {
 }
 
 
-/*
- * 使用带外部参数的方式执行 SQL cmd
- */
+/* 使用带外部参数的方式执行 SQL cmd */
 static zPgResHd__ *
 zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet) {
     zPgResHd__ *zpPgResHd_ = PQexecParams(zpPgConnHd_, zpCmd, zParamCnt, NULL, zppParamValues, NULL, NULL, 0);
@@ -147,9 +134,7 @@ zpg_exec_with_param(zPgConnHd__ *zpPgConnHd_, const char *zpCmd, _i zParamCnt, c
 }
 
 
-/*
- * 预编译重复执行的 SQL cmd，加快执行速度
- */
+/* 预编译重复执行的 SQL cmd，加快执行速度 */
 static zPgResHd__ *
 zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjName, _i zParamCnt) {
     zPgResHd__ *zpPgResHd_ = PQprepare(zpPgConnHd_, zpPreObjName, zpSQL, zParamCnt, NULL);
@@ -163,9 +148,7 @@ zpg_prepare(zPgConnHd__ *zpPgConnHd_, const char *zpSQL, const char *zpPreObjNam
 }
 
 
-/*
- * 使用预编译的 SQL 对象快速执行 SQL cmd
- */
+/* 使用预编译的 SQL 对象快速执行 SQL cmd */
 static zPgResHd__ *
 zpg_prepare_exec(zPgConnHd__ *zpPgConnHd_, const char *zpPreObjName, _i zParamCnt, const char * const *zppParamValues, zbool_t zNeedRet) {
     zPgResHd__ *zpPgResHd_ = PQexecPrepared(zpPgConnHd_, zpPreObjName, zParamCnt, zppParamValues, NULL, NULL, 0);
@@ -245,9 +228,7 @@ zpg_res_clear(zPgResHd__ *zpPgResHd_, zPgRes__ *zpPgRes_) {
 }
 
 
-/*
- * 清理 pgSQL 连接句柄
- */
+/* 清理 pgSQL 连接句柄 */
 static void
 zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
     if (NULL != zpPgConnHd_) {
@@ -256,9 +237,7 @@ zpg_conn_clear(zPgConnHd__ *zpPgConnHd_) {
 }
 
 
-/*
- * 检查所在环境是否是线程安全的
- */
+/* 检查所在环境是否是线程安全的 */
 static zbool_t
 zpg_thread_safe_check() {
     return 1 == PQisthreadsafe() ? zTrue : zFalse;
@@ -351,8 +330,11 @@ zpg_exec_with_param_once(char *zpConnInfo, char *zpCmd, _i zParamCnt, const char
  * 通用的只写动作，无返回内容
  * 原生写入，没有 prepared 优化
  */
-static void
-zwrite_db_real(char *zpCmd) {
+static _i
+zwrite_db(void *zpCmd, _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
     _i zKeepID;
 
     /* 出栈 */
@@ -378,42 +360,6 @@ zwrite_db_real(char *zpCmd) {
     pthread_mutex_lock(& zDBPoolLock);
     zDBPoolStack[++zDBPoolStackHeader] = zKeepID;
     pthread_mutex_unlock(& zDBPoolLock);
-}
-
-
-/*
- * 首字符为空格的请求，执行缓存后批量写入
- * 否则即时写入
- */
-static _i
-zwrite_db(void *zp,
-        _i zSd __attribute__ ((__unused__)),
-        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
-        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
-
-    char *zpCmd = zp;
-
-    if (' ' == zpCmd[0]) {
-        if (0 == pthread_mutex_trylock(& zDBPoolBufLock)) {
-            /*
-             * 缓冲的数据量达到 8192 - 509 时，执行批量写入
-             * udp 接收的缓冲区大小 510，
-             * 除去开头的索引字符，最多只会传递 509bytes
-             */
-            if ((8192 - 509) < zOptiDataLen) {
-                zwrite_db_real(zOptiBuf);
-                zOptiDataLen = 0;
-            }
-
-            zOptiDataLen += sprintf(zOptiBuf + zOptiDataLen, "%s", zpCmd + 1);
-
-            pthread_mutex_unlock(& zDBPoolBufLock);
-        } else {
-            zwrite_db_real(zpCmd + 1);
-        }
-    } else {
-        zwrite_db_real(zpCmd);
-    }
 
     return 0;
 }

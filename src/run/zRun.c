@@ -56,13 +56,60 @@ struct zRun__ zRun_ = {
  * 项目进程内部分配空间，
  * 主进程中不可见
  */
-zRepo__ *zpRepo_;
+zRepo__ *zpRepo_ = NULL;
 
 /*
  * 项目并发启动控制
  * 监控数据写入缓冲区控制
  */
 static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
+
+/* 监控数据以 8M 为单位，批量写入 */
+static pthread_mutex_t zDBPoolBufLock = PTHREAD_MUTEX_INITIALIZER;
+static char *zpOptiBuf = NULL;
+static _i zOptiDataLen = 0;
+
+/* 缓存区满后，启用新线程写入磁盘并释放内存 */
+static void *
+zwrite_db_thread_wraper(void *zp) {
+    zPgSQL_.write_db(zp, 0, NULL, 0);
+
+    free(zp);
+
+    return NULL;
+}
+
+/*
+ * 缓冲的数据量达到 8192 * 1024 - 510 时，执行批量写入
+ * udp 接收的缓冲区大小 510，
+ */
+static _i
+zwrite_db_supersivor(void *zp,
+        _i zSd __attribute__ ((__unused__)),
+        struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
+        socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
+
+    pthread_mutex_lock(& zDBPoolBufLock);
+
+    if ((8192 * 1024 - 510) < zOptiDataLen) {
+        /* 去除最后一个逗号 */
+        zpOptiBuf[zOptiDataLen - 1] = '\0';
+
+        /* 缓存区满后，启用新线程写入磁盘 */
+        zThreadPool_.add(zwrite_db_thread_wraper, zpOptiBuf);
+
+        zMEM_ALLOC(zpOptiBuf, char, 8192 * 1024);
+
+        strcpy(zpOptiBuf, "INSERT INTO supervisor_log VALUES ");
+        zOptiDataLen = sizeof("INSERT INTO supervisor_log VALUES ") - 1;
+    }
+
+    zOptiDataLen += sprintf(zpOptiBuf + zOptiDataLen, "%s", zp);
+
+    pthread_mutex_unlock(& zDBPoolBufLock);
+
+    return 0;
+}
 
 /* 进程退出时，清理同一进程组的所有进程 */
 static void
@@ -132,6 +179,11 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
 
         zPgSQL_.write_db(zSQLBuf, 0, NULL, 0);
     }
+
+    /* DB 缓存区初始化 */
+    zMEM_ALLOC(zpOptiBuf, char, 8192 * 1024);
+    strcpy(zpOptiBuf, "INSERT INTO supervisor_log VALUES ");
+    zOptiDataLen = sizeof("INSERT INTO supervisor_log VALUES ") - 1;
 
     return NULL;
 }
