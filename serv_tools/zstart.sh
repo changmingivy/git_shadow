@@ -17,10 +17,6 @@ cd $zShadowPath
 #git stash
 #git pull  # 有时候不希望更新到最新代码
 
-# killall -SIGTERM postgres
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+\w*\s*${zShadowPath}/tools/zauto_restart.sh)"`
-kill -9 `ps ax -o pid,cmd | grep -v 'grep' | grep -oP "\d+(?=\s+${zShadowPath}/bin/git_shadow)"`
-
 mkdir -p ${zShadowPath}/log
 mkdir -p ${zShadowPath}/bin
 rm -rf ${zShadowPath}/bin/*
@@ -81,6 +77,7 @@ echo "work_mem = 64MB" >> ${zPgDataPath}/postgresql.conf
 sed -i '/#*max_stack_depth =/d' ${zPgDataPath}/postgresql.conf
 echo "max_stack_depth = $((`ulimit -s` / 1024 - 1))MB" >> ${zPgDataPath}/postgresql.conf
 
+# killall -SIGTERM postgres
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/createdb -O `whoami` dpDB
