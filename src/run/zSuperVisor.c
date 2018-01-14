@@ -79,11 +79,6 @@ zwrite_db_supersivor(void *zp,
 /* 监控模块 DB 预建 */
 static void *
 zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
-    /* +2 的意义: 防止恰好在临界时间添加记录导致异常 */
-    _i zBaseID = time(NULL) / 3600 + 2;
-
-    char zSQLBuf[512];
-
     if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
             "CREATE TABLE IF NOT EXISTS supervisor_log"
             "("
@@ -107,6 +102,8 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
 
     /* 每次启动时尝试创建必要的表，按小时分区（1天 == 3600秒） */
     /* 预建 10 天的分区表，没有指明 repo_id 监控数据，一律存放于 0 号表 */
+    char zSQLBuf[512];
+    _i zBaseID = time(NULL) / 3600;
     for (_i zID = 0; zID < 10 * 24; zID++) {
         sprintf(zSQLBuf,
                 "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
