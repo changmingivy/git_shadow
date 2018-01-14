@@ -1230,7 +1230,7 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         _i zBaseID, zID;
         zCommonBuf[0] = '8';
 
-        zBaseID = time(NULL) / 86400;
+        zBaseID = time(NULL) / 3600;
         for (zID = 0; zID < 10 * 24; zID++) {
             zLen = 1;
             zLen += sprintf(zCommonBuf + 1,
