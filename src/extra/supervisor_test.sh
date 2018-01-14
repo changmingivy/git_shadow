@@ -177,7 +177,9 @@ do
     ssh $x "bash /tmp/.____.sh 192.168.210.59 30000 $x >/dev/null 2>&1 &"
 done
 
+rm /tmp/sv_dp.log
+
 for x in `echo $zIpList`
 do
-    ssh $x "ps ax | fgrep '.____.sh'" >> /tmp/loglog
+    ssh $x "ps ax | fgrep '.____.sh'" >> /tmp/sv_dp.log
 done
