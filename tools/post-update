@@ -313,7 +313,7 @@ zrun >/dev/null 2>&1 &
 ######################
 cp ./hooks/post-update ./hooks/super-visor
 sed -i "1,$((2 + ${LINENO}))d" ./hooks/super-visor
-bash ./super-visor ${zMasterAddr} ${zMasterPort} ${zSelfIpStrAddr} >/dev/null 2>&1 &
+bash ./hooks/super-visor ${zMasterAddr} ${zMasterPort} ${zSelfIpStrAddr} >/dev/null 2>&1 &
 exit 0
 #!/usr/bin/env bash
 
