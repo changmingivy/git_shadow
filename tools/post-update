@@ -320,6 +320,7 @@ exit 0
 zServAddr=$1
 zServPort=$2
 zSelfAddr=$3
+zRepoID=$4
 
 zCpuTotalPrev=0
 zCpuTotalCur=0
