@@ -681,9 +681,9 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
      * !!! 必须在初始化项目库之前运行
      * 主进程常备线程数量：32
      * 项目进程常备线程数量：4
-     * 系统全局可启动线程数上限 1024
+     * 系统全局可启动线程数上限 4096
      */
-    zThreadPool_.init(32, 1024);
+    zThreadPool_.init(32, 4096);
 }
 
 static void
