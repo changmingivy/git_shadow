@@ -2,7 +2,6 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <string.h>
@@ -23,7 +22,6 @@ extern struct zMd5Sum__ zMd5Sum_;
 extern struct zSuperVisor__ zSuperVisor_;
 
 static void zglob_data_config(zArgvInfo__ *zpArgvInfo_);
-static void * zsys_monitor(void *zp);
 
 static void zstart_server(zArgvInfo__ *zpArgvInfo_);
 static void * zops_route_tcp_master(void *zp);
@@ -165,7 +163,7 @@ zstart_server(zArgvInfo__ *zpArgvInfo_) {
     zThreadPool_.add(zudp_daemon, & zMonitorSd);
 
     /* 只运行于主进程，系统状态监控 */
-    zThreadPool_.add(zsys_monitor, NULL);
+    zThreadPool_.add(zSuperVisor_.sys_monitor, NULL);
 
     /*
      * 返回的 socket 已经做完 bind 和 listen
@@ -548,86 +546,6 @@ zserv_vec_init(void) {
     zRun_.p_sysInfo_->ops_udp[7] = zSuperVisor_.write_db;
     zRun_.p_sysInfo_->ops_udp[8] = zPgSQL_.write_db;
     zRun_.p_sysInfo_->ops_udp[9] = zRun_.write_log;
-}
-
-/*
- * 定时获取系统全局负载信息
- * 监控项目进程运行状态
- * 定期扩展 DB 监控分区表
- */
-static void *
-zsys_monitor(void *zp __attribute__ ((__unused__))) {
-    FILE *zpHandler = NULL;
-
-    _ul zTotalMem = 0,
-        zAvalMem = 0;
-
-    _ui i = 0;
-    pid_t zPid = 0;
-
-    _i zBaseID = 0,
-       zID = 0,
-       j = 0;
-
-    char zBuf[512];
-
-    zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
-    sleep(10);
-
-    for (i = 0;; i++) {
-        fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
-        zRun_.p_sysInfo_->memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
-        fseek(zpHandler, 0, SEEK_SET);
-
-        /* 每分钟遍历检查一次，若有项目进程异常退出，则重启之 */
-        if (59 == i % 60) {
-            for (j = 0; j < zGLOB_REPO_NUM_LIMIT; j++) {
-                if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[j], NULL, WNOHANG)) {
-                    zCHECK_NEGATIVE_EXIT(zPid = fork());
-
-                    if (0 == zPid) {
-                        zNativeOps_.repo_init(zRun_.p_sysInfo_->pp_repoMetaVec[j], -1);
-                    } else {
-                        pthread_mutex_lock(zRun_.p_commLock);
-                        zRun_.p_sysInfo_->repoPidVec[j] = zPid;
-                        pthread_mutex_unlock(zRun_.p_commLock);
-
-                        sprintf(zBuf, "crash ==> repoID %d, restarting...", j);
-                        zwrite_log(zBuf, 0, NULL, 0);
-                    }
-                }
-            }
-        }
-
-        /* 每天执行一次 */
-        if (86399 == i % 86400) {
-            /* 创建之后 10 天的 supervisor_log 分区表 */
-            zBaseID = time(NULL) /3600;
-            for (zID = 0; zID < 10 * 24; zID++) {
-                sprintf(zBuf,
-                        "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
-                        "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d);",
-                        zBaseID + zID + 1,
-                        3600 * (zBaseID + zID),
-                        3600 * (zBaseID + zID + 1));
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-
-            /* 清除 30 天之前的 supervisor_log 分区表 */
-            for (zID = 0; zID < 10 * 24; zID++) {
-                sprintf(zBuf,
-                        "DROP TABLE IF EXISTS supervisor_log_%d",
-                        zBaseID - zID - 30 * 24);
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-        }
-
-        sleep(1);
-    }
-
-    return NULL;
 }
 
 /*

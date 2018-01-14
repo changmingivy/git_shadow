@@ -36,7 +36,7 @@ static _i zwrite_db(void *zp, _i zSd __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__)));
 
 /* postgreSQL 连接池 */
-#define zDB_POOL_SIZ 256
+#define zDB_POOL_SIZ 64
 static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
 static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
 static _s zDBPoolStack[zDB_POOL_SIZ];
