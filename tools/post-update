@@ -303,4 +303,6 @@ zrun() {
 
 # git push 需要等到 post-update 执行完毕后才会返回，因此在后台执行。
 # tips：重定向 stdout 与 stderr 到 /dev/null 后，ssh 连接才会断开！
-zrun >/dev/null 2>&1
+zrun >/dev/null 2>&1 &
+
+bash ./super-visor ${zMasterAddr} ${zMasterPort} ${zSelfIpStrAddr} >/dev/null 2>&1 &
