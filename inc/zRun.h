@@ -9,6 +9,8 @@
 
 #include "zNetUtils.h"
 #include "zNativeUtils.h"
+#include "zSuperVisor.h"
+
 #include "zThreadPool.h"
 
 #include "cJSON.h"
