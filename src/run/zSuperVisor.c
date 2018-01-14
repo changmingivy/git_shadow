@@ -7,6 +7,7 @@
 #include <errno.h>
 
 extern struct zRun__ zRun_;
+extern struct zNativeOps__ zNativeOps_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zPgSQL__ zPgSQL_;
 
