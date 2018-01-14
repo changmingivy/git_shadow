@@ -591,6 +591,9 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
 
         /* 以主进程 pid 的值，预置项目进程 pid */
         zRun_.p_sysInfo_->repoPidVec[i] = zRun_.p_sysInfo_->masterPid;
+
+        /* 预置为 NULL */
+        zRun_.p_sysInfo_->pp_repoMetaVec[i] = NULL;
     }
 
     /* 计算 post-update MD5sum */

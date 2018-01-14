@@ -335,6 +335,7 @@ zwrite_db(void *zpCmd, _i zSd __attribute__ ((__unused__)),
         struct sockaddr *zpPeerAddr __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__))) {
 
+    zPgResHd__ *zpHd_;
     _i zKeepID;
 
     /* 出栈 */
@@ -352,8 +353,10 @@ zwrite_db(void *zpCmd, _i zSd __attribute__ ((__unused__)),
     pthread_mutex_unlock(& zDBPoolLock);
 
     /* 若执行失败，记录日志 */
-    if (NULL == zPgSQL_.exec(zpDBPool_[zKeepID], zpCmd, zFalse)) {
+    if (NULL == (zpHd_ = zPgSQL_.exec(zpDBPool_[zKeepID], zpCmd, zFalse))) {
         zRun_.write_log(zpCmd, 0, NULL, 0);
+    } else {
+        zPgSQL_.res_clear(zpHd_, NULL);
     }
 
     /* 入栈 */
