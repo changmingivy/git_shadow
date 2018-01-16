@@ -838,7 +838,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
         } else {
             zpDpCcur_->errNo = -23;
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
             zSTATE_CONFIRM();
             goto zEndMark;
         }
@@ -933,21 +933,21 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                 } else {
                     zpDpCcur_->errNo = -12;
 
-                    snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+                    snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
                     zSTATE_CONFIRM();
                     goto zEndMark;
                 }
             } else {
                 zpDpCcur_->errNo = -23;
 
-                snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+                snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
                 zSTATE_CONFIRM();
                 goto zEndMark;
             }
         } else {
             zpDpCcur_->errNo = -12;
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
             zSTATE_CONFIRM();
             goto zEndMark;
         }
