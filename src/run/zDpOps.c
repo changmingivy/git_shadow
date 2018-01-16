@@ -657,6 +657,12 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 == zPid) {
         pthread_mutex_unlock(zRun_.p_commLock);
 
+        /*
+         * 新建项目时，若新建的子进程异常退出，同样会触发 atexit() 清理动作，
+         * 故新建项目时，首先将子进程的 zpRepo_ 置为非 NULL 值
+         */
+        zpRepo_ = NULL == (void *) 1 ? (void *) 2 : (void *) 1;
+
         zNativeOps_.repo_init(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], zSd);
     } else {
         zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;

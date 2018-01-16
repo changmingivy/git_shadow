@@ -67,7 +67,13 @@ static pthread_mutex_t zCommLock = PTHREAD_MUTEX_INITIALIZER;
 /* 进程退出时，清理同一进程组的所有进程 */
 static void
 zexit_clean(void) {
-    kill(0, SIGUSR1);
+    /*
+     * 新建项目时，若新建的子进程异常退出，同样会触发清理动作，
+     * 故新建项目时，首先将子进程的 zpRepo_ 置为非 NULL 值
+     */
+    if (NULL == zpRepo_) {
+        kill(0, SIGUSR1);
+    }
 }
 
 /* 写日志 */
