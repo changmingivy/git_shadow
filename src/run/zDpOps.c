@@ -722,11 +722,11 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             " };"\
 \
-            "chmod 0755 ${zPath}/.git/hooks/post-update;"\
             "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then "\
                 "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
                 "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
-            "fi;",\
+            "fi;"\
+            "chmod 0755 ${zPath}/.git/hooks/*;",\
             zRun_.p_sysInfo_->p_servPath,\
             zpRepo_->p_path + zRun_.p_sysInfo_->homePathLen,\
             zRun_.p_sysInfo_->netSrv_.p_ipAddr,\
