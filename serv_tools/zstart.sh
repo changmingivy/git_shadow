@@ -77,8 +77,8 @@ echo "work_mem = 64MB" >> ${zPgDataPath}/postgresql.conf
 sed -i '/#*max_stack_depth =/d' ${zPgDataPath}/postgresql.conf
 echo "max_stack_depth = $((`ulimit -s` / 1024 - 1))MB" >> ${zPgDataPath}/postgresql.conf
 
-# killall -SIGTERM postgres
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
+${zPgBinPath}/pg_ctl stop -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/createdb -O `whoami` dpDB
 
