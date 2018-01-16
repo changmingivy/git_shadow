@@ -758,30 +758,28 @@ zcode_sync(_ui *zpCnter) {
 
 
 /*
- * 定时调整分区表：每天尝试创建之后 10 天的分区表，并删除 30 天之前的表；
+ * 定时调整分区表：每天尝试创建之后 10 天的分区表，删除旧分区表动作在主进程中统一进行；
  * 以 UNIX 时间戳 / 86400 秒的结果进行数据分区，
  * 表示从 1970-01-01 00:00:00 开始的整天数，每天 0 点整作为临界
  */
 static void
 zpg_partition_mgmt(_ui *zpCnter) {
-    _i zBaseID = time(NULL) / 86400,
-       zID = 0,
-       i;
-
     char zCmdBuf[512];
     zCmdBuf[0] = '8';
 
-    /* 创建之后 10 天的 dp_log 分区表 */
-    for (zID = 0; zID < 10; zID++) {
+    _i zBaseID, zID, i;
+
+    /* 创建之后 10 * 24 小时的 supervisor_log 分区表 */
+    zBaseID = time(NULL) / 3600;
+    for (zID = 0; zID < 10 * 24; zID++) {
         i = 1;
         i += sprintf(zCmdBuf + 1,
-                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-                "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                zpRepo_->id,
+                "CREATE TABLE IF NOT EXISTS supervisor_log_%d_%d "
+                "PARTITION OF supervisor_log_%d FOR VALUES IN (%d);",
                 zBaseID + zID + 1,
                 zpRepo_->id,
-                86400 * (zBaseID + zID),
-                86400 * (zBaseID + zID + 1));
+                zBaseID + zID + 1,
+                zpRepo_->id);
 
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
@@ -792,12 +790,17 @@ zpg_partition_mgmt(_ui *zpCnter) {
         }
     }
 
-    /* 清除 30 天之前的 dp_log 分区表 */
+    /* 创建之后 10 天的 dp_log 分区表 */
+    zBaseID /= 24;
     for (zID = 0; zID < 10; zID++) {
         i = 1;
         i += sprintf(zCmdBuf + 1,
-                "DROP TABLE IF EXISTS dp_log_%d_%d",
-                zpRepo_->id, zBaseID - zID - 30);
+                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
+                "PARTITION OF dp_log_%d FOR VALUES IN (%d);",
+                zBaseID + zID + 1,
+                zpRepo_->id,
+                zBaseID + zID + 1,
+                zpRepo_->id);
 
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
                 (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
@@ -1219,46 +1222,46 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
     strcpy(zpRepo_->sshUserName, zppRepoMeta[6]);
     strcpy(zpRepo_->sshPort, zppRepoMeta[7]);
 
-    /*
-     * 每次启动时尝试创建必要的表，
-     * 按天分区（1天 == 86400秒）
-     * +2 的意义: 防止恰好在临界时间添加记录导致异常
-     */
-    _i zBaseID = time(NULL) / 86400 + 2;
+    {////
+        /*
+         * 每次启动时尝试创建必要的表，
+         * 按天分区（1天 == 86400秒）
+         */
+        _i zBaseID, zID;
+        zCommonBuf[0] = '8';
 
-    /*
-     * 新建项目时需要执行一次
-     * 后续不需要再执行
-     */
-    if (0 <= zSd) {
-        sprintf(zCommonBuf,
-                "CREATE TABLE IF NOT EXISTS dp_log_%d "
-                "PARTITION OF dp_log FOR VALUES IN (%d) "
-                "PARTITION BY RANGE (time_stamp);"
+        zBaseID = time(NULL) / 3600;
+        for (zID = 0; zID < 10 * 24; zID++) {
+            zLen = 1;
+            zLen += sprintf(zCommonBuf + 1,
+                    "CREATE TABLE IF NOT EXISTS supervisor_log_%d_%d "
+                    "PARTITION OF supervisor_log_%d FOR VALUES IN (%d);",
+                    zBaseID + zID + 1,
+                    zpRepo_->id,
+                    zBaseID + zID + 1,
+                    zpRepo_->id);
 
-                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-                "PARTITION OF dp_log_%d FOR VALUES FROM (MINVALUE) TO (%d);",
-            zpRepo_->id, zpRepo_->id,
-            zpRepo_->id, zBaseID, zpRepo_->id, 86400 * zBaseID);
-
-        if (0 != (zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo, zCommonBuf, NULL))) {
-            zERR_CLEAN_AND_EXIT(zErrNo);
+            sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
+                    (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                    zRun_.p_sysInfo_->unAddrLenMaster);
         }
-    }
 
-    zCommonBuf[0] = '8';
-    for (_i zID = 0; zID < 10; zID++) {
-        zLen = 1;
-        zLen += sprintf(zCommonBuf + 1,
-                "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
-                "PARTITION OF dp_log_%d FOR VALUES FROM (%d) TO (%d);",
-                zpRepo_->id, zBaseID + zID + 1,
-                zpRepo_->id, 86400 * (zBaseID + zID), 86400 * (zBaseID + zID + 1));
+        zBaseID /= 24;
+        for (zID = 0; zID < 10; zID++) {
+            zLen = 1;
+            zLen += sprintf(zCommonBuf + 1,
+                    "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
+                    "PARTITION OF dp_log_%d FOR VALUES IN (%d);",
+                    zBaseID + zID + 1,
+                    zpRepo_->id,
+                    zBaseID + zID + 1,
+                    zpRepo_->id);
 
-        sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
-                (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
-                zRun_.p_sysInfo_->unAddrLenMaster);
-    }
+            sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
+                    (struct sockaddr *) & zRun_.p_sysInfo_->unAddrMaster,
+                    zRun_.p_sysInfo_->unAddrLenMaster);
+        }
+    }////
 
     /*
      * ====  提取项目元信息 ====
@@ -1636,14 +1639,42 @@ zinit_env(void) {
             "host_err              char(1)[] NOT NULL DEFAULT '{}',"  /* 无限长度数组，默为空数组，每一位代表一种错误码 */
             "host_timespent        int NOT NULL DEFAULT 0,"
             "host_detail           varchar"
-            ") PARTITION BY LIST (repo_id);",
+            ") PARTITION BY RANGE (time_stamp);",
 
             zFalse);
 
     if (NULL == zpPgResHd_) {
         zPRINT_ERR_EASY("");
         exit(1);
+    } else {
+        zPgSQL_.res_clear(zpPgResHd_, NULL);
     }
+
+
+    {////
+        char zSQLBuf[512];
+        _i zBaseID, zID;
+
+        /* 每次启动时尝试创建必要的表，按小时分区（1天 == 3600秒） */
+        /* 预建 10 天的分区表 */
+        zBaseID = time(NULL) / 86400;
+        for (zID = 0; zID < 10; zID++) {
+            sprintf(zSQLBuf,
+                    "CREATE TABLE IF NOT EXISTS dp_log_%d "
+                    "PARTITION OF dp_log FOR VALUES FROM (%d) TO (%d) "
+                    "PARTITION BY LIST (repo_id);",
+                    zBaseID + zID + 1,
+                    86400 * (zBaseID + zID),
+                    86400 * (zBaseID + zID + 1));
+
+            if (NULL == (zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_, zSQLBuf, zFalse))) {
+                zPRINT_ERR_EASY("");
+                exit(1);
+            } else {
+                zPgSQL_.res_clear(zpPgResHd_, NULL);
+            }
+        }
+    }////
 
     /* 查询已有项目信息 */
     zpPgResHd_ = zPgSQL_.exec(zpPgConnHd_,

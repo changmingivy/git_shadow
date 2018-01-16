@@ -77,8 +77,8 @@ echo "work_mem = 64MB" >> ${zPgDataPath}/postgresql.conf
 sed -i '/#*max_stack_depth =/d' ${zPgDataPath}/postgresql.conf
 echo "max_stack_depth = $((`ulimit -s` / 1024 - 1))MB" >> ${zPgDataPath}/postgresql.conf
 
-# killall -SIGTERM postgres
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
+${zPgBinPath}/pg_ctl stop -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/createdb -O `whoami` dpDB
 
@@ -120,6 +120,8 @@ cd ${zShadowPath}/src &&
     make SSH_LIB_DIR=${zLibSshPath} GIT_LIB_DIR=${zLibGitPath} PG_LIB_DIR=${zPgLibPath} install &&
     make clean
 strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
+
+killall -SIGUSR1 git_shadow
 
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow\
