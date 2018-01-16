@@ -121,6 +121,8 @@ cd ${zShadowPath}/src &&
     make clean
 strip ${zShadowPath}/bin/git_shadow  # RELEASE 版本
 
+killall -SIGUSR1 git_shadow
+
 export LD_LIBRARY_PATH=${zLibSshPath}:${zLibGitPath}:${zPgLibPath}:${LD_LIBRARY_PATH}
 ${zShadowPath}/bin/git_shadow\
     -x ${zShadowPath}\
