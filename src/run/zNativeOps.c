@@ -868,10 +868,11 @@ zcron_ops(void *zp) {
 } while(0)
 
 #define zERR_CLEAN_AND_EXIT(zResNo) do {\
-    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);\
     if (0 <= zSd) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zpRepo_->p_path);\
+        zNetUtils_.send(zSd, zCommonBuf, sprintf(zCommonBuf, "{\"errNo\":%d,\"content\":\"%s\"}", zResNo, zRun_.p_sysInfo_->p_errVec[-1 * zResNo]));\
     }\
+    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);\
     exit(1);\
 } while(0)
 
@@ -925,6 +926,10 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             || 0 >= zpRepo_->id) {
         free(zpRepo_);
 
+        if (0 <= zSd) {
+            zNetUtils_.send(zSd, zCommonBuf,
+                    sprintf(zCommonBuf, "{\"errNo\":-32,\"content\":\"%s\"}", zRun_.p_sysInfo_->p_errVec[32]));
+        }
         zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[32]);
         exit(1);
     }
@@ -945,6 +950,10 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
         zPosixReg_.free_res(&zRegRes_);
         free(zpRepo_);
 
+        if (0 <= zSd) {
+            zNetUtils_.send(zSd, zCommonBuf,
+                    sprintf(zCommonBuf, "{\"errNo\":-29,\"content\":\"%s\"}", zRun_.p_sysInfo_->p_errVec[29]));
+        }
         zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[29]);
         exit(1);
     }
@@ -1004,6 +1013,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
              */
             if (0 <= zSd) {
                 zFREE_SOURCE();
+
+                zNetUtils_.send(zSd, zCommonBuf,
+                        sprintf(zCommonBuf, "{\"errNo\":-36,\"content\":\"%s\"}", zRun_.p_sysInfo_->p_errVec[36]));
                 zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[36]);
                 exit(1);
             } else {
