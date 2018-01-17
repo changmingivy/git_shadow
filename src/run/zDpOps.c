@@ -702,7 +702,7 @@ zssh_exec_simple(const char *zpSSHUserName,
 
 #define zGENERATE_SSH_CMD(zpCmdBuf) do {\
     sprintf(zpCmdBuf,\
-            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;zMd5=%s"\
+            "zServPath=%s;zPath=%s;zIP=%s;zPort=%s;zMd5=%s;"\
             "kill `ps ax -o pid,ppid,cmd|grep -oP \"^.*(?=git-receive-pack\\s+${zPath}/.git)\"`;"\
 \
             "exec 5<>/dev/tcp/${zIP}/${zPort};"\
@@ -1572,7 +1572,7 @@ zSkipMark:;
     }
 
     /*
-     * 等待所有工作线程完成任务
+     * 等待所有任务完成
      * 或新的布署请求到达
      */
     pthread_mutex_lock(& (zpRepo_->dpSyncLock));
