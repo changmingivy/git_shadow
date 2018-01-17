@@ -657,6 +657,12 @@ zadd_repo(cJSON *zpJRoot, _i zSd) {
     if (0 == zPid) {
         pthread_mutex_unlock(zRun_.p_commLock);
 
+        /*
+         * 新建项目时，若新建的子进程异常退出，同样会触发 atexit() 清理动作，
+         * 故新建项目时，首先将子进程的 zpRepo_ 置为非 NULL 值
+         */
+        zpRepo_ = NULL == (void *) 1 ? (void *) 2 : (void *) 1;
+
         zNativeOps_.repo_init(zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID], zSd);
     } else {
         zRun_.p_sysInfo_->repoPidVec[zRepoID] = zPid;
@@ -722,9 +728,9 @@ zssh_exec_simple(const char *zpSSHUserName,
                 "exec 5<&-;exec 5>&-;"\
             " };"\
 \
-            "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then "\
+            "if [[ ${zMd5} != `md5sum ${zPath}/.git/hooks/post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then "\
                 "zTcpReq \"${zIP}\" \"${zPort}\" \"{\\\"opsID\\\":14,\\\"path\\\":\\\"${zServPath}/tools/post-update\\\"}\" \"${zPath}/.git/hooks/post-update\";"\
-                "if [[ ${zMd5} != `md5sum post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
+                "if [[ ${zMd5} != `md5sum ${zPath}/.git/hooks/post-update|grep -oE '^.{32}'|tr '[A-Z]' '[a-z]'` ]];then exit 212;fi;"\
             "fi;"\
             "chmod 0755 ${zPath}/.git/hooks/post-update;",\
             zRun_.p_sysInfo_->p_servPath,\
@@ -832,7 +838,7 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
         } else {
             zpDpCcur_->errNo = -23;
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
             zSTATE_CONFIRM();
             goto zEndMark;
         }
@@ -927,21 +933,21 @@ zdp_ccur(zDpCcur__ *zpDpCcur_) {
                 } else {
                     zpDpCcur_->errNo = -12;
 
-                    snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+                    snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
                     zSTATE_CONFIRM();
                     goto zEndMark;
                 }
             } else {
                 zpDpCcur_->errNo = -23;
 
-                snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+                snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
                 zSTATE_CONFIRM();
                 goto zEndMark;
             }
         } else {
             zpDpCcur_->errNo = -12;
 
-            snprintf(zpInnerState_->replyType, 4, "E%d", -zErrNo);
+            snprintf(zpInnerState_->replyType, 4, "E%d", -1 * zErrNo);
             zSTATE_CONFIRM();
             goto zEndMark;
         }
