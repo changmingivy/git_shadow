@@ -716,8 +716,8 @@ zdel_repo(cJSON *zpJRoot, _i zSd) {
         goto zEndMark;
     }
 
-    /* 从主进程中反注册自身 pid，从而不再接受服务请求 */
-    zRun_.p_sysInfo_->repoPidVec[zRepoID] = zRun_.p_sysInfo_->masterPid;
+    /* 通知主进程 sys_monitor 不必尝试重启 */
+    zRun_.p_sysInfo_->pp_repoMetaVec[zRepoID] = NULL;
 
     /* 返回成功信息 */
     zNetUtils_.send(zSd, "{\"errNo\":0}", sizeof("{\"errNo\":0}") - 1);

@@ -160,7 +160,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
         if (59 == i % 60) {
             for (j = 0; j < zGLOB_REPO_NUM_LIMIT; j++) {
                 if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[j], NULL, WNOHANG)
-                        && zRun_.p_sysInfo_->masterPid != zRun_.p_sysInfo_->repoPidVec[j]) {
+                        && NULL != zRun_.p_sysInfo_->pp_repoMetaVec[j]) {
                     zCHECK_NEGATIVE_EXIT(zPid = fork());
 
                     if (0 == zPid) {
