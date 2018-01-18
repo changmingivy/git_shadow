@@ -247,7 +247,7 @@ zops_route_tcp_master(void *zp) {
 zDirectServ:;
         char zDataBuf[8192] = {'\0'};
         _i zDataLen = 0,
-        zResNo = 0;
+        zErrNo = 0;
 
         cJSON *zpJRoot = NULL;
         cJSON *zpJ = NULL;
@@ -270,12 +270,12 @@ zDirectServ:;
                 case 14:
                 case 1:
                 case 5:
-                    if (0 > (zResNo = zRun_.p_sysInfo_->ops_tcp[zOpsID](zpJRoot, zSd))) {
+                    if (0 > (zErrNo = zRun_.p_sysInfo_->ops_tcp[zOpsID](zpJRoot, zSd))) {
                         zDataLen = snprintf(zDataBuf, 8192,
                                 "{\"errNo\":%d,\"content\":\"[opsID: %d] %s\"}",
-                                zResNo,
+                                zErrNo,
                                 zOpsID,
-                                zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);
+                                zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);
                         zNetUtils_.send(zSd, zDataBuf, zDataLen);
                     }
 
@@ -525,10 +525,10 @@ zserv_vec_init(void) {
      * 索引范围：0 至 zTCP_SERV_HASH_SIZ - 1
      */
     zRun_.p_sysInfo_->ops_tcp[0] = zDpOps_.tcp_pang;  /* 目标机使用此接口测试与服务端的连通性 */
-    zRun_.p_sysInfo_->ops_tcp[1] = zDpOps_.creat;  /* 创建新项目 */
-    zRun_.p_sysInfo_->ops_tcp[2] = NULL;
+    zRun_.p_sysInfo_->ops_tcp[1] = zDpOps_.add_repo;  /* 创建新项目 */
+    zRun_.p_sysInfo_->ops_tcp[2] = zDpOps_.del_repo;  /* 删除项目 */
     zRun_.p_sysInfo_->ops_tcp[3] = zDpOps_.repo_update;  /* 源库URL或分支更改 */
-    zRun_.p_sysInfo_->ops_tcp[4] = NULL;  /* 删除项目接口预留 */
+    zRun_.p_sysInfo_->ops_tcp[4] = NULL;
     zRun_.p_sysInfo_->ops_tcp[5] = zhistory_import;  /* 临时接口，用于导入旧版系统已产生的数据 */
     zRun_.p_sysInfo_->ops_tcp[6] = NULL;
     zRun_.p_sysInfo_->ops_tcp[7] = zDpOps_.glob_res_confirm;  /* 目标机自身布署成功之后，向服务端核对全局结果，若全局结果是失败，则执行回退 */

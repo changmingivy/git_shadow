@@ -156,10 +156,11 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
         zRun_.p_sysInfo_->memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
         fseek(zpHandler, 0, SEEK_SET);
 
-        /* 每分钟遍历检查一次，若有项目进程异常退出，则重启之 */
+        /* 每分钟遍历检查一次，若有项目进程'异常'退出，则重启之 */
         if (59 == i % 60) {
             for (j = 0; j < zGLOB_REPO_NUM_LIMIT; j++) {
-                if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[j], NULL, WNOHANG)) {
+                if (0 < waitpid(zRun_.p_sysInfo_->repoPidVec[j], NULL, WNOHANG)
+                        && zRun_.p_sysInfo_->masterPid != zRun_.p_sysInfo_->repoPidVec[j]) {
                     zCHECK_NEGATIVE_EXIT(zPid = fork());
 
                     if (0 == zPid) {

@@ -198,7 +198,7 @@ ztry_connect(struct sockaddr *zpAddr_, size_t zSiz, _i zIpFamily, _i zSockType, 
  */
 static _i
 zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
-     _i zResNo = -1;
+     _i zErrNo = -1;
 
      _i zSockType, zProtoType;
 
@@ -221,14 +221,14 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
                             //.ai_flags = AI_NUMERICHOST|AI_NUMERICSERV,
                         };
 
-        if (0 != (zResNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
-            zPRINT_ERR_EASY(gai_strerror(zResNo));
-            zResNo = -1;
+        if (0 != (zErrNo = getaddrinfo(zpHost, zpPort, &zHints_, &zpRes_))) {
+            zPRINT_ERR_EASY(gai_strerror(zErrNo));
+            zErrNo = -1;
             goto zEndMark;
         }
 
         for (zpAddrInfo_ = zpRes_; NULL != zpAddrInfo_; zpAddrInfo_ = zpAddrInfo_->ai_next) {
-            if(0 < (zResNo = ztry_connect(zpAddrInfo_->ai_addr,
+            if(0 < (zErrNo = ztry_connect(zpAddrInfo_->ai_addr,
                             (AF_INET6 == zpAddrInfo_->ai_family) ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in),
                             zpAddrInfo_->ai_family, zSockType, zProtoType))) {
 
@@ -238,7 +238,7 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
         }
 
         freeaddrinfo(zpRes_);
-        zResNo = -1;
+        zErrNo = -1;
         goto zEndMark;
     } else {
         struct sockaddr_un zUN;
@@ -247,16 +247,16 @@ zconnect(char *zpHost, char *zpPort, char *zpUNPath, znet_proto_t zProto) {
                 "%s",
                 zpUNPath);
 
-        if (0 > (zResNo = ztry_connect((struct sockaddr *) &zUN,
+        if (0 > (zErrNo = ztry_connect((struct sockaddr *) &zUN,
                         SUN_LEN(&zUN),
                         PF_UNIX, zSockType, zProtoType))) {
-            zResNo = -1;
+            zErrNo = -1;
             goto zEndMark;
         }
     }
 
 zEndMark:
-    return zResNo;
+    return zErrNo;
 }
 
 

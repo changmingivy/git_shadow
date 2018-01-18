@@ -867,12 +867,12 @@ zcron_ops(void *zp) {
     zpRepo_ = NULL;\
 } while(0)
 
-#define zERR_CLEAN_AND_EXIT(zResNo) do {\
+#define zERR_CLEAN_AND_EXIT(zErrNo) do {\
     if (0 <= zSd) {  /* 新建项目失败返回，则删除路径 */\
         zNativeUtils_.path_del(zpRepo_->p_path);\
-        zNetUtils_.send(zSd, zCommonBuf, sprintf(zCommonBuf, "{\"errNo\":%d,\"content\":\"%s\"}", zResNo, zRun_.p_sysInfo_->p_errVec[-1 * zResNo]));\
+        zNetUtils_.send(zSd, zCommonBuf, sprintf(zCommonBuf, "{\"errNo\":%d,\"content\":\"%s\"}", zErrNo, zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]));\
     }\
-    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zResNo]);\
+    zPRINT_ERR_EASY(zRun_.p_sysInfo_->p_errVec[-1 * zErrNo]);\
     exit(1);\
 } while(0)
 
