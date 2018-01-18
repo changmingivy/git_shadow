@@ -11,7 +11,8 @@ struct zDpOps__ {
     _i (* print_diff_files) (cJSON *, _i);
     _i (* print_diff_contents) (cJSON *, _i);
 
-    _i (* creat) (cJSON *, _i);
+    _i (* add_repo) (cJSON *, _i);
+    _i (* del_repo) (cJSON *, _i);
 
     _i (* dp) (cJSON *, _i);
 
