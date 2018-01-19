@@ -82,17 +82,17 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
     if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
             "CREATE TABLE IF NOT EXISTS supervisor_log"
             "("
+            "repo_id         smallint DEFAULT 0,"  /* 所属项目 ID */
             "ip              inet NOT NULL,"
-            "time_stamp      bigint NOT NULL,"
-            "cpu_t           bigint NOT NULL,"  /* cpu total */
-            "cpu_s           bigint NOT NULL,"  /* cpu spent */
-            "mem_t           int NOT NULL,"  /* mem total */
-            "mem_s           int NOT NULL,"  /* mem spent */
-            "disk_io_s       bigint NOT NULL,"  /* io spent */
-            "net_io_s        bigint NOT NULL,"  /* net spent */
-            "disk_mu         bigint NOT NULL,"  /* disk max usage: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
+            "time_stamp      int NOT NULL,"
             "loadavg5        int NOT NULL,"  /* system load average recent 5 mins */
-            "repo_id         smallint DEFAULT 0"  /* 所属项目 ID */
+            "cpu_r           smallint NOT NULL,"  /* = 10000 * cpu usage rate */
+            "mem_r           smallint NOT NULL,"  /* = 10000 * mem usage rate */
+            "disk_io_rd_s    int NOT NULL,"  /* io_read tps spent */
+            "disk_io_wr_s    int NOT NULL,"  /* io_write tps spent */
+            "net_io_rd_s     int NOT NULL,"  /* net_read tps spent */
+            "net_io_wr_s     int NOT NULL,"  /* net_wirte tps spent */
+            "disk_mu         smallint NOT NULL"  /* = 100 * disk max usage rate: 每次只提取磁盘使用率最高的一个磁盘或分区的使用率，整数格式 0-100，代表 0% - 100% */
             ") PARTITION BY RANGE (time_stamp);",
             NULL)) {
 

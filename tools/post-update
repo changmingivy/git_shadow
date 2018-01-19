@@ -322,26 +322,38 @@ zServPort=$2
 zSelfAddr=$3
 zRepoID=$4
 
+zInterval=5
+
 zCpuTotalPrev=0
 zCpuTotalCur=0
 
 zCpuSpentPrev=0
 zCpuSpentCur=0
 
-zDiskIOPrev=0
-zDiskIOCur=0
+zDiskIORDPrev=0
+zDiskIORDCur=0
 
-zNetIOPrev=0
-zNetIOCur=0
+zDiskIOWRPrev=0
+zDiskIOWRCur=0
+
+zNetIORDPrev=0
+zNetIORDCur=0
+
+zNetIOWRPrev=0
+zNetIOWRCur=0
 
 zCpuTotal=0
 zCpuSpent=0
 zMemTotal=0
 zMemSpent=0
-zDiskIOSpent=0
-zNetIOSpent=0
 zDiskUsage=0
 zLoadAvg5=0
+
+zDiskIORDSpent=0
+zDiskIOWRSpent=0
+
+zNetIORDSpent=0
+zNetIOWRSpent=0
 
 zReadData() {
     # CPU: total = user + system ＋nice + idle, spent = total - idle
@@ -350,7 +362,8 @@ zReadData() {
     # nice   (2) Time spent in user mode with low priority (nice).
     # system (3) Time spent in system mode.
     # idle   (4) Time spent in the idle task.  This value should be USER_HZ times the second entry in the /proc/uptime pseudo-file.
-    zCpuTotalCur=`cat /proc/stat | head -1 | awk -F' ' '{print $2,$3,$4,$5}' | tr ' ' '+' | bc`
+    # ... ====> man 5 proc
+    zCpuTotalCur=`cat /proc/stat | head -1 | awk -F' ' '{print $2,$3,$4,$5,$6,$7,$8,$9,$10}' | tr ' ' '+' | bc`
     zCpuTotal=$((${zCpuTotalCur} - ${zCpuTotalPrev}))
 
     # when unsigned int overflow...
@@ -358,7 +371,8 @@ zReadData() {
         return -1
     fi
 
-    zCpuSpentCur=`cat /proc/stat | head -1 | awk -F' ' '{print $2,$3,$4}' | tr ' ' '+' | bc`
+    # spent = all - idle
+    zCpuSpentCur=$((${zCpuTotalCur} - `cat /proc/stat | head -1 | awk -F' ' '{print $5}' | tr ' ' '+' | bc`))
     zCpuSpent=$((${zCpuSpentCur} - ${zCpuSpentPrev}))
 
     # when unsigned int overflow...
@@ -366,7 +380,7 @@ zReadData() {
         return -1
     fi
 
-    # MEM: total = MemTotal, spent = MemTotal - MemFree - Buffers - Cached
+    # MEM: total = MemTotal
     # /proc/meminfo
     # MemTotal %lu
     #        Total usable RAM (i.e., physical RAM minus a few reserved bits and the kernel binary code).
@@ -430,28 +444,52 @@ zReadData() {
     # Field  4 -- # of sectors written
     #     This is the total number of sectors requested to be written to
     #     this partition.
-    zDiskIOCur=0;
-    for x in `cat /proc/diskstats | fgrep -v loop | grep -v '[a-Z][0-9]' | awk -F' ' '{print $4,$8}'`
+    zDiskIORDCur=0;
+    for x in `cat /proc/diskstats | fgrep -v loop | grep -v '[a-Z][0-9]' | awk -F' ' '{print $4,$5}'`
     do
-        let zDiskIOCur+=$x
+        let zDiskIORDCur+=$x
     done
-    zDiskIOSpent=$((${zDiskIOCur} - ${zDiskIOPrev}))
+    zDiskIORDSpent=$((${zDiskIORDCur} - ${zDiskIORDPrev}))
 
     # when unsigned int overflow...
-    if [[ 0 -gt ${zDiskIOSpent} ]]; then
+    if [[ 0 -gt ${zDiskIORDSpent} ]]; then
+        return -1
+    fi
+
+    zDiskIOWRCur=0;
+    for x in `cat /proc/diskstats | fgrep -v loop | grep -v '[a-Z][0-9]' | awk -F' ' '{print $8,$9}'`
+    do
+        let zDiskIOWRCur+=$x
+    done
+    zDiskIOWRSpent=$((${zDiskIOWRCur} - ${zDiskIOWRPrev}))
+
+    # when unsigned int overflow...
+    if [[ 0 -gt ${zDiskIOWRSpent} ]]; then
         return -1
     fi
 
     # NET tps: /proc/net/dev
-    zNetIOCur=0;
-    for x in `cat /proc/net/dev | fgrep -v '|' | grep -vP '^\s*lo:' | sed 's/:/ /' | awk -F' ' '{print $3,$11}'`
+    zNetIORDCur=0;
+    for x in `cat /proc/net/dev | fgrep -v '|' | grep -vP '^\s*lo:' | sed 's/:/ /' | awk -F' ' '{print $3}'`
     do
-        let zNetIOCur+=$x
+        let zNetIORDCur+=$x
     done
-    zNetIOSpent=$((${zNetIOCur} - ${zNetIOPrev}));
+    zNetIORDSpent=$((${zNetIORDCur} - ${zNetIORDPrev}));
 
     # when unsigned int overflow...
-    if [[ 0 -gt ${zNetIOSpent} ]]; then
+    if [[ 0 -gt ${zNetIORDSpent} ]]; then
+        return -1
+    fi
+
+    zNetIOWRCur=0;
+    for x in `cat /proc/net/dev | fgrep -v '|' | grep -vP '^\s*lo:' | sed 's/:/ /' | awk -F' ' '{print $11}'`
+    do
+        let zNetIOWRCur+=$x
+    done
+    zNetIOWRSpent=$((${zNetIOWRCur} - ${zNetIOWRPrev}));
+
+    # when unsigned int overflow...
+    if [[ 0 -gt ${zNetIOWRSpent} ]]; then
         return -1
     fi
 
@@ -476,8 +514,10 @@ zReadData
 
 zCpuTotalPrev=${zCpuTotalCur}
 zCpuSpentPrev=${zCpuSpentCur}
-zDiskIOPrev=${zDiskIOCur}
-zNetIOPrev=${zNetIOCur}
+zDiskIORDPrev=${zDiskIORDCur}
+zDiskIOWRPrev=${zDiskIORDCur}
+zNetIORDPrev=${zNetIORDCur}
+zNetIOWRPrev=${zNetIORDCur}
 
 # clean old process...
 if [[ 0 -lt `ps ax | grep "$0" | grep \`cat /tmp/.supervisor.pid\` | wc -l` ]]
@@ -495,7 +535,7 @@ exec 7>/dev/udp/${zServAddr}/${zServPort}
 # start...
 while :
 do
-    sleep 1
+    sleep ${zInterval}
 
     zReadData
 
@@ -506,10 +546,12 @@ do
 
     # 开头的 '7'：是服务端的 udp 服务索引，请求记录监控信息
     # 不使用 echo，避免末尾自动追加 '\n'
-    printf "7('${zSelfAddr}',`date +%s`,${zCpuTotal},${zCpuSpent},${zMemTotal},${zMemSpent},${zDiskIOSpent},${zNetIOSpent},${zDiskUsage},${zLoadAvg5},${zRepoID}),">&7
+    printf "7(${zRepoID},'${zSelfAddr}',`date +%s`,${zLoadAvg5},$((10000 * ${zCpuSpent} / ${zCpuTotal})),$((10000 * ${zMemSpent} / ${zMemTotal})),$((${zDiskIORDSpent} / ${zInterval})),$((${zDiskIOWRSpent} / ${zInterval})),$((${zNetIORDSpent} / ${zInterval})),$((${zNetIOWRSpent} / ${zInterval})),${zDiskUsage}),">&7
 
     zCpuTotalPrev=${zCpuTotalCur}
     zCpuSpentPrev=${zCpuSpentCur}
-    zDiskIOPrev=${zDiskIOCur}
-    zNetIOPrev=${zNetIOCur}
+    zDiskIORDPrev=${zDiskIORDCur}
+    zDiskIOWRPrev=${zDiskIORDCur}
+    zNetIORDPrev=${zNetIORDCur}
+    zNetIOWRPrev=${zNetIORDCur}
 done
