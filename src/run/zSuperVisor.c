@@ -111,10 +111,10 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
                 "PARTITION BY LIST (repo_id);"
                 "CREATE TABLE supervisor_log_%d_0 "
                 "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
-                zBaseID + zID + 1,
+                zBaseID + zID,
                 3600 * (zBaseID + zID), 3600 * (zBaseID + zID + 1),
-                zBaseID + zID + 1,
-                zBaseID + zID + 1);
+                zBaseID + zID,
+                zBaseID + zID);
 
         zPgSQL_.write_db(zSQLBuf, 0, NULL, 0);
     }
@@ -192,11 +192,11 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         "PARTITION BY LIST (repo_id);"
                         "CREATE TABLE supervisor_log_%d_0 "
                         "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
-                        zBaseID + zID + 1,
+                        zBaseID + zID,
                         3600 * (zBaseID + zID),
                         3600 * (zBaseID + zID + 1),
-                        zBaseID + zID + 1,
-                        zBaseID + zID + 1);
+                        zBaseID + zID,
+                        zBaseID + zID);
 
                 zPgSQL_.write_db(zBuf, 0, NULL, 0);
             }
@@ -217,7 +217,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                         "CREATE TABLE IF NOT EXISTS dp_log_%d "
                         "PARTITION OF dp_log FOR VALUES FROM (%d) TO (%d) "
                         "PARTITION BY LIST (repo_id);",
-                        zBaseID + zID + 1,
+                        zBaseID + zID,
                         86400 * (zBaseID + zID),
                         86400 * (zBaseID + zID + 1));
 

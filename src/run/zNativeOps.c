@@ -776,9 +776,9 @@ zpg_partition_mgmt(_ui *zpCnter) {
         i += sprintf(zCmdBuf + 1,
                 "CREATE TABLE IF NOT EXISTS supervisor_log_%d_%d "
                 "PARTITION OF supervisor_log_%d FOR VALUES IN (%d);",
-                zBaseID + zID + 1,
+                zBaseID + zID,
                 zpRepo_->id,
-                zBaseID + zID + 1,
+                zBaseID + zID,
                 zpRepo_->id);
 
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
@@ -797,9 +797,9 @@ zpg_partition_mgmt(_ui *zpCnter) {
         i += sprintf(zCmdBuf + 1,
                 "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                 "PARTITION OF dp_log_%d FOR VALUES IN (%d);",
-                zBaseID + zID + 1,
+                zBaseID + zID,
                 zpRepo_->id,
-                zBaseID + zID + 1,
+                zBaseID + zID,
                 zpRepo_->id);
 
         if (0 > sendto(zpRepo_->unSd, zCmdBuf, 1 + i, MSG_NOSIGNAL,
@@ -1248,9 +1248,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             zLen += sprintf(zCommonBuf + 1,
                     "CREATE TABLE IF NOT EXISTS supervisor_log_%d_%d "
                     "PARTITION OF supervisor_log_%d FOR VALUES IN (%d);",
-                    zBaseID + zID + 1,
+                    zBaseID + zID,
                     zpRepo_->id,
-                    zBaseID + zID + 1,
+                    zBaseID + zID,
                     zpRepo_->id);
 
             sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
@@ -1264,9 +1264,9 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
             zLen += sprintf(zCommonBuf + 1,
                     "CREATE TABLE IF NOT EXISTS dp_log_%d_%d "
                     "PARTITION OF dp_log_%d FOR VALUES IN (%d);",
-                    zBaseID + zID + 1,
+                    zBaseID + zID,
                     zpRepo_->id,
-                    zBaseID + zID + 1,
+                    zBaseID + zID,
                     zpRepo_->id);
 
             sendto(zpRepo_->unSd, zCommonBuf, 1 + zLen, MSG_NOSIGNAL,
@@ -1675,7 +1675,7 @@ zinit_env(void) {
                     "CREATE TABLE IF NOT EXISTS dp_log_%d "
                     "PARTITION OF dp_log FOR VALUES FROM (%d) TO (%d) "
                     "PARTITION BY LIST (repo_id);",
-                    zBaseID + zID + 1,
+                    zBaseID + zID,
                     86400 * (zBaseID + zID),
                     86400 * (zBaseID + zID + 1));
 
