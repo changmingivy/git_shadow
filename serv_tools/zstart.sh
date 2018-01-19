@@ -32,7 +32,7 @@ if [[ 0 -eq `\ls -d ${zPgPath} | wc -l` ]]; then
     fi
     tar -xf postgresql-10.1.tar.bz2
     cd postgresql-10.1
-    ./configure --prefix=${zPgPath}
+    ./configure --prefix=${zPgPath} --with-systemd
     make -j5 && make install
 fi
 
