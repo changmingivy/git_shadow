@@ -76,9 +76,10 @@ zpg_conn_pool_init(void) {
     for (_i i = 0; i < zDB_POOL_SIZ; i++) {
         zDBPoolStack[i] = i;
 
-        zCHECK_NULL_EXIT(
-                zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo)
-                );
+        if (NULL == (zpDBPool_[i] = zPgSQL_.conn(zRun_.p_sysInfo_->pgConnInfo))) {
+            zPRINT_ERR_EASY("pg_conn err");
+            exit(1);
+        }
     }
 }
 
