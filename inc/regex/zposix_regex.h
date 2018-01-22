@@ -1,7 +1,7 @@
 #ifndef ZPOSIXREG_H
 #define ZPOSIXREG_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include <regex.h>
 
 typedef struct __zRegRes__ {
