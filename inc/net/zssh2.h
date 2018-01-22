@@ -1,7 +1,7 @@
 #ifndef ZLIBSSH_H
 #define ZLIBSSH_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include <semaphore.h>
 
 struct zLibSsh__ {
