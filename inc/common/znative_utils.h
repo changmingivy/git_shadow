@@ -1,7 +1,7 @@
 #ifndef ZLOCALUTILS_H
 #define ZLOCALUTILS_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include <stdio.h>
 
 struct zNativeUtils__ {
