@@ -1,7 +1,7 @@
 #ifndef ZDPOPS_H
 #define ZDPOPS_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include "cJSON.h"
 
 struct zDpOps__ {
