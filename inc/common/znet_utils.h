@@ -1,7 +1,7 @@
 #ifndef ZNETUTILS_H
 #define ZNETUTILS_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include <netdb.h>
 
 struct zNetUtils__ {
