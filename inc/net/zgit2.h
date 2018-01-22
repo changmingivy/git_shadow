@@ -1,7 +1,7 @@
 #ifndef ZLIBGIT_H
 #define ZLIBGIT_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include "git2.h"
 
 typedef struct git_revwalk zGitRevWalk__;
