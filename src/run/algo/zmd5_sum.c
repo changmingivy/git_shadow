@@ -4,7 +4,7 @@
  * 针对大文件性能很差
  * 配置文件的大小通常在1M以内
  */
-#include "zMd5Sum.h"
+#include "zmd5_sum.h"
 
 #include <stdio.h>
 #include <string.h>

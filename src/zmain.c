@@ -1,4 +1,4 @@
-#include "zCommon.h"
+#include "zcommon.h"
 #include <sys/mman.h>
 
 #include <sys/types.h>
@@ -9,7 +9,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zRun.h"
+#include "zrun.h"
 
 char *zpProcName = NULL;
 size_t zProcNameBufLen = 0;

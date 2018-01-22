@@ -1,4 +1,4 @@
-#include "zRun.h"
+#include "zrun.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>

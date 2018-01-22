@@ -1,4 +1,4 @@
-#include "zNetUtils.h"
+#include "znet_utils.h"
 
 #include <sys/types.h>
 #include <sys/un.h>
@@ -19,7 +19,7 @@
 #define zUN_PATH_SIZ\
         sizeof(struct sockaddr_un)-((size_t) (& ((struct sockaddr_un*) 0)->sun_path))
 
-#include "zRun.h"
+#include "zrun.h"
 
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;

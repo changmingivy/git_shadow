@@ -1,4 +1,4 @@
-#include "zPosixReg.h"
+#include "zposix_regex.h"
 
 #include <unistd.h>
 #include <time.h>
@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "zRun.h"
+#include "zrun.h"
 
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;

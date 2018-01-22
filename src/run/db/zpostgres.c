@@ -1,4 +1,4 @@
-#include "zPgSQL.h"
+#include "zpostgres.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +8,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zRun.h"
+#include "zrun.h"
 
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;

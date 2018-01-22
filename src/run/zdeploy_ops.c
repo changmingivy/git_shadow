@@ -1,4 +1,4 @@
-#include "zDpOps.h"
+#include "zdeploy_ops.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -17,20 +17,20 @@
 #include <semaphore.h>
 #include <libpq-fe.h>
 
-#include "zNativeUtils.h"
-#include "zNetUtils.h"
+#include "znative_utils.h"
+#include "znet_utils.h"
 
-#include "zLibSsh.h"
-#include "zLibGit.h"
+#include "zssh2.h"
+#include "zgit2.h"
 
-#include "zNativeOps.h"
+#include "znative_ops.h"
 
-#include "zPosixReg.h"
-#include "zThreadPool.h"
-#include "zPgSQL.h"
+#include "zposix_regex.h"
+#include "zthread_pool.h"
+#include "zpostgres.h"
 //#include "zMd5Sum.h"
 
-#include "zRun.h"
+#include "zrun.h"
 
 #define cJSON_V(zpJRoot, zpValueName) cJSON_GetObjectItemCaseSensitive((zpJRoot), (zpValueName))
 

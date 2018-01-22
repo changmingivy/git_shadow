@@ -1,4 +1,4 @@
-#include "zNativeOps.h"
+#include "znative_ops.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -18,13 +18,13 @@
 
 #include <libpq-fe.h>
 
-#include "zPosixReg.h"
-#include "zNativeUtils.h"
-#include "zNetUtils.h"
-#include "zThreadPool.h"
-#include "zLibGit.h"
-#include "zPgSQL.h"
-#include "zRun.h"
+#include "zposix_regex.h"
+#include "znative_utils.h"
+#include "znet_utils.h"
+#include "zthread_pool.h"
+#include "zgit2.h"
+#include "zpostgres.h"
+#include "zrun.h"
 //#include "zMd5Sum.h"
 
 extern struct zPosixReg__ zPosixReg_;

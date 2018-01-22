@@ -1,4 +1,4 @@
-#include "zNativeUtils.h"
+#include "znative_utils.h"
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -16,7 +16,7 @@
 #include <time.h>
 #include <errno.h>
 
-#include "zRun.h"
+#include "zrun.h"
 
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;

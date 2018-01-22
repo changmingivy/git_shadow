@@ -1,4 +1,4 @@
-#include "zSuperVisor.h"
+#include "zsupervisor.h"
 
 #include <sys/types.h>
 #include <unistd.h>

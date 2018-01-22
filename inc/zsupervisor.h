@@ -1,13 +1,13 @@
 #ifndef ZSUPERVISOR_H
 #define ZSUPERVISOR_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 
-#include "zRun.h"
-#include "zNativeOps.h"
+#include "zrun.h"
+#include "znative_ops.h"
 
-#include "zThreadPool.h"
-#include "zPgSQL.h"
+#include "zthread_pool.h"
+#include "zpostgres.h"
 
 struct zSuperVisor__ {
     void * (* init) (void *);

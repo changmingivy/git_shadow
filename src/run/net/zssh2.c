@@ -1,4 +1,4 @@
-#include "zLibSsh.h"
+#include "zssh2.h"
 
 #include <unistd.h>
 #include <sys/select.h>
@@ -7,8 +7,8 @@
 
 #include "libssh2.h"
 
-#include "zNetUtils.h"
-#include "zRun.h"
+#include "znet_utils.h"
+#include "zrun.h"
 
 extern struct zRun__ zRun_;
 extern zRepo__ *zpRepo_;

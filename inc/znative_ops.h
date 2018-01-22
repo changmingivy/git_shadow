@@ -1,7 +1,7 @@
 #ifndef ZLOCALOPS_H
 #define ZLOCALOPS_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 
 #define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存
 

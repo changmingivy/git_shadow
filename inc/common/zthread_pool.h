@@ -1,8 +1,8 @@
 #ifndef ZTHREADPOOL_H
 #define ZTHREADPOOL_H
 
-#include "zCommon.h"
-#include "zRun.h"
+#include "zcommon.h"
+#include "zrun.h"
 #include <pthread.h>
 #include <semaphore.h>
 

@@ -1,4 +1,4 @@
-#include "zPcreReg.h"
+#include "zpcre.h"
 
 #include <unistd.h>
 #include <stdio.h>
