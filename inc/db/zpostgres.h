@@ -1,7 +1,7 @@
 #ifndef ZPGSQL_H
 #define ZPGSQL_H
 
-#include "zCommon.h"
+#include "zcommon.h"
 #include <semaphore.h>
 #include "libpq-fe.h"
 
