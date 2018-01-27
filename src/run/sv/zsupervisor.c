@@ -10,6 +10,7 @@ extern struct zRun__ zRun_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zPgSQL__ zPgSQL_;
+extern struct zSVCloud__ zSVCloud_;
 
 extern zRepo__ *zpRepo_;
 
@@ -124,6 +125,9 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
     strcpy(zpOptiBuf, "INSERT INTO supervisor_log VALUES ");
     zOptiDataLen = sizeof("INSERT INTO supervisor_log VALUES ") - 1;
 
+    /* ==== 云监控数据收集 ==== */
+    zSVCloud_.init();
+
     return NULL;
 }
 
@@ -232,6 +236,10 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
 
                 zPgSQL_.write_db(zBuf, 0, NULL, 0);
             }
+
+            /* ==== 同步云监控数据 ==== */
+            zSVCloud_.data_sync();
+
         }
 
         sleep(1);

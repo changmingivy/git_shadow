@@ -5,6 +5,7 @@
 
 #include "zrun.h"
 #include "znative_ops.h"
+#include "zsv_cloud.h"
 
 #include "zthread_pool.h"
 #include "zpostgres.h"
