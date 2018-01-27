@@ -19,6 +19,7 @@ INC_ARGS =\
 	-I$(ROOT_DIR)/src/run\
 	-I$(ROOT_DIR)/src/run/dp\
 	-I$(ROOT_DIR)/src/run/sv\
+	-I$(ROOT_DIR)/src/run/sv/cloud\
 	-I$(ROOT_DIR)/src/run/utils\
 	-I$(ROOT_DIR)/src/run/utils/common\
 	-I$(ROOT_DIR)/src/run/utils/net\
