@@ -16,13 +16,16 @@ GIT_INC_DIR = `dirname $(GIT_LIB_DIR)`/include
 PG_INC_DIR = `dirname $(PG_LIB_DIR)`/include
 
 INC_ARGS =\
-	-I$(ROOT_DIR)/inc\
-	-I$(ROOT_DIR)/inc/common\
-	-I$(ROOT_DIR)/inc/net\
-	-I$(ROOT_DIR)/inc/db\
-	-I$(ROOT_DIR)/inc/regex\
-	-I$(ROOT_DIR)/inc/json\
-	-I$(ROOT_DIR)/inc/algo\
+	-I$(ROOT_DIR)/src/run\
+	-I$(ROOT_DIR)/src/run/utils\
+	-I$(ROOT_DIR)/src/run/utils/dp\
+	-I$(ROOT_DIR)/src/run/utils/sv\
+	-I$(ROOT_DIR)/src/run/utils/common\
+	-I$(ROOT_DIR)/src/run/utils/net\
+	-I$(ROOT_DIR)/src/run/utils/db\
+	-I$(ROOT_DIR)/src/run/utils/regex\
+	-I$(ROOT_DIR)/src/run/utils/json\
+	-I$(ROOT_DIR)/src/run/utils/algo\
 	-I$(SSH_INC_DIR)\
 	-I$(GIT_INC_DIR)\
 	-I$(PG_INC_DIR)
