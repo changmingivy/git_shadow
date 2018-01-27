@@ -17,9 +17,9 @@ PG_INC_DIR = `dirname $(PG_LIB_DIR)`/include
 
 INC_ARGS =\
 	-I$(ROOT_DIR)/src/run\
+	-I$(ROOT_DIR)/src/run/dp\
+	-I$(ROOT_DIR)/src/run/sv\
 	-I$(ROOT_DIR)/src/run/utils\
-	-I$(ROOT_DIR)/src/run/utils/dp\
-	-I$(ROOT_DIR)/src/run/utils/sv\
 	-I$(ROOT_DIR)/src/run/utils/common\
 	-I$(ROOT_DIR)/src/run/utils/net\
 	-I$(ROOT_DIR)/src/run/utils/db\
