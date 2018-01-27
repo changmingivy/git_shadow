@@ -11,6 +11,7 @@ export zPgPath=${HOME}/.____PostgreSQL
 
 zServAddr=$1
 zServPort=$2
+zSystemd=$3
 zShadowPath=$zGitShadowPath  # 系统全局变量 $zGitShadowPath
 
 cd $zShadowPath
@@ -32,7 +33,11 @@ if [[ 0 -eq `\ls -d ${zPgPath} | wc -l` ]]; then
     fi
     tar -xf postgresql-10.1.tar.bz2
     cd postgresql-10.1
-    ./configure --prefix=${zPgPath} --with-systemd
+    if [[ "" == ${zSystemd} ]]; then
+        ./configure --prefix=${zPgPath}
+    else
+        ./configure --prefix=${zPgPath} --with-systemd
+    fi
     make -j5 && make install
 fi
 
