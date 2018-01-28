@@ -228,9 +228,6 @@ zsv_cloud_prepare(void) {
             "load_5m            smallint NOT NULL,"
             "load_15m           smallint NOT NULL,"
 
-            /* 分别处于 tcp 的 11 种状态的连接计数 */
-            "tcp_state_cnt          int[11] NOT NULL,"
-
             /*
              * 同一主机可能拥有多个网卡、磁盘，
              * 仅保留所有设备之和，不存储名细
@@ -243,7 +240,10 @@ zsv_cloud_prepare(void) {
             "net_rdkb        int NOT NULL,"  /* io_read kbytes/KB */
             "net_wrkb        int NOT NULL,"  /* io_write kbytes/KB */
             "net_rdiops      int NOT NULL,"  /* io_read tps */
-            "net_wriops      int NOT NULL"  /* io_write tps */
+            "net_wriops      int NOT NULL,"  /* io_write tps */
+
+            /* 分别处于 tcp 的 11 种状态的连接计数 */
+            "tcp_state_cnt          int[11] NOT NULL"
             ") PARTITION BY RANGE (time_stamp);",
             NULL);
 
