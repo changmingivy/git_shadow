@@ -2,7 +2,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-
+#include <pthread.h>
 #include <errno.h>
 
 extern struct zRun__ zRun_;
@@ -20,12 +20,12 @@ struct zSVCloud__ zSVCloud_ = {
 };
 
 struct zEcsDisk__ {
-    char *p_name;
+    char *p_devName;
     struct zEcsDisk__ *p_next;
 };
 
 struct zEcsNetIf__ {
-    char *p_name;
+    char *p_devName;
     struct zEcsNetIf__ *p_next;
 };
 
@@ -69,8 +69,7 @@ struct zEcsSv__ {
     _i net_wriops;
 };
 
-// TODO 开辟专用的内存池，大小 8M，批量取完数据后，一次性释放
-struct zEcsData__ {
+struct zEcs__ {
     /*
      * 以链表形式集齐实例所有 device 的名称，
      * 用于查询对应设备的监控数据
@@ -78,7 +77,7 @@ struct zEcsData__ {
     struct zEcsDisk__ disk;
     struct zEcsNetIf__ netIf;
 
-    /* 并发提取数据时需要的多线程游标 */
+    /* 并发提取数据时需要的多线程游标? */
     struct zEcsDisk__  *p_disk;
     struct zEcsNetIf__ *p_netIf;
 
@@ -92,8 +91,99 @@ struct zEcsData__ {
     /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
     struct zEcsSv__ ecsSv_[60];
 
-    struct zEcsData__ *p_next;
+    struct zEcs__ *p_next;
 };
+
+
+/*
+ * 定制专用的内存池：开头留一个指针位置，
+ * 用于当内存池容量不足时，指向下一块新开辟的内存区
+ */
+#define zSV_MEM_POOL_SIZ 8 * 1024 * 1024
+static void *zpMemPool;
+static size_t zMemPoolOffSet;
+static pthread_mutex_t zMemPoolLock;
+
+static void
+zsv_mem_pool_init(void) {
+    zCHECK_PTHREAD_FUNC_EXIT(
+            pthread_mutex_init(&zMemPoolLock, NULL)
+            );
+
+    if (NULL == (zpMemPool = malloc(zMEM_POOL_SIZ))) {
+        zPRINT_ERR_EASY_SYS();
+        exit(1);
+    }
+
+    void **zppPrev = zpMemPool;
+    zppPrev[0] = NULL;
+    zMemPoolOffSet = sizeof(void *);
+}
+
+static void
+zsv_mem_pool_destroy(void) {
+    pthread_mutex_lock(& zMemPoolLock);
+
+    void **zppPrev = zpMemPool;
+    while(NULL != zppPrev[0]) {
+        zppPrev = zppPrev[0];
+        free(zpMemPool);
+        zpMemPool = zppPrev;
+    }
+
+    free(zpMemPool);
+    zpMemPool = NULL;
+    zMemPoolOffSet = 0;
+
+    pthread_mutex_unlock(& zMemPoolLock);
+    pthread_mutex_destroy(&zMemPoolLock);
+}
+
+static void *
+zsv_alloc(size_t zSiz) {
+    pthread_mutex_lock(& zMemPoolLock);
+
+    /* 检测当前内存池片区剩余空间是否充裕 */
+    if ((zSiz + zMemPoolOffSet) > zSV_MEM_POOL_SIZ) {
+        /* 请求的内存不能超过单片区最大容量 */
+        if (zSiz > (zSV_MEM_POOL_SIZ - sizeof(void *))) {
+            zPRINT_ERR_EASY("");
+            pthread_mutex_unlock(& zMemPoolLock);
+            return NULL;
+        }
+
+        /* 新增一片内存，加入内存池 */
+        void *zpCur = NULL;
+        zMEM_ALLOC(zpCur, char, zSV_MEM_POOL_SIZ);
+
+        /*
+         * 首部指针位，指向内存池中的前一片区
+         */
+        void **zppPrev = zpCur;
+        zppPrev[0] = zpMemPool;
+
+        /*
+         * 内存池指针更新
+         */
+        zpMemPool = zpCur;
+
+        /*
+         * 新内存片区开头的一个指针大小的空间已经被占用
+         * 不能再分配，需要跳过
+         */
+        zMemPoolOffSet = sizeof(void *);
+    }
+
+    /*
+     * 分配内存
+     */
+    void *zpX = zpMemPool + zMemPoolOffSet;
+    zMemPoolOffSet += zSiz;
+
+    pthread_mutex_unlock(& zMemPoolLock);
+
+    return zpX;
+}
 
 /* 云监控模块 DB 预建 */
 static void
@@ -185,6 +275,11 @@ zsv_cloud_prepare(void) {
  */
 static void
 zcloud_data_sync(void) {
+	zsv_mem_pool_init();
+
+
+
+	zsv_mem_pool_destroy();
 //    _i zBaseID = 0,
 //       zID = 0;
 //
@@ -219,3 +314,5 @@ zcloud_data_sync(void) {
 //
 //    // TODO 拉取 aliyun，存入 DB
 }
+
+#undef zSV_MEM_POOL_SIZ
