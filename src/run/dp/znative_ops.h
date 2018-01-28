@@ -3,7 +3,7 @@
 
 #include "zcommon.h"
 
-#define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存
+#define zMEM_POOL_SIZ 4 * 1024 * 1024  // 内存池初始分配 4M 内存
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zMEM_POOL_REST(zRepoID) do {\

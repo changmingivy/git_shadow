@@ -73,7 +73,8 @@ zalloc_cache(size_t zSiz) {
         /* 请求的内存不能超过单片区最大容量 */
         if (zSiz > (zMEM_POOL_SIZ - sizeof(void *))) {
             zPRINT_ERR_EASY("");
-            exit(1);
+            pthread_mutex_unlock(& zpRepo_->memLock);
+            return NULL;
         }
 
         /* 新增一片内存，加入内存池 */

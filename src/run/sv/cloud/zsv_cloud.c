@@ -29,24 +29,7 @@ struct zEcsNetIf__ {
     struct zEcsNetIf__ *p_next;
 };
 
-// TODO 开辟专用的内存池，大小 4M，批量取完数据后，一次性释放
-#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))
-struct zEcsData__ {
-    struct zEcsData__ *p_next;
-
-    /*
-     * 以链表形式集齐实例所有 device 的名称，
-     * 用于查询对应设备的监控数据
-     */
-    struct zEcsDisk__ disk;
-    struct zEcsNetIf__ netIf;
-
-    /* HASH KEY */
-    union {
-        _ull hashKey[zHASH_KEY_SIZ];
-        char id[23];  // instanceID(22 char) + '\0'
-    };
-
+struct zEcsSv__ {
     /* 可直接取到的不需要额外加工的数据项 */
     _i timeStamp;
     _s cpu;
@@ -62,10 +45,6 @@ struct zEcsData__ {
      * 所有磁盘容量加和之后，换算成 M，保持与 diskSpent 的单位统一
      */
     _i diskTotal;
-
-    /* 并发提取如下九项数据时，需要的多线程游标 */
-    void *p_diskCursor[5];  // 磁盘相关的 5 项
-    void *p_netIfCursor[4];  // 网卡相关的 4 项
 
     /*
      * 首先将 byte 换算成 M(/1024/1024)，以 M 为单位累加计数，
@@ -88,6 +67,32 @@ struct zEcsData__ {
 
     _i net_rdiops;
     _i net_wriops;
+};
+
+// TODO 开辟专用的内存池，大小 8M，批量取完数据后，一次性释放
+struct zEcsData__ {
+    /*
+     * 以链表形式集齐实例所有 device 的名称，
+     * 用于查询对应设备的监控数据
+     */
+    struct zEcsDisk__ disk;
+    struct zEcsNetIf__ netIf;
+
+    /* 并发提取数据时需要的多线程游标 */
+    struct zEcsDisk__  *p_disk;
+    struct zEcsNetIf__ *p_netIf;
+
+    /* HASH KEY */
+    union {
+#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
+        _ull hashKey[zHASH_KEY_SIZ];
+        char id[sizeof(_ull) * zHASH_KEY_SIZ];
+    };
+
+    /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
+    struct zEcsSv__ ecsSv_[60];
+
+    struct zEcsData__ *p_next;
 };
 
 /* 云监控模块 DB 预建 */
