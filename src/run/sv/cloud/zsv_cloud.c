@@ -72,7 +72,7 @@ struct zEcsSv__ {
 };
 
 #define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
-struct zEcs__ {
+struct zSvEcs__ {
     /*
      * 以链表形式集齐实例所有 device 的名称，
      * 用于查询对应设备的监控数据
@@ -89,9 +89,49 @@ struct zEcs__ {
     /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
     struct zEcsSv__ ecsSv_[60];
 
-    struct zEcs__ *p_next;
+    struct zSvEcs__ *p_next;
 };
 
+
+#define zREGION_CNT 2  // TODO 实际的 region 列表与数量
+struct zApiMeta__ {
+	char *p_domain;
+	char *p_apiName;
+	char *p_apiVersion;
+};
+
+struct zSyncMeta__ {
+	char *p_accessID;
+	char *p_accessKey;
+
+	char *p_region[zREGION_CNT];
+
+	struct zApiMeta__ svApi_;
+
+	struct zApiMeta__ ecsApi_;
+	struct zApiMeta__ slbApi_;
+
+	struct zApiMeta__ rdsApi_;
+	struct zApiMeta__ redisApi_;
+	struct zApiMeta__ mongodbApi_;
+	struct zApiMeta__ memcacheApi_;
+};
+
+static struct zSyncMeta__ zSyncMeta_ = {
+	.p_accessID = "LTAIHYRtkSXC1uTl",
+	.p_accessKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV",
+
+	.p_region = {
+		"cn-beijing",
+		"cn-hangzhou",
+	},
+
+	.svApi_ = {
+		.p_domain = "metrics.aliyuncs.com",
+		.p_apiName = "QueryMetricList",
+		.p_apiVersion = "2017-03-01"
+	},
+};
 
 /*
  * 定制专用的内存池：开头留一个指针位置，
