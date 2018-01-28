@@ -9,6 +9,7 @@
 struct zSVCloud__ {
     void (* init) (void);
     void (* data_sync) (void);
+    void (* tb_mgmt) (void);
 };
 
 #endif  // #ifndef ZSVCLOUD_H

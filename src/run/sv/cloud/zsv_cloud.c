@@ -12,11 +12,13 @@ extern zRepo__ *zpRepo_;
 
 static void zsv_cloud_prepare(void);
 static void zcloud_data_sync(void);
+static void zpg_tb_mgmt(void);
 
 /* 对外接口 */
 struct zSVCloud__ zSVCloud_ = {
     .init = zsv_cloud_prepare,
     .data_sync = zcloud_data_sync,
+    .tb_mgmt = zpg_tb_mgmt,
 };
 
 struct zEcsDisk__ {
@@ -69,6 +71,7 @@ struct zEcsSv__ {
     _i net_wriops;
 };
 
+#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
 struct zEcs__ {
     /*
      * 以链表形式集齐实例所有 device 的名称，
@@ -79,7 +82,6 @@ struct zEcs__ {
 
     /* HASH KEY */
     union {
-#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
         _ull hashKey[zHASH_KEY_SIZ];
         char id[sizeof(_ull) * zHASH_KEY_SIZ];
     };
@@ -184,10 +186,12 @@ zsv_alloc(size_t zSiz) {
 /* 云监控模块 DB 预建 */
 static void
 zsv_cloud_prepare(void) {
-    _i zErrNo = 0;
+    _i zErrNo,
+       zBaseID;
+    char zSQLBuf[512];
 
     zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
-            "CREATE TABLE IF NOT EXISTS sv_ecs_aliyun"
+            "CREATE TABLE IF NOT EXISTS sv_ecs_aliyun "
             "("
             /*
              * aliyun 原始值为毫秒，
@@ -249,14 +253,11 @@ zsv_cloud_prepare(void) {
     }
 
     /* 每次启动时尝试创建必要的表，按小时分区（1天 == 3600秒） */
-    /* 预建 10 天的分区表，没有指明 repo_id 监控数据，一律存放于 0 号表 */
-    char zSQLBuf[512];
-    _i zBaseID = time(NULL) / 3600;
+    zBaseID = time(NULL) / 3600;
     for (_i zID = 0; zID < 10 * 24; zID++) {
         sprintf(zSQLBuf,
-                "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
-                "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
-                "PARTITION BY LIST (repo_id);",
+                "CREATE TABLE IF NOT EXISTS sv_ecs_aliyun_%d "
+                "PARTITION OF sv_ecs_aliyun FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID),
                 3600 * (zBaseID + zID + 1));
@@ -265,50 +266,45 @@ zsv_cloud_prepare(void) {
     }
 }
 
-/*
- * 定期扩展 DB 云监控分区表，
- * 并同步云上数据至本地数据库
- */
+/* 定期扩展 DB 云监控分区表 */
 static void
-zcloud_data_sync(void) {
-	zsv_mem_pool_init();
+zpg_tb_mgmt(void) {
+    _i zBaseID,
+       zID;
 
+    char zBuf[512];
 
+    /* 创建之后 10 * 24 小时的分区表 */
+    zBaseID = time(NULL) / 3600;
+    for (zID = 0; zID < 10 * 24; zID++) {
+        sprintf(zBuf,
+                "CREATE TABLE IF NOT EXISTS sv_ecs_aiyun_%d "
+                "PARTITION OF sv_ecs_aiyun FOR VALUES FROM (%d) TO (%d);",
+                zBaseID + zID,
+                3600 * (zBaseID + zID),
+                3600 * (zBaseID + zID + 1));
 
-	zsv_mem_pool_destroy();
-//    _i zBaseID = 0,
-//       zID = 0;
-//
-//    char zBuf[512];
-//
-//    /* 创建之后 10 * 24 小时的 sv_cloud_log 分区表 */
-//    zBaseID = time(NULL) / 3600;
-//    for (zID = 0; zID < 10 * 24; zID++) {
-//        sprintf(zBuf,
-//                "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
-//                "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
-//                "PARTITION BY LIST (repo_id);"
-//                "CREATE TABLE supervisor_log_%d_0 "
-//                "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
-//                zBaseID + zID,
-//                3600 * (zBaseID + zID),
-//                3600 * (zBaseID + zID + 1),
-//                zBaseID + zID,
-//                zBaseID + zID);
-//
-//        zPgSQL_.write_db(zBuf, 0, NULL, 0);
-//    }
-//
-//    /* 清除 30 * 24 小时之前连续 10 * 24 小时的 supervisor_log 分区表 */
-//    for (zID = 0; zID < 10 * 24; zID++) {
-//        sprintf(zBuf,
-//                "DROP TABLE IF EXISTS supervisor_log_%d;",
-//                (zBaseID - 30 * 24) - zID);
-//
-//        zPgSQL_.write_db(zBuf, 0, NULL, 0);
-//    }
-//
-//    // TODO 拉取 aliyun，存入 DB
+        zPgSQL_.write_db(zBuf, 0, NULL, 0);
+    }
+
+    /* 清除 30 * 24 小时之前连续 10 * 24 小时分区表 */
+    zBaseID -= 30 * 24;
+    for (zID = 0; zID < 10 * 24; zID++) {
+        sprintf(zBuf,
+                "DROP TABLE IF EXISTS sv_ecs_aliyun_%d;",
+                zBaseID - zID);
+
+        zPgSQL_.write_db(zBuf, 0, NULL, 0);
+    }
 }
 
+/* 同步云上数据至本地数据库 */
+static void
+zcloud_data_sync(void) {
+    zsv_mem_pool_init();
+    // TODO 拉取 aliyun，存入 DB
+    zsv_mem_pool_destroy();
+}
+
+#undef zHASH_KEY_SIZ
 #undef zSV_MEM_POOL_SIZ

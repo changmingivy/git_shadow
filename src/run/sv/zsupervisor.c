@@ -143,7 +143,6 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
     _ul zTotalMem = 0,
         zAvalMem = 0;
 
-    _ui i = 0;
     pid_t zPid = 0;
 
     _i zBaseID = 0,
@@ -155,7 +154,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
     zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
     sleep(10);
 
-    for (i = 0;; i++) {
+    for (_ui i = 0;; i++) {
         fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);
         zRun_.p_sysInfo_->memLoad = 100 * (zTotalMem - zAvalMem) / zTotalMem;
         fseek(zpHandler, 0, SEEK_SET);
@@ -181,65 +180,72 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
             }
         }
 
-        /*
-         * 每天执行一次，
-         * 主进程只负责时间维度的中层分区逻辑创建及统一销毁，
-         * 最底层的实体表由各项目进程创建
-         * */
-        if (86399 == i % 86400) {
-            /* 创建之后 10 * 24 小时的 supervisor_log 分区表 */
-            zBaseID = time(NULL) / 3600;
-            for (zID = 0; zID < 10 * 24; zID++) {
-                sprintf(zBuf,
-                        "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
-                        "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
-                        "PARTITION BY LIST (repo_id);"
-                        "CREATE TABLE supervisor_log_%d_0 "
-                        "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
-                        zBaseID + zID,
-                        3600 * (zBaseID + zID),
-                        3600 * (zBaseID + zID + 1),
-                        zBaseID + zID,
-                        zBaseID + zID);
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-
-            /* 清除 30 * 24 小时之前连续 10 * 24 小时的 supervisor_log 分区表 */
-            for (zID = 0; zID < 10 * 24; zID++) {
-                sprintf(zBuf,
-                        "DROP TABLE IF EXISTS supervisor_log_%d;",
-                        (zBaseID - 30 * 24) - zID);
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-
-            /* 创建之后 10 天的 dp_log 分区表 */
-            zBaseID /= 24;
-            for (zID = 0; zID < 10; zID++) {
-                sprintf(zBuf,
-                        "CREATE TABLE IF NOT EXISTS dp_log_%d "
-                        "PARTITION OF dp_log FOR VALUES FROM (%d) TO (%d) "
-                        "PARTITION BY LIST (repo_id);",
-                        zBaseID + zID,
-                        86400 * (zBaseID + zID),
-                        86400 * (zBaseID + zID + 1));
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-
-            /* 清除 30 天之前连续 10 天的 dp_log 分区表 */
-            for (zID = 0; zID < 10; zID++) {
-                sprintf(zBuf,
-                        "DROP TABLE IF EXISTS dp_log_%d;",
-                        (zBaseID - 30) - zID);
-
-                zPgSQL_.write_db(zBuf, 0, NULL, 0);
-            }
-
-            /* ==== 同步云监控数据 ==== */
+        if (0 == i % 900) {
+            /* 每 900 秒同步云监控数据 */
             zSVCloud_.data_sync();
 
+            /*
+             * 每天执行一次，
+             * 主进程只负责时间维度的中层分区逻辑创建及统一销毁，
+             * 最底层的实体表由各项目进程创建
+             * */
+            if (0 == i % 86400) {
+                /* 云监控同步分区表管理 */
+                zSVCloud_.tb_mgmt();
+
+                /* 创建之后 10 * 24 小时的 supervisor_log 分区表 */
+                zBaseID = time(NULL) / 3600;
+                for (zID = 0; zID < 10 * 24; zID++) {
+                    sprintf(zBuf,
+                            "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
+                            "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
+                            "PARTITION BY LIST (repo_id);"
+                            "CREATE TABLE supervisor_log_%d_0 "
+                            "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
+                            zBaseID + zID,
+                            3600 * (zBaseID + zID),
+                            3600 * (zBaseID + zID + 1),
+                            zBaseID + zID,
+                            zBaseID + zID);
+
+                    zPgSQL_.write_db(zBuf, 0, NULL, 0);
+                }
+
+                /* 清除 30 * 24 小时之前连续 10 * 24 小时的 supervisor_log 分区表 */
+                zBaseID -= 30 * 24;
+                for (zID = 0; zID < 10 * 24; zID++) {
+                    sprintf(zBuf,
+                            "DROP TABLE IF EXISTS supervisor_log_%d;",
+                            zBaseID - zID);
+
+                    zPgSQL_.write_db(zBuf, 0, NULL, 0);
+                }
+
+                /* 创建之后 10 天的 dp_log 分区表 */
+                zBaseID += 30 * 24;
+                zBaseID /= 24;
+                for (zID = 0; zID < 10; zID++) {
+                    sprintf(zBuf,
+                            "CREATE TABLE IF NOT EXISTS dp_log_%d "
+                            "PARTITION OF dp_log FOR VALUES FROM (%d) TO (%d) "
+                            "PARTITION BY LIST (repo_id);",
+                            zBaseID + zID,
+                            86400 * (zBaseID + zID),
+                            86400 * (zBaseID + zID + 1));
+
+                    zPgSQL_.write_db(zBuf, 0, NULL, 0);
+                }
+
+                /* 清除 30 天之前连续 10 天的 dp_log 分区表 */
+                zBaseID -= 30;
+                for (zID = 0; zID < 10; zID++) {
+                    sprintf(zBuf,
+                            "DROP TABLE IF EXISTS dp_log_%d;",
+                            zBaseID - zID);
+
+                    zPgSQL_.write_db(zBuf, 0, NULL, 0);
+                }
+            }
         }
 
         sleep(1);
