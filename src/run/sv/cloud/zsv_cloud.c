@@ -77,10 +77,6 @@ struct zEcs__ {
     struct zEcsDisk__ disk;
     struct zEcsNetIf__ netIf;
 
-    /* 并发提取数据时需要的多线程游标? */
-    struct zEcsDisk__  *p_disk;
-    struct zEcsNetIf__ *p_netIf;
-
     /* HASH KEY */
     union {
 #define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
