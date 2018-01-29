@@ -2,13 +2,26 @@
 
 #include <sys/types.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <errno.h>
 
 extern struct zRun__ zRun_;
 extern struct zPgSQL__ zPgSQL_;
+extern struct zThreadPool__ zThreadPool_;
+extern struct zNativeUtils__ zNativeUtils_;
 
 extern zRepo__ *zpRepo_;
+
+/*
+ * 定制专用的内存池：开头留一个指针位置，
+ * 用于当内存池容量不足时，指向下一块新开辟的内存区
+ */
+#define zSV_MEM_POOL_SIZ 8 * 1024 * 1024
+static void *zpMemPool;
+static size_t zMemPoolOffSet;
+static pthread_mutex_t zMemPoolLock;
+
+/* 并发插入实例节点时所用 */
+static pthread_mutex_t zNodeInsertLock;
 
 static void zsv_cloud_prepare(void);
 static void zcloud_data_sync(void);
@@ -22,16 +35,16 @@ struct zSVCloud__ zSVCloud_ = {
 };
 
 struct zEcsDisk__ {
-    char *p_devName;
+    char *p_dev;  // "/dev/vda1"
     struct zEcsDisk__ *p_next;
 };
 
 struct zEcsNetIf__ {
-    char *p_devName;
+    char *p_dev;  // "eth0"
     struct zEcsNetIf__ *p_next;
 };
 
-struct zEcsSv__ {
+struct zSvEcsData__ {
     /* 可直接取到的不需要额外加工的数据项 */
     _i timeStamp;
     _s cpu;
@@ -87,63 +100,13 @@ struct zSvEcs__ {
     };
 
     /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
-    struct zEcsSv__ ecsSv_[60];
+    struct zSvEcsData__ ecsSv_[60];
 
     struct zSvEcs__ *p_next;
 };
 
-
-#define zREGION_CNT 2  // TODO 实际的 region 列表与数量
-struct zApiMeta__ {
-	char *p_domain;
-	char *p_apiName;
-	char *p_apiVersion;
-};
-
-struct zSyncMeta__ {
-	char *p_accessID;
-	char *p_accessKey;
-
-	char *p_region[zREGION_CNT];
-
-	struct zApiMeta__ svApi_;
-
-	struct zApiMeta__ ecsApi_;
-	struct zApiMeta__ slbApi_;
-
-	struct zApiMeta__ rdsApi_;
-	struct zApiMeta__ redisApi_;
-	struct zApiMeta__ mongodbApi_;
-	struct zApiMeta__ memcacheApi_;
-};
-
-static struct zSyncMeta__ zSyncMeta_ = {
-	.p_accessID = "LTAIHYRtkSXC1uTl",
-	.p_accessKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV",
-
-	.p_region = {
-		"cn-beijing",
-		"cn-hangzhou",
-	},
-
-	.svApi_ = {
-		.p_domain = "metrics.aliyuncs.com",
-		.p_apiName = "QueryMetricList",
-		.p_apiVersion = "2017-03-01"
-	},
-};
-
-/*
- * 定制专用的内存池：开头留一个指针位置，
- * 用于当内存池容量不足时，指向下一块新开辟的内存区
- */
-#define zSV_MEM_POOL_SIZ 8 * 1024 * 1024
-static void *zpMemPool;
-static size_t zMemPoolOffSet;
-static pthread_mutex_t zMemPoolLock;
-
 static void
-zsv_mem_pool_init(void) {
+zmem_pool_init(void) {
     zCHECK_PTHREAD_FUNC_EXIT(
             pthread_mutex_init(&zMemPoolLock, NULL)
             );
@@ -159,7 +122,7 @@ zsv_mem_pool_init(void) {
 }
 
 static void
-zsv_mem_pool_destroy(void) {
+zmem_pool_destroy(void) {
     pthread_mutex_lock(& zMemPoolLock);
 
     void **zppPrev = zpMemPool;
@@ -178,7 +141,7 @@ zsv_mem_pool_destroy(void) {
 }
 
 static void *
-zsv_alloc(size_t zSiz) {
+zalloc(size_t zSiz) {
     pthread_mutex_lock(& zMemPoolLock);
 
     /* 检测当前内存池片区剩余空间是否充裕 */
@@ -338,12 +301,175 @@ zpg_tb_mgmt(void) {
     }
 }
 
+/******************
+ * 如下：提取数据 *
+ ******************/
+static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
+
+static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
+static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+static const char * const zpRegion[] = {
+    "cn-beijing",
+    "cn-hangzhou",
+};
+
+/* HASH */
+static struct zSvEcs__ *zpSvEcsHash_[511];
+
+static void
+zecs_node_insert(char *zpInstanceID) {
+    // TODO
+}
+
+void *
+zget_meta_ecs_disk(void *zp __attribute__((__unused__))) {
+    //const char * const zpDomain = "ecs.aliyuncs.com";
+    //const char * const zpApiName = "DescribeDisks";
+    //const char * const zpApiVersion = "2014-05-26";
+
+    return NULL;
+}
+
+void *
+zget_meta_ecs_netif(void *zp __attribute__((__unused__))) {
+    //const char * const zpDomain = "ecs.aliyuncs.com";
+    //const char * const zpApiName = "DescribeNetworkInterfaces";
+    //const char * const zpApiVersion = "2014-05-26";
+
+    return NULL;
+}
+
+#define zGET_CONTENT(pBuf, pCmd) do {\
+    FILE *pFile = popen(pCmd, "r");\
+    if (NULL == pFile) {\
+        zPRINT_ERR_EASY_SYS();\
+        exit(1);\
+    }\
+\
+    /* 最前面的 12 个字符，是以 golang %-12d 格式打印的接收到的字节数 */\
+    char CntBuf[12] = {'\0'};\
+    zNativeUtils_.read_hunk(CntBuf, 11, pFile);\
+\
+    _i Len = strtol(CntBuf, NULL, 10);\
+\
+    pBuf = zalloc(1 + Len);\
+    zNativeUtils_.read_hunk(pBuf, Len, pFile);\
+    pBuf[Len] = '\0';\
+\
+    pclose(pFile);\
+} while(0)
+
+void *
+zget_meta_ecs_thread_region_page(void *zp) {
+    char *zpContent = NULL;
+    zGET_CONTENT(zpContent, zp);
+
+    // TODO json parse
+
+    // 插入信息
+    zecs_node_insert(NULL);
+
+    return NULL;
+}
+
+void *
+zget_meta_ecs_thread_region(void *zp) {
+    char *zpContent = NULL;
+    char zCmdBuf[512];
+
+    _i zOffSet;
+
+    _i zPageTotal,
+       zPageNum;
+
+    /* 固定参数部分 */
+    zOffSet = snprintf(zCmdBuf, 512,
+            "%s -region %s -userId %s -userKey %s "
+            "-domain ecs.aliyuncs.com "
+            "-apiName DescribeInstances "
+            "-apiVersion 2014-05-26 "
+            "Action DescribeInstances "
+            "PageSize 100 ",
+            zpUtilPath,
+            zp,
+            zpAliyunID,
+            zpAliyunKey);
+
+    zGET_CONTENT(zpContent, zCmdBuf);
+    // TODO json parse
+
+    // 插入信息
+    zecs_node_insert(NULL);
+
+    /* 计算总页数 */
+    zPageTotal = 0;
+
+    zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
+    pthread_t zTid[zPageTotal - 1];
+
+    for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
+        zp += (zPageNum - 2) * (zOffSet + 24);
+        memcpy(zp, zCmdBuf, zOffSet);
+
+        snprintf(zp + zOffSet, 24,
+                "PageNumber %d",
+                zPageNum);
+
+        pthread_create(zTid + zPageNum - 2, NULL, zget_meta_ecs_thread_region_page, NULL);
+    }
+
+    for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
+        pthread_join(zTid[zPageNum - 2], NULL);
+    }
+
+    return NULL;
+}
+
+void
+zget_meta_ecs(void) {
+    pthread_t zTid[2];
+    pthread_t zRegionTid[sizeof(zpRegion) / sizeof(void *)];
+
+    _i i;
+
+    // TODO 用屏障保证 ECS 主列表就绪后，disk 与 netif 线程才开始数据插入工作
+    pthread_create(zTid, NULL, zget_meta_ecs_disk, NULL);
+    pthread_create(zTid + 1, NULL, zget_meta_ecs_netif, NULL);
+
+    for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
+        pthread_create(zRegionTid + i, NULL, zget_meta_ecs_thread_region, NULL);
+    }
+
+    for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
+        pthread_join(zRegionTid[i], NULL);
+    }
+
+    // TODO 屏障解除
+
+    /* 等待两个辅助线程完工 */
+    pthread_join(zTid[0], NULL);
+    pthread_join(zTid[1], NULL);
+}
+
+void
+zget_sv_ecs(void) {
+    //const char * const zpDomain = "metrics.aliyuncs.com";
+    //const char * const zpApiName = "QueryMetricList";
+    //const char * const zpApiVersion = "2017-03-01";
+
+}
+
 /* 同步云上数据至本地数据库 */
 static void
 zcloud_data_sync(void) {
-    zsv_mem_pool_init();
-    // TODO 拉取 aliyun，存入 DB
-    zsv_mem_pool_destroy();
+    zmem_pool_init();
+
+    zget_meta_ecs();
+    // TODO get_meta_...()
+
+    zget_sv_ecs();
+
+    zmem_pool_destroy();
 }
 
 #undef zHASH_KEY_SIZ

@@ -187,7 +187,9 @@ zget_one_line(char *zpBufOUT, _i zSiz, FILE *zpFile) {
 static _i
 zget_str_content(char *zpBufOUT, size_t zSiz, FILE *zpFile) {
     size_t zCnt;
-    zCHECK_NEGATIVE_EXIT( zCnt = read(fileno(zpFile), zpBufOUT, zSiz) );
+    zCHECK_NEGATIVE_EXIT(
+            zCnt = read(fileno(zpFile), zpBufOUT, zSiz)
+            );
     return zCnt;
 }
 

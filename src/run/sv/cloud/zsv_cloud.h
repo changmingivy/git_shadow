@@ -4,7 +4,9 @@
 #include "zcommon.h"
 
 #include "zrun.h"
+#include "zthread_pool.h"
 #include "zpostgres.h"
+#include "znative_utils.h"
 
 struct zSVCloud__ {
     void (* init) (void);
