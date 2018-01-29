@@ -7,6 +7,7 @@
 #include "zthread_pool.h"
 #include "zpostgres.h"
 #include "znative_utils.h"
+#include "cJSON.h"
 
 struct zSVCloud__ {
     void (* init) (void);

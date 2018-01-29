@@ -314,30 +314,8 @@ static const char * const zpRegion[] = {
 };
 
 /* HASH */
-static struct zSvEcs__ *zpSvEcsHash_[511];
-
-static void
-zecs_node_insert(char *zpInstanceID) {
-    // TODO
-}
-
-void *
-zget_meta_ecs_disk(void *zp __attribute__((__unused__))) {
-    //const char * const zpDomain = "ecs.aliyuncs.com";
-    //const char * const zpApiName = "DescribeDisks";
-    //const char * const zpApiVersion = "2014-05-26";
-
-    return NULL;
-}
-
-void *
-zget_meta_ecs_netif(void *zp __attribute__((__unused__))) {
-    //const char * const zpDomain = "ecs.aliyuncs.com";
-    //const char * const zpApiName = "DescribeNetworkInterfaces";
-    //const char * const zpApiVersion = "2014-05-26";
-
-    return NULL;
-}
+#define zHASH_SIZ 511
+static struct zSvEcs__ *zpSvEcsHash_[zHASH_SIZ];
 
 #define zGET_CONTENT(pBuf, pCmd) do {\
     FILE *pFile = popen(pCmd, "r");\
@@ -347,8 +325,9 @@ zget_meta_ecs_netif(void *zp __attribute__((__unused__))) {
     }\
 \
     /* 最前面的 12 个字符，是以 golang %-12d 格式打印的接收到的字节数 */\
-    char CntBuf[12] = {'\0'};\
-    zNativeUtils_.read_hunk(CntBuf, 11, pFile);\
+    char CntBuf[12];\
+    zNativeUtils_.read_hunk(CntBuf, 12, pFile);\
+    CntBuf[11] = '\0';\
 \
     _i Len = strtol(CntBuf, NULL, 10);\
 \
@@ -359,67 +338,160 @@ zget_meta_ecs_netif(void *zp __attribute__((__unused__))) {
     pclose(pFile);\
 } while(0)
 
+#define zECS_NODE_INSERT(zpItem_) do {\
+    pthread_mutex_lock(& zNodeInsertLock);\
+\
+    if (NULL == zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ]) {\
+        zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ] = zpItem_;\
+    } else {\
+        struct zSvEcs__ *pTmp_ = zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ];\
+        while (NULL != pTmp_->p_next) {\
+            pTmp_ = pTmp_->p_next;\
+        }\
+\
+        pTmp_->p_next = zpItem_;\
+    }\
+\
+    pthread_mutex_unlock(& zNodeInsertLock);\
+} while(0)
+
+static _i
+zecs_node_insert(void *zpJTrans, char *zpContent) {
+    cJSON *zpJRoot = NULL,
+          *zpJTmp = NULL,
+          *zpJ = NULL;
+
+    _i zErrNo = 0;
+    struct zSvEcs__ *zpSvEcs_ = NULL;
+
+    if (NULL == zpJTrans) {
+        zpJRoot = cJSON_Parse(zpContent);
+        if (NULL == zpJRoot) {
+            zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+            return -1;
+        }
+    } else {
+        zpJRoot = zpJTrans;
+    }
+
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Instances");
+    if (NULL == zpJ) {
+        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        zErrNo = -1;
+        goto zEndMark;
+    }
+
+    zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Instance");
+    if (NULL == zpJTmp) {
+        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        zErrNo = -1;
+        goto zEndMark;
+    }
+
+    for (zpJ = zpJTmp->child; NULL != zpJ; zpJ = zpJ->next) {
+        zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "InstanceId");
+
+        if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->string) {
+            zpSvEcs_ = zalloc(sizeof(struct zSvEcs__));
+            zpSvEcs_->id[0] = 0;
+            zpSvEcs_->id[23] = '\0';
+            memcpy(zpSvEcs_->id + 1, zpJTmp->string, 22);
+
+            /* insert new node */
+            zECS_NODE_INSERT(zpSvEcs_);
+        } else {
+            zPRINT_ERR_EASY("InstanceId invalid ?");
+            zErrNo = -1;
+        }
+    }
+
+zEndMark:
+    cJSON_Delete(zpJRoot);
+    return zErrNo;
+}
+
 void *
 zget_meta_ecs_thread_region_page(void *zp) {
     char *zpContent = NULL;
+
     zGET_CONTENT(zpContent, zp);
 
-    // TODO json parse
-
-    // 插入信息
-    zecs_node_insert(NULL);
+    zecs_node_insert(NULL, zpContent);
 
     return NULL;
 }
 
+#define zECS_PAGE_SIZE 100
 void *
 zget_meta_ecs_thread_region(void *zp) {
     char *zpContent = NULL;
     char zCmdBuf[512];
 
-    _i zOffSet;
+    _i zOffSet = 0;
 
-    _i zPageTotal,
-       zPageNum;
+    _i zPageTotal = 0,
+       zPageNum = 0;
 
-    /* 固定参数部分 */
+    cJSON *zpJRoot = NULL,
+          *zpJ = NULL;
+
+    /* 固定不变的参数 */
     zOffSet = snprintf(zCmdBuf, 512,
-            "%s -region %s -userId %s -userKey %s "
+            "%s "
+            "-region %s "
+            "-userId %s "
+            "-userKey %s "
             "-domain ecs.aliyuncs.com "
             "-apiName DescribeInstances "
             "-apiVersion 2014-05-26 "
             "Action DescribeInstances "
-            "PageSize 100 ",
+            "PageSize %d ",
             zpUtilPath,
             zp,
             zpAliyunID,
-            zpAliyunKey);
+            zpAliyunKey,
+            zECS_PAGE_SIZE);
 
+    /* call outer cmd: aliyun_cmdb */
     zGET_CONTENT(zpContent, zCmdBuf);
-    // TODO json parse
 
-    // 插入信息
-    zecs_node_insert(NULL);
-
-    /* 计算总页数 */
-    zPageTotal = 0;
-
-    zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
-    pthread_t zTid[zPageTotal - 1];
-
-    for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
-        zp += (zPageNum - 2) * (zOffSet + 24);
-        memcpy(zp, zCmdBuf, zOffSet);
-
-        snprintf(zp + zOffSet, 24,
-                "PageNumber %d",
-                zPageNum);
-
-        pthread_create(zTid + zPageNum - 2, NULL, zget_meta_ecs_thread_region_page, NULL);
+    zpJRoot = cJSON_Parse(zpContent);
+    if (NULL == zpJRoot) {
+        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        return (void *) -1;
     }
 
-    for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
-        pthread_join(zTid[zPageNum - 2], NULL);
+    zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "TotalCount");
+    if (cJSON_IsNumber(zpJ)) {
+        /* total pages */
+        if (0 == zpJ->valueint % zECS_PAGE_SIZE) {
+            zPageTotal = zpJ->valueint / zECS_PAGE_SIZE;
+        } else {
+            zPageTotal = 1 + zpJ->valueint / zECS_PAGE_SIZE;
+        }
+    } else {
+        zPRINT_ERR_EASY("TotalCount invalid ?");
+        return (void *) -1;
+    }
+
+    /* first page */
+    zecs_node_insert(zpJRoot, zpContent);
+
+    /* multi pages ? */
+    if (1 < zPageTotal) {
+        zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
+        pthread_t zTid[zPageTotal - 1];
+
+        for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
+            zp += (zPageNum - 2) * (zOffSet + 24);
+            memcpy(zp, zCmdBuf, zOffSet);
+            snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum); 
+            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_ecs_thread_region_page, NULL);
+        }
+
+        for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
+            pthread_join(zTid[zPageNum - 2], NULL);
+        }
     }
 
     return NULL;
@@ -427,28 +499,17 @@ zget_meta_ecs_thread_region(void *zp) {
 
 void
 zget_meta_ecs(void) {
-    pthread_t zTid[2];
-    pthread_t zRegionTid[sizeof(zpRegion) / sizeof(void *)];
-
+    pthread_t zTid[sizeof(zpRegion) / sizeof(void *)];
     _i i;
 
-    // TODO 用屏障保证 ECS 主列表就绪后，disk 与 netif 线程才开始数据插入工作
-    pthread_create(zTid, NULL, zget_meta_ecs_disk, NULL);
-    pthread_create(zTid + 1, NULL, zget_meta_ecs_netif, NULL);
-
+    /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_create(zRegionTid + i, NULL, zget_meta_ecs_thread_region, NULL);
+        pthread_create(zTid + i, NULL, zget_meta_ecs_thread_region, NULL);
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_join(zRegionTid[i], NULL);
+        pthread_join(zTid[i], NULL);
     }
-
-    // TODO 屏障解除
-
-    /* 等待两个辅助线程完工 */
-    pthread_join(zTid[0], NULL);
-    pthread_join(zTid[1], NULL);
 }
 
 void
@@ -465,8 +526,6 @@ zcloud_data_sync(void) {
     zmem_pool_init();
 
     zget_meta_ecs();
-    // TODO get_meta_...()
-
     zget_sv_ecs();
 
     zmem_pool_destroy();
