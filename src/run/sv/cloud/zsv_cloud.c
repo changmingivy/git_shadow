@@ -341,16 +341,19 @@ static struct zSv__ *zpSvHash_[zHASH_SIZ];
 
 /* pBuf 相当于此宏的 “返回值” */
 #define zGET_CONTENT(pCmd) ({\
-    errno = 0;\
     FILE *pFile = popen(pCmd, "r");\
-    if (NULL == pFile || 0 != errno) {\
+    if (NULL == pFile) {\
         zPRINT_ERR_EASY_SYS();\
         exit(1);\
     }\
 \
     /* 最前面的 12 个字符，是以 golang %-12d 格式打印的接收到的字节数 */\
     char CntBuf[12];\
-    zNativeUtils_.read_hunk(CntBuf, 12, pFile);\
+    if (12 != zNativeUtils_.read_hunk(CntBuf, 12, pFile)) {\
+        zPRINT_ERR_EASY("popen exec err!");\
+        pclose(pFile);\
+        exit(1);\
+    }\
     CntBuf[11] = '\0';\
 \
     _i Len = strtol(CntBuf, NULL, 10);\
