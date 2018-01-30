@@ -339,9 +339,11 @@ static char * const zpRegion[] = {
 #define zHASH_SIZ 511
 static struct zSv__ *zpSvHash_[zHASH_SIZ];
 
-#define zGET_CONTENT(pBuf, pCmd) do {\
+/* pBuf 相当于此宏的 “返回值” */
+#define zGET_CONTENT(pCmd) ({\
+    errno = 0;\
     FILE *pFile = popen(pCmd, "r");\
-    if (NULL == pFile) {\
+    if (NULL == pFile || 0 != errno) {\
         zPRINT_ERR_EASY_SYS();\
         exit(1);\
     }\
@@ -353,12 +355,13 @@ static struct zSv__ *zpSvHash_[zHASH_SIZ];
 \
     _i Len = strtol(CntBuf, NULL, 10);\
 \
-    pBuf = zalloc(1 + Len);\
+    char *pBuf = zalloc(1 + Len);\
     zNativeUtils_.read_hunk(pBuf, Len, pFile);\
     pBuf[Len] = '\0';\
 \
     pclose(pFile);\
-} while(0)
+    pBuf;\
+})
 
 #define zNODE_INSERT(zpItem_) do {\
     pthread_mutex_lock(&zNodeInsertLock);\
@@ -436,9 +439,7 @@ zEndMark:
 
 void *
 zget_meta_thread_region_page(void *zp) {
-    char *zpContent = NULL;
-
-    zGET_CONTENT(zpContent, zp);
+    char *zpContent = zGET_CONTENT(zp);
 
     znode_parse_and_insert(NULL, zpContent);
 
@@ -477,7 +478,7 @@ zget_meta_thread_region(void *zp/* zpRegion */) {
             zPAGE_SIZE);
 
     /* call outer cmd: aliyun_cmdb */
-    zGET_CONTENT(zpContent, zCmdBuf);
+    zpContent = zGET_CONTENT(zCmdBuf);
 
     zpJRoot = cJSON_Parse(zpContent);
     if (NULL == zpJRoot) {
