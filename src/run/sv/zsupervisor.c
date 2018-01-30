@@ -151,8 +151,9 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
 
     char zBuf[512];
 
-    zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
     sleep(10);
+
+    zCHECK_NULL_EXIT( zpHandler = fopen("/proc/meminfo", "r") );
 
     for (_ui i = 0;; i++) {
         fscanf(zpHandler, "%*s %ld %*s %*s %*ld %*s %*s %ld", &zTotalMem, &zAvalMem);

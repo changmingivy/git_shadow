@@ -419,12 +419,12 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
     for (zpJ = zpJTmp->child; NULL != zpJ; zpJ = zpJ->next) {
         zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "InstanceId");
 
-        if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->string) {
+        if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->valuestring) {
             zpSv_ = zalloc(sizeof(struct zSv__));
             zpSv_->p_next = NULL;
 
             /* 同时复制末尾的 '\0'，共计 23 bytes；剩余空间清零 */
-            memcpy(zpSv_->id, zpJTmp->string, 23);
+            memcpy(zpSv_->id, zpJTmp->valuestring, 23);
             memset(zpSv_->id + 23, 0, zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
@@ -510,11 +510,11 @@ zget_meta_thread_region(void *zp/* zpRegion */) {
         zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
         pthread_t zTid[zPageTotal - 1];
 
-        for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
+        for (zPageNum = 2; zPageNum <= zPageTotal; ++zPageNum) {
             zp += (zPageNum - 2) * (zOffSet + 24);
             memcpy(zp, zCmdBuf, zOffSet);
             snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum); 
-            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_thread_region_page, NULL);
+            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_thread_region_page, zp);
         }
 
         for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
