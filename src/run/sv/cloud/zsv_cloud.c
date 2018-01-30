@@ -369,10 +369,10 @@ static struct zSv__ *zpSvHash_[zHASH_SIZ];
 #define zNODE_INSERT(zpItem_) do {\
     pthread_mutex_lock(&zNodeInsertLock);\
 \
-    if (NULL == zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
-        zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
+    if (NULL == zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
+        zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
     } else {\
-        struct zSv__ *pTmp_ = zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
+        struct zSv__ *pTmp_ = zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
         while (NULL != pTmp_->p_next) {\
             pTmp_ = pTmp_->p_next;\
         }\
