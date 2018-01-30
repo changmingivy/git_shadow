@@ -114,7 +114,7 @@ zmem_pool_init(void) {
             pthread_mutex_init(&zMemPoolLock, NULL)
             );
 
-    if (NULL == (zpMemPool = malloc(zMEM_POOL_SIZ))) {
+    if (NULL == (zpMemPool = malloc(zSV_MEM_POOL_SIZ))) {
         zPRINT_ERR_EASY_SYS();
         exit(1);
     }
