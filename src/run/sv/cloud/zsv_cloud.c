@@ -15,7 +15,7 @@ extern zRepo__ *zpRepo_;
  * 定制专用的内存池：开头留一个指针位置，
  * 用于当内存池容量不足时，指向下一块新开辟的内存区
  */
-#define zSV_MEM_POOL_SIZ 8 * 1024 * 1024
+#define zSV_MEM_POOL_SIZ 64 * 1024 * 1024
 static void *zpMemPool;
 static size_t zMemPoolOffSet;
 static pthread_mutex_t zMemPoolLock;
@@ -151,9 +151,9 @@ zalloc(size_t zSiz) {
     if ((zSiz + zMemPoolOffSet) > zSV_MEM_POOL_SIZ) {
         /* 请求的内存不能超过单片区最大容量 */
         if (zSiz > (zSV_MEM_POOL_SIZ - sizeof(void *))) {
-            zPRINT_ERR_EASY("");
             pthread_mutex_unlock(&zMemPoolLock);
-            return NULL;
+            zPRINT_ERR_EASY("req memory too large!");
+            exit(1);
         }
 
         /* 新增一片内存，加入内存池 */
