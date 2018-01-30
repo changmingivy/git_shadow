@@ -395,7 +395,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
     if (NULL == zpJTransRoot) {
         zpJRoot = cJSON_Parse(zpContent);
         if (NULL == zpJRoot) {
-            zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+            zPRINT_ERR_EASY("");
             return -1;
         }
     } else {
@@ -404,14 +404,14 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Instances");
     if (NULL == zpJ) {
-        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        zPRINT_ERR_EASY("");
         zErrNo = -1;
         goto zEndMark;
     }
 
     zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Instance");
     if (NULL == zpJTmp) {
-        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        zPRINT_ERR_EASY("");
         zErrNo = -1;
         goto zEndMark;
     }
@@ -485,7 +485,7 @@ zget_meta_thread_region(void *zp/* zpRegion */) {
 
     zpJRoot = cJSON_Parse(zpContent);
     if (NULL == zpJRoot) {
-        zPRINT_ERR_EASY(cJSON_GetErrorPtr());
+        zPRINT_ERR_EASY("");
         return (void *) -1;
     }
 
