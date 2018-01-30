@@ -311,7 +311,7 @@ static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
 
 static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
-static const char * const zpRegion[] = {
+static char * const zpRegion[] = {
     "cn-qingdao",
     "cn-beijing",
     "cn-zhangjiakou",
@@ -447,7 +447,7 @@ zget_meta_thread_region_page(void *zp) {
 
 #define zPAGE_SIZE 100
 void *
-zget_meta_thread_region(void *zp) {
+zget_meta_thread_region(void *zp/* zpRegion */) {
     char *zpContent = NULL;
     char zCmdBuf[512];
 
@@ -528,7 +528,7 @@ zget_meta(void) {
 
     /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_create(zTid + i, NULL, zget_meta_thread_region, NULL);
+        pthread_create(zTid + i, NULL, zget_meta_thread_region, zpRegion[i]);
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
