@@ -349,18 +349,18 @@ static struct zSv__ *zpSvHash_[zHASH_SIZ];
 \
     /* 最前面的 12 个字符，是以 golang %-12d 格式打印的接收到的字节数 */\
     char CntBuf[12];\
-    if (12 != zNativeUtils_.read_hunk(CntBuf, 12, pFile)) {\
-        zPRINT_ERR_EASY("popen exec err!");\
-        pclose(pFile);\
-        exit(1);\
+    char *pBuf = NULL;\
+    if (12 == zNativeUtils_.read_hunk(CntBuf, 12, pFile)) {\
+        CntBuf[11] = '\0';\
+        _i Len = strtol(CntBuf, NULL, 10);\
+\
+        pBuf = zalloc(1 + Len);\
+\
+        zNativeUtils_.read_hunk(pBuf, Len, pFile);\
+        pBuf[Len] = '\0';\
+    } else {\
+        zPRINT_ERR_EASY("err!");\
     }\
-    CntBuf[11] = '\0';\
-\
-    _i Len = strtol(CntBuf, NULL, 10);\
-\
-    char *pBuf = zalloc(1 + Len);\
-    zNativeUtils_.read_hunk(pBuf, Len, pFile);\
-    pBuf[Len] = '\0';\
 \
     pclose(pFile);\
     pBuf;\
