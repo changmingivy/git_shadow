@@ -149,7 +149,7 @@ zalloc(size_t zSiz) {
 
     /* 检测当前内存池片区剩余空间是否充裕 */
     if ((zSiz + zMemPoolOffSet) > zSV_MEM_POOL_SIZ) {
-        /* 请求的内存不能超过单片区最大容量 */
+        /* 请求的内存不能超过单个片区最大容量 */
         if (zSiz > (zSV_MEM_POOL_SIZ - sizeof(void *))) {
             pthread_mutex_unlock(&zMemPoolLock);
             zPRINT_ERR_EASY("req memory too large!");
@@ -392,6 +392,11 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
     _i zErrNo = 0;
     struct zSv__ *zpSv_ = NULL;
 
+    if (NULL == zpContent) {
+        zErrNo = -1;
+        goto zEndMark;
+    }
+
     if (NULL == zpJTransRoot) {
         zpJRoot = cJSON_Parse(zpContent);
         if (NULL == zpJRoot) {
@@ -442,10 +447,7 @@ zEndMark:
 
 void *
 zget_meta_thread_region_page(void *zp) {
-    char *zpContent = zGET_CONTENT(zp);
-
-    znode_parse_and_insert(NULL, zpContent);
-
+    znode_parse_and_insert(NULL, zGET_CONTENT(zp));
     return NULL;
 }
 
