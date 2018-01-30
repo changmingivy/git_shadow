@@ -23,28 +23,18 @@ static pthread_mutex_t zMemPoolLock;
 /* 并发插入实例节点时所用 */
 static pthread_mutex_t zNodeInsertLock;
 
-static void zsv_cloud_prepare(void);
-static void zcloud_data_sync(void);
-static void zpg_tb_mgmt(void);
+static void zenv_init(void);
+static void zdb_mgmt(void);
+static void zdata_sync(void);
 
 /* 对外接口 */
 struct zSVCloud__ zSVCloud_ = {
-    .init = zsv_cloud_prepare,
-    .data_sync = zcloud_data_sync,
-    .tb_mgmt = zpg_tb_mgmt,
+    .init = zenv_init,
+    .data_sync = zdata_sync,
+    .tb_mgmt = zdb_mgmt,
 };
 
-struct zEcsDisk__ {
-    char *p_dev;  // "/dev/vda1"
-    struct zEcsDisk__ *p_next;
-};
-
-struct zEcsNetIf__ {
-    char *p_dev;  // "eth0"
-    struct zEcsNetIf__ *p_next;
-};
-
-struct zSvEcsData__ {
+struct zSvData__ {
     /* 可直接取到的不需要额外加工的数据项 */
     _i timeStamp;
     _s cpu;
@@ -84,25 +74,38 @@ struct zSvEcsData__ {
     _i net_wriops;
 };
 
-#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))  // instanceID(22 char) + '\0'
-struct zSvEcs__ {
+//struct zDisk__ {
+//    char *p_dev;  // "/dev/vda1"
+//    struct zDisk__ *p_next;
+//};
+//
+//struct zNetIf__ {
+//    char *p_dev;  // "eth0"
+//    struct zNetIf__ *p_next;
+//};
+
+/* instanceID(22 char) + '\0' */
+#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))
+#define zINSTANCE_ID_BUF_LEN (1 + 23 / sizeof(_ull)) * sizeof(_ull)
+
+struct zSv__ {
     /*
      * 以链表形式集齐实例所有 device 的名称，
      * 用于查询对应设备的监控数据
      */
-    struct zEcsDisk__ disk;
-    struct zEcsNetIf__ netIf;
+    //struct zDisk__ disk;
+    //struct zNetIf__ netIf;
 
     /* HASH KEY */
     union {
         _ull hashKey[zHASH_KEY_SIZ];
-        char id[sizeof(_ull) * zHASH_KEY_SIZ];
+        char id[zINSTANCE_ID_BUF_LEN];
     };
 
     /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
-    struct zSvEcsData__ ecsSv_[60];
+    struct zSvData__ ecsSv_[60];
 
-    struct zSvEcs__ *p_next;
+    struct zSv__ *p_next;
 };
 
 static void
@@ -123,7 +126,7 @@ zmem_pool_init(void) {
 
 static void
 zmem_pool_destroy(void) {
-    pthread_mutex_lock(& zMemPoolLock);
+    pthread_mutex_lock(&zMemPoolLock);
 
     void **zppPrev = zpMemPool;
     while(NULL != zppPrev[0]) {
@@ -136,20 +139,20 @@ zmem_pool_destroy(void) {
     zpMemPool = NULL;
     zMemPoolOffSet = 0;
 
-    pthread_mutex_unlock(& zMemPoolLock);
+    pthread_mutex_unlock(&zMemPoolLock);
     pthread_mutex_destroy(&zMemPoolLock);
 }
 
 static void *
 zalloc(size_t zSiz) {
-    pthread_mutex_lock(& zMemPoolLock);
+    pthread_mutex_lock(&zMemPoolLock);
 
     /* 检测当前内存池片区剩余空间是否充裕 */
     if ((zSiz + zMemPoolOffSet) > zSV_MEM_POOL_SIZ) {
         /* 请求的内存不能超过单片区最大容量 */
         if (zSiz > (zSV_MEM_POOL_SIZ - sizeof(void *))) {
             zPRINT_ERR_EASY("");
-            pthread_mutex_unlock(& zMemPoolLock);
+            pthread_mutex_unlock(&zMemPoolLock);
             return NULL;
         }
 
@@ -181,20 +184,20 @@ zalloc(size_t zSiz) {
     void *zpX = zpMemPool + zMemPoolOffSet;
     zMemPoolOffSet += zSiz;
 
-    pthread_mutex_unlock(& zMemPoolLock);
+    pthread_mutex_unlock(&zMemPoolLock);
 
     return zpX;
 }
 
 /* 云监控模块 DB 预建 */
 static void
-zsv_cloud_prepare(void) {
+zenv_init(void) {
     _i zErrNo,
        zBaseID;
     char zSQLBuf[512];
 
     zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
-            "CREATE TABLE IF NOT EXISTS sv_ecs_aliyun "
+            "CREATE TABLE IF NOT EXISTS sv_aliyun "
             "("
             /*
              * aliyun 原始值为毫秒，
@@ -259,8 +262,8 @@ zsv_cloud_prepare(void) {
     zBaseID = time(NULL) / 3600;
     for (_i zID = 0; zID < 10 * 24; zID++) {
         sprintf(zSQLBuf,
-                "CREATE TABLE IF NOT EXISTS sv_ecs_aliyun_%d "
-                "PARTITION OF sv_ecs_aliyun FOR VALUES FROM (%d) TO (%d);",
+                "CREATE TABLE IF NOT EXISTS sv_aliyun_%d "
+                "PARTITION OF sv_aliyun FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID),
                 3600 * (zBaseID + zID + 1));
@@ -271,7 +274,7 @@ zsv_cloud_prepare(void) {
 
 /* 定期扩展 DB 云监控分区表 */
 static void
-zpg_tb_mgmt(void) {
+zdb_mgmt(void) {
     _i zBaseID,
        zID;
 
@@ -281,8 +284,8 @@ zpg_tb_mgmt(void) {
     zBaseID = time(NULL) / 3600;
     for (zID = 0; zID < 10 * 24; zID++) {
         sprintf(zBuf,
-                "CREATE TABLE IF NOT EXISTS sv_ecs_aiyun_%d "
-                "PARTITION OF sv_ecs_aiyun FOR VALUES FROM (%d) TO (%d);",
+                "CREATE TABLE IF NOT EXISTS sv_aiyun_%d "
+                "PARTITION OF sv_aiyun FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID),
                 3600 * (zBaseID + zID + 1));
@@ -294,7 +297,7 @@ zpg_tb_mgmt(void) {
     zBaseID -= 30 * 24;
     for (zID = 0; zID < 10 * 24; zID++) {
         sprintf(zBuf,
-                "DROP TABLE IF EXISTS sv_ecs_aliyun_%d;",
+                "DROP TABLE IF EXISTS sv_aliyun_%d;",
                 zBaseID - zID);
 
         zPgSQL_.write_db(zBuf, 0, NULL, 0);
@@ -309,13 +312,32 @@ static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
 static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
 static const char * const zpRegion[] = {
+    "cn-qingdao",
     "cn-beijing",
+    "cn-zhangjiakou",
+    "cn-huhehaote",
     "cn-hangzhou",
+    "cn-shanghai",
+    "cn-shenzhen",
+    "cn-hongkong",
+
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ap-southeast-3",
+    "ap-south-1",
+    "ap-northeast-1",
+
+    "us-west-1",
+    "us-east-1",
+
+    "eu-central-1",
+
+    "me-east-1",
 };
 
 /* HASH */
 #define zHASH_SIZ 511
-static struct zSvEcs__ *zpSvEcsHash_[zHASH_SIZ];
+static struct zSv__ *zpSvHash_[zHASH_SIZ];
 
 #define zGET_CONTENT(pBuf, pCmd) do {\
     FILE *pFile = popen(pCmd, "r");\
@@ -338,13 +360,13 @@ static struct zSvEcs__ *zpSvEcsHash_[zHASH_SIZ];
     pclose(pFile);\
 } while(0)
 
-#define zECS_NODE_INSERT(zpItem_) do {\
-    pthread_mutex_lock(& zNodeInsertLock);\
+#define zNODE_INSERT(zpItem_) do {\
+    pthread_mutex_lock(&zNodeInsertLock);\
 \
-    if (NULL == zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ]) {\
-        zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ] = zpItem_;\
+    if (NULL == zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
+        zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
     } else {\
-        struct zSvEcs__ *pTmp_ = zpSvEcsHash_[zpSvEcs_->hashKey[2] % zHASH_SIZ];\
+        struct zSv__ *pTmp_ = zpSvHash_[zpSv_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
         while (NULL != pTmp_->p_next) {\
             pTmp_ = pTmp_->p_next;\
         }\
@@ -352,26 +374,26 @@ static struct zSvEcs__ *zpSvEcsHash_[zHASH_SIZ];
         pTmp_->p_next = zpItem_;\
     }\
 \
-    pthread_mutex_unlock(& zNodeInsertLock);\
+    pthread_mutex_unlock(&zNodeInsertLock);\
 } while(0)
 
 static _i
-zecs_node_insert(void *zpJTrans, char *zpContent) {
+znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
     cJSON *zpJRoot = NULL,
           *zpJTmp = NULL,
           *zpJ = NULL;
 
     _i zErrNo = 0;
-    struct zSvEcs__ *zpSvEcs_ = NULL;
+    struct zSv__ *zpSv_ = NULL;
 
-    if (NULL == zpJTrans) {
+    if (NULL == zpJTransRoot) {
         zpJRoot = cJSON_Parse(zpContent);
         if (NULL == zpJRoot) {
             zPRINT_ERR_EASY(cJSON_GetErrorPtr());
             return -1;
         }
     } else {
-        zpJRoot = zpJTrans;
+        zpJRoot = zpJTransRoot;
     }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Instances");
@@ -392,13 +414,15 @@ zecs_node_insert(void *zpJTrans, char *zpContent) {
         zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "InstanceId");
 
         if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->string) {
-            zpSvEcs_ = zalloc(sizeof(struct zSvEcs__));
-            zpSvEcs_->id[0] = 0;
-            zpSvEcs_->id[23] = '\0';
-            memcpy(zpSvEcs_->id + 1, zpJTmp->string, 22);
+            zpSv_ = zalloc(sizeof(struct zSv__));
+            zpSv_->p_next = NULL;
+
+            /* 同时复制末尾的 '\0'，共计 23 bytes；剩余空间清零 */
+            memcpy(zpSv_->id, zpJTmp->string, 23);
+            memset(zpSv_->id + 23, 0, zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
-            zECS_NODE_INSERT(zpSvEcs_);
+            zNODE_INSERT(zpSv_);
         } else {
             zPRINT_ERR_EASY("InstanceId invalid ?");
             zErrNo = -1;
@@ -411,19 +435,19 @@ zEndMark:
 }
 
 void *
-zget_meta_ecs_thread_region_page(void *zp) {
+zget_meta_thread_region_page(void *zp) {
     char *zpContent = NULL;
 
     zGET_CONTENT(zpContent, zp);
 
-    zecs_node_insert(NULL, zpContent);
+    znode_parse_and_insert(NULL, zpContent);
 
     return NULL;
 }
 
-#define zECS_PAGE_SIZE 100
+#define zPAGE_SIZE 100
 void *
-zget_meta_ecs_thread_region(void *zp) {
+zget_meta_thread_region(void *zp) {
     char *zpContent = NULL;
     char zCmdBuf[512];
 
@@ -450,7 +474,7 @@ zget_meta_ecs_thread_region(void *zp) {
             zp,
             zpAliyunID,
             zpAliyunKey,
-            zECS_PAGE_SIZE);
+            zPAGE_SIZE);
 
     /* call outer cmd: aliyun_cmdb */
     zGET_CONTENT(zpContent, zCmdBuf);
@@ -464,10 +488,10 @@ zget_meta_ecs_thread_region(void *zp) {
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "TotalCount");
     if (cJSON_IsNumber(zpJ)) {
         /* total pages */
-        if (0 == zpJ->valueint % zECS_PAGE_SIZE) {
-            zPageTotal = zpJ->valueint / zECS_PAGE_SIZE;
+        if (0 == zpJ->valueint % zPAGE_SIZE) {
+            zPageTotal = zpJ->valueint / zPAGE_SIZE;
         } else {
-            zPageTotal = 1 + zpJ->valueint / zECS_PAGE_SIZE;
+            zPageTotal = 1 + zpJ->valueint / zPAGE_SIZE;
         }
     } else {
         zPRINT_ERR_EASY("TotalCount invalid ?");
@@ -475,9 +499,9 @@ zget_meta_ecs_thread_region(void *zp) {
     }
 
     /* first page */
-    zecs_node_insert(zpJRoot, zpContent);
+    znode_parse_and_insert(zpJRoot, zpContent);
 
-    /* multi pages ? */
+    /* multi pages */
     if (1 < zPageTotal) {
         zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
         pthread_t zTid[zPageTotal - 1];
@@ -486,7 +510,7 @@ zget_meta_ecs_thread_region(void *zp) {
             zp += (zPageNum - 2) * (zOffSet + 24);
             memcpy(zp, zCmdBuf, zOffSet);
             snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum); 
-            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_ecs_thread_region_page, NULL);
+            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_thread_region_page, NULL);
         }
 
         for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
@@ -498,13 +522,13 @@ zget_meta_ecs_thread_region(void *zp) {
 }
 
 void
-zget_meta_ecs(void) {
+zget_meta(void) {
     pthread_t zTid[sizeof(zpRegion) / sizeof(void *)];
     _i i;
 
     /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_create(zTid + i, NULL, zget_meta_ecs_thread_region, NULL);
+        pthread_create(zTid + i, NULL, zget_meta_thread_region, NULL);
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
@@ -513,23 +537,23 @@ zget_meta_ecs(void) {
 }
 
 void
-zget_sv_ecs(void) {
+zget_sv(void) {
     //const char * const zpDomain = "metrics.aliyuncs.com";
     //const char * const zpApiName = "QueryMetricList";
     //const char * const zpApiVersion = "2017-03-01";
-
 }
 
 /* 同步云上数据至本地数据库 */
 static void
-zcloud_data_sync(void) {
+zdata_sync(void) {
     zmem_pool_init();
 
-    zget_meta_ecs();
-    zget_sv_ecs();
+    zget_meta();
+    zget_sv();
 
     zmem_pool_destroy();
 }
 
+#undef zINSTANCE_ID_BUF_LEN
 #undef zHASH_KEY_SIZ
 #undef zSV_MEM_POOL_SIZ
