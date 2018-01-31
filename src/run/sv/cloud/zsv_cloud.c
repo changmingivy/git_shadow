@@ -762,7 +762,7 @@ zget_sv_net_wriops(void *zp) {
 }
 
 static void *
-zget_sv_base(char * const zpRegion) {
+zget_sv_base(char * zpRegion) {
     pthread_t zTid[5];
     _i i;
 
@@ -786,7 +786,7 @@ zget_sv_base(char * const zpRegion) {
 }
 
 static void *
-zget_sv_disk(char * const zpRegion) {
+zget_sv_disk(char * zpRegion) {
     pthread_t zTid[6];
     _i i;
 
@@ -811,7 +811,7 @@ zget_sv_disk(char * const zpRegion) {
 }
 
 static void *
-zget_sv_net(char * const zpRegion) {
+zget_sv_net(char * zpRegion) {
     pthread_t zTid[4];
     _i i;
 
@@ -834,7 +834,7 @@ zget_sv_net(char * const zpRegion) {
 }
 
 static void *
-zget_sv_tcp_state(char * const zpRegion) {
+zget_sv_tcp_state(char * zpRegion) {
     pthread_t zTid[11];
     _i i;
 
