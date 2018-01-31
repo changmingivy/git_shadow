@@ -761,84 +761,30 @@ zget_sv_net_wriops(void *zp) {
     return NULL;
 }
 
-static void *
-zget_sv_base(void * zpRegion) {
-    pthread_t zTid[5];
-    _i i;
+static void
+zget_sv(void) {
+    pthread_t zTid[sizeof(zpRegion) / sizeof(void *)][26];
+    _i i, j;
 
-    void * (* zBaseFunc[5]) (void *) = {
+    void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
         zget_sv_cpu_rate,
         zget_sv_mem_rate,
         zget_sv_load1m,
         zget_sv_load5m,
         zget_sv_load15m,
-    };
 
-    for (i = 0; i < 5; i++) {
-        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zBaseFunc[i], zpRegion));
-    }
-
-    for (i = 0; i < 5; i++) {
-        pthread_join(zTid[i], NULL);
-    }
-
-    return NULL;
-}
-
-static void *
-zget_sv_disk(void * zpRegion) {
-    pthread_t zTid[6];
-    _i i;
-
-    void * (* zDiskFunc[6]) (void *) = {
         zget_sv_disk_total,
         zget_sv_disk_spent,
         zget_sv_disk_rdkb,
         zget_sv_disk_wrkb,
         zget_sv_disk_rdiops,
         zget_sv_disk_wriops,
-    };
 
-    for (i = 0; i < 6; i++) {
-        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zDiskFunc[i], zpRegion));
-    }
-
-    for (i = 0; i < 6; i++) {
-        pthread_join(zTid[i], NULL);
-    }
-
-    return NULL;
-}
-
-static void *
-zget_sv_net(void * zpRegion) {
-    pthread_t zTid[4];
-    _i i;
-
-    void * (* zNetFunc[4]) (void *) = {
         zget_sv_net_rdkb,
         zget_sv_net_wrkb,
         zget_sv_net_rdiops,
         zget_sv_net_wriops,
-    };
 
-    for (i = 0; i < 4; i++) {
-        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zNetFunc[i], zpRegion));
-    }
-
-    for (i = 0; i < 4; i++) {
-        pthread_join(zTid[i], NULL);
-    }
-
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state(void * zpRegion) {
-    pthread_t zTid[11];
-    _i i;
-
-    void * (* zTcpStateFunc[11]) (void *) = {
         zget_sv_tcp_state_LISTEN,
         zget_sv_tcp_state_SYN_SENT,
         zget_sv_tcp_state_ESTABLISHED,
@@ -852,32 +798,15 @@ zget_sv_tcp_state(void * zpRegion) {
         zget_sv_tcp_state_CLOSED,
     };
 
-    for (i = 0; i < 11; i++) {
-        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zTcpStateFunc[i], zpRegion));
-    }
-
-    for (i = 0; i < 11; i++) {
-        pthread_join(zTid[i], NULL);
-    }
-
-    return NULL;
-}
-
-static void
-zget_sv(void) {
-    pthread_t zTid[sizeof(zpRegion) / sizeof(void *)][4];
-    _i i, j;
-
     /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        zCHECK_PT_ERR(pthread_create((zTid + i)[0], NULL, zget_sv_base, zpRegion[i]));
-        zCHECK_PT_ERR(pthread_create((zTid + i)[1], NULL, zget_sv_disk, zpRegion[i]));
-        zCHECK_PT_ERR(pthread_create((zTid + i)[2], NULL, zget_sv_net, zpRegion[i]));
-        zCHECK_PT_ERR(pthread_create((zTid + i)[3], NULL, zget_sv_tcp_state, zpRegion[i]));
+        for (j = 0; j < 26; j++) {
+            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], zpRegion[i]));
+        }
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        for (j = 0; j < 4; j++) {
+        for (j = 0; j < 26; j++) {
             pthread_join(zTid[i][j], NULL);
         }
     }
