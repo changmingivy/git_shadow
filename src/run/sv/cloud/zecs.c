@@ -1,15 +1,14 @@
-#include "zsv_cloud.h"
+#include "zecs.h"
 
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
 
-extern struct zRun__ zRun_;
-extern struct zPgSQL__ zPgSQL_;
-extern struct zThreadPool__ zThreadPool_;
-extern struct zNativeUtils__ zNativeUtils_;
+/* 专用内存池初始容量：64M */
+#define zSV_MEM_POOL_SIZ 64 * 1024 * 1024
 
-extern zRepo__ *zpRepo_;
+/* ECS 元信息分页并发查询 */
+#define zMETA_PAGE_SIZ 100
 
 /* check pthread functions error */
 #define zCHECK_PT_ERR(zRet) do {\
@@ -19,11 +18,17 @@ extern zRepo__ *zpRepo_;
     }\
 } while(0)
 
+extern struct zRun__ zRun_;
+extern struct zPgSQL__ zPgSQL_;
+extern struct zThreadPool__ zThreadPool_;
+extern struct zNativeUtils__ zNativeUtils_;
+
+extern zRepo__ *zpRepo_;
+
 /*
  * 定制专用的内存池：开头留一个指针位置，
  * 用于当内存池容量不足时，指向下一块新开辟的内存区
  */
-#define zSV_MEM_POOL_SIZ 64 * 1024 * 1024
 static void *zpMemPool;
 static size_t zMemPoolOffSet;
 static pthread_mutex_t zMemPoolLock;
@@ -31,89 +36,18 @@ static pthread_mutex_t zMemPoolLock;
 /* 并发插入实例节点时所用 */
 static pthread_mutex_t zNodeInsertLock;
 
+/*
+ * func declare
+ */
 static void zenv_init(void);
 static void zdb_mgmt(void);
 static void zdata_sync(void);
 
-/* 对外接口 */
+/* public interface */
 struct zSVCloud__ zSVCloud_ = {
     .init = zenv_init,
     .data_sync = zdata_sync,
     .tb_mgmt = zdb_mgmt,
-};
-
-struct zSvData__ {
-    /* 可直接取到的不需要额外加工的数据项 */
-    _i timeStamp;
-    _s cpu;
-    _s mem;
-    _s load[3];
-
-    /* 分别处于 tcp 的 11 种状态的连接计数 */
-    _us tcpState[11];
-
-    /*
-     * 取磁盘列表的时，可得到以 GB 为单位的容量，
-     * 不需要从监控数据中再取一次，
-     * 所有磁盘容量加和之后，换算成 M，保持与 diskSpent 的单位统一
-     */
-    _i diskTotal;
-
-    /*
-     * 首先将 byte 换算成 M(/1024/1024)，以 M 为单位累加计数，
-     * 集齐所有磁盘的数据后，计算实例的全局磁盘总使用率
-     */
-    _i diskSpent;
-
-    /*
-     * 首先将 byte 换算成 KB(/1024)，以 KB 为单位累加计数，
-     * 集齐所有设备的数据后，取得最终的 sum 值
-     */
-    _i disk_rdkb;
-    _i disk_wrkb;
-
-    _i disk_rdiops;
-    _i disk_wriops;
-
-    _i net_rdkb;
-    _i net_wrkb;
-
-    _i net_rdiops;
-    _i net_wriops;
-};
-
-//struct zDisk__ {
-//    char *p_dev;  // "/dev/vda1"
-//    struct zDisk__ *p_next;
-//};
-//
-//struct zNetIf__ {
-//    char *p_dev;  // "eth0"
-//    struct zNetIf__ *p_next;
-//};
-
-/* instanceID(22 char) + '\0' */
-#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))
-#define zINSTANCE_ID_BUF_LEN (1 + 23 / sizeof(_ull)) * sizeof(_ull)
-
-struct zSv__ {
-    /*
-     * 以链表形式集齐实例所有 device 的名称，
-     * 用于查询对应设备的监控数据
-     */
-    //struct zDisk__ disk;
-    //struct zNetIf__ netIf;
-
-    /* HASH KEY */
-    union {
-        _ull hashKey[zHASH_KEY_SIZ];
-        char id[zINSTANCE_ID_BUF_LEN];
-    };
-
-    /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
-    struct zSvData__ ecsSv_[60];
-
-    struct zSv__ *p_next;
 };
 
 static void
@@ -318,11 +252,6 @@ static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
 static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
 
-struct zRegion__ {
-    char *p_name;
-    _i ecsCnt;
-};
-
 static struct zRegion__ zRegion_[] = {
     {"cn-qingdao", 0},
     {"cn-beijing", 0},
@@ -351,52 +280,16 @@ static const char * const zpDomain = "metrics.aliyuncs.com";
 static const char * const zpApiName = "QueryMetricList";
 static const char * const zpApiVersion = "2017-03-01";
 
-#define zSPLIT_UNIT 200
-static _i zSplitCnt;  /* 按 200 台一组分割后的区间数量 */
-
-#define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
-static char **zppSplitBase;  /* 指向分组后的各区间数据(拼接好的字符串) */
-
-//static char **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
-//static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
-
-#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + sizeof(state) - 1))
-static const char * const zpTcpState[] = {
-    "LISTEN",
-    "SYN_SENT",
-    "ESTABLISHED",
-    "SYN_RECV",
-    "FIN_WAIT1",
-    "CLOSE_WAIT",
-    "FIN_WAIT2",
-    "LAST_ACK",
-    "TIME_WAIT",
-    "CLOSING",
-    "CLOSED",
-};
-
-typedef enum {
-    zLISTEN,
-    zSYN_SENT,
-    zESTABLISHED,
-    zSYN_RECV,
-    zFIN_WAIT1,
-    zCLOSE_WAIT,
-    zFIN_WAIT2,
-    zLAST_ACK,
-    zTIME_WAIT,
-    zCLOSING,
-    zCLOSED,
-} ztcp_state_t;
-
-static char **zppSplitTcpState[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
-
 /*
  * 上一次同步数据的毫秒时间戳（UNIX timestamp * 1000 之后的值）上限 + 1，
  * aliyun 查询时的时间区间是前后均闭合的，故使用时将上限设置为 15s 边界数减 1ms，
  * 以确保区间查询统一为前闭后开的形式，避免数据重复
  */
 static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
+
+/* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
+static struct zSv__ *zpHead = NULL;
+static struct zSv__ *zpTail = NULL;
 
 /* HASH */
 #define zHASH_SIZ 511
@@ -428,23 +321,6 @@ static struct zSv__ *zpSvHash_[zHASH_SIZ];
     pclose(pFile);\
     pBuf;\
 })
-
-#define zNODE_INSERT(zpItem_) do {\
-    pthread_mutex_lock(&zNodeInsertLock);\
-\
-    if (NULL == zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
-        zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
-    } else {\
-        struct zSv__ *pTmp_ = zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
-        while (NULL != pTmp_->p_next) {\
-            pTmp_ = pTmp_->p_next;\
-        }\
-\
-        pTmp_->p_next = zpItem_;\
-    }\
-\
-    pthread_mutex_unlock(&zNodeInsertLock);\
-} while(0)
 
 static _i
 znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
@@ -496,7 +372,15 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
             memset(zpSv_->id + 23, 0, zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
-            zNODE_INSERT(zpSv_);
+            pthread_mutex_lock(&zNodeInsertLock);
+            if (NULL == zpHead) {
+                zpHead = zpSv_;
+                zpTail = zpHead;
+            } else {
+                zpTail->p_next = zpSv_;
+                zpTail = zpTail->p_next;
+            }
+            pthread_mutex_unlock(&zNodeInsertLock);
         } else {
             zPRINT_ERR_EASY("InstanceId invalid ?");
             zErrNo = -1;
@@ -514,7 +398,6 @@ zget_meta_one_page(void *zp) {
     return NULL;
 }
 
-#define zPAGE_SIZE 100
 static void *
 zget_meta_one_region(void *zp) {
     char *zpContent = NULL;
@@ -545,7 +428,7 @@ zget_meta_one_region(void *zp) {
             zpRegion_->p_name,
             zpAliyunID,
             zpAliyunKey,
-            zPAGE_SIZE);
+            zMETA_PAGE_SIZ);
 
     /* call outer cmd: aliyun_cmdb */
     zpContent = zGET_CONTENT(zCmdBuf);
@@ -561,10 +444,10 @@ zget_meta_one_region(void *zp) {
         zpRegion_->ecsCnt = zpJ->valueint;
 
         /* total pages */
-        if (0 == zpRegion_->ecsCnt  % zPAGE_SIZE) {
-            zPageTotal = zpJ->valueint / zPAGE_SIZE;
+        if (0 == zpRegion_->ecsCnt  % zMETA_PAGE_SIZ) {
+            zPageTotal = zpJ->valueint / zMETA_PAGE_SIZ;
         } else {
-            zPageTotal = 1 + zpRegion_->ecsCnt / zPAGE_SIZE;
+            zPageTotal = 1 + zpRegion_->ecsCnt / zMETA_PAGE_SIZ;
         }
     } else {
         zPRINT_ERR_EASY("TotalCount invalid ?");
@@ -746,31 +629,40 @@ zget_sv_net_wriops(void *zp) {
     return NULL;
 }
 
+/* 监控信息按主机数量分组并发查询*/
+#define zSPLIT_UNIT 200
+#define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
+#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
 static void
 zget_sv(void) {
     pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)][26];
-    _i i, j;
+    _i zEcsTotal,
+       zSplitCnt,
+       zOffSet,
+       i,
+       j,
+       k;
 
     void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
-        zget_sv_cpu_rate,
+        zget_sv_cpu_rate,  // 0
         zget_sv_mem_rate,
         zget_sv_load1m,
         zget_sv_load5m,
         zget_sv_load15m,
 
-        zget_sv_disk_total,
+        zget_sv_disk_total,  // 6
         zget_sv_disk_spent,
         zget_sv_disk_rdkb,
         zget_sv_disk_wrkb,
         zget_sv_disk_rdiops,
         zget_sv_disk_wriops,
 
-        zget_sv_net_rdkb,
+        zget_sv_net_rdkb,  // 11
         zget_sv_net_wrkb,
         zget_sv_net_rdiops,
         zget_sv_net_wriops,
 
-        zget_sv_tcp_state_LISTEN,
+        zget_sv_tcp_state_LISTEN,  // 15
         zget_sv_tcp_state_SYN_SENT,
         zget_sv_tcp_state_ESTABLISHED,
         zget_sv_tcp_state_SYN_RECV,
@@ -783,10 +675,85 @@ zget_sv(void) {
         zget_sv_tcp_state_CLOSED,
     };
 
+    /* 顺序不能变！ */
+    char *zpTcpState[] = {
+        "LISTEN",
+        "SYN_SENT",
+        "ESTABLISHED",
+        "SYN_RECV",
+        "FIN_WAIT1",
+        "CLOSE_WAIT",
+        "FIN_WAIT2",
+        "LAST_ACK",
+        "TIME_WAIT",
+        "CLOSING",
+        "CLOSED",
+    };
+
+    static char **zppSplitBase;  /* 指向分组后的各区间数据(拼接好的字符串) */
+    //static char **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
+    //static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
+    static char (**zppSplitTcpState)[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
+
     /* 提取监控信息 */
+    zEcsTotal = 0;
     for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
-        for (j = 0; j < 26; j++) {
-            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], & zRegion_[i]));
+        zEcsTotal += zRegion_[i].ecsCnt;
+    }
+
+    if (0 == zEcsTotal) {
+        return;
+    }
+
+    if (0 == zEcsTotal % zSPLIT_UNIT) {
+        zSplitCnt = zEcsTotal / zSPLIT_UNIT;
+    } else {
+        zSplitCnt = 1 + zEcsTotal / zSPLIT_UNIT;
+    }
+
+    zppSplitBase = zalloc(zSplitCnt * sizeof(void *));
+    zpTail = zpHead;
+    for (j = 0; j < zSplitCnt; j++) {
+        zppSplitBase[j] = zalloc(zSPLIT_SIZE_BASE);
+
+        zOffSet = sprintf(zppSplitBase[j], "'");
+
+        for (k = 0; k < zSPLIT_UNIT, NULL != zpTail; k++, zpTail = zpTail->p_next) {
+            zOffSet += sprintf(zppSplitBase[j] + zOffSet,
+                    ",{\"instanceId\":\"%s\"}",
+                    zpTail->id);
+        }
+
+        zOffSet += sprintf(zppSplitBase[j] + zOffSet, "]'");
+        zppSplitBase[j][1] = '[';
+    }
+
+    for (i = 0; i < 11; i++) {
+        zppSplitTcpState[i] = zalloc(zSplitCnt * sizeof(void *));
+        for (j = 0; j < zSplitCnt; j++) {
+            zppSplitTcpState[i][j] = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
+
+            zOffSet = sprintf(zppSplitTcpState[i][j], "'");
+
+            for (k = 0; k < zSPLIT_UNIT, NULL != zpTail; k++, zpTail = zpTail->p_next) {
+                zOffSet += sprintf(zppSplitBase[j] + zOffSet,
+                        ",{\"instanceId\":\"%s\",\"state\":\"%s\"}",
+                        zpTail->id,
+                        zpTcpState[i]);
+            }
+
+            zOffSet += sprintf(zppSplitTcpState[i][j] + zOffSet, "]'");
+            zppSplitTcpState[i][j][1] = '[';
+        }
+    }
+
+    for (i = 0; i < zSplitCnt; i++) {
+        for (j = 0; j < 15; j++) {
+            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], & zppSplitBase[i]));
+        }
+
+        for (j = 15; j < 26; j++) {
+            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], & zppSplitTcpState[j - 15][i]));
         }
     }
 
@@ -797,6 +764,23 @@ zget_sv(void) {
     }
 }
 
+
+#define zNODE_INSERT(zpItem_) do {\
+    pthread_mutex_lock(&zNodeInsertLock);\
+\
+    if (NULL == zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
+        zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
+    } else {\
+        struct zSv__ *pTmp_ = zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
+        while (NULL != pTmp_->p_next) {\
+            pTmp_ = pTmp_->p_next;\
+        }\
+\
+        pTmp_->p_next = zpItem_;\
+    }\
+\
+    pthread_mutex_unlock(&zNodeInsertLock);\
+} while(0)
 static void
 zwrite_db(void) {
     // TODO
