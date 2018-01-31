@@ -11,6 +11,14 @@ extern struct zNativeUtils__ zNativeUtils_;
 
 extern zRepo__ *zpRepo_;
 
+/* check pthread functions error */
+#define zCHECK_PT_ERR(zRet) do {\
+    if (0 != (zRet)) {\
+        zPRINT_ERR_EASY("pthread_create() err!");\
+        exit(1);\
+    }\
+} while(0)
+
 /*
  * 定制专用的内存池：开头留一个指针位置，
  * 用于当内存池容量不足时，指向下一块新开辟的内存区
@@ -110,9 +118,7 @@ struct zSv__ {
 
 static void
 zmem_pool_init(void) {
-    zCHECK_PTHREAD_FUNC_EXIT(
-            pthread_mutex_init(&zMemPoolLock, NULL)
-            );
+    zCHECK_PT_ERR(pthread_mutex_init(&zMemPoolLock, NULL));
 
     if (NULL == (zpMemPool = malloc(zSV_MEM_POOL_SIZ))) {
         zPRINT_ERR_EASY_SYS();
@@ -568,7 +574,8 @@ zget_meta_thread_region(void *zp/* zpRegion */) {
             zp += (zPageNum - 2) * (zOffSet + 24);
             memcpy(zp, zCmdBuf, zOffSet);
             snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum); 
-            pthread_create(zTid + zPageNum - 2, NULL, zget_meta_thread_region_page, zp);
+
+            zCHECK_PT_ERR(pthread_create(zTid + zPageNum - 2, NULL, zget_meta_thread_region_page, zp));
         }
 
         for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
@@ -586,7 +593,7 @@ zget_meta(void) {
 
     /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_create(zTid + i, NULL, zget_meta_thread_region, zpRegion[i]);
+        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zget_meta_thread_region, zpRegion[i]));
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
@@ -768,10 +775,7 @@ zget_sv_base(char * const zpRegion) {
     };
 
     for (i = 0; i < 5; i++) {
-        if (0 != pthread_create(zTid + i, NULL, zBaseFunc[i], zpRegion)) {
-            zPRINT_ERR_EASY("pthread_create() err!");
-            exit(1);
-        }
+        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zBaseFunc[i], zpRegion));
     }
 
     for (i = 0; i < 5; i++) {
@@ -796,10 +800,7 @@ zget_sv_disk(char * const zpRegion) {
     };
 
     for (i = 0; i < 6; i++) {
-        if (0 != pthread_create(zTid + i, NULL, zDiskFunc[i], zpRegion)) {
-            zPRINT_ERR_EASY("pthread_create() err!");
-            exit(1);
-        }
+        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zDiskFunc[i], zpRegion));
     }
 
     for (i = 0; i < 6; i++) {
@@ -822,10 +823,7 @@ zget_sv_net(char * const zpRegion) {
     };
 
     for (i = 0; i < 4; i++) {
-        if (0 != pthread_create(zTid + i, NULL, zNetFunc[i], zpRegion)) {
-            zPRINT_ERR_EASY("pthread_create() err!");
-            exit(1);
-        }
+        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zNetFunc[i], zpRegion));
     }
 
     for (i = 0; i < 4; i++) {
@@ -855,10 +853,7 @@ zget_sv_tcp_state(char * const zpRegion) {
     };
 
     for (i = 0; i < 11; i++) {
-        if (0 != pthread_create(zTid + i, NULL, zTcpStateFunc[i], zpRegion)) {
-            zPRINT_ERR_EASY("pthread_create() err!");
-            exit(1);
-        }
+        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zTcpStateFunc[i], zpRegion));
     }
 
     for (i = 0; i < 11; i++) {
@@ -875,10 +870,10 @@ zget_sv(void) {
 
     /* 提取所有实例 ID */
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
-        pthread_create((zTid + i)[0], NULL, zget_sv_base, zpRegion[i]);
-        pthread_create((zTid + i)[1], NULL, zget_sv_disk, zpRegion[i]);
-        pthread_create((zTid + i)[2], NULL, zget_sv_net, zpRegion[i]);
-        pthread_create((zTid + i)[3], NULL, zget_sv_tcp_state, zpRegion[i]);
+        zCHECK_PT_ERR(pthread_create((zTid + i)[0], NULL, zget_sv_base, zpRegion[i]));
+        zCHECK_PT_ERR(pthread_create((zTid + i)[1], NULL, zget_sv_disk, zpRegion[i]));
+        zCHECK_PT_ERR(pthread_create((zTid + i)[2], NULL, zget_sv_net, zpRegion[i]));
+        zCHECK_PT_ERR(pthread_create((zTid + i)[3], NULL, zget_sv_tcp_state, zpRegion[i]));
     }
 
     for (i = 0; i < (_i) (sizeof(zpRegion) / sizeof(void *)); ++i) {
