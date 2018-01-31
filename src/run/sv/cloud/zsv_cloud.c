@@ -311,6 +311,7 @@ static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
 
 static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+
 static char * const zpRegion[] = {
     "cn-qingdao",
     "cn-beijing",
@@ -334,6 +335,57 @@ static char * const zpRegion[] = {
 
     "me-east-1",
 };
+
+static const char * const zpDomain = "metrics.aliyuncs.com";
+static const char * const zpApiName = "QueryMetricList";
+static const char * const zpApiVersion = "2017-03-01";
+
+#define zSPLIT_UNIT 200
+static _i zSplitCnt;  /* 按 200 台一组分割后的区间数量 */
+
+#define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
+static char **zppSplit;  /* 指向分组后的各区间数据(拼接好的字符串) */
+
+//static char **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
+//static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
+
+#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + sizeof(state) - 1))
+static const char * const zpTcpState[] = {
+    "LISTEN",
+    "SYN_SENT",
+    "ESTABLISHED",
+    "SYN_RECV",
+    "FIN_WAIT1",
+    "CLOSE_WAIT",
+    "FIN_WAIT2",
+    "LAST_ACK",
+    "TIME_WAIT",
+    "CLOSING",
+    "CLOSED",
+};
+
+typedef enum {
+    zLISTEN,
+    zSYN_SENT,
+    zESTABLISHED,
+    zSYN_RECV,
+    zFIN_WAIT1,
+    zCLOSE_WAIT,
+    zFIN_WAIT2,
+    zLAST_ACK,
+    zTIME_WAIT,
+    zCLOSING,
+    zCLOSED,
+} ztcp_state_t;
+
+static char **zppSplitTcpState[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
+
+/*
+ * 上一次同步数据的毫秒时间戳（UNIX timestamp * 1000 之后的值）上限 + 1，
+ * aliyun 查询时的时间区间是前后均闭合的，故使用时将上限设置为 15s 边界数减 1ms，
+ * 以确保区间查询统一为前闭后开的形式，避免数据重复
+ */
+static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
 
 /* HASH */
 #define zHASH_SIZ 511
@@ -445,14 +497,14 @@ zEndMark:
     return zErrNo;
 }
 
-void *
+static void *
 zget_meta_thread_region_page(void *zp) {
     znode_parse_and_insert(NULL, zGET_CONTENT(zp));
     return NULL;
 }
 
 #define zPAGE_SIZE 100
-void *
+static void *
 zget_meta_thread_region(void *zp/* zpRegion */) {
     char *zpContent = NULL;
     char zCmdBuf[512];
@@ -527,7 +579,7 @@ zget_meta_thread_region(void *zp/* zpRegion */) {
     return NULL;
 }
 
-void
+static void
 zget_meta(void) {
     pthread_t zTid[sizeof(zpRegion) / sizeof(void *)];
     _i i;
@@ -542,19 +594,284 @@ zget_meta(void) {
     }
 }
 
-void
-zget_sv(void) {
-    //const char * const zpDomain = "metrics.aliyuncs.com";
-    //const char * const zpApiName = "QueryMetricList";
-    //const char * const zpApiVersion = "2017-03-01";
+// BASE //
+static void *
+zget_sv_cpu_rate(void *zp) {
+
+    return NULL;
 }
 
-/* 同步云上数据至本地数据库 */
+static void *
+zget_sv_mem_rate(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_load1m(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_load5m(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_load15m(void *zp) {
+
+    return NULL;
+}
+
+// TCP_STATE //
+static void *
+zget_sv_tcp_state_LISTEN(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_SYN_SENT(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_ESTABLISHED(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_SYN_RECV(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_FIN_WAIT1(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_CLOSE_WAIT(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_FIN_WAIT2(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_LAST_ACK(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_TIME_WAIT(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_CLOSING(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_tcp_state_CLOSED(void *zp) {
+
+    return NULL;
+}
+
+// DISK //
+static void *
+zget_sv_disk_total(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_disk_spent(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_disk_rdkb(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_disk_wrkb(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_disk_rdiops(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_disk_wriops(void *zp) {
+
+    return NULL;
+}
+
+// NET //
+static void *
+zget_sv_net_rdkb(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_net_wrkb(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_net_rdiops(void *zp) {
+
+    return NULL;
+}
+
+static void *
+zget_sv_net_wriops(void *zp) {
+
+    return NULL;
+}
+
+static void
+zget_sv_base(void) {
+    pthread_t zTid[5];
+
+    void * (* zBaseFunc[5]) (void *) = {
+        zget_sv_cpu_rate(void *zp),
+        zget_sv_mem_rate(void *zp),
+        zget_sv_load1m(void *zp),
+        zget_sv_load5m(void *zp),
+        zget_sv_load15m(void *zp),
+    };
+
+    for (_i i = 0; i < 5; i++) {
+        if (0 != pthread_create(zTid + i, NULL, zBaseFunc[i], NULL)) {
+            zPRINT_ERR_EASY("pthread_create() err!");
+            exit(1);
+        }
+    }
+
+    for (_i i = 0; i < 5; i++) {
+        pthread_join(zTid[i], NULL);
+    }
+}
+
+static void
+zget_sv_disk(void) {
+    pthread_t zTid[6];
+
+    void * (* zDiskFunc[6]) (void *) = {
+        zget_sv_disk_total,
+        zget_sv_disk_spent,
+        zget_sv_disk_rdkb,
+        zget_sv_disk_wrkb,
+        zget_sv_disk_rdiops,
+        zget_sv_disk_wriops,
+    };
+
+    for (_i i = 0; i < 6; i++) {
+        if (0 != pthread_create(zTid + i, NULL, zDiskFunc[i], NULL)) {
+            zPRINT_ERR_EASY("pthread_create() err!");
+            exit(1);
+        }
+    }
+
+    for (_i i = 0; i < 6; i++) {
+        pthread_join(zTid[i], NULL);
+    }
+}
+
+static void
+zget_sv_net(void) {
+    pthread_t zTid[4];
+
+    void * (* zNetFunc[4]) (void *) = {
+        zget_sv_net_rdkb,
+        zget_sv_net_wrkb,
+        zget_sv_net_rdiops,
+        zget_sv_net_wriops,
+    };
+
+    for (_i i = 0; i < 4; i++) {
+        if (0 != pthread_create(zTid + i, NULL, zNetFunc[i], NULL)) {
+            zPRINT_ERR_EASY("pthread_create() err!");
+            exit(1);
+        }
+    }
+
+    for (_i i = 0; i < 4; i++) {
+        pthread_join(zTid[i], NULL);
+    }
+}
+
+static void
+zget_sv_tcp_state(void) {
+    pthread_t zTid[11];
+
+    void * (* zTcpStateFunc[11]) (void *) = {
+        zget_sv_tcp_state_LISTEN,
+        zget_sv_tcp_state_SYN_SENT,
+        zget_sv_tcp_state_ESTABLISHED,
+        zget_sv_tcp_state_SYN_RECV,
+        zget_sv_tcp_state_FIN_WAIT1,
+        zget_sv_tcp_state_CLOSE_WAIT,
+        zget_sv_tcp_state_FIN_WAIT2,
+        zget_sv_tcp_state_LAST_ACK,
+        zget_sv_tcp_state_TIME_WAIT,
+        zget_sv_tcp_state_CLOSING,
+        zget_sv_tcp_state_CLOSED,
+    };
+
+    for (_i i = 0; i < 11; i++) {
+        if (0 != pthread_create(zTid + i, NULL, zTcpStateFunc[i], NULL)) {
+            zPRINT_ERR_EASY("pthread_create() err!");
+            exit(1);
+        }
+    }
+
+    for (_i i = 0; i < 11; i++) {
+        pthread_join(zTid[i], NULL);
+    }
+}
+
+static void
+zget_sv(void) {
+    zget_sv_base();
+    zget_sv_disk();
+    zget_sv_net();
+    zget_sv_tcp_state();
+}
+
 static void
 zdata_sync(void) {
     zmem_pool_init();
 
+    /* 实例、磁盘、网卡的基本信息 */
     zget_meta();
+
+    /* 与基本信息对应的监控信息 */
     zget_sv();
 
     zmem_pool_destroy();

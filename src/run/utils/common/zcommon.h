@@ -39,15 +39,6 @@ typedef enum {
     zNoneAuth = 3
 } znet_auth_t;
 
-typedef enum {
-    zStr = 0,
-    zI32 = 1,
-    zI64 = 2,
-    zF32 = 3,
-    zF64 = 4
-} zjson_value_t;
-
-
 /*
  * =>>> Aliases For All Basic Types <<<=
  */
