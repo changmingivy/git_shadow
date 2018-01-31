@@ -759,11 +759,11 @@ zget_sv_base(void) {
     pthread_t zTid[5];
 
     void * (* zBaseFunc[5]) (void *) = {
-        zget_sv_cpu_rate(void *zp),
-        zget_sv_mem_rate(void *zp),
-        zget_sv_load1m(void *zp),
-        zget_sv_load5m(void *zp),
-        zget_sv_load15m(void *zp),
+        zget_sv_cpu_rate,
+        zget_sv_mem_rate,
+        zget_sv_load1m,
+        zget_sv_load5m,
+        zget_sv_load15m,
     };
 
     for (_i i = 0; i < 5; i++) {
