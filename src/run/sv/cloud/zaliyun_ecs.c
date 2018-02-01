@@ -824,8 +824,10 @@ zsync_one_region(void *zp) {
 
     // TODO 多磁盘、网卡关联
 
-    /* 与基本信息对应的监控信息 */
-    zget_sv_one_region(zpRegion_);
+    /* 若存在主机，则提取监控信息 */
+    if (0 < zpRegion_->ecsCnt) {
+        zget_sv_one_region(zpRegion_);
+    }
 
     return NULL;
 }
@@ -964,21 +966,14 @@ zdata_sync(void) {
         zmem_pool_init();
 
         pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)];
-        _i zThreadCnt = 0,
-           i;
+        _i i;
 
         /* 分区域并发执行 */
         for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
-            /* 过滤掉数据为空的区域 */
-            if (0 == zRegion_[i].ecsCnt) {
-                continue;
-            } else {
-                zCHECK_PT_ERR(pthread_create(zTid + zThreadCnt, NULL, zsync_one_region, & zRegion_[i]));
-                zThreadCnt++;
-            }
+            zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zsync_one_region, & zRegion_[i]));
         }
 
-        for (i = 0; i < zThreadCnt; i++) {
+        for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
             pthread_join(zTid[i], NULL);
         }
 
