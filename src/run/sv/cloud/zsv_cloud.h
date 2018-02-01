@@ -2,6 +2,7 @@
 #define ZSV_CLOUD_H
 
 #include "zcommon.h"
+#include "zaliyun_ecs.h"
 
 struct zSvCloud__ {
     void (* init) (void);
