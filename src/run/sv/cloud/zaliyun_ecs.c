@@ -245,8 +245,8 @@ zenv_init(void) {
     zBaseID = time(NULL) / 3600;
     for (_i zID = 0; zID < 10 * 24; zID++) {
         sprintf(zSQLBuf,
-                "CREATE TABLE IF NOT EXISTS sv_aliyun_%d "
-                "PARTITION OF sv_aliyun FOR VALUES FROM (%d) TO (%d);",
+                "CREATE TABLE IF NOT EXISTS sv_aliyun_ecs_%d "
+                "PARTITION OF sv_aliyun_ecs FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID),
                 3600 * (zBaseID + zID + 1));
@@ -280,7 +280,7 @@ zdb_mgmt(void) {
     zBaseID -= 30 * 24;
     for (zID = 0; zID < 10 * 24; zID++) {
         sprintf(zBuf,
-                "DROP TABLE IF EXISTS sv_aliyun_%d;",
+                "DROP TABLE IF EXISTS sv_aliyun_ecs_%d;",
                 zBaseID - zID);
 
         zPgSQL_.write_db(zBuf, 0, NULL, 0);
