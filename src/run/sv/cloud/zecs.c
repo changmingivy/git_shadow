@@ -288,8 +288,8 @@ static const char * const zpApiVersion = "2017-03-01";
 static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
 
 /* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
-static struct zSv__ *zpHead = NULL;
-static struct zSv__ *zpTail = NULL;
+static struct zSv__ *zpHead_ = NULL;
+static struct zSv__ *zpTail_ = NULL;
 
 /* HASH */
 #define zHASH_SIZ 511
@@ -373,12 +373,12 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
 
             /* insert new node */
             pthread_mutex_lock(&zNodeInsertLock);
-            if (NULL == zpHead) {
-                zpHead = zpSv_;
-                zpTail = zpHead;
+            if (NULL == zpHead_) {
+                zpHead_ = zpSv_;
+                zpTail_ = zpHead_;
             } else {
-                zpTail->p_next = zpSv_;
-                zpTail = zpTail->p_next;
+                zpTail_->p_next = zpSv_;
+                zpTail_ = zpTail_->p_next;
             }
             pthread_mutex_unlock(&zNodeInsertLock);
         } else {
@@ -635,14 +635,6 @@ zget_sv_net_wriops(void *zp) {
 #define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
 static void
 zget_sv(void) {
-    pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)][26];
-    _i zEcsTotal,
-       zSplitCnt,
-       zOffSet,
-       i,
-       j,
-       k;
-
     void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
         zget_sv_cpu_rate,  // 0
         zget_sv_mem_rate,
@@ -695,6 +687,13 @@ zget_sv(void) {
     //static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
     static char (**zppSplitTcpState)[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
 
+    _i zEcsTotal,
+       zSplitCnt,
+       zOffSet,
+       i,
+       j,
+       k;
+
     /* 提取监控信息 */
     zEcsTotal = 0;
     for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
@@ -711,17 +710,18 @@ zget_sv(void) {
         zSplitCnt = 1 + zEcsTotal / zSPLIT_UNIT;
     }
 
-    zppSplitBase = zalloc(zSplitCnt * sizeof(void *));
-    zpTail = zpHead;
+    /* 一次性分配Base与TcpState共计12个类别的内存 */
+    zppSplitBase = zalloc(12 * zSplitCnt * sizeof(void *));
+
+    zpTail_ = zpHead_;
     for (j = 0; j < zSplitCnt; j++) {
         zppSplitBase[j] = zalloc(zSPLIT_SIZE_BASE);
-
         zOffSet = sprintf(zppSplitBase[j], "'");
 
-        for (k = 0; k < zSPLIT_UNIT, NULL != zpTail; k++, zpTail = zpTail->p_next) {
+        for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
             zOffSet += sprintf(zppSplitBase[j] + zOffSet,
                     ",{\"instanceId\":\"%s\"}",
-                    zpTail->id);
+                    zpTail_->id);
         }
 
         zOffSet += sprintf(zppSplitBase[j] + zOffSet, "]'");
@@ -729,16 +729,17 @@ zget_sv(void) {
     }
 
     for (i = 0; i < 11; i++) {
-        zppSplitTcpState[i] = zalloc(zSplitCnt * sizeof(void *));
+        zppSplitTcpState[i] = zppSplitBase + (i + 1) * (zSplitCnt * sizeof(void *));
+
+        zpTail_ = zpHead_;
         for (j = 0; j < zSplitCnt; j++) {
             zppSplitTcpState[i][j] = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
-
             zOffSet = sprintf(zppSplitTcpState[i][j], "'");
 
-            for (k = 0; k < zSPLIT_UNIT, NULL != zpTail; k++, zpTail = zpTail->p_next) {
+            for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
                 zOffSet += sprintf(zppSplitBase[j] + zOffSet,
                         ",{\"instanceId\":\"%s\",\"state\":\"%s\"}",
-                        zpTail->id,
+                        zpTail_->id,
                         zpTcpState[i]);
             }
 
@@ -746,6 +747,25 @@ zget_sv(void) {
             zppSplitTcpState[i][j][1] = '[';
         }
     }
+
+    /* 将线性链表转换为 HASH 结构 */
+    struct zSv__ *zpTmp_;
+    for (zpTail_ = zpHead_; NULL != zpTail_; zpTail_ = zpTail_->p_next) {
+        if (NULL == zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
+            zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTail_;
+        } else {
+            zpTmp_ = zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
+            while (NULL != zpTmp_->p_next) {
+                zpTmp_ = zpTmp_->p_next;
+            }
+
+            zpTmp_->p_next = zpTail_;
+            zpTail_->p_next = NULL;  // must!
+        }
+    }
+
+    /* 定义动态栈空间存放 tid */
+    pthread_t zTid[zSplitCnt][26];
 
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 15; j++) {
@@ -764,23 +784,6 @@ zget_sv(void) {
     }
 }
 
-
-#define zNODE_INSERT(zpItem_) do {\
-    pthread_mutex_lock(&zNodeInsertLock);\
-\
-    if (NULL == zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {\
-        zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpItem_;\
-    } else {\
-        struct zSv__ *pTmp_ = zpSvHash_[zpItem_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];\
-        while (NULL != pTmp_->p_next) {\
-            pTmp_ = pTmp_->p_next;\
-        }\
-\
-        pTmp_->p_next = zpItem_;\
-    }\
-\
-    pthread_mutex_unlock(&zNodeInsertLock);\
-} while(0)
 static void
 zwrite_db(void) {
     // TODO
