@@ -35,10 +35,10 @@ extern zRepo__ *zpRepo_;
  */
 static void *zpMemPool;
 static size_t zMemPoolOffSet;
-static pthread_mutex_t zMemPoolLock;
+static pthread_mutex_t zMemPoolLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* 并发插入实例节点时所用 */
-static pthread_mutex_t zNodeInsertLock;
+static pthread_mutex_t zNodeInsertLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* public interface */
 struct zSvAliyunEcs__ zSvAliyunEcs_ = {
