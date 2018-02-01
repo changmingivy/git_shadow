@@ -655,8 +655,8 @@ zsv_cb_netiokb(_i *zpBase, _f zNew) {
 
 /* 监控信息按主机数量分组并发查询*/
 #define zSPLIT_UNIT 200
-#define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
-#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
+#define zSPLIT_SIZE_BASE (1 + (sizeof("'[]'") - 1) + zSPLIT_UNIT * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + (zSPLIT_UNIT - 1) * (sizeof(",") - 1))
+#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + zSPLIT_UNIT * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
 static void *
 zget_sv_one_region(void *zp) {
     struct zRegion__ *zpRegion_ = zp;
