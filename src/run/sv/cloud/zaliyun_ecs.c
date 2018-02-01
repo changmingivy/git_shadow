@@ -946,18 +946,18 @@ zdata_sync(void) {
      * 若为空，则赋值为执行当时之前 15 分钟的时间戳
      */
     zPgRes__ *zpPgRes_ = NULL;
-    if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
-                "SELECT last_timestamp FROM sv_sync_meta;",
-                &zpPgRes_)) {
+    _i zErrNo = zPgSQL_.exec_once(
+            zRun_.p_sysInfo_->pgConnInfo,
+            "SELECT last_timestamp FROM sv_sync_meta;",
+            &zpPgRes_);
 
-        zPRINT_ERR_EASY("");
-        exit(1);
-    }
-
-    if (0 == zpPgRes_->tupleCnt) {
+    if (0 == zErrNo) {
+        zPrevStamp = 15 * 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+    } else if (-92 == zErrNo) {
         zPrevStamp = (time(NULL) / (15 * 60) - 1) * 15 * 60 * 1000;
     } else {
-        zPrevStamp = 15 * 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+        zPRINT_ERR_EASY("");
+        exit(1);
     }
 
     while (time(NULL) * 1000 > (zPrevStamp + 15 * 60 * 1000 - 1)) {

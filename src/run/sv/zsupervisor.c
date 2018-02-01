@@ -110,7 +110,7 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
                 "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
                 "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
                 "PARTITION BY LIST (repo_id);"
-                "CREATE TABLE supervisor_log_%d_0 "
+                "CREATE TABLE IF NOT EXISTS supervisor_log_%d_0 "
                 "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID), 3600 * (zBaseID + zID + 1),
@@ -201,7 +201,7 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
                             "CREATE TABLE IF NOT EXISTS supervisor_log_%d "
                             "PARTITION OF supervisor_log FOR VALUES FROM (%d) TO (%d) "
                             "PARTITION BY LIST (repo_id);"
-                            "CREATE TABLE supervisor_log_%d_0 "
+                            "CREATE TABLE IF NOT EXISTS supervisor_log_%d_0 "
                             "PARTITION OF supervisor_log_%d FOR VALUES IN (0);",
                             zBaseID + zID,
                             3600 * (zBaseID + zID),
