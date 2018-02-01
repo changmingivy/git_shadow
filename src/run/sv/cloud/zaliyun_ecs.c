@@ -18,6 +18,10 @@
     }\
 } while(0)
 
+static void zenv_init(void);
+static void zdb_mgmt(void);
+static void zdata_sync(void);
+
 extern struct zRun__ zRun_;
 extern struct zPgSQL__ zPgSQL_;
 extern struct zThreadPool__ zThreadPool_;
@@ -36,19 +40,58 @@ static pthread_mutex_t zMemPoolLock;
 /* 并发插入实例节点时所用 */
 static pthread_mutex_t zNodeInsertLock;
 
-/*
- * func declare
- */
-static void zenv_init(void);
-static void zdb_mgmt(void);
-static void zdata_sync(void);
-
 /* public interface */
 struct zSvAliyunEcs__ zSvAliyunEcs_ = {
     .init = zenv_init,
     .data_sync = zdata_sync,
     .tb_mgmt = zdb_mgmt,
 };
+
+static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
+static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
+static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
+
+static struct zRegion__ zRegion_[] = {
+    {"cn-qingdao", 0},
+    {"cn-beijing", 0},
+    {"cn-zhangjiakou", 0},
+    {"cn-huhehaote", 0},
+    {"cn-hangzhou", 0},
+    {"cn-shanghai", 0},
+    {"cn-shenzhen", 0},
+    {"cn-hongkong", 0},
+
+    {"ap-southeast-1", 0},
+    {"ap-southeast-2", 0},
+    {"ap-southeast-3", 0},
+    {"ap-south-1", 0},
+    {"ap-northeast-1", 0},
+
+    {"us-west-1", 0},
+    {"us-east-1", 0},
+
+    {"eu-central-1", 0},
+
+    {"me-east-1", 0},
+};
+
+/*
+ * 上一次同步数据的毫秒时间戳（UNIX timestamp * 1000 之后的值）上限 + 1，
+ * aliyun 查询时的时间区间是前后均闭合的，故使用时将上限设置为 15s 边界数减 1ms，
+ * 以确保区间查询统一为前闭后开的形式，避免数据重复
+ */
+static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
+
+/* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
+static struct zSv__ *zpHead_ = NULL;
+static struct zSv__ *zpTail_ = NULL;
+
+/* HASH */
+#define zHASH_SIZ 511
+static struct zSv__ *zpSvHash_[zHASH_SIZ];
+
+
+
 
 static void
 zmem_pool_init(void) {
@@ -247,54 +290,6 @@ zdb_mgmt(void) {
 /******************
  * 如下：提取数据 *
  ******************/
-static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
-
-static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
-static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
-
-static struct zRegion__ zRegion_[] = {
-    {"cn-qingdao", 0},
-    {"cn-beijing", 0},
-    {"cn-zhangjiakou", 0},
-    {"cn-huhehaote", 0},
-    {"cn-hangzhou", 0},
-    {"cn-shanghai", 0},
-    {"cn-shenzhen", 0},
-    {"cn-hongkong", 0},
-
-    {"ap-southeast-1", 0},
-    {"ap-southeast-2", 0},
-    {"ap-southeast-3", 0},
-    {"ap-south-1", 0},
-    {"ap-northeast-1", 0},
-
-    {"us-west-1", 0},
-    {"us-east-1", 0},
-
-    {"eu-central-1", 0},
-
-    {"me-east-1", 0},
-};
-
-static const char * const zpDomain = "metrics.aliyuncs.com";
-static const char * const zpApiName = "QueryMetricList";
-static const char * const zpApiVersion = "2017-03-01";
-
-/*
- * 上一次同步数据的毫秒时间戳（UNIX timestamp * 1000 之后的值）上限 + 1，
- * aliyun 查询时的时间区间是前后均闭合的，故使用时将上限设置为 15s 边界数减 1ms，
- * 以确保区间查询统一为前闭后开的形式，避免数据重复
- */
-static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
-
-/* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
-static struct zSv__ *zpHead_ = NULL;
-static struct zSv__ *zpTail_ = NULL;
-
-/* HASH */
-#define zHASH_SIZ 511
-static struct zSv__ *zpSvHash_[zHASH_SIZ];
-
 /* pBuf 相当于此宏的 “返回值” */
 #define zGET_CONTENT(pCmd) ({\
     FILE *pFile = popen(pCmd, "r");\
@@ -806,6 +801,9 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
         }
     }
 }
+#undef zSPLIT_UNIT
+#undef zSPLIT_SIZE_BASE
+#undef zSPLIT_SIZE_TCP_STATE
 
 static void *
 zsync_one_region(void *zp) {
