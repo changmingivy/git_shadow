@@ -969,7 +969,7 @@ zdata_sync(void) {
 
         for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
             if (0 < zRegion_[i].ecsCnt) {
-                zCHECK_PT_ERR(pthread_create(zTid + zThreadCnt, NULL, zget_meta_one_region, & zRegion_[i]));
+                zCHECK_PT_ERR(pthread_create(zTid + zThreadCnt, NULL, zget_sv_one_region, & zRegion_[i]));
                 zThreadCnt++;
             }
         }
