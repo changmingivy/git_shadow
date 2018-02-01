@@ -403,8 +403,9 @@ zget_meta_one_page(void *zp) {
     return NULL;
 }
 
-static void
-zget_meta_one_region(struct zRegion__ *zpRegion_) {
+static void *
+zget_meta_one_region(void *zpParam) {
+    struct zRegion__ *zpRegion_  = zpParam;
     char *zpContent = NULL;
     char zCmdBuf[512];
 
@@ -441,7 +442,7 @@ zget_meta_one_region(struct zRegion__ *zpRegion_) {
     zpJRoot = cJSON_Parse(zpContent);
     if (NULL == zpJRoot) {
         zPRINT_ERR_EASY("");
-        return;
+        return (void *) -1;
     }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "TotalCount");
@@ -456,7 +457,7 @@ zget_meta_one_region(struct zRegion__ *zpRegion_) {
         }
     } else {
         zPRINT_ERR_EASY("TotalCount invalid ?");
-        return;
+        return (void *) -1;
     }
 
     /* first page */
@@ -479,6 +480,8 @@ zget_meta_one_region(struct zRegion__ *zpRegion_) {
             pthread_join(zTid[zPageNum - 2], NULL);
         }
     }
+
+    return NULL;
 }
 
 /*
@@ -654,8 +657,9 @@ zsv_cb_netiokb(_i *zpBase, _f zNew) {
 #define zSPLIT_UNIT 200
 #define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
 #define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
-static void
-zget_sv_one_region(struct zRegion__ *zpRegion_) {
+static void *
+zget_sv_one_region(void *zp) {
+    struct zRegion__ *zpRegion_ = zp;
     static struct zSvParamSolid__ *zpBaseSolid;  /* 指向分组后的各区间数据(拼接好的字符串) */
     //static **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
     //static **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
@@ -810,27 +814,12 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
             pthread_join(zTid[i][j], NULL);
         }
     }
+
+    return NULL;
 }
 #undef zSPLIT_UNIT
 #undef zSPLIT_SIZE_BASE
 #undef zSPLIT_SIZE_TCP_STATE
-
-static void *
-zsync_one_region(void *zp) {
-    struct zRegion__ *zpRegion_ = zp;
-
-    /* 实例、磁盘、网卡的基本信息 */
-    zget_meta_one_region(zpRegion_);
-
-    // TODO 多磁盘、网卡关联
-
-    /* 若存在主机，则提取监控信息 */
-    if (0 < zpRegion_->ecsCnt) {
-        zget_sv_one_region(zpRegion_);
-    }
-
-    return NULL;
-}
 
 static void *
 zwrite_db_worker(void *zp) {
@@ -966,14 +955,26 @@ zdata_sync(void) {
         zmem_pool_init();
 
         pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)];
-        _i i;
+        _i zThreadCnt = 0,
+           i;
 
         /* 分区域并发执行 */
         for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
-            zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zsync_one_region, & zRegion_[i]));
+            zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zget_meta_one_region, & zRegion_[i]));
         }
 
         for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
+            pthread_join(zTid[i], NULL);
+        }
+
+        for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
+            if (0 < zRegion_[i].ecsCnt) {
+                zCHECK_PT_ERR(pthread_create(zTid + zThreadCnt, NULL, zget_meta_one_region, & zRegion_[i]));
+                zThreadCnt++;
+            }
+        }
+
+        for (i = 0; i < zThreadCnt; i++) {
             pthread_join(zTid[i], NULL);
         }
 
