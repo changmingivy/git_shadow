@@ -368,7 +368,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
             memset(zpSv_->id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
-            pthread_mutex_lock(&zNodeInsertLock[zRegionID]);
+            pthread_mutex_lock(& zNodeInsertLock[zRegionID]);
             if (NULL == zpHead_[zRegionID]) {
                 zpHead_[zRegionID] = zpSv_;
                 zpTail_[zRegionID] = zpHead_[zRegionID];
@@ -376,7 +376,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
                 zpTail_[zRegionID]->p_next = zpSv_;
                 zpTail_[zRegionID] = zpTail_[zRegionID]->p_next;
             }
-            pthread_mutex_unlock(&zNodeInsertLock[zRegionID]);
+            pthread_mutex_unlock(& zNodeInsertLock[zRegionID]);
 
             /* 提取 cpu 核心数 */
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Cpu");
@@ -399,7 +399,7 @@ zEndMark:
 
 static void *
 zget_meta_one_page(void *zp) {
-    znode_parse_and_insert(NULL, zGET_CONTENT((char *)zp + sizeof(_i)), * ((_i *) zp));
+    znode_parse_and_insert(NULL, zGET_CONTENT((char *)zp + sizeof(_i)), ((_i *) zp)[0]);
     return NULL;
 }
 
@@ -422,8 +422,8 @@ zget_meta_one_region(void *zpParam) {
     ((_i *)zCmdBuf)[0] = zpRegion_->id;
 
     /* 固定不变的参数 */
-    zOffSet = sizeof(zpRegion_->id);
-    zOffSet += snprintf(zCmdBuf + sizeof(zpRegion_->id), 512,
+    zOffSet = sizeof(_i);
+    zOffSet += snprintf(zCmdBuf + sizeof(_i), 512,
             "%s "
             "-region %s "
             "-userId %s "
