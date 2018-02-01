@@ -83,12 +83,12 @@ static struct zRegion__ zRegion_[] = {
 static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
 
 /* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
-static struct zSv__ *zpHead_ = NULL;
-static struct zSv__ *zpTail_ = NULL;
+static struct zSvEcs__ *zpHead_ = NULL;
+static struct zSvEcs__ *zpTail_ = NULL;
 
 /* HASH */
 #define zHASH_SIZ 511
-static struct zSv__ *zpSvHash_[zHASH_SIZ];
+static struct zSvEcs__ *zpSvHash_[zHASH_SIZ];
 
 
 
@@ -324,7 +324,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
           *zpJ = NULL;
 
     _i zErrNo = 0;
-    struct zSv__ *zpSv_ = NULL;
+    struct zSvEcs__ *zpSv_ = NULL;
 
     if (NULL == zpContent) {
         zErrNo = -1;
@@ -359,9 +359,9 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
         zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "InstanceId");
 
         if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->valuestring) {
-            zpSv_ = zalloc(sizeof(struct zSv__));
+            zpSv_ = zalloc(sizeof(struct zSvEcs__));
             zpSv_->p_next = NULL;
-            memset(zpSv_->ecsSv_, 0, 60 * sizeof(struct zSvData__));
+            memset(zpSv_->svData_, 0, 60 * sizeof(struct zSvData__));
 
             /* 同时复制末尾的 '\0'，共计 23 bytes；剩余空间清零 */
             memcpy(zpSv_->id, zpJTmp->valuestring, 23);
@@ -377,10 +377,19 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
                 zpTail_ = zpTail_->p_next;
             }
             pthread_mutex_unlock(&zNodeInsertLock);
+
+            /* 提取 cpu 核心数 */
+            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Cpu");
+            if (cJSON_IsNumber(zpJTmp)) {
+                zpSv_->cpuNum = zpJTmp->valueint;
+            } else {
+                zpSv_->cpuNum = 4;  // 默认 4 核
+            }
         } else {
-            zPRINT_ERR_EASY("InstanceId invalid ?");
+            zPRINT_ERR_EASY("InstanceId ?");
             zErrNo = -1;
         }
+
     }
 
 zEndMark:
@@ -493,7 +502,7 @@ zget_sv_ops(void *zp) {
 
     struct zSvParam__ *zpSvParam_ = zp;
 
-    struct zSv__ *zpSv_ = NULL;
+    struct zSvEcs__ *zpSv_ = NULL;
 
     union zInstanceId__ zInstanceId_;
     memset(zInstanceId_.id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
@@ -586,8 +595,9 @@ zget_sv_ops(void *zp) {
                     }
                 }
 
-                zpSv_->ecsSv_[zTimeStamp % 60].timeStamp = zTimeStamp;
-                zpSvParam_->cb(& ((_i *)(& zpSv_->ecsSv_[zTimeStamp % 60]))[zpSvParam_->targetID], zData);
+                zpSv_->svData_[zTimeStamp % 60].timeStamp = zTimeStamp;
+                zpSvParam_->cb(& ((_i *)(& zpSv_->svData_[zTimeStamp % 60]))[zpSvParam_->targetID], zData);
+
                 break;
 zNextMark:;
             }
@@ -709,7 +719,7 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
     }
 
     /* 将线性链表转换为 HASH 结构 */
-    struct zSv__ *zpTmp_;
+    struct zSvEcs__ *zpTmp_;
     for (zpTail_ = zpHead_; NULL != zpTail_; zpTail_ = zpTail_->p_next) {
         if (NULL == zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
             zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTail_;
@@ -832,11 +842,13 @@ zwrite_db_worker(void *zp) {
 /* 提取并写入监控数据 */
 static _i
 zwrite_db(void) {
-    struct zSv__ *zpSv_;
+    struct zSvEcs__ *zpSv_;
     size_t zBufSiz = 64 * 1024 * 1024,
            zOffSet = 0,
            zBaseSiz = 0;
     char *zpBuf = NULL;
+
+    _i i, j;
 
     if (NULL == (zpBuf = malloc(zBufSiz))) {
         zPRINT_ERR_EASY_SYS();
@@ -852,31 +864,34 @@ zwrite_db(void) {
             "tcp_state_cnt) "
             "VALUES ");
 
-    for (_i i = 0; i < zHASH_SIZ; i++) {
+    for (i = 0; i < zHASH_SIZ; i++) {
         if (NULL == zpSvHash_[i]) {
             continue;
         } else {
             for (zpSv_ = zpSvHash_[i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
-                if (510 > (zBufSiz - zOffSet)) {
-                    zThreadPool_.add(zwrite_db_worker, NULL);
+                for (j = 0; j < 60; j++) {
+                    if (510 > (zBufSiz - zOffSet)) {
+                        zThreadPool_.add(zwrite_db_worker, NULL);
 
-                    if (NULL == (zpBuf = malloc(zBufSiz))) {
-                        zPRINT_ERR_EASY_SYS();
-                        exit(1);
+                        if (NULL == (zpBuf = malloc(zBufSiz))) {
+                            zPRINT_ERR_EASY_SYS();
+                            exit(1);
+                        }
+
+                        zOffSet = sprintf(zpBuf,
+                                "INSERT INTO sv_aliyun_ecs "
+                                "(time_stamp,instance_id,"
+                                "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
+                                "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
+                                "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
+                                "tcp_state_cnt) "
+                                "VALUES ");
                     }
 
-                    zOffSet = sprintf(zpBuf,
-                            "INSERT INTO sv_aliyun_ecs "
-                            "(time_stamp,instance_id,"
-                            "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
-                            "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
-                            "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
-                            "tcp_state_cnt) "
-                            "VALUES ");
+                // TODO  =======================>
+                zOffSet += sprintf(zpBuf + zOffSet,
+                        "()");
                 }
-
-                // TODO!!!
-                zOffSet += sprintf(zpBuf + zOffSet, "");
             }
         }
     }

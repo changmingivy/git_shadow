@@ -87,14 +87,14 @@ struct zSvData__ {
     _i net_wriops;
 } __attribute__ ((aligned (sizeof(_i))));
 
-//struct zDisk__ {
+//struct zEcsDisk__ {
 //    char *p_dev;  // "/dev/vda1"
 //    struct zDisk__ *p_next;
 //};
-//
-//struct zNetIf__ {
-//    char *p_dev;  // "eth0"
-//    struct zNetIf__ *p_next;
+
+//struct zEcsNetIf__ {
+//    char *p_ip;  // "::1"
+//    //struct zNetIf__ *p_next;
 //};
 
 union zInstanceId__ {
@@ -102,24 +102,32 @@ union zInstanceId__ {
     char id[zINSTANCE_ID_BUF_LEN];
 };
 
-struct zSv__ {
-    /*
-     * 以链表形式集齐实例所有 device 的名称，
-     * 用于查询对应设备的监控数据
-     */
-    //struct zDisk__ disk;
-    //struct zNetIf__ netIf;
-
+struct zSvEcs__ {
     /* HASH KEY */
     union {
         _ull hashKey[zHASH_KEY_SIZ];
         char id[zINSTANCE_ID_BUF_LEN];
     };
 
-    /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
-    struct zSvData__ ecsSv_[60];
+    _i cpuNum;  // 核心数
+    //_us mem;  // 容量：G 
+    //_ui disk;  // 容量：G
+    //char ip[INET6_ADDRSTRLEN];  // 字符串形式的 ip 地址
+    //_s netType;  // 0 for classic, 1 for vpc
+    //char creatTime[sizeof("2018-02-01T06:21Z")];
+    //char expireTime[sizeof("2018-02-01T06:21Z")];
 
-    struct zSv__ *p_next;
+    /*
+     * 以链表形式集齐实例所有 device 的名称，
+     * 用于查询对应设备的监控数据
+     */
+    //struct zEcsDisk__ disk;
+    //struct zEcsNetIf__ netIf;
+
+    /* 以 900 秒（15 分钟）为周期同步监控数据，单机数据条数：60 */
+    struct zSvData__ svData_[60];
+
+    struct zSvEcs__ *p_next;
 };
 
 struct zSvAliyunEcs__ {
