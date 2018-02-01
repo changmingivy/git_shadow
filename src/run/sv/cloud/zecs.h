@@ -27,6 +27,21 @@ typedef enum {
     zCLOSED,
 } ztcp_state_t;
 
+struct zSvParamSolid__ {
+    char *p_region;
+    char *p_dimensions;
+};
+
+struct zSvParam__ {
+    struct zSvParamSolid__ *p_paramSolid;
+
+    char *p_metic;
+    _i targetID;
+
+    /* 处理数据的回调函数 */
+    void (* cb) (_i *, _i);
+};
+
 struct zRegion__ {
     char *p_name;
     _i ecsCnt;
@@ -35,12 +50,12 @@ struct zRegion__ {
 struct zSvData__ {
     /* 可直接取到的不需要额外加工的数据项 */
     _i timeStamp;
-    _s cpu;
-    _s mem;
-    _s load[3];
+    _i cpu;
+    _i mem;
+    _i load[3];
 
     /* 分别处于 tcp 的 11 种状态的连接计数 */
-    _us tcpState[11];
+    _i tcpState[11];
 
     /*
      * 取磁盘列表的时，可得到以 GB 为单位的容量，
@@ -70,7 +85,7 @@ struct zSvData__ {
 
     _i net_rdiops;
     _i net_wriops;
-};
+} __attribute__ ((aligned (sizeof(_i))));
 
 //struct zDisk__ {
 //    char *p_dev;  // "/dev/vda1"

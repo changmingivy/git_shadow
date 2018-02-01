@@ -476,9 +476,11 @@ zget_meta_one_region(struct zRegion__ *zpRegion_) {
     }
 }
 
-// BASE //
+/*
+ * 通用的 ECS 监控数据处理函数
+ */
 static void *
-zget_sv_cpu_rate(void *zp) {
+zget_sv_ops(void *zp) {
     _i zOffSet;
     char *zpCmdBuf = NULL,
          *zpContent = NULL,
@@ -491,6 +493,8 @@ zget_sv_cpu_rate(void *zp) {
     _i zTimeStamp = 0,
        zData = 0,
        i;
+
+    struct zSvParam__ *zpSvParam_ = zp;
 
     struct zSv__ *zpSv_ = NULL;
 
@@ -512,17 +516,18 @@ zget_sv_cpu_rate(void *zp) {
             "Length 1000 "
             "Action QueryMetricList "
             "Project acs_ecs_dashboard "
-            "Metric cpu_total "
+            "Metric %s "
             "StartTime %lld"
             "EndTime %lld"
             "Dimensions %s ",
             zpUtilPath,
-            ((char **)zp)[0],
+            zpSvParam_->p_paramSolid->p_region,
             zpAliyunID,
             zpAliyunKey,
+            zpSvParam_->p_metic,
             zPrevStamp,
             zPrevStamp + 15 * 60 * 1000 - 1,
-            (char *)zp + sizeof(void *));
+            zpSvParam_->p_paramSolid->p_dimensions);
 
     do {
         if (NULL != zpJRoot) {
@@ -580,14 +585,14 @@ zget_sv_cpu_rate(void *zp) {
                     zpSv_ = zpSv_->p_next) {
                 for (i = 0; i < (zHASH_KEY_SIZ - 1); i++) {
                     if (zpSv_->hashKey[i] != zInstanceId_.hashKey[i]) {
-                        goto zSkipMark;
+                        goto zNextMark;
                     }
                 }
 
                 zpSv_->ecsSv_[zTimeStamp % 60].timeStamp = zTimeStamp;
-                zpSv_->ecsSv_[zTimeStamp % 60].cpu = zData;
-
-zSkipMark:;
+                zpSvParam_->cb(& ((_i *)(& zpSv_->ecsSv_[zTimeStamp % 60]))[zpSvParam_->targetID], zData);
+                break;
+zNextMark:;
             }
         }
 
@@ -605,132 +610,17 @@ zSkipMark:;
     return NULL;
 }
 
-static void *
-zget_sv_mem_rate(void *zp) {
-    return NULL;
+/*
+ * 用于计算不同类别监控数据结果的 callback
+ */
+static void 
+zsv_cb_update(_i *zpBase, _i zNew) {
+    *zpBase = zNew;
 }
 
-static void *
-zget_sv_load1m(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_load5m(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_load15m(void *zp) {
-    return NULL;
-}
-
-// TCP_STATE //
-static void *
-zget_sv_tcp_state_LISTEN(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_SYN_SENT(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_ESTABLISHED(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_SYN_RECV(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_FIN_WAIT1(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_CLOSE_WAIT(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_FIN_WAIT2(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_LAST_ACK(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_TIME_WAIT(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_CLOSING(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_tcp_state_CLOSED(void *zp) {
-    return NULL;
-}
-
-// DISK //
-static void *
-zget_sv_disk_total(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_disk_spent(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_disk_rdkb(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_disk_wrkb(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_disk_rdiops(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_disk_wriops(void *zp) {
-    return NULL;
-}
-
-// NET //
-static void *
-zget_sv_net_rdkb(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_net_wrkb(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_net_rdiops(void *zp) {
-    return NULL;
-}
-
-static void *
-zget_sv_net_wriops(void *zp) {
-    return NULL;
+static void 
+zsv_cb_summation(_i *zpBase, _i zNew) {
+    (*zpBase) += zNew;
 }
 
 /* 监控信息按主机数量分组并发查询*/
@@ -740,35 +630,7 @@ zget_sv_net_wriops(void *zp) {
 static void
 zget_sv_one_region(struct zRegion__ *zpRegion_) {
     void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
-        zget_sv_cpu_rate,  // 0
-        zget_sv_mem_rate,
-        zget_sv_load1m,
-        zget_sv_load5m,
-        zget_sv_load15m,
-
-        zget_sv_disk_total,  // 6
-        zget_sv_disk_spent,
-        zget_sv_disk_rdkb,
-        zget_sv_disk_wrkb,
-        zget_sv_disk_rdiops,
-        zget_sv_disk_wriops,
-
-        zget_sv_net_rdkb,  // 11
-        zget_sv_net_wrkb,
-        zget_sv_net_rdiops,
-        zget_sv_net_wriops,
-
-        zget_sv_tcp_state_LISTEN,  // 15
-        zget_sv_tcp_state_SYN_SENT,
-        zget_sv_tcp_state_ESTABLISHED,
-        zget_sv_tcp_state_SYN_RECV,
-        zget_sv_tcp_state_FIN_WAIT1,
-        zget_sv_tcp_state_CLOSE_WAIT,
-        zget_sv_tcp_state_FIN_WAIT2,
-        zget_sv_tcp_state_LAST_ACK,
-        zget_sv_tcp_state_TIME_WAIT,
-        zget_sv_tcp_state_CLOSING,
-        zget_sv_tcp_state_CLOSED,
+        zget_sv_ops,  // 0
     };
 
     /* 顺序不能变！ */
@@ -786,18 +648,16 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
         "CLOSED",
     };
 
-    static char **zppSplitBase;  /* 指向分组后的各区间数据(拼接好的字符串) */
-    //static char **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
-    //static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
-    static char (**zppSplitTcpState)[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
+    static struct zSvParamSolid__ *zpBaseSolid;  /* 指向分组后的各区间数据(拼接好的字符串) */
+    //static **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
+    //static **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
+    static struct zSvParamSolid__ *zpTcpStateSolid[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
 
     _i zSplitCnt,
        zOffSet,
        i,
        j,
        k;
-
-    char **zppRegion;
 
     if (0 == zpRegion_->ecsCnt % zSPLIT_UNIT) {
         zSplitCnt = zpRegion_->ecsCnt / zSPLIT_UNIT;
@@ -806,50 +666,45 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
     }
 
     /* 一次性分配Base与TcpState共计12个类别的内存 */
-    zppSplitBase = zalloc(12 * zSplitCnt * sizeof(void *));
+    zpBaseSolid = zalloc(12 * zSplitCnt * sizeof(struct zSvParamSolid__));
 
     zpTail_ = zpHead_;
     for (j = 0; j < zSplitCnt; j++) {
-        zppSplitBase[j] = zalloc(sizeof(void *) + zSPLIT_SIZE_BASE);
+        zpBaseSolid[j].p_region = zpRegion_->p_name;
+        zpBaseSolid[j].p_dimensions = zalloc(zSPLIT_SIZE_BASE);
 
-        zppRegion = (char **) zppSplitBase[j];
-        zppRegion[0] = zpRegion_->p_name;
+        zOffSet = sprintf(zpBaseSolid[j].p_dimensions, "'");
 
-        zOffSet = sizeof(void *);
-        zOffSet += sprintf(zppSplitBase[j], "'");
-
-        for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
-            zOffSet += sprintf(zppSplitBase[j] + zOffSet,
+        for (k = 0; k < zSPLIT_UNIT && NULL != zpTail_;
+                k++, zpTail_ = zpTail_->p_next) {
+            zOffSet += sprintf(zpBaseSolid[j].p_dimensions + zOffSet,
                     ",{\"instanceId\":\"%s\"}",
                     zpTail_->id);
         }
 
-        zOffSet += sprintf(zppSplitBase[j] + zOffSet, "]'");
-        zppSplitBase[j][1] = '[';
+        sprintf(zpBaseSolid[j].p_dimensions + zOffSet, "]'");
+        zpBaseSolid[j].p_dimensions[1] = '[';
     }
 
     for (i = 0; i < 11; i++) {
-        zppSplitTcpState[i] = zppSplitBase + (i + 1) * (zSplitCnt * sizeof(void *));
+        zpTcpStateSolid[i] = zpBaseSolid + (i + 1) * (zSplitCnt * sizeof(struct zSvParamSolid__));
 
         zpTail_ = zpHead_;
         for (j = 0; j < zSplitCnt; j++) {
-            zppSplitTcpState[i][j] = zalloc(sizeof(void *) + zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
+            zpTcpStateSolid[i][j].p_region = zpRegion_->p_name;
+            zpTcpStateSolid[i][j].p_dimensions = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
 
-            zppRegion = (char **) zppSplitTcpState[i][j];
-            zppRegion[0] = zpRegion_->p_name;
+            zOffSet = sprintf(zpTcpStateSolid[i][j].p_dimensions, "'");
 
-            zOffSet = sizeof(void *);
-            zOffSet += sprintf(zppSplitTcpState[i][j], "'");
-
-            for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
-                zOffSet += sprintf(zppSplitBase[j] + zOffSet,
+            for (k = 0; k < zSPLIT_UNIT && NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
+                zOffSet += sprintf(zpTcpStateSolid[i][j].p_dimensions + zOffSet,
                         ",{\"instanceId\":\"%s\",\"state\":\"%s\"}",
                         zpTail_->id,
                         zpTcpState[i]);
             }
 
-            zOffSet += sprintf(zppSplitTcpState[i][j] + zOffSet, "]'");
-            zppSplitTcpState[i][j][1] = '[';
+            sprintf(zpTcpStateSolid[i][j].p_dimensions + zOffSet, "]'");
+            zpTcpStateSolid[i][j].p_dimensions[1] = '[';
         }
     }
 
@@ -870,15 +725,35 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
     }
 
     /* 定义动态栈空间存放 tid */
+    struct zSvParam__ *zpSvParam_ = zalloc(26 * sizeof(struct zSvParam__));
     pthread_t zTid[zSplitCnt][26];
 
-    for (i = 0; i < zSplitCnt; i++) {
-        for (j = 0; j < 15; j++) {
-            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], & zppSplitBase[i]));
-        }
+    for (i = 0; i < 26; i++) {
+        zpSvParam_[i].targetID = i;
+    }
 
-        for (j = 15; j < 26; j++) {
-            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zOpsFn[j], & zppSplitTcpState[j - 15][i]));
+    zpSvParam_[0].p_metic = "cpu_total";
+    zpSvParam_[0].p_paramSolid = zpBaseSolid;
+    zpSvParam_[0].cb = zsv_cb_update;
+
+    //_i cpu;
+    //_i mem;
+    //_i load[3];
+    //_i tcpState[11];
+    //_i diskTotal;
+    //_i diskSpent;
+    //_i disk_rdkb;
+    //_i disk_wrkb;
+    //_i disk_rdiops;
+    //_i disk_wriops;
+    //_i net_rdkb;
+    //_i net_wrkb;
+    //_i net_rdiops;
+    //_i net_wriops;
+
+    for (i = 0; i < zSplitCnt; i++) {
+        for (j = 0; j < 26; j++) {
+            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zget_sv_ops, & zpSvParam_[i]));
         }
     }
 
