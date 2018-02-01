@@ -472,11 +472,12 @@ zget_meta_one_region(void *zp) {
         pthread_t zTid[zPageTotal - 1];
 
         for (zPageNum = 2; zPageNum <= zPageTotal; ++zPageNum) {
-            zpThreadBuf += (zOffSet + 24);
             memcpy(zpThreadBuf, zCmdBuf, zOffSet);
             snprintf(zpThreadBuf + zOffSet, 24, "PageNumber %d", zPageNum);
 
             zCHECK_PT_ERR(pthread_create(zTid + zPageNum - 2, NULL, zget_meta_one_page, zpThreadBuf));
+
+            zpThreadBuf += (zOffSet + 24);  // must here!
         }
 
         for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
