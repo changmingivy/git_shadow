@@ -180,7 +180,7 @@ zenv_init(void) {
     char zSQLBuf[512];
 
     zErrNo = zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
-            "CREATE TABLE IF NOT EXISTS sv_aliyun "
+            "CREATE TABLE IF NOT EXISTS sv_aliyun_ecs "
             "("
             /*
              * aliyun 原始值为毫秒，
@@ -820,10 +820,81 @@ zsync_one_region(void *zp) {
     return NULL;
 }
 
+static void *
+zwrite_db_worker(void *zp) {
+    zPgSQL_.write_db(zp, 0, NULL, 0);
+
+    free(zp);
+
+    return NULL;
+}
+
+/* 提取并写入监控数据 */
 static _i
 zwrite_db(void) {
-    // TODO
+    struct zSv__ *zpSv_;
+    size_t zBufSiz = 64 * 1024 * 1024,
+           zOffSet = 0,
+           zBaseSiz = 0;
+    char *zpBuf = NULL;
 
+    if (NULL == (zpBuf = malloc(zBufSiz))) {
+        zPRINT_ERR_EASY_SYS();
+        exit(1);
+    }
+
+    zBaseSiz = zOffSet = sprintf(zpBuf,
+            "INSERT INTO sv_aliyun_ecs "
+            "(time_stamp,instance_id,"
+            "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
+            "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
+            "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
+            "tcp_state_cnt) "
+            "VALUES ");
+
+    for (_i i = 0; i < zHASH_SIZ; i++) {
+        if (NULL == zpSvHash_[i]) {
+            continue;
+        } else {
+            for (zpSv_ = zpSvHash_[i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
+                if (510 > (zBufSiz - zOffSet)) {
+                    zThreadPool_.add(zwrite_db_worker, NULL);
+
+                    if (NULL == (zpBuf = malloc(zBufSiz))) {
+                        zPRINT_ERR_EASY_SYS();
+                        exit(1);
+                    }
+
+                    zOffSet = sprintf(zpBuf,
+                            "INSERT INTO sv_aliyun_ecs "
+                            "(time_stamp,instance_id,"
+                            "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
+                            "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
+                            "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
+                            "tcp_state_cnt) "
+                            "VALUES ");
+                }
+
+                // TODO!!!
+                zOffSet += sprintf(zpBuf + zOffSet, "");
+            }
+        }
+    }
+
+    /* 检测最后是否有数据需要写入 DB */
+    if (zOffSet > zBaseSiz) {
+        zThreadPool_.add(zwrite_db_worker, NULL);
+        zpBuf = zalloc(256);  // must !
+    }
+
+    /* update timestamp (per 15 * 60 * 1000 ms) */
+    sprintf(zpBuf,
+            "UPDATE sv_sync_meta SET last_timestamp = %lld",
+            (zPrevStamp / 1000 + 15 * 60) / 15);
+
+    zPgSQL_.write_db(zpBuf, 0, NULL, 0);
+
+    free(zpBuf);
     return 0;
 }
 
@@ -847,7 +918,7 @@ zdata_sync(void) {
     if (0 == zpPgRes_->tupleCnt) {
         zPrevStamp = (time(NULL) / (15 * 60) - 1) * 15 * 60 * 1000;
     } else {
-        zPrevStamp = 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+        zPrevStamp = 15 * 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     }
 
     while (time(NULL) * 1000 > (zPrevStamp + 15 * 60 * 1000 - 1)) {

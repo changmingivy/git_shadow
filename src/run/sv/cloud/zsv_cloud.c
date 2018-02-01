@@ -25,7 +25,7 @@ zinit(void) {
     if (0 != zPgSQL_.exec_once(
                 zRun_.p_sysInfo_->pgConnInfo,
                 "CREATE TABLE IF NOT EXISTS sv_sync_meta "
-                "(last_timestamp    bigint NOT NULL);",
+                "(last_timestamp    int NOT NULL);",
                 NULL)) {
 
         zPRINT_ERR_EASY("");
