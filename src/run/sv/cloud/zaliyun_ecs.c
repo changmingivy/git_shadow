@@ -404,8 +404,8 @@ zget_meta_one_page(void *zp) {
 }
 
 static void *
-zget_meta_one_region(void *zpParam) {
-    struct zRegion__ *zpRegion_  = zpParam;
+zget_meta_one_region(void *zp) {
+    struct zRegion__ *zpRegion_  = zp;
     char *zpContent = NULL;
     char zCmdBuf[512];
 
@@ -417,7 +417,7 @@ zget_meta_one_region(void *zpParam) {
     cJSON *zpJRoot = NULL,
           *zpJ = NULL;
 
-    char *zp = NULL;
+    char *zpThreadBuf = NULL;
 
     ((_i *)zCmdBuf)[0] = zpRegion_->id;
 
@@ -468,15 +468,15 @@ zget_meta_one_region(void *zpParam) {
 
     /* multi pages */
     if (1 < zPageTotal) {
-        zp = zalloc((zPageTotal - 1) * (zOffSet + 24));
+        zpThreadBuf = zalloc((zPageTotal - 1) * (zOffSet + 24));
         pthread_t zTid[zPageTotal - 1];
 
         for (zPageNum = 2; zPageNum <= zPageTotal; ++zPageNum) {
-            zp += (zPageNum - 2) * (zOffSet + 24);
-            memcpy(zp, zCmdBuf, zOffSet);
-            snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum);
+            zpThreadBuf += (zOffSet + 24);
+            memcpy(zpThreadBuf, zCmdBuf, zOffSet);
+            snprintf(zpThreadBuf + zOffSet, 24, "PageNumber %d", zPageNum);
 
-            zCHECK_PT_ERR(pthread_create(zTid + zPageNum - 2, NULL, zget_meta_one_page, zp));
+            zCHECK_PT_ERR(pthread_create(zTid + zPageNum - 2, NULL, zget_meta_one_page, zpThreadBuf));
         }
 
         for (zPageNum = 2; zPageNum <= zPageTotal; zPageNum++) {
