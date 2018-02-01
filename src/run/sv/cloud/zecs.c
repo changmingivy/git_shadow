@@ -651,25 +651,6 @@ zsv_cb_netiokb(_i *zpBase, _f zNew) {
 #define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
 static void
 zget_sv_one_region(struct zRegion__ *zpRegion_) {
-    void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
-        zget_sv_ops,  // 0
-    };
-
-    /* 顺序不能变！ */
-    char *zpTcpState[] = {
-        "LISTEN",
-        "SYN_SENT",
-        "ESTABLISHED",
-        "SYN_RECV",
-        "FIN_WAIT1",
-        "CLOSE_WAIT",
-        "FIN_WAIT2",
-        "LAST_ACK",
-        "TIME_WAIT",
-        "CLOSING",
-        "CLOSED",
-    };
-
     static struct zSvParamSolid__ *zpBaseSolid;  /* 指向分组后的各区间数据(拼接好的字符串) */
     //static **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
     //static **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
@@ -681,15 +662,18 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
        j,
        k;
 
+    /* 顺序不能变！ */
+    char *zpTcpState[] = { "LISTEN", "SYN_SENT", "ESTABLISHED",
+        "SYN_RECV", "FIN_WAIT1", "CLOSE_WAIT", "FIN_WAIT2",
+        "LAST_ACK", "TIME_WAIT", "CLOSING", "CLOSED"};
+
     if (0 == zpRegion_->ecsCnt % zSPLIT_UNIT) {
         zSplitCnt = zpRegion_->ecsCnt / zSPLIT_UNIT;
     } else {
         zSplitCnt = 1 + zpRegion_->ecsCnt / zSPLIT_UNIT;
     }
 
-    /* 一次性分配Base与TcpState共计12个类别的内存 */
-    zpBaseSolid = zalloc(12 * zSplitCnt * sizeof(struct zSvParamSolid__));
-
+    zpBaseSolid = zalloc(zSplitCnt * sizeof(struct zSvParamSolid__));
     zpTail_ = zpHead_;
     for (j = 0; j < zSplitCnt; j++) {
         zpBaseSolid[j].p_region = zpRegion_->p_name;
@@ -709,8 +693,7 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
     }
 
     for (i = 0; i < 11; i++) {
-        zpTcpStateSolid[i] = zpBaseSolid + (i + 1) * (zSplitCnt * sizeof(struct zSvParamSolid__));
-
+        zpTcpStateSolid[i] = zalloc(zSplitCnt * sizeof(struct zSvParamSolid__));
         zpTail_ = zpHead_;
         for (j = 0; j < zSplitCnt; j++) {
             zpTcpStateSolid[i][j].p_region = zpRegion_->p_name;
