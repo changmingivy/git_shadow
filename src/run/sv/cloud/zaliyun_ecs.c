@@ -292,7 +292,7 @@ zdb_mgmt(void) {
  ******************/
 /* pBuf 相当于此宏的 “返回值” */
 #define zGET_CONTENT(pCmd) ({\
-    FILE *pFile = popen(pCmd, "r");\
+    FILE *pFile = popen((pCmd), "r");\
     if (NULL == pFile) {\
         zPRINT_ERR_EASY_SYS();\
         exit(1);\
@@ -710,7 +710,7 @@ zget_sv_one_region(void *zp) {
         zpTmp_[0] = zpHead_[zpRegion_->id];
         for (j = 0; j < zSplitCnt; j++) {
             zpTcpStateSolid[i][j].regionID = zpRegion_->id;
-            zpTcpStateSolid[i][j].p_dimensions = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
+            zpTcpStateSolid[i][j].p_dimensions = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[i]));
 
             zOffSet = sprintf(zpTcpStateSolid[i][j].p_dimensions, "'");
 
