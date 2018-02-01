@@ -888,9 +888,35 @@ zwrite_db(void) {
                                 "VALUES ");
                     }
 
-                // TODO  =======================>
                 zOffSet += sprintf(zpBuf + zOffSet,
-                        "()");
+                        "(%d,'%s',%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,'{%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d}')",
+                        zpSv_->svData_[i].timeStamp,
+                        zpSv_->id,
+                        zpSv_->svData_[i].cpu,
+                        zpSv_->svData_[i].mem,
+                        1000 * zpSv_->svData_[i].diskSpent / zpSv_->svData_[i].diskTotal,
+                        zpSv_->svData_[i].load[0] / zpSv_->cpuNum,
+                        zpSv_->svData_[i].load[1] / zpSv_->cpuNum,
+                        zpSv_->svData_[i].load[2] / zpSv_->cpuNum,
+                        zpSv_->svData_[i].disk_rdkb,
+                        zpSv_->svData_[i].disk_wrkb,
+                        zpSv_->svData_[i].disk_rdiops,
+                        zpSv_->svData_[i].disk_wriops,
+                        zpSv_->svData_[i].net_rdkb,
+                        zpSv_->svData_[i].net_wrkb,
+                        zpSv_->svData_[i].net_rdiops,
+                        zpSv_->svData_[i].net_wriops,
+                        zpSv_->svData_[i].tcpState[0],
+                        zpSv_->svData_[i].tcpState[1],
+                        zpSv_->svData_[i].tcpState[2],
+                        zpSv_->svData_[i].tcpState[3],
+                        zpSv_->svData_[i].tcpState[4],
+                        zpSv_->svData_[i].tcpState[5],
+                        zpSv_->svData_[i].tcpState[6],
+                        zpSv_->svData_[i].tcpState[7],
+                        zpSv_->svData_[i].tcpState[8],
+                        zpSv_->svData_[i].tcpState[9],
+                        zpSv_->svData_[i].tcpState[10]);
                 }
             }
         }
