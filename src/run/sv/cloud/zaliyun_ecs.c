@@ -422,7 +422,8 @@ zget_meta_one_region(void *zpParam) {
     ((_i *)zCmdBuf)[0] = zpRegion_->id;
 
     /* 固定不变的参数 */
-    zOffSet = snprintf(zCmdBuf + sizeof(_i), 512,
+    zOffSet = sizeof(zpRegion_->id);
+    zOffSet += snprintf(zCmdBuf + sizeof(zpRegion_->id), 512,
             "%s "
             "-region %s "
             "-userId %s "
