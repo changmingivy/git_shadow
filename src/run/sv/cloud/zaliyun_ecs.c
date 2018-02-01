@@ -29,17 +29,6 @@ extern struct zNativeUtils__ zNativeUtils_;
 
 extern zRepo__ *zpRepo_;
 
-/*
- * 定制专用的内存池：开头留一个指针位置，
- * 用于当内存池容量不足时，指向下一块新开辟的内存区
- */
-static void *zpMemPool;
-static size_t zMemPoolOffSet;
-static pthread_mutex_t zMemPoolLock = PTHREAD_MUTEX_INITIALIZER;
-
-/* 并发插入实例节点时所用 */
-static pthread_mutex_t zNodeInsertLock = PTHREAD_MUTEX_INITIALIZER;
-
 /* public interface */
 struct zSvAliyunEcs__ zSvAliyunEcs_ = {
     .init = zenv_init,
@@ -52,27 +41,27 @@ static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
 
 static struct zRegion__ zRegion_[] = {
-    {"cn-qingdao", 0},
-    {"cn-beijing", 0},
-    {"cn-zhangjiakou", 0},
-    {"cn-huhehaote", 0},
-    {"cn-hangzhou", 0},
-    {"cn-shanghai", 0},
-    {"cn-shenzhen", 0},
-    {"cn-hongkong", 0},
+    {"cn-qingdao", 0, 0},
+    {"cn-beijing", 0, 1},
+    {"cn-zhangjiakou", 0, 2},
+    {"cn-huhehaote", 0, 3},
+    {"cn-hangzhou", 0, 4},
+    {"cn-shanghai", 0, 5},
+    {"cn-shenzhen", 0, 6},
+    {"cn-hongkong", 0, 7},
 
-    {"ap-southeast-1", 0},
-    {"ap-southeast-2", 0},
-    {"ap-southeast-3", 0},
-    {"ap-south-1", 0},
-    {"ap-northeast-1", 0},
+    {"ap-southeast-1", 0, 8},
+    {"ap-southeast-2", 0, 9},
+    {"ap-southeast-3", 0, 10},
+    {"ap-south-1", 0, 11},
+    {"ap-northeast-1", 0, 12},
 
-    {"us-west-1", 0},
-    {"us-east-1", 0},
+    {"us-west-1", 0, 13},
+    {"us-east-1", 0, 14},
 
-    {"eu-central-1", 0},
+    {"eu-central-1", 0, 15},
 
-    {"me-east-1", 0},
+    {"me-east-1", 0, 16},
 };
 
 /*
@@ -82,13 +71,24 @@ static struct zRegion__ zRegion_[] = {
  */
 static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
 
+/*
+ * 定制专用的内存池：开头留一个指针位置，
+ * 用于当内存池容量不足时，指向下一块新开辟的内存区
+ */
+static void *zpMemPool;
+static size_t zMemPoolOffSet;
+static pthread_mutex_t zMemPoolLock = PTHREAD_MUTEX_INITIALIZER;
+
+/* 各 region 范围内并发插入实例节点时所用 */
+static pthread_mutex_t zNodeInsertLock[sizeof(zRegion_) / sizeof(struct zRegion__)] = {PTHREAD_MUTEX_INITIALIZER};  // pad ?
+
 /* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
-static struct zSvEcs__ *zpHead_ = NULL;
-static struct zSvEcs__ *zpTail_ = NULL;
+static struct zSvEcs__ *zpHead_[sizeof(zRegion_) / sizeof(struct zRegion__)] = {NULL};
+static struct zSvEcs__ *zpTail_[sizeof(zRegion_) / sizeof(struct zRegion__)] = {NULL};
 
 /* HASH */
 #define zHASH_SIZ 511
-static struct zSvEcs__ *zpSvHash_[zHASH_SIZ];
+static struct zSvEcs__ *zpSvHash_[sizeof(zRegion_) / sizeof(struct zRegion__)][zHASH_SIZ];
 
 
 
@@ -318,7 +318,7 @@ zdb_mgmt(void) {
 })
 
 static _i
-znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
+znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
     cJSON *zpJRoot = NULL,
           *zpJTmp = NULL,
           *zpJ = NULL;
@@ -368,15 +368,15 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
             memset(zpSv_->id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
-            pthread_mutex_lock(&zNodeInsertLock);
-            if (NULL == zpHead_) {
-                zpHead_ = zpSv_;
-                zpTail_ = zpHead_;
+            pthread_mutex_lock(&zNodeInsertLock[zRegionID]);
+            if (NULL == zpHead_[zRegionID]) {
+                zpHead_[zRegionID] = zpSv_;
+                zpTail_[zRegionID] = zpHead_[zRegionID];
             } else {
-                zpTail_->p_next = zpSv_;
-                zpTail_ = zpTail_->p_next;
+                zpTail_[zRegionID]->p_next = zpSv_;
+                zpTail_[zRegionID] = zpTail_[zRegionID]->p_next;
             }
-            pthread_mutex_unlock(&zNodeInsertLock);
+            pthread_mutex_unlock(&zNodeInsertLock[zRegionID]);
 
             /* 提取 cpu 核心数 */
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Cpu");
@@ -399,7 +399,7 @@ zEndMark:
 
 static void *
 zget_meta_one_page(void *zp) {
-    znode_parse_and_insert(NULL, zGET_CONTENT(zp));
+    znode_parse_and_insert(NULL, zGET_CONTENT((char *)zp + sizeof(_i)), * ((_i *) zp));
     return NULL;
 }
 
@@ -419,8 +419,10 @@ zget_meta_one_region(void *zpParam) {
 
     char *zp = NULL;
 
+    ((_i *)zCmdBuf)[0] = zpRegion_->id;
+
     /* 固定不变的参数 */
-    zOffSet = snprintf(zCmdBuf, 512,
+    zOffSet = snprintf(zCmdBuf + sizeof(_i), 512,
             "%s "
             "-region %s "
             "-userId %s "
@@ -437,7 +439,7 @@ zget_meta_one_region(void *zpParam) {
             zMETA_PAGE_SIZ);
 
     /* call outer cmd: aliyun_cmdb */
-    zpContent = zGET_CONTENT(zCmdBuf);
+    zpContent = zGET_CONTENT(zCmdBuf + sizeof(_i));
 
     zpJRoot = cJSON_Parse(zpContent);
     if (NULL == zpJRoot) {
@@ -461,7 +463,7 @@ zget_meta_one_region(void *zpParam) {
     }
 
     /* first page */
-    znode_parse_and_insert(zpJRoot, zpContent);
+    znode_parse_and_insert(zpJRoot, zpContent, zpRegion_->id);
 
     /* multi pages */
     if (1 < zPageTotal) {
@@ -530,7 +532,7 @@ zget_sv_ops(void *zp) {
             "EndTime %lld "
             "Dimensions %s ",
             zpUtilPath,
-            zpSvParam_->p_paramSolid->p_region,
+            zRegion_[zpSvParam_->p_paramSolid->regionID].p_name,
             zpAliyunID,
             zpAliyunKey,
             zpSvParam_->p_metic,
@@ -589,7 +591,7 @@ zget_sv_ops(void *zp) {
                 continue;
             }
 
-            for (zpSv_ = zpSvHash_[zInstanceId_.hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
+            for (zpSv_ = zpSvHash_[zpSvParam_->p_paramSolid->regionID][zInstanceId_.hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
                     NULL != zpSv_;
                     zpSv_ = zpSv_->p_next) {
                 for (i = 0; i < (zHASH_KEY_SIZ - 1); i++) {
@@ -665,6 +667,8 @@ zget_sv_one_region(void *zp) {
     //static **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
     static struct zSvParamSolid__ *zpTcpStateSolid[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
 
+    struct zSvEcs__ *zpTmp_[2] = {NULL};
+
     _i zSplitCnt,
        zOffSet,
        i,
@@ -683,18 +687,18 @@ zget_sv_one_region(void *zp) {
     }
 
     zpBaseSolid = zalloc(zSplitCnt * sizeof(struct zSvParamSolid__));
-    zpTail_ = zpHead_;
+    zpTmp_[0] = zpHead_[zpRegion_->id];
     for (j = 0; j < zSplitCnt; j++) {
-        zpBaseSolid[j].p_region = zpRegion_->p_name;
+        zpBaseSolid[j].regionID = zpRegion_->id;
         zpBaseSolid[j].p_dimensions = zalloc(zSPLIT_SIZE_BASE);
 
         zOffSet = sprintf(zpBaseSolid[j].p_dimensions, "'");
 
-        for (k = 0; k < zSPLIT_UNIT && NULL != zpTail_;
-                k++, zpTail_ = zpTail_->p_next) {
+        for (k = 0; k < zSPLIT_UNIT && NULL != zpTmp_[0];
+                k++, zpTmp_[0] = zpTmp_[0]->p_next) {
             zOffSet += sprintf(zpBaseSolid[j].p_dimensions + zOffSet,
                     ",{\"instanceId\":\"%s\"}",
-                    zpTail_->id);
+                    zpTmp_[0]->id);
         }
 
         sprintf(zpBaseSolid[j].p_dimensions + zOffSet, "]'");
@@ -703,17 +707,17 @@ zget_sv_one_region(void *zp) {
 
     for (i = 0; i < 11; i++) {
         zpTcpStateSolid[i] = zalloc(zSplitCnt * sizeof(struct zSvParamSolid__));
-        zpTail_ = zpHead_;
+        zpTmp_[0] = zpHead_[zpRegion_->id];
         for (j = 0; j < zSplitCnt; j++) {
-            zpTcpStateSolid[i][j].p_region = zpRegion_->p_name;
+            zpTcpStateSolid[i][j].regionID = zpRegion_->id;
             zpTcpStateSolid[i][j].p_dimensions = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
 
             zOffSet = sprintf(zpTcpStateSolid[i][j].p_dimensions, "'");
 
-            for (k = 0; k < zSPLIT_UNIT && NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
+            for (k = 0; k < zSPLIT_UNIT && NULL != zpTmp_[0]; k++, zpTmp_[0] = zpTmp_[0]->p_next) {
                 zOffSet += sprintf(zpTcpStateSolid[i][j].p_dimensions + zOffSet,
                         ",{\"instanceId\":\"%s\",\"state\":\"%s\"}",
-                        zpTail_->id,
+                        zpTmp_[0]->id,
                         zpTcpState[i]);
             }
 
@@ -723,18 +727,17 @@ zget_sv_one_region(void *zp) {
     }
 
     /* 将线性链表转换为 HASH 结构 */
-    struct zSvEcs__ *zpTmp_;
-    for (zpTail_ = zpHead_; NULL != zpTail_; zpTail_ = zpTail_->p_next) {
-        if (NULL == zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
-            zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTail_;
+    for (zpTmp_[0] = zpHead_[zRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
+        if (NULL == zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
+            zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
         } else {
-            zpTmp_ = zpSvHash_[zpTail_->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
-            while (NULL != zpTmp_->p_next) {
-                zpTmp_ = zpTmp_->p_next;
+            zpTmp_[1] = zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
+            while (NULL != zpTmp_[1]->p_next) {
+                zpTmp_[1] = zpTmp_[1]->p_next;
             }
 
-            zpTmp_->p_next = zpTail_;
-            zpTail_->p_next = NULL;  // must!
+            zpTmp_[1]->p_next = zpTmp_[0];
+            zpTmp_[0]->p_next = NULL;  // must!
         }
     }
 
@@ -839,7 +842,7 @@ zwrite_db(void) {
            zBaseSiz = 0;
     char *zpBuf = NULL;
 
-    _i i, j;
+    _i i, j, k;
 
     if (NULL == (zpBuf = malloc(zBufSiz))) {
         zPRINT_ERR_EASY_SYS();
@@ -855,59 +858,61 @@ zwrite_db(void) {
             "tcp_state_cnt) "
             "VALUES ");
 
-    for (i = 0; i < zHASH_SIZ; i++) {
-        if (NULL == zpSvHash_[i]) {
-            continue;
-        } else {
-            for (zpSv_ = zpSvHash_[i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
-                for (j = 0; j < 60; j++) {
-                    if (510 > (zBufSiz - zOffSet)) {
-                        zThreadPool_.add(zwrite_db_worker, NULL);
+    for (k = 0; k < (_i)(sizeof(zRegion_) / sizeof(struct zRegion__)); k++) {
+        for (i = 0; i < zHASH_SIZ; i++) {
+            if (NULL == zpSvHash_[i]) {
+                continue;
+            } else {
+                for (zpSv_ = zpSvHash_[k][i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
+                    for (j = 0; j < 60; j++) {
+                        if (510 > (zBufSiz - zOffSet)) {
+                            zThreadPool_.add(zwrite_db_worker, NULL);
 
-                        if (NULL == (zpBuf = malloc(zBufSiz))) {
-                            zPRINT_ERR_EASY_SYS();
-                            exit(1);
+                            if (NULL == (zpBuf = malloc(zBufSiz))) {
+                                zPRINT_ERR_EASY_SYS();
+                                exit(1);
+                            }
+
+                            zOffSet = sprintf(zpBuf,
+                                    "INSERT INTO sv_aliyun_ecs "
+                                    "(time_stamp,instance_id,"
+                                    "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
+                                    "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
+                                    "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
+                                    "tcp_state_cnt) "
+                                    "VALUES ");
                         }
 
-                        zOffSet = sprintf(zpBuf,
-                                "INSERT INTO sv_aliyun_ecs "
-                                "(time_stamp,instance_id,"
-                                "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
-                                "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
-                                "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
-                                "tcp_state_cnt) "
-                                "VALUES ");
+                    zOffSet += sprintf(zpBuf + zOffSet,
+                            "(%d,'%s',%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,'{%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d}')",
+                            zpSv_->svData_[i].timeStamp,
+                            zpSv_->id,
+                            zpSv_->svData_[i].cpu,
+                            zpSv_->svData_[i].mem,
+                            1000 * zpSv_->svData_[i].diskSpent / zpSv_->svData_[i].diskTotal,
+                            zpSv_->svData_[i].load[0] / zpSv_->cpuNum,
+                            zpSv_->svData_[i].load[1] / zpSv_->cpuNum,
+                            zpSv_->svData_[i].load[2] / zpSv_->cpuNum,
+                            zpSv_->svData_[i].disk_rdkb,
+                            zpSv_->svData_[i].disk_wrkb,
+                            zpSv_->svData_[i].disk_rdiops,
+                            zpSv_->svData_[i].disk_wriops,
+                            zpSv_->svData_[i].net_rdkb,
+                            zpSv_->svData_[i].net_wrkb,
+                            zpSv_->svData_[i].net_rdiops,
+                            zpSv_->svData_[i].net_wriops,
+                            zpSv_->svData_[i].tcpState[0],
+                            zpSv_->svData_[i].tcpState[1],
+                            zpSv_->svData_[i].tcpState[2],
+                            zpSv_->svData_[i].tcpState[3],
+                            zpSv_->svData_[i].tcpState[4],
+                            zpSv_->svData_[i].tcpState[5],
+                            zpSv_->svData_[i].tcpState[6],
+                            zpSv_->svData_[i].tcpState[7],
+                            zpSv_->svData_[i].tcpState[8],
+                            zpSv_->svData_[i].tcpState[9],
+                            zpSv_->svData_[i].tcpState[10]);
                     }
-
-                zOffSet += sprintf(zpBuf + zOffSet,
-                        "(%d,'%s',%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,'{%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d}')",
-                        zpSv_->svData_[i].timeStamp,
-                        zpSv_->id,
-                        zpSv_->svData_[i].cpu,
-                        zpSv_->svData_[i].mem,
-                        1000 * zpSv_->svData_[i].diskSpent / zpSv_->svData_[i].diskTotal,
-                        zpSv_->svData_[i].load[0] / zpSv_->cpuNum,
-                        zpSv_->svData_[i].load[1] / zpSv_->cpuNum,
-                        zpSv_->svData_[i].load[2] / zpSv_->cpuNum,
-                        zpSv_->svData_[i].disk_rdkb,
-                        zpSv_->svData_[i].disk_wrkb,
-                        zpSv_->svData_[i].disk_rdiops,
-                        zpSv_->svData_[i].disk_wriops,
-                        zpSv_->svData_[i].net_rdkb,
-                        zpSv_->svData_[i].net_wrkb,
-                        zpSv_->svData_[i].net_rdiops,
-                        zpSv_->svData_[i].net_wriops,
-                        zpSv_->svData_[i].tcpState[0],
-                        zpSv_->svData_[i].tcpState[1],
-                        zpSv_->svData_[i].tcpState[2],
-                        zpSv_->svData_[i].tcpState[3],
-                        zpSv_->svData_[i].tcpState[4],
-                        zpSv_->svData_[i].tcpState[5],
-                        zpSv_->svData_[i].tcpState[6],
-                        zpSv_->svData_[i].tcpState[7],
-                        zpSv_->svData_[i].tcpState[8],
-                        zpSv_->svData_[i].tcpState[9],
-                        zpSv_->svData_[i].tcpState[10]);
                 }
             }
         }

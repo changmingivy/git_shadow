@@ -28,7 +28,7 @@
 // } ztcp_state_t;
 
 struct zSvParamSolid__ {
-    char *p_region;
+    _i regionID;
     char *p_dimensions;
 };
 
@@ -45,6 +45,7 @@ struct zSvParam__ {
 struct zRegion__ {
     char *p_name;
     _i ecsCnt;
+    _i id;  // self id
 };
 
 struct zSvData__ {
@@ -109,7 +110,7 @@ struct zSvEcs__ {
         char id[zINSTANCE_ID_BUF_LEN];
     };
 
-    _i cpuNum;  // 核心数
+    _s cpuNum;  // 核心数
     //_us mem;  // 容量：G 
     //_ui disk;  // 容量：G
     //char ip[INET6_ADDRSTRLEN];  // 字符串形式的 ip 地址
