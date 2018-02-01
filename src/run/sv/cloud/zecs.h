@@ -10,7 +10,7 @@
 #include "cJSON.h"
 
 /* instanceID(22 char) + '\0' */
-#define zHASH_KEY_SIZ (1 + 23 / sizeof(_ull))
+#define zHASH_KEY_SIZ (_i)(1 + 23 / sizeof(_ull))
 #define zINSTANCE_ID_BUF_LEN (1 + 23 / sizeof(_ull)) * sizeof(_ull)
 
 typedef enum {
@@ -81,6 +81,11 @@ struct zSvData__ {
 //    char *p_dev;  // "eth0"
 //    struct zNetIf__ *p_next;
 //};
+
+union zInstanceId__ {
+    _ull hashKey[zHASH_KEY_SIZ];
+    char id[zINSTANCE_ID_BUF_LEN];
+};
 
 struct zSv__ {
     /*

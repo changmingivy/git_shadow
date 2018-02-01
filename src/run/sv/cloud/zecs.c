@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-/* 专用内存池初始容量：64M */
-#define zSV_MEM_POOL_SIZ 64 * 1024 * 1024
+/* 专用内存池初始容量：16M */
+#define zSV_MEM_POOL_SIZ 16 * 1024 * 1024
 
 /* ECS 元信息分页并发查询 */
 #define zMETA_PAGE_SIZ 100
@@ -369,7 +369,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
 
             /* 同时复制末尾的 '\0'，共计 23 bytes；剩余空间清零 */
             memcpy(zpSv_->id, zpJTmp->valuestring, 23);
-            memset(zpSv_->id + 23, 0, zINSTANCE_ID_BUF_LEN - 23);
+            memset(zpSv_->id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
             /* insert new node */
             pthread_mutex_lock(&zNodeInsertLock);
@@ -398,8 +398,8 @@ zget_meta_one_page(void *zp) {
     return NULL;
 }
 
-static void *
-zget_meta_one_region(void *zp) {
+static void
+zget_meta_one_region(struct zRegion__ *zpRegion_) {
     char *zpContent = NULL;
     char zCmdBuf[512];
 
@@ -411,7 +411,7 @@ zget_meta_one_region(void *zp) {
     cJSON *zpJRoot = NULL,
           *zpJ = NULL;
 
-    struct zRegion__ *zpRegion_ = zp;
+    char *zp = NULL;
 
     /* 固定不变的参数 */
     zOffSet = snprintf(zCmdBuf, 512,
@@ -436,7 +436,7 @@ zget_meta_one_region(void *zp) {
     zpJRoot = cJSON_Parse(zpContent);
     if (NULL == zpJRoot) {
         zPRINT_ERR_EASY("");
-        return (void *) -1;
+        return;
     }
 
     zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "TotalCount");
@@ -451,7 +451,7 @@ zget_meta_one_region(void *zp) {
         }
     } else {
         zPRINT_ERR_EASY("TotalCount invalid ?");
-        return (void *) -1;
+        return;
     }
 
     /* first page */
@@ -465,7 +465,7 @@ zget_meta_one_region(void *zp) {
         for (zPageNum = 2; zPageNum <= zPageTotal; ++zPageNum) {
             zp += (zPageNum - 2) * (zOffSet + 24);
             memcpy(zp, zCmdBuf, zOffSet);
-            snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum); 
+            snprintf(zp + zOffSet, 24, "PageNumber %d", zPageNum);
 
             zCHECK_PT_ERR(pthread_create(zTid + zPageNum - 2, NULL, zget_meta_one_page, zp));
         }
@@ -474,30 +474,134 @@ zget_meta_one_region(void *zp) {
             pthread_join(zTid[zPageNum - 2], NULL);
         }
     }
-
-    return NULL;
-}
-
-static void
-zget_meta(void) {
-    pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)];
-    _i i;
-
-    /* 提取所有实例 ID */
-    for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
-        zCHECK_PT_ERR(pthread_create(zTid + i, NULL, zget_meta_one_region, & zRegion_[i]));
-    }
-
-    for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
-        pthread_join(zTid[i], NULL);
-    }
-
-    // TODO 多磁盘、网卡关联
 }
 
 // BASE //
 static void *
 zget_sv_cpu_rate(void *zp) {
+    _i zOffSet;
+    char *zpCmdBuf = NULL,
+         *zpContent = NULL,
+         *zpCursor = NULL;
+
+    cJSON *zpJRoot = NULL,
+          *zpJTmp = NULL,
+          *zpJ = NULL;
+
+    _i zTimeStamp = 0,
+       zData = 0,
+       i;
+
+    struct zSv__ *zpSv_ = NULL;
+
+    union zInstanceId__ zInstanceId_;
+    memset(zInstanceId_.id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
+
+    zpCmdBuf = zalloc(1024 + strlen((char *)zp + sizeof(void *)));
+
+    /* 固定不变的参数，第二次查询开始，将在末尾追加/更新游标 */
+    zOffSet = snprintf(zpCmdBuf, 2048,
+            "%s "
+            "-region %s "
+            "-userId %s "
+            "-userKey %s "
+            "-domain metrics.aliyuncs.com "
+            "-apiName QueryMetricList "
+            "-apiVersion 2017-03-01 "
+            "Period 15 "
+            "Length 1000 "
+            "Action QueryMetricList "
+            "Project acs_ecs_dashboard "
+            "Metric cpu_total "
+            "StartTime %lld"
+            "EndTime %lld"
+            "Dimensions %s ",
+            zpUtilPath,
+            ((char **)zp)[0],
+            zpAliyunID,
+            zpAliyunKey,
+            zPrevStamp,
+            zPrevStamp + 15 * 60 * 1000 - 1,
+            (char *)zp + sizeof(void *));
+
+    do {
+        if (NULL != zpJRoot) {
+            snprintf(zpCmdBuf + zOffSet, 2048 - zOffSet, "Cursor %s", zpCursor);
+
+            /* 前一次的 cJSON 资源已使用完毕，清除之 */
+            cJSON_Delete(zpJRoot);
+            zpJRoot = NULL;
+        }
+
+        zpContent = zGET_CONTENT(zpCmdBuf);
+
+        zpJRoot = cJSON_Parse(zpContent);
+        if (NULL == zpJRoot) {
+            zPRINT_ERR_EASY("");
+            return (void *) -1;
+        }
+
+        zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Datapoints");
+        if (NULL == zpJTmp) {
+            cJSON_Delete(zpJRoot);
+
+            zPRINT_ERR_EASY("Datapoints ?");
+            return NULL;
+        }
+
+        for (zpJ = zpJTmp->child; NULL != zpJ; zpJ = zpJ->next) {
+            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "timestamp");
+            if (cJSON_IsNumber(zpJTmp)) {
+                /* 修正时间戳，按 15s 对齐 */
+                zTimeStamp = ((_ll)zpJTmp->valuedouble) / (15 * 1000) ;
+            } else {
+                zPRINT_ERR_EASY("timestamp ?");
+                continue;
+            }
+
+            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "instanceId");
+            if (cJSON_IsString(zpJTmp)) {
+                strncpy(zInstanceId_.id, zpJTmp->valuestring, 23);
+            } else {
+                zPRINT_ERR_EASY("instanceId ?");
+                continue;
+            }
+
+            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Average");
+            if (cJSON_IsNumber(zpJTmp)) {
+                zData = zpJTmp->valuedouble * 10;
+            } else {
+                zPRINT_ERR_EASY("Average ?");
+                continue;
+            }
+
+            for (zpSv_ = zpSvHash_[zInstanceId_.hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
+                    NULL != zpSv_;
+                    zpSv_ = zpSv_->p_next) {
+                for (i = 0; i < (zHASH_KEY_SIZ - 1); i++) {
+                    if (zpSv_->hashKey[i] != zInstanceId_.hashKey[i]) {
+                        goto zSkipMark;
+                    }
+                }
+
+                zpSv_->ecsSv_[zTimeStamp % 60].timeStamp = zTimeStamp;
+                zpSv_->ecsSv_[zTimeStamp % 60].cpu = zData;
+
+zSkipMark:;
+            }
+        }
+
+        zpJ = cJSON_GetObjectItemCaseSensitive(zpJRoot, "Cursor");
+        if (cJSON_IsString(zpJ)) {
+            zpCursor = zpJ->valuestring;
+        } else {
+            zpCursor = NULL;
+        }
+    } while(NULL != zpCursor);
+
+    /* 清除最后一次的 cJSON 资源 */
+    cJSON_Delete(zpJRoot);
+
     return NULL;
 }
 
@@ -634,7 +738,7 @@ zget_sv_net_wriops(void *zp) {
 #define zSPLIT_SIZE_BASE ((sizeof("'[]'") - 1) + 200 * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + 199 * (sizeof(",") - 1))
 #define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + 200 * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
 static void
-zget_sv(void) {
+zget_sv_one_region(struct zRegion__ *zpRegion_) {
     void * (* zOpsFn[26/*5 + 6 + 4 + 11*/]) (void *) = {
         zget_sv_cpu_rate,  // 0
         zget_sv_mem_rate,
@@ -687,27 +791,18 @@ zget_sv(void) {
     //static char **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
     static char (**zppSplitTcpState)[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
 
-    _i zEcsTotal,
-       zSplitCnt,
+    _i zSplitCnt,
        zOffSet,
        i,
        j,
        k;
 
-    /* 提取监控信息 */
-    zEcsTotal = 0;
-    for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
-        zEcsTotal += zRegion_[i].ecsCnt;
-    }
+    char **zppRegion;
 
-    if (0 == zEcsTotal) {
-        return;
-    }
-
-    if (0 == zEcsTotal % zSPLIT_UNIT) {
-        zSplitCnt = zEcsTotal / zSPLIT_UNIT;
+    if (0 == zpRegion_->ecsCnt % zSPLIT_UNIT) {
+        zSplitCnt = zpRegion_->ecsCnt / zSPLIT_UNIT;
     } else {
-        zSplitCnt = 1 + zEcsTotal / zSPLIT_UNIT;
+        zSplitCnt = 1 + zpRegion_->ecsCnt / zSPLIT_UNIT;
     }
 
     /* 一次性分配Base与TcpState共计12个类别的内存 */
@@ -715,8 +810,13 @@ zget_sv(void) {
 
     zpTail_ = zpHead_;
     for (j = 0; j < zSplitCnt; j++) {
-        zppSplitBase[j] = zalloc(zSPLIT_SIZE_BASE);
-        zOffSet = sprintf(zppSplitBase[j], "'");
+        zppSplitBase[j] = zalloc(sizeof(void *) + zSPLIT_SIZE_BASE);
+
+        zppRegion = (char **) zppSplitBase[j];
+        zppRegion[0] = zpRegion_->p_name;
+
+        zOffSet = sizeof(void *);
+        zOffSet += sprintf(zppSplitBase[j], "'");
 
         for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
             zOffSet += sprintf(zppSplitBase[j] + zOffSet,
@@ -733,8 +833,13 @@ zget_sv(void) {
 
         zpTail_ = zpHead_;
         for (j = 0; j < zSplitCnt; j++) {
-            zppSplitTcpState[i][j] = zalloc(zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
-            zOffSet = sprintf(zppSplitTcpState[i][j], "'");
+            zppSplitTcpState[i][j] = zalloc(sizeof(void *) + zSPLIT_SIZE_TCP_STATE(zpTcpState[j]));
+
+            zppRegion = (char **) zppSplitTcpState[i][j];
+            zppRegion[0] = zpRegion_->p_name;
+
+            zOffSet = sizeof(void *);
+            zOffSet += sprintf(zppSplitTcpState[i][j], "'");
 
             for (k = 0; k < zSPLIT_UNIT, NULL != zpTail_; k++, zpTail_ = zpTail_->p_next) {
                 zOffSet += sprintf(zppSplitBase[j] + zOffSet,
@@ -777,11 +882,26 @@ zget_sv(void) {
         }
     }
 
-    for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); ++i) {
+    for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 26; j++) {
             pthread_join(zTid[i][j], NULL);
         }
     }
+}
+
+static void *
+zsync_one_region(void *zp) {
+    struct zRegion__ *zpRegion_ = zp;
+
+    /* 实例、磁盘、网卡的基本信息 */
+    zget_meta_one_region(zpRegion_);
+
+    // TODO 多磁盘、网卡关联
+
+    /* 与基本信息对应的监控信息 */
+    zget_sv_one_region(zpRegion_);
+
+    return NULL;
 }
 
 static void
@@ -791,18 +911,38 @@ zwrite_db(void) {
 
 static void
 zdata_sync(void) {
-    zmem_pool_init();
+    // TODO 从 DB 中取最新的 zPrevStamp
+    // 若为空，则赋值为 time(NULL) / (15 * 60) * 15 * 60 * 1000 - 15 * 60 * 1000
 
-    /* 实例、磁盘、网卡的基本信息 */
-    zget_meta();
+    while (time(NULL) * 1000 > (zPrevStamp + 15 * 60 * 1000 - 1)) {
+        zmem_pool_init();
 
-    /* 与基本信息对应的监控信息 */
-    zget_sv();
+        pthread_t zTid[sizeof(zRegion_) / sizeof(struct zRegion__)];
+        _i zThreadCnt = 0,
+           i;
 
-    /* 将最终结果写入 DB */
-    zwrite_db();
+        /* 分区域并发执行 */
+        for (i = 0; i < (_i) (sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
+            /* 过滤掉数据为空的区域 */
+            if (0 == zRegion_[i].ecsCnt) {
+                continue;
+            } else {
+                zCHECK_PT_ERR(pthread_create(zTid + zThreadCnt, NULL, zsync_one_region, & zRegion_[i]));
+                zThreadCnt++;
+            }
+        }
 
-    zmem_pool_destroy();
+        for (i = 0; i < zThreadCnt; i++) {
+            pthread_join(zTid[i], NULL);
+        }
+
+        /* 将最终结果写入 DB */
+        zwrite_db();
+
+        zmem_pool_destroy();
+
+        zPrevStamp += 15 * 60 * 1000;
+    }
 }
 
 #undef zINSTANCE_ID_BUF_LEN
