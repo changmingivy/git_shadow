@@ -523,8 +523,8 @@ zget_sv_ops(void *zp) {
             "Action QueryMetricList "
             "Project acs_ecs_dashboard "
             "Metric %s "
-            "StartTime %lld"
-            "EndTime %lld"
+            "StartTime %lld "
+            "EndTime %lld "
             "Dimensions %s ",
             zpUtilPath,
             zpSvParam_->p_paramSolid->p_region,
