@@ -39,7 +39,7 @@ struct zSvParam__ {
     _i targetID;
 
     /* 处理数据的回调函数 */
-    void (* cb) (_i *, _i);
+    void (* cb) (_i *, _f);
 };
 
 struct zRegion__ {
@@ -48,14 +48,14 @@ struct zRegion__ {
 };
 
 struct zSvData__ {
+    /* 分别处于 tcp 的 11 种状态的连接计数 */
+    _i tcpState[11];
+
     /* 可直接取到的不需要额外加工的数据项 */
     _i timeStamp;
     _i cpu;
     _i mem;
     _i load[3];
-
-    /* 分别处于 tcp 的 11 种状态的连接计数 */
-    _i tcpState[11];
 
     /*
      * 取磁盘列表的时，可得到以 GB 为单位的容量，

@@ -366,6 +366,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent) {
         if (cJSON_IsString(zpJTmp) && NULL != zpJTmp->valuestring) {
             zpSv_ = zalloc(sizeof(struct zSv__));
             zpSv_->p_next = NULL;
+            memset(zpSv_->ecsSv_, 0, 60 * sizeof(struct zSvData__));
 
             /* 同时复制末尾的 '\0'，共计 23 bytes；剩余空间清零 */
             memcpy(zpSv_->id, zpJTmp->valuestring, 23);
@@ -491,8 +492,9 @@ zget_sv_ops(void *zp) {
           *zpJ = NULL;
 
     _i zTimeStamp = 0,
-       zData = 0,
        i;
+
+    _f zData = 0;
 
     struct zSvParam__ *zpSvParam_ = zp;
 
@@ -574,7 +576,7 @@ zget_sv_ops(void *zp) {
 
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Average");
             if (cJSON_IsNumber(zpJTmp)) {
-                zData = zpJTmp->valuedouble * 10;
+                zData = zpJTmp->valuedouble;
             } else {
                 zPRINT_ERR_EASY("Average ?");
                 continue;
@@ -614,13 +616,33 @@ zNextMark:;
  * 用于计算不同类别监控数据结果的 callback
  */
 static void 
-zsv_cb_update(_i *zpBase, _i zNew) {
+zsv_cb_cpu_mem(_i *zpBase, _f zNew) {
+    *zpBase = zNew * 10;
+}
+
+static void 
+zsv_cb_load(_i *zpBase, _f zNew) {
+    *zpBase = zNew * 1000;
+}
+
+static void 
+zsv_cb_default(_i *zpBase, _f zNew) {
     *zpBase = zNew;
 }
 
 static void 
-zsv_cb_summation(_i *zpBase, _i zNew) {
-    (*zpBase) += zNew;
+zsv_cb_disk_total_spent(_i *zpBase, _f zNew) {
+    (*zpBase) += zNew / 1024 / 1024;  // 单位：M
+}
+
+static void 
+zsv_cb_diskiokb(_i *zpBase, _f zNew) {
+    (*zpBase) += zNew / 1024;
+}
+
+static void 
+zsv_cb_netiokb(_i *zpBase, _f zNew) {
+    (*zpBase) += zNew / 8 / 1024;
 }
 
 /* 监控信息按主机数量分组并发查询*/
@@ -725,31 +747,69 @@ zget_sv_one_region(struct zRegion__ *zpRegion_) {
     }
 
     /* 定义动态栈空间存放 tid */
-    struct zSvParam__ *zpSvParam_ = zalloc(26 * sizeof(struct zSvParam__));
     pthread_t zTid[zSplitCnt][26];
+
+    /* 注册参数 */
+    struct zSvParam__ *zpSvParam_ = zalloc(26 * sizeof(struct zSvParam__));
 
     for (i = 0; i < 26; i++) {
         zpSvParam_[i].targetID = i;
     }
 
-    zpSvParam_[0].p_metic = "cpu_total";
-    zpSvParam_[0].p_paramSolid = zpBaseSolid;
-    zpSvParam_[0].cb = zsv_cb_update;
+    for (i = 0; i < 11; i++) {
+        zpSvParam_[i].p_metic = "net_tcpconnection";
+        zpSvParam_[i].p_paramSolid = zpTcpStateSolid[i];
+        zpSvParam_[i].cb = zsv_cb_default;
+    }
 
-    //_i cpu;
-    //_i mem;
-    //_i load[3];
-    //_i tcpState[11];
-    //_i diskTotal;
-    //_i diskSpent;
-    //_i disk_rdkb;
-    //_i disk_wrkb;
-    //_i disk_rdiops;
-    //_i disk_wriops;
-    //_i net_rdkb;
-    //_i net_wrkb;
-    //_i net_rdiops;
-    //_i net_wriops;
+    for (i = 11; i < 26; i++) {
+        zpSvParam_[i].p_paramSolid = zpBaseSolid;
+    }
+
+    zpSvParam_[11].p_metic = "cpu_total";
+    zpSvParam_[11].cb = zsv_cb_cpu_mem;
+
+    zpSvParam_[12].p_metic = "memory_usedutilization";
+    zpSvParam_[12].cb = zsv_cb_cpu_mem;
+
+    zpSvParam_[13].p_metic = "load_1m";
+    zpSvParam_[13].cb = zsv_cb_load;
+
+    zpSvParam_[14].p_metic = "load_5m";
+    zpSvParam_[14].cb = zsv_cb_load;
+
+    zpSvParam_[15].p_metic = "load_15m";
+    zpSvParam_[15].cb = zsv_cb_load;
+
+    zpSvParam_[16].p_metic = "diskusage_total";
+    zpSvParam_[16].cb = zsv_cb_disk_total_spent;
+
+    zpSvParam_[17].p_metic = "diskusage_used";
+    zpSvParam_[17].cb = zsv_cb_disk_total_spent;
+
+    zpSvParam_[18].p_metic = "disk_readbytes";
+    zpSvParam_[18].cb = zsv_cb_diskiokb;
+
+    zpSvParam_[19].p_metic = "disk_writebytes";
+    zpSvParam_[19].cb = zsv_cb_diskiokb;
+
+    zpSvParam_[20].p_metic = "disk_readiops";
+    zpSvParam_[20].cb = zsv_cb_default;
+
+    zpSvParam_[21].p_metic = "disk_writeiops";
+    zpSvParam_[21].cb = zsv_cb_default;
+
+    zpSvParam_[22].p_metic = "networkin_rate";
+    zpSvParam_[22].cb = zsv_cb_netiokb;
+
+    zpSvParam_[23].p_metic = "networkout_rate";
+    zpSvParam_[23].cb = zsv_cb_netiokb;
+
+    zpSvParam_[24].p_metic = "networkin_packages";
+    zpSvParam_[24].cb = zsv_cb_default;
+
+    zpSvParam_[25].p_metic = "networkout_packages";
+    zpSvParam_[25].cb = zsv_cb_default;
 
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 26; j++) {
