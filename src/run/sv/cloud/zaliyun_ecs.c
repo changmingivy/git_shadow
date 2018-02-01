@@ -946,10 +946,8 @@ zdata_sync(void) {
      * 若为空，则赋值为执行当时之前 15 分钟的时间戳
      */
     zPgRes__ *zpPgRes_ = NULL;
-    if (0 != zPgSQL_.exec_once(
-                zRun_.p_sysInfo_->pgConnInfo,
-                "CREATE TABLE IF NOT EXISTS sv_sync_meta "
-                "(last_timestamp    bigint NOT NULL);",
+    if (0 != zPgSQL_.exec_once(zRun_.p_sysInfo_->pgConnInfo,
+                "SELECT last_timestamp FROM sv_sync_meta;",
                 &zpPgRes_)) {
 
         zPRINT_ERR_EASY("");
