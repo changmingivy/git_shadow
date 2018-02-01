@@ -2,9 +2,9 @@
 #define ZSV_CLOUD_H
 
 #include "zcommon.h"
+#include "zrun.h"
 #include "zaliyun_ecs.h"
 #include "zpostgres.h"
-#include "zrun.h"
 
 struct zSvCloud__ {
     void (* init) (void);
