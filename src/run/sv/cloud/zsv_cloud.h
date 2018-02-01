@@ -3,6 +3,8 @@
 
 #include "zcommon.h"
 #include "zaliyun_ecs.h"
+#include "zpostgres.h"
+#include "zrun.h"
 
 struct zSvCloud__ {
     void (* init) (void);

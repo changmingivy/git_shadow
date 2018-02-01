@@ -820,15 +820,35 @@ zsync_one_region(void *zp) {
     return NULL;
 }
 
-static void
+static _i
 zwrite_db(void) {
     // TODO
+
+    return 0;
 }
 
 static void
 zdata_sync(void) {
-    // TODO 从 DB 中取最新的 zPrevStamp
-    // 若为空，则赋值为 time(NULL) / (15 * 60) * 15 * 60 * 1000 - 15 * 60 * 1000
+    /*
+     * 从 DB 中提取最新的 zPrevStamp
+     * 若为空，则赋值为执行当时之前 15 分钟的时间戳
+     */
+    zPgRes__ *zpPgRes_ = NULL;
+    if (0 != zPgSQL_.exec_once(
+                zRun_.p_sysInfo_->pgConnInfo,
+                "CREATE TABLE IF NOT EXISTS sv_sync_meta "
+                "(last_timestamp    bigint NOT NULL);",
+                &zpPgRes_)) {
+
+        zPRINT_ERR_EASY("");
+        exit(1);
+    }
+
+    if (0 == zpPgRes_->tupleCnt) {
+        zPrevStamp = (time(NULL) / (15 * 60) - 1) * 15 * 60 * 1000;
+    } else {
+        zPrevStamp = 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+    }
 
     while (time(NULL) * 1000 > (zPrevStamp + 15 * 60 * 1000 - 1)) {
         zmem_pool_init();
@@ -853,11 +873,11 @@ zdata_sync(void) {
         }
 
         /* 将最终结果写入 DB */
-        zwrite_db();
+        if (0 == zwrite_db()) {
+            zPrevStamp += 15 * 60 * 1000;
+        }
 
         zmem_pool_destroy();
-
-        zPrevStamp += 15 * 60 * 1000;
     }
 }
 
