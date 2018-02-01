@@ -1,5 +1,5 @@
-#ifndef ZSVCLOUD_H
-#define ZSVCLOUD_H
+#ifndef ZALIYUN_ECS_H
+#define ZALIYUN_ECS_H
 
 #include "zcommon.h"
 
@@ -13,19 +13,19 @@
 #define zHASH_KEY_SIZ (_i)(1 + 23 / sizeof(_ull))
 #define zINSTANCE_ID_BUF_LEN (1 + 23 / sizeof(_ull)) * sizeof(_ull)
 
-typedef enum {
-    zLISTEN,
-    zSYN_SENT,
-    zESTABLISHED,
-    zSYN_RECV,
-    zFIN_WAIT1,
-    zCLOSE_WAIT,
-    zFIN_WAIT2,
-    zLAST_ACK,
-    zTIME_WAIT,
-    zCLOSING,
-    zCLOSED,
-} ztcp_state_t;
+// typedef enum {
+//     zLISTEN,
+//     zSYN_SENT,
+//     zESTABLISHED,
+//     zSYN_RECV,
+//     zFIN_WAIT1,
+//     zCLOSE_WAIT,
+//     zFIN_WAIT2,
+//     zLAST_ACK,
+//     zTIME_WAIT,
+//     zCLOSING,
+//     zCLOSED,
+// } ztcp_state_t;
 
 struct zSvParamSolid__ {
     char *p_region;
@@ -122,10 +122,10 @@ struct zSv__ {
     struct zSv__ *p_next;
 };
 
-struct zSVCloud__ {
+struct zSvAliyunEcs__ {
     void (* init) (void);
     void (* data_sync) (void);
     void (* tb_mgmt) (void);
 };
 
-#endif  // #ifndef ZSVCLOUD_H
+#endif  // #ifndef ZALIYUN_ECS_H

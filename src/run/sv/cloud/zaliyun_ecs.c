@@ -44,7 +44,7 @@ static void zdb_mgmt(void);
 static void zdata_sync(void);
 
 /* public interface */
-struct zSVCloud__ zSVCloud_ = {
+struct zSvAliyunEcs__ zSvAliyunEcs_ = {
     .init = zenv_init,
     .data_sync = zdata_sync,
     .tb_mgmt = zdb_mgmt,
