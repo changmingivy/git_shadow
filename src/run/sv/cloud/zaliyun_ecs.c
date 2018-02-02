@@ -510,7 +510,6 @@ zget_sv_ops(void *zp) {
     struct zSvEcs__ *zpSv_ = NULL;
 
     union zInstanceId__ zInstanceId_;
-    memset(zInstanceId_.id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
     zBufSiz = 1024 + strlen(zpSvParam_->p_paramSolid->p_dimensions);
     zpBuf = zalloc(zBufSiz);
@@ -580,6 +579,7 @@ zget_sv_ops(void *zp) {
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "instanceId");
             if (cJSON_IsString(zpJTmp)) {
                 memcpy(zInstanceId_.id, zpJTmp->valuestring, 23);
+                memset(zInstanceId_.id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
             } else {
                 zPRINT_ERR_EASY("instanceId ?");
                 continue;
