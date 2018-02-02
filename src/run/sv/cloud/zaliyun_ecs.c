@@ -88,9 +88,7 @@ static struct zSvEcs__ *zpTail_[sizeof(zRegion_) / sizeof(struct zRegion__)] = {
 
 /* HASH */
 #define zHASH_SIZ 511
-static struct zSvEcs__ *zpSvHash_[sizeof(zRegion_) / sizeof(struct zRegion__)][zHASH_SIZ];
-
-
+static struct zSvEcs__ *zpSvHash_[sizeof(zRegion_) / sizeof(struct zRegion__)][zHASH_SIZ] = {{NULL}};
 
 
 static void
@@ -862,7 +860,7 @@ zwrite_db(void) {
 
     for (k = 0; k < (_i)(sizeof(zRegion_) / sizeof(struct zRegion__)); k++) {
         for (i = 0; i < zHASH_SIZ; i++) {
-            if (NULL == zpSvHash_[i]) {
+            if (NULL == zpSvHash_[k][i]) {
                 continue;
             } else {
                 for (zpSv_ = zpSvHash_[k][i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
