@@ -10,6 +10,9 @@ extern struct zSvAliyunEcs__ zSvAliyunEcs_;
 extern struct zPgSQL__ zPgSQL_;
 extern struct zRun__ zRun_;
 
+/* 确保同一时间只有一个同步事务在运行 */
+pthread_mutex_t zAtomSyncLock = PTHREAD_MUTEX_INITIALIZER;
+
 void zinit(void);
 void zdata_sync (void);
 void ztb_mgmt (void);
@@ -38,8 +41,12 @@ zinit(void) {
 
 void
 zdata_sync (void) {
+    pthread_mutex_lock(&zAtomSyncLock);
+
     zSvAliyunEcs_.data_sync();
     // other ...
+
+    pthread_mutex_unlock(&zAtomSyncLock);
 }
 
 void
