@@ -730,12 +730,12 @@ zget_sv_one_region(void *zp) {
     }
 
     /* 将线性链表转换为 HASH 结构 */
-    for (zpTmp_[0] = zpHead_[zRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
-        if (NULL == zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
-            zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
-            zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]->p_next = NULL;  // must!
+    for (zpTmp_[0] = zpHead_[zpRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
+        if (NULL == zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
+            zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
+            zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]->p_next = NULL;  // must!
         } else {
-            zpTmp_[1] = zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
+            zpTmp_[1] = zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
             while (NULL != zpTmp_[1]->p_next) {
                 zpTmp_[1] = zpTmp_[1]->p_next;
             }
