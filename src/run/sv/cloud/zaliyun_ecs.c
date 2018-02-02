@@ -730,10 +730,10 @@ zget_sv_one_region(void *zp) {
     }
 
     /* 将线性链表转换为 HASH 结构 */
-    for (zpTmp_[0] = zpHead_[zpRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
+    zpTmp_[0] = zpHead_[zpRegion_->id];
+    while (NULL != zpTmp_[0]) {
         if (NULL == zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
             zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
-            zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]->p_next = NULL;  // must!
         } else {
             zpTmp_[1] = zpSvHash_[zpRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
             while (NULL != zpTmp_[1]->p_next) {
@@ -741,8 +741,11 @@ zget_sv_one_region(void *zp) {
             }
 
             zpTmp_[1]->p_next = zpTmp_[0];
-            zpTmp_[1]->p_next->p_next = NULL;  // must!
         }
+
+        zpTmp_[1] = zpTmp_[0];
+        zpTmp_[0]= zpTmp_[0]->p_next;
+        zpTmp_[1]->p_next = NULL;  // must! avoid loop!
     }
 
     /* 定义动态栈空间存放 tid */
@@ -867,7 +870,7 @@ zwrite_db(void) {
             if (NULL == zpSvHash_[k][i]) {
                 continue;
             } else {
-                for (zpSv_ = zpSvHash_[k][i]; NULL != zpSv_->p_next; zpSv_ = zpSv_->p_next) {
+                for (zpSv_ = zpSvHash_[k][i]; NULL != zpSv_; zpSv_ = zpSv_->p_next) {
                     for (j = 0; j < 60; j++) {
                         if (510 > (zBufSiz - zOffSet)) {
                             zThreadPool_.add(zwrite_db_worker, NULL);
