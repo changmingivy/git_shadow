@@ -289,7 +289,17 @@ zdb_mgmt(void) {
     /* 最前面的 12 个字符，是以 golang %-12d 格式打印的接收到的字节数 */\
     char CntBuf[12];\
     char *pBuf = NULL;\
-    if (12 == zNativeUtils_.read_hunk(CntBuf, 12, pFile)) {\
+    _i Cnter = 0;\
+    /* 若 http body 数据异常，至多重试 10 次 */\
+    for (_i i = 0; i < 10 && 12 != (Cnter = zNativeUtils_.read_hunk(CntBuf, 12, pFile)); i++) {\
+        pclose(pFile);\
+        pFile = popen((pCmd), "r");\
+        if (NULL == pFile) {\
+            zPRINT_ERR_EASY_SYS();\
+            exit(1);\
+        }\
+    }\
+    if (12 == Cnter) {\
         CntBuf[11] = '\0';\
         _i Len = strtol(CntBuf, NULL, 10);\
 \
@@ -298,7 +308,7 @@ zdb_mgmt(void) {
         zNativeUtils_.read_hunk(pBuf, Len, pFile);\
         pBuf[Len] = '\0';\
     } else {\
-        zPRINT_ERR_EASY("err!");\
+        zPRINT_ERR_EASY("aliyun http req err!");\
     }\
 \
     pclose(pFile);\
@@ -315,8 +325,8 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
     struct zSvEcs__ *zpSv_ = NULL;
 
     if (NULL == zpContent) {
-        zErrNo = -1;
-        goto zEndMark;
+        zPRINT_ERR_EASY("");
+        return -1;
     }
 
     if (NULL == zpJTransRoot) {
@@ -981,6 +991,8 @@ zdata_sync(void) {
         /* 将最终结果写入 DB */
         if (0 == zwrite_db()) {
             zPrevStamp += 15 * 60 * 1000;
+        } else {
+            zPRINT_ERR_EASY("sv_cloud: write_db err!");
         }
 
         zmem_pool_destroy();
