@@ -255,8 +255,8 @@ zdb_mgmt(void) {
     zBaseID = time(NULL) / 3600;
     for (zID = 0; zID < 10 * 24; zID++) {
         sprintf(zBuf,
-                "CREATE TABLE IF NOT EXISTS sv_aiyun_%d "
-                "PARTITION OF sv_aiyun FOR VALUES FROM (%d) TO (%d);",
+                "CREATE TABLE IF NOT EXISTS sv_aiyun_ecs_%d "
+                "PARTITION OF sv_aiyun_ecs FOR VALUES FROM (%d) TO (%d);",
                 zBaseID + zID,
                 3600 * (zBaseID + zID),
                 3600 * (zBaseID + zID + 1));
