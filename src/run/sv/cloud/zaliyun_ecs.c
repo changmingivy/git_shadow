@@ -40,7 +40,7 @@ static const char * const zpUtilPath = "/tmp/aliyun_cmdb";
 static const char * const zpAliyunID = "LTAIHYRtkSXC1uTl";
 static const char * const zpAliyunKey = "l1eLkvNkVRoPZwV9jwRpmq1xPOefGV";
 
-static struct zRegion__ zRegion_[] = {
+static struct zRegion__ zRegion_[17] = {
     {"cn-qingdao", 0, 0},
     {"cn-beijing", 0, 1},
     {"cn-zhangjiakou", 0, 2},
@@ -411,7 +411,7 @@ zget_meta_one_region(void *zp) {
 
     /* 固定不变的参数 */
     zOffSet = sizeof(_i);
-    zOffSet += snprintf(zCmdBuf + sizeof(_i), 512,
+    zOffSet += snprintf(zCmdBuf + sizeof(_i), 512 - sizeof(_i),
             "%s "
             "-region %s "
             "-userId %s "
@@ -650,15 +650,15 @@ zsv_cb_netiokb(_i *zpBase, _f zNew) {
 
 /* 监控信息按主机数量分组并发查询*/
 #define zSPLIT_UNIT 50
-#define zSPLIT_SIZE_BASE (1 + (sizeof("'[]'") - 1) + zSPLIT_UNIT * (sizeof("{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1) + (zSPLIT_UNIT - 1) * (sizeof(",") - 1))
-#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + zSPLIT_UNIT * (sizeof(",\"state\":\"\"") - 1 + strlen(state)))
+#define zSPLIT_SIZE_BASE (1/*+\0*/ + (sizeof("'[]'") - 1/*-\0*/) + zSPLIT_UNIT * (sizeof(",{\"instanceId\":\"i-instanceIdinstanceId\"}") - 1/*-\0*/) - 1/*-,*/)
+#define zSPLIT_SIZE_TCP_STATE(state) (zSPLIT_SIZE_BASE + zSPLIT_UNIT * (sizeof(",\"state\":\"\"") - 1/*-\0*/ + strlen(state)))
 static void *
 zget_sv_one_region(void *zp) {
     struct zRegion__ *zpRegion_ = zp;
-    static struct zSvParamSolid__ *zpBaseSolid;  /* 指向分组后的各区间数据(拼接好的字符串) */
+    struct zSvParamSolid__ *zpBaseSolid;  /* 指向分组后的各区间数据(拼接好的字符串) */
     //static **zppSplitDisk;  /* 分组同上，但每个字段添加磁盘 device 过滤条件 */
     //static **zppSplitNetIf;  /* 分组同上，但每个字段添加网卡 device 过滤条件 */
-    static struct zSvParamSolid__ *zpTcpStateSolid[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
+    struct zSvParamSolid__ *zpTcpStateSolid[11];  /* 分组同上，分别查询 TCP 的 11 种状态关联的连接数量 */
 
     struct zSvEcs__ *zpTmp_[2] = {NULL};
 
