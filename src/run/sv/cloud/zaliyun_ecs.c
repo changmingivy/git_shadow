@@ -732,6 +732,8 @@ zget_sv_one_region(void *zp) {
 
     /* 将线性链表转换为 HASH 结构 */
     for (zpTmp_[0] = zpHead_[zRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
+        zpTmp_[0]->p_next = NULL;  // must!
+
         if (NULL == zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
             zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
         } else {
@@ -741,7 +743,6 @@ zget_sv_one_region(void *zp) {
             }
 
             zpTmp_[1]->p_next = zpTmp_[0];
-            zpTmp_[0]->p_next = NULL;  // must!
         }
     }
 
@@ -812,7 +813,7 @@ zget_sv_one_region(void *zp) {
 
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 26; j++) {
-            zCHECK_PT_ERR(pthread_create((zTid + i)[j], NULL, zget_sv_ops, & zpSvParam_[i]));
+            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, & zpSvParam_[j]));
         }
     }
 
