@@ -332,7 +332,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
     if (NULL == zpJTransRoot) {
         zpJRoot = cJSON_Parse(zpContent);
         if (NULL == zpJRoot) {
-            zPRINT_ERR_EASY("");
+            zPRINT_ERR_EASY(zpContent);
             return -1;
         }
     } else {
@@ -580,7 +580,7 @@ zget_sv_ops(void *zp) {
 
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "instanceId");
             if (cJSON_IsString(zpJTmp)) {
-                strncpy(zInstanceId_.id, zpJTmp->valuestring, 23);
+                memcpy(zInstanceId_.id, zpJTmp->valuestring, 23);
             } else {
                 zPRINT_ERR_EASY("instanceId ?");
                 continue;
@@ -597,7 +597,7 @@ zget_sv_ops(void *zp) {
             for (zpSv_ = zpSvHash_[zpSvParam_->p_paramSolid->regionID][zInstanceId_.hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
                     NULL != zpSv_;
                     zpSv_ = zpSv_->p_next) {
-                for (i = 0; i < (zHASH_KEY_SIZ - 1); i++) {
+                for (i = zHASH_KEY_SIZ - 1; i >= 0; i--) {
                     if (zpSv_->hashKey[i] != zInstanceId_.hashKey[i]) {
                         goto zNextMark;
                     }
@@ -732,10 +732,9 @@ zget_sv_one_region(void *zp) {
 
     /* 将线性链表转换为 HASH 结构 */
     for (zpTmp_[0] = zpHead_[zRegion_->id]; NULL != zpTmp_[0]; zpTmp_[0]= zpTmp_[0]->p_next) {
-        zpTmp_[0]->p_next = NULL;  // must!
-
         if (NULL == zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]) {
             zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ] = zpTmp_[0];
+            zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ]->p_next = NULL;  // must!
         } else {
             zpTmp_[1] = zpSvHash_[zRegion_->id][zpTmp_[0]->hashKey[zHASH_KEY_SIZ - 1] % zHASH_SIZ];
             while (NULL != zpTmp_[1]->p_next) {
@@ -743,6 +742,7 @@ zget_sv_one_region(void *zp) {
             }
 
             zpTmp_[1]->p_next = zpTmp_[0];
+            zpTmp_[1]->p_next->p_next = NULL;  // must!
         }
     }
 
