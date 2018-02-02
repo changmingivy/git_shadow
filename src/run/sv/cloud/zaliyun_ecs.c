@@ -492,7 +492,7 @@ zget_meta_one_region(void *zp) {
 static void *
 zget_sv_ops(void *zp) {
     _i zOffSet;
-    char *zpCmdBuf = NULL,
+    char *zpBuf = NULL,
          *zpContent = NULL,
          *zpCursor = NULL;
 
@@ -501,6 +501,7 @@ zget_sv_ops(void *zp) {
           *zpJ = NULL;
 
     _i zTimeStamp = 0,
+       zBufSiz = 0,
        i;
 
     _f zData = 0;
@@ -512,10 +513,11 @@ zget_sv_ops(void *zp) {
     union zInstanceId__ zInstanceId_;
     memset(zInstanceId_.id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
-    zpCmdBuf = zalloc(1024 + strlen((char *)zp + sizeof(void *)));
+    zBufSiz = 1024 + strlen(zpSvParam_->p_paramSolid->p_dimensions);
+    zpBuf = zalloc(zBufSiz);
 
     /* 固定不变的参数，第二次查询开始，将在末尾追加/更新游标 */
-    zOffSet = snprintf(zpCmdBuf, 2048,
+    zOffSet = snprintf(zpBuf, zBufSiz,
             "%s "
             "-region %s "
             "-userId %s "
@@ -542,14 +544,15 @@ zget_sv_ops(void *zp) {
 
     do {
         if (NULL != zpJRoot) {
-            snprintf(zpCmdBuf + zOffSet, 2048 - zOffSet, "Cursor %s", zpCursor);
+            snprintf(zpBuf + zOffSet, zBufSiz - zOffSet,
+                    "Cursor %s", zpCursor);
 
             /* 前一次的 cJSON 资源已使用完毕，清除之 */
             cJSON_Delete(zpJRoot);
             zpJRoot = NULL;
         }
 
-        zpContent = zGET_CONTENT(zpCmdBuf);
+        zpContent = zGET_CONTENT(zpBuf);
 
         zpJRoot = cJSON_Parse(zpContent);
         if (NULL == zpJRoot) {
@@ -714,7 +717,8 @@ zget_sv_one_region(void *zp) {
 
             zOffSet = sprintf(zpTcpStateSolid[i][j].p_dimensions, "'");
 
-            for (k = 0; k < zSPLIT_UNIT && NULL != zpTmp_[0]; k++, zpTmp_[0] = zpTmp_[0]->p_next) {
+            for (k = 0; k < zSPLIT_UNIT && NULL != zpTmp_[0];
+                    k++, zpTmp_[0] = zpTmp_[0]->p_next) {
                 zOffSet += sprintf(zpTcpStateSolid[i][j].p_dimensions + zOffSet,
                         ",{\"instanceId\":\"%s\",\"state\":\"%s\"}",
                         zpTmp_[0]->id,

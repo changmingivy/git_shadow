@@ -11,7 +11,7 @@
 
 /* instanceID(22 char) + '\0' */
 #define zHASH_KEY_SIZ (_i)(1 + 23 / sizeof(_ull))
-#define zINSTANCE_ID_BUF_LEN (1 + 23 / sizeof(_ull)) * sizeof(_ull)
+#define zINSTANCE_ID_BUF_LEN (zHASH_KEY_SIZ) * sizeof(_ull)
 
 // typedef enum {
 //     zLISTEN,
