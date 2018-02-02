@@ -206,15 +206,14 @@ typedef struct __zRepo__ {
     _i unSd;
 
     /*
-     * 项目内存池，预分配 8M 空间
-     * 后续以 8M 为步进增长
-     * 能一次性分配的最长空间大小：8M - sizeof(void *)
+     * 项目内存池，预分配 4M 空间
+     * 后续以 4M 为步进增长
      * 超过此大小的内存申请，需要使用系统 alloc 类函数
      */
-    void *p_memPool;
+    struct zMemPool__ *p_memPool_;
 
     /* 动态指示下一次内存分配的起始地址 */
-    _ui memPoolOffSet;
+    size_t memPoolOffSet;
 
     /*
      * 临时 SQL 表命名序号

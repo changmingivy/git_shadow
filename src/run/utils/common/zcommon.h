@@ -15,6 +15,12 @@ extern size_t zProcNameBufLen;
 #define zBYTES(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSIZEOF(zObj) ((_i)sizeof(zObj))
 
+/* 内存池结构 */
+struct zMemPool__ {
+    struct zMemPool__ *p_prev;
+    char pool[];
+};
+
 typedef enum {
     zProtoTCP = 0,
     zProtoUDP = 1,

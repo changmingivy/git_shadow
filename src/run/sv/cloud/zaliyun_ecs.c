@@ -75,7 +75,7 @@ static _ll zPrevStamp;  /* 15000 毫秒的整数倍 */
  * 定制专用的内存池：开头留一个指针位置，
  * 用于当内存池容量不足时，指向下一块新开辟的内存区
  */
-static void *zpMemPool;
+static struct zMemPool__ *zpMemPool_;
 static size_t zMemPoolOffSet;
 static pthread_mutex_t zMemPoolLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -95,29 +95,28 @@ static void
 zmem_pool_init(void) {
     zCHECK_PT_ERR(pthread_mutex_init(&zMemPoolLock, NULL));
 
-    if (NULL == (zpMemPool = malloc(zSV_MEM_POOL_SIZ))) {
+    zpMemPool_ = malloc(sizeof(struct zMemPool__) + zSV_MEM_POOL_SIZ);
+    if (NULL == zpMemPool_) {
         zPRINT_ERR_EASY_SYS();
         exit(1);
     }
 
-    void **zppPrev = zpMemPool;
-    zppPrev[0] = NULL;
-    zMemPoolOffSet = sizeof(void *);
+    zpMemPool_->p_prev = NULL;
+    zMemPoolOffSet = 0;
 }
 
 static void
 zmem_pool_destroy(void) {
     pthread_mutex_lock(&zMemPoolLock);
 
-    void **zppPrev = zpMemPool;
-    while(NULL != zppPrev[0]) {
-        zppPrev = zppPrev[0];
-        free(zpMemPool);
-        zpMemPool = zppPrev;
+    struct zMemPool__ *zpTmp_;
+    while(NULL != zpMemPool_) {
+        zpTmp_ = zpMemPool_;
+        zpMemPool_ = zpMemPool_->p_prev;
+        free(zpTmp_);
     }
 
-    free(zpMemPool);
-    zpMemPool = NULL;
+    zpMemPool_ = NULL;
     zMemPoolOffSet = 0;
 
     pthread_mutex_unlock(&zMemPoolLock);
@@ -126,43 +125,34 @@ zmem_pool_destroy(void) {
 
 static void *
 zalloc(size_t zSiz) {
-    pthread_mutex_lock(&zMemPoolLock);
+    pthread_mutex_lock(& zMemPoolLock);
 
     /* 检测当前内存池片区剩余空间是否充裕 */
     if ((zSiz + zMemPoolOffSet) > zSV_MEM_POOL_SIZ) {
         /* 请求的内存不能超过单个片区最大容量 */
-        if (zSiz > (zSV_MEM_POOL_SIZ - sizeof(void *))) {
+        if (zSiz > zSV_MEM_POOL_SIZ) {
             pthread_mutex_unlock(&zMemPoolLock);
             zPRINT_ERR_EASY("req memory too large!");
             exit(1);
         }
 
         /* 新增一片内存，加入内存池 */
-        void *zpCur = NULL;
-        zMEM_ALLOC(zpCur, char, zSV_MEM_POOL_SIZ);
+        struct zMemPool__ *zpNew_ =
+            malloc(sizeof(struct zMemPool__) + zSV_MEM_POOL_SIZ);
+        if (NULL == zpNew_) {
+            zPRINT_ERR_EASY_SYS();
+            exit(1);
+        }
 
-        /*
-         * 首部指针位，指向内存池中的前一片区
-         */
-        void **zppPrev = zpCur;
-        zppPrev[0] = zpMemPool;
+        zpNew_->p_prev = zpMemPool_;
 
-        /*
-         * 内存池指针更新
-         */
-        zpMemPool = zpCur;
-
-        /*
-         * 新内存片区开头的一个指针大小的空间已经被占用
-         * 不能再分配，需要跳过
-         */
-        zMemPoolOffSet = sizeof(void *);
+        /* 内存池元信息更新 */
+        zpMemPool_ = zpNew_;
+        zMemPoolOffSet = 0;
     }
 
-    /*
-     * 分配内存
-     */
-    void *zpX = zpMemPool + zMemPoolOffSet;
+    /* 分配内存 */
+    void *zpX = zpMemPool_->pool + zMemPoolOffSet;
     zMemPoolOffSet += zSiz;
 
     pthread_mutex_unlock(&zMemPoolLock);

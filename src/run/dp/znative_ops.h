@@ -9,14 +9,14 @@
 #define zMEM_POOL_REST(zRepoID) do {\
     pthread_mutex_lock(& zpRepo_->memLock);\
     \
-    void **ppPrev = zpRepo_->p_memPool;\
-    while(NULL != ppPrev[0]) {\
-        ppPrev = ppPrev[0];\
-        free(zpRepo_->p_memPool);\
-        zpRepo_->p_memPool = ppPrev;\
+    struct zMemPool__ *pTmp_ = NULL;\
+    while(NULL != zpRepo_->p_memPool_->p_prev) {\
+        pTmp_ = zpRepo_->p_memPool_;\
+        zpRepo_->p_memPool_ = zpRepo_->p_memPool_->p_prev;\
+        free(pTmp_);\
     }\
-    zpRepo_->memPoolOffSet = sizeof(void *);\
-    /* memset(zpRepo_->p_memPool, 0, zMEM_POOL_SIZ); */\
+    zpRepo_->memPoolOffSet = 0;\
+    /* memset(zpRepo_->p_memPool_, 0, zMEM_POOL_SIZ); */\
     \
     pthread_mutex_unlock(& zpRepo_->memLock);\
 } while(0)
