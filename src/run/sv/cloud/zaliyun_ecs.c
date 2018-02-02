@@ -365,6 +365,14 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
             memcpy(zpSv_->id, zpJTmp->valuestring, 23);
             memset(zpSv_->id + 23, '\0', zINSTANCE_ID_BUF_LEN - 23);
 
+            /* 提取 cpu 核心数 */
+            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Cpu");
+            if (cJSON_IsNumber(zpJTmp)) {
+                zpSv_->cpuNum = zpJTmp->valueint;
+            } else {
+                zpSv_->cpuNum = 4;  // 默认 4 核
+            }
+
             /* insert new node */
             pthread_mutex_lock(& zNodeInsertLock[zRegionID]);
             if (NULL == zpHead_[zRegionID]) {
@@ -375,19 +383,10 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
                 zpTail_[zRegionID] = zpTail_[zRegionID]->p_next;
             }
             pthread_mutex_unlock(& zNodeInsertLock[zRegionID]);
-
-            /* 提取 cpu 核心数 */
-            zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "Cpu");
-            if (cJSON_IsNumber(zpJTmp)) {
-                zpSv_->cpuNum = zpJTmp->valueint;
-            } else {
-                zpSv_->cpuNum = 4;  // 默认 4 核
-            }
         } else {
             zPRINT_ERR_EASY("InstanceId ?");
             zErrNo = -1;
         }
-
     }
 
 zEndMark:
