@@ -865,13 +865,13 @@ zwrite_db(void) {
             "tcp_state_cnt) "
             "VALUES ");
 
-    for (k = 0; k < (_i)(sizeof(zRegion_) / sizeof(struct zRegion__)); k++) {
-        for (i = 0; i < zHASH_SIZ; i++) {
-            if (NULL == zpSvHash_[k][i]) {
+    for (i = 0; i < (_i)(sizeof(zRegion_) / sizeof(struct zRegion__)); i++) {
+        for (j = 0; j < zHASH_SIZ; j++) {
+            if (NULL == zpSvHash_[i][j]) {
                 continue;
             } else {
-                for (zpSv_ = zpSvHash_[k][i]; NULL != zpSv_; zpSv_ = zpSv_->p_next) {
-                    for (j = 0; j < 60; j++) {
+                for (zpSv_ = zpSvHash_[i][j]; NULL != zpSv_; zpSv_ = zpSv_->p_next) {
+                    for (k = 0; k < 60; k++) {
                         if (510 > (zBufSiz - zOffSet)) {
                             zThreadPool_.add(zwrite_db_worker, NULL);
 
@@ -892,33 +892,33 @@ zwrite_db(void) {
 
                     zOffSet += sprintf(zpBuf + zOffSet,
                             "(%d,'%s',%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,'{%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d}')",
-                            zpSv_->svData_[i].timeStamp,
+                            zpSv_->svData_[k].timeStamp,
                             zpSv_->id,
-                            zpSv_->svData_[i].cpu,
-                            zpSv_->svData_[i].mem,
-                            1000 * zpSv_->svData_[i].diskSpent / zpSv_->svData_[i].diskTotal,
-                            zpSv_->svData_[i].load[0] / zpSv_->cpuNum,
-                            zpSv_->svData_[i].load[1] / zpSv_->cpuNum,
-                            zpSv_->svData_[i].load[2] / zpSv_->cpuNum,
-                            zpSv_->svData_[i].disk_rdkb,
-                            zpSv_->svData_[i].disk_wrkb,
-                            zpSv_->svData_[i].disk_rdiops,
-                            zpSv_->svData_[i].disk_wriops,
-                            zpSv_->svData_[i].net_rdkb,
-                            zpSv_->svData_[i].net_wrkb,
-                            zpSv_->svData_[i].net_rdiops,
-                            zpSv_->svData_[i].net_wriops,
-                            zpSv_->svData_[i].tcpState[0],
-                            zpSv_->svData_[i].tcpState[1],
-                            zpSv_->svData_[i].tcpState[2],
-                            zpSv_->svData_[i].tcpState[3],
-                            zpSv_->svData_[i].tcpState[4],
-                            zpSv_->svData_[i].tcpState[5],
-                            zpSv_->svData_[i].tcpState[6],
-                            zpSv_->svData_[i].tcpState[7],
-                            zpSv_->svData_[i].tcpState[8],
-                            zpSv_->svData_[i].tcpState[9],
-                            zpSv_->svData_[i].tcpState[10]);
+                            zpSv_->svData_[k].cpu,
+                            zpSv_->svData_[k].mem,
+                            1000 * zpSv_->svData_[k].diskSpent / zpSv_->svData_[k].diskTotal,
+                            zpSv_->svData_[k].load[0] / zpSv_->cpuNum,
+                            zpSv_->svData_[k].load[1] / zpSv_->cpuNum,
+                            zpSv_->svData_[k].load[2] / zpSv_->cpuNum,
+                            zpSv_->svData_[k].disk_rdkb,
+                            zpSv_->svData_[k].disk_wrkb,
+                            zpSv_->svData_[k].disk_rdiops,
+                            zpSv_->svData_[k].disk_wriops,
+                            zpSv_->svData_[k].net_rdkb,
+                            zpSv_->svData_[k].net_wrkb,
+                            zpSv_->svData_[k].net_rdiops,
+                            zpSv_->svData_[k].net_wriops,
+                            zpSv_->svData_[k].tcpState[0],
+                            zpSv_->svData_[k].tcpState[1],
+                            zpSv_->svData_[k].tcpState[2],
+                            zpSv_->svData_[k].tcpState[3],
+                            zpSv_->svData_[k].tcpState[4],
+                            zpSv_->svData_[k].tcpState[5],
+                            zpSv_->svData_[k].tcpState[6],
+                            zpSv_->svData_[k].tcpState[7],
+                            zpSv_->svData_[k].tcpState[8],
+                            zpSv_->svData_[k].tcpState[9],
+                            zpSv_->svData_[k].tcpState[10]);
                     }
                 }
             }
