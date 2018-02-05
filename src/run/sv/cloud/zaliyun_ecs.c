@@ -938,7 +938,7 @@ zwrite_db(void) {
     char zBuf[256];
     sprintf(zBuf,
             "UPDATE sv_sync_meta SET last_timestamp = %lld",
-            (zPrevStamp / 1000 + 15 * 60) / 15);
+            zPrevStamp / 1000 + 15 * 60);
 
     zPgSQL_.write_db(zBuf, 0, NULL, 0);
 
@@ -958,9 +958,17 @@ zdata_sync(void) {
             &zpPgRes_);
 
     if (0 == zErrNo) {
-        zPrevStamp = 15 * 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
+        zPrevStamp = 1000 * strtol(zpPgRes_->tupleRes_[0].pp_fields[0], NULL, 10);
     } else if (-92 == zErrNo) {
         zPrevStamp = (time(NULL) / (15 * 60) - 1) * 15 * 60 * 1000;
+
+        /* 初始记录不存在，则新建一条 */
+        char zBuf[256];
+        sprintf(zBuf,
+                "INSERT INTO sv_sync_meta (last_timestamp) VALUES (%lld)",
+                zPrevStamp / 1000);
+
+        zPgSQL_.write_db(zBuf, 0, NULL, 0);
     } else {
         zPRINT_ERR_EASY("");
         exit(1);
@@ -999,9 +1007,9 @@ zdata_sync(void) {
         zmem_pool_destroy();
 
         /* 全局空间清零，以备下次使用 */
-        memset(zpHead_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(struct zSvEcs__));
-        memset(zpTail_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(struct zSvEcs__));
-        memset(zpSvHash_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * zHASH_SIZ * sizeof(struct zSvEcs__));
+        memset(zpHead_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(void *));
+        memset(zpTail_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(void *));
+        memset(zpSvHash_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * zHASH_SIZ * sizeof(void *));
     }
 }
 
