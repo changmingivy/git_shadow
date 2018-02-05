@@ -53,7 +53,6 @@ struct zSvData__ {
     _i tcpState[11];
 
     /* 可直接取到的不需要额外加工的数据项 */
-    _i timeStamp;
     _i cpu;
     _i mem;
     _i load[3];
@@ -86,6 +85,9 @@ struct zSvData__ {
 
     _i net_rdiops;
     _i net_wriops;
+
+    /* 时间戳字段置于最后，与之前 26 个数据段分离 */
+    _i timeStamp;
 } __attribute__ ((aligned (sizeof(_i))));
 
 //struct zEcsDisk__ {
