@@ -569,7 +569,7 @@ zget_sv_ops(void *zp) {
             zpJTmp = cJSON_GetObjectItemCaseSensitive(zpJ, "timestamp");
             if (cJSON_IsNumber(zpJTmp)) {
                 /* 修正时间戳，按 15s 对齐 */
-                zTimeStamp = ((_ll)zpJTmp->valuedouble) / (15 * 1000) * 15;
+                zTimeStamp = ((_ll)zpJTmp->valuedouble) / (15 * 1000);
             } else {
                 zPRINT_ERR_EASY("timestamp ?");
                 continue;
@@ -601,7 +601,7 @@ zget_sv_ops(void *zp) {
                     }
                 }
 
-                zpSv_->svData_[zTimeStamp % 60].timeStamp = zTimeStamp;
+                zpSv_->svData_[zTimeStamp % 60].timeStamp = 15 * zTimeStamp;
                 zpSvParam_->cb(& ((_i *)(& zpSv_->svData_[zTimeStamp % 60]))[zpSvParam_->targetID], zData);
 
                 break;
