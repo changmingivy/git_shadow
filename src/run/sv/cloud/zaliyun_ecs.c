@@ -928,17 +928,16 @@ zwrite_db(void) {
     /* 检测最后是否有数据需要写入 DB */
     if (zOffSet > zBaseSiz) {
         zThreadPool_.add(zwrite_db_worker, zpBuf);
-        zpBuf = zalloc(256);  // must !
     }
 
     /* update timestamp (per 15 * 60 * 1000 ms) */
-    sprintf(zpBuf,
+    char zBuf[256];
+    sprintf(zBuf,
             "UPDATE sv_sync_meta SET last_timestamp = %lld",
             (zPrevStamp / 1000 + 15 * 60) / 15);
 
-    zPgSQL_.write_db(zpBuf, 0, NULL, 0);
+    zPgSQL_.write_db(zBuf, 0, NULL, 0);
 
-    free(zpBuf);
     return 0;
 }
 
