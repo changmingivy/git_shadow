@@ -70,38 +70,30 @@ zalloc_cache(size_t zSiz) {
 
     /* 检测当前内存池片区剩余空间是否充裕 */
     if ((zSiz + zpRepo_->memPoolOffSet) > zMEM_POOL_SIZ) {
-        /* 请求的内存不能超过单片区最大容量 */
-        if (zSiz > (zMEM_POOL_SIZ - sizeof(void *))) {
-            zPRINT_ERR_EASY("");
+        /* 请求的内存不能超过单个片区最大容量 */
+        if (zSiz > zMEM_POOL_SIZ) {
+            pthread_mutex_unlock(& zpRepo_->memLock);
+            zPRINT_ERR_EASY("req memory too large!");
             exit(1);
         }
 
         /* 新增一片内存，加入内存池 */
-        void *zpCur = NULL;
-        zMEM_ALLOC(zpCur, char, zMEM_POOL_SIZ);
+        struct zMemPool__ *zpNew_ =
+            malloc(sizeof(struct zMemPool__) + zMEM_POOL_SIZ);
+        if (NULL == zpNew_) {
+            zPRINT_ERR_EASY_SYS();
+            exit(1);
+        }
 
-        /*
-         * 首部指针位，指向内存池中的前一片区
-         */
-        void **zppPrev = zpCur;
-        zppPrev[0] = zpRepo_->p_memPool;
+        zpNew_->p_prev = zpRepo_->p_memPool_;
 
-        /*
-         * 内存池指针更新
-         */
-        zpRepo_->p_memPool = zpCur;
-
-        /*
-         * 新内存片区开头的一个指针大小的空间已经被占用
-         * 不能再分配，需要跳过
-         */
-        zpRepo_->memPoolOffSet = sizeof(void *);
+        /* 内存池元信息更新 */
+        zpRepo_->p_memPool_ = zpNew_;
+        zpRepo_->memPoolOffSet = 0;
     }
 
-    /*
-     * 分配内存
-     */
-    void *zpX = zpRepo_->p_memPool + zpRepo_->memPoolOffSet;
+    /* 分配内存 */
+    void *zpX = zpRepo_->p_memPool_->pool + zpRepo_->memPoolOffSet;
     zpRepo_->memPoolOffSet += zSiz;
 
     pthread_mutex_unlock(& zpRepo_->memLock);
@@ -1547,13 +1539,12 @@ zinit_one_repo_env(char **zppRepoMeta, _i zSd) {
      * 内存池初始化，开头留一个指针位置，
      * 用于当内存池容量不足时，指向下一块新开辟的内存区
      */
-    if (NULL == (zpRepo_->p_memPool = malloc(zMEM_POOL_SIZ))) {
+    zpRepo_->p_memPool_ = malloc(sizeof(struct zMemPool__) + zMEM_POOL_SIZ);
+    if (NULL == zpRepo_->p_memPool_) {
         zERR_CLEAN_AND_EXIT(-126);
     }
-
-    void **zppPrev = zpRepo_->p_memPool;
-    zppPrev[0] = NULL;
-    zpRepo_->memPoolOffSet = sizeof(void *);
+    zpRepo_->p_memPool_->p_prev = NULL;
+    zpRepo_->memPoolOffSet = 0;
 
     /* cacheID 初始化 */
     zpRepo_->cacheID = 0;

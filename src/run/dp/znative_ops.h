@@ -3,20 +3,20 @@
 
 #include "zcommon.h"
 
-#define zMEM_POOL_SIZ 8 * 1024 * 1024  // 内存池初始分配 8M 内存
+#define zMEM_POOL_SIZ 4 * 1024 * 1024  // 内存池初始分配 4M 内存
 
 /* 重置内存池状态，释放掉后来扩展的空间，恢复为初始大小 */
 #define zMEM_POOL_REST(zRepoID) do {\
     pthread_mutex_lock(& zpRepo_->memLock);\
     \
-    void **ppPrev = zpRepo_->p_memPool;\
-    while(NULL != ppPrev[0]) {\
-        ppPrev = ppPrev[0];\
-        free(zpRepo_->p_memPool);\
-        zpRepo_->p_memPool = ppPrev;\
+    struct zMemPool__ *pTmp_ = NULL;\
+    while(NULL != zpRepo_->p_memPool_->p_prev) {\
+        pTmp_ = zpRepo_->p_memPool_;\
+        zpRepo_->p_memPool_ = zpRepo_->p_memPool_->p_prev;\
+        free(pTmp_);\
     }\
-    zpRepo_->memPoolOffSet = sizeof(void *);\
-    /* memset(zpRepo_->p_memPool, 0, zMEM_POOL_SIZ); */\
+    zpRepo_->memPoolOffSet = 0;\
+    /* memset(zpRepo_->p_memPool_, 0, zMEM_POOL_SIZ); */\
     \
     pthread_mutex_unlock(& zpRepo_->memLock);\
 } while(0)

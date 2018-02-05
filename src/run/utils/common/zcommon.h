@@ -15,6 +15,12 @@ extern size_t zProcNameBufLen;
 #define zBYTES(zNum) ((_i)((zNum) * sizeof(char)))
 #define zSIZEOF(zObj) ((_i)sizeof(zObj))
 
+/* 内存池结构 */
+struct zMemPool__ {
+    struct zMemPool__ *p_prev;
+    char pool[];
+};
+
 typedef enum {
     zProtoTCP = 0,
     zProtoUDP = 1,
@@ -38,15 +44,6 @@ typedef enum {
     zPassWordAuth = 1,
     zNoneAuth = 3
 } znet_auth_t;
-
-typedef enum {
-    zStr = 0,
-    zI32 = 1,
-    zI64 = 2,
-    zF32 = 3,
-    zF64 = 4
-} zjson_value_t;
-
 
 /*
  * =>>> Aliases For All Basic Types <<<=
