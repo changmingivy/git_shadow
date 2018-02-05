@@ -992,12 +992,8 @@ zdata_sync(void) {
             pthread_join(zTid[i], NULL);
         }
 
-        /* 将最终结果写入 DB */
-        if (0 == zwrite_db()) {
-            zPrevStamp += 15 * 60 * 1000;
-        } else {
-            zPRINT_ERR_EASY("sv_cloud: write_db err!");
-        }
+        zwrite_db();
+        zPrevStamp += 15 * 60 * 1000;
 
         zmem_pool_destroy();
     }
