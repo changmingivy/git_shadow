@@ -185,25 +185,24 @@ zenv_init(void) {
              * 此处乘以 10，以整数形式保留一位小数的精度，如示例便是 817，
              * 内存使用率计算方式同上
              */
-            "cpu_rate        smallint NOT NULL,"
-            "mem_rate        smallint NOT NULL,"
+            "cpu_rate        int NOT NULL,"
+            "mem_rate        int NOT NULL,"
 
             /*
              * 磁盘使用率：
              * 此项指标需要取回所有磁盘的已使用空间绝对大小与总空间大小，
              * 之后计算得出最终结果（以百分值的 1000 倍存储），不能直接取阿里云的比率
              */
-            "disk_rate       smallint NOT NULL,"
+            "disk_rate       int NOT NULL,"
 
             /*
              * 阿里云返回的值与 top 命令显示的格式一致，如：3.88，
              * 乘以 1000，之后除以 CPU 核心数，以整数整式保留一位小数的精度，
-             * 不能乘以 10000，可以会导致 smallint 溢出。
              * = 1000 * system load average recent 1 mins/ 5 mins / 15mins
              */
-            "load_1m            smallint NOT NULL,"
-            "load_5m            smallint NOT NULL,"
-            "load_15m           smallint NOT NULL,"
+            "load_1m            int NOT NULL,"
+            "load_5m            int NOT NULL,"
+            "load_15m           int NOT NULL,"
 
             /*
              * 同一主机可能拥有多个网卡、磁盘，
