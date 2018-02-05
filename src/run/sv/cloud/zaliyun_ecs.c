@@ -896,7 +896,7 @@ zwrite_db(void) {
                             zpSv_->id,
                             zpSv_->svData_[k].cpu,
                             zpSv_->svData_[k].mem,
-                            1000 * zpSv_->svData_[k].diskSpent / zpSv_->svData_[k].diskTotal,
+                            0 == zpSv_->svData_[k].diskTotal ? 0 : 1000 * zpSv_->svData_[k].diskSpent / zpSv_->svData_[k].diskTotal,
                             zpSv_->svData_[k].load[0] / zpSv_->cpuNum,
                             zpSv_->svData_[k].load[1] / zpSv_->cpuNum,
                             zpSv_->svData_[k].load[2] / zpSv_->cpuNum,
