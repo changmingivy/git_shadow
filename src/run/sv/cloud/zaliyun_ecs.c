@@ -80,7 +80,7 @@ static size_t zMemPoolOffSet;
 static pthread_mutex_t zMemPoolLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* 各 region 范围内并发插入实例节点时所用 */
-static pthread_mutex_t zNodeInsertLock[sizeof(zRegion_) / sizeof(struct zRegion__)] = {PTHREAD_MUTEX_INITIALIZER};  // pad ?
+static pthread_mutex_t zNodeInsertLock = PTHREAD_MUTEX_INITIALIZER;
 
 /* 生成元数据时使用线性线结构，匹配监控数据时再转换为 HASH */
 static struct zSvEcs__ *zpHead_[sizeof(zRegion_) / sizeof(struct zRegion__)] = {NULL};
@@ -374,7 +374,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
             }
 
             /* insert new node */
-            pthread_mutex_lock(& zNodeInsertLock[zRegionID]);
+            pthread_mutex_lock(& zNodeInsertLock);
             if (NULL == zpHead_[zRegionID]) {
                 zpHead_[zRegionID] = zpSv_;
                 zpTail_[zRegionID] = zpHead_[zRegionID];
@@ -382,7 +382,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
                 zpTail_[zRegionID]->p_next = zpSv_;
                 zpTail_[zRegionID] = zpTail_[zRegionID]->p_next;
             }
-            pthread_mutex_unlock(& zNodeInsertLock[zRegionID]);
+            pthread_mutex_unlock(& zNodeInsertLock);
         } else {
             zPRINT_ERR_EASY("InstanceId ?");
             zErrNo = -1;
