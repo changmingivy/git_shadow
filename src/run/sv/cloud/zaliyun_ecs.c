@@ -751,12 +751,7 @@ zget_sv_one_region(void *zp) {
 
     for (i = 0; i < 11; i++) {
         zpSvParam_[i].p_metic = "net_tcpconnection";
-        zpSvParam_[i].p_paramSolid = zpTcpStateSolid[i];
         zpSvParam_[i].cb = zsv_cb_default;
-    }
-
-    for (i = 11; i < 26; i++) {
-        zpSvParam_[i].p_paramSolid = zpBaseSolid;
     }
 
     zpSvParam_[11].p_metic = "cpu_total";
@@ -808,7 +803,12 @@ zget_sv_one_region(void *zp) {
     pthread_t zTid[zSplitCnt][26];
 
     for (i = 0; i < zSplitCnt; i++) {
-        for (j = 0; j < 26; j++) {
+        for (j = 0; j < 11; j++) {
+            zpSvParam_[i].p_paramSolid = & zpTcpStateSolid[j][i];
+            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, & zpSvParam_[j]));
+        }
+        for (j = 11; j < 26; j++) {
+            zpSvParam_[i].p_paramSolid = & zpBaseSolid[i];
             zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, & zpSvParam_[j]));
         }
     }
