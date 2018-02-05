@@ -873,7 +873,7 @@ zwrite_db(void) {
                 for (zpSv_ = zpSvHash_[i][j]; NULL != zpSv_; zpSv_ = zpSv_->p_next) {
                     for (k = 0; k < 60; k++) {
                         if (510 > (zBufSiz - zOffSet)) {
-                            zpBuf[zOffSet] = '\0';
+                            zpBuf[zOffSet - 1] = '\0';
                             zThreadPool_.add(zwrite_db_worker, zpBuf);
 
                             if (NULL == (zpBuf = malloc(zBufSiz))) {
@@ -928,7 +928,7 @@ zwrite_db(void) {
 
     /* 检测最后是否有数据需要写入 DB */
     if (zOffSet > zBaseSiz) {
-        zpBuf[zOffSet] = '\0';
+        zpBuf[zOffSet - 1] = '\0';
         zThreadPool_.add(zwrite_db_worker, zpBuf);
     }
 
