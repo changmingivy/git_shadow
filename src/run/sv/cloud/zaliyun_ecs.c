@@ -997,6 +997,11 @@ zdata_sync(void) {
         zPrevStamp += 15 * 60 * 1000;
 
         zmem_pool_destroy();
+
+        /* 全局空间清零，以备下次使用 */
+        memset(zpHead_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(struct zSvEcs__));
+        memset(zpTail_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * sizeof(struct zSvEcs__));
+        memset(zpSvHash_, 0, sizeof(zRegion_) / sizeof(struct zRegion__) * zHASH_SIZ * sizeof(struct zSvEcs__));
     }
 }
 
