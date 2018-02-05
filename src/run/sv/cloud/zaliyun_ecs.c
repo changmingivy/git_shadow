@@ -806,14 +806,14 @@ zget_sv_one_region(void *zp) {
     struct zSvParam__ *zpDynPtr = zpSvParam_;
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 11; j++) {
-            zpSvParam_[j].p_paramSolid = & zpTcpStateSolid[j][i];
-            memcpy(zpDynPtr, zpSvParam_[j].p_paramSolid, sizeof(struct zSvParam__));
+            zSvParam_[j].p_paramSolid = & zpTcpStateSolid[j][i];
+            memcpy(zpDynPtr, & zSvParam_[j], sizeof(struct zSvParam__));
             zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, zpDynPtr));
             zpDynPtr++;
         }
         for (j = 11; j < 26; j++) {
-            zpSvParam_[j].p_paramSolid = & zpBaseSolid[i];
-            memcpy(zpDynPtr, zpSvParam_[j].p_paramSolid, sizeof(struct zSvParam__));
+            zSvParam_[j].p_paramSolid = & zpBaseSolid[i];
+            memcpy(zpDynPtr, & zSvParam_[j], sizeof(struct zSvParam__));
             zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, zpDynPtr));
             zpDynPtr++;
         }
