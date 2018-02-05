@@ -207,14 +207,13 @@ zenv_init(void) {
             /*
              * 同一主机可能拥有多个网卡、磁盘，
              * 仅保留所有设备之和，不存储名细
-             * 磁盘与网络流量类指标，原始单位为 bytes，保留除以 1024 后的值，单位：KB
              */
-            "disk_rdkb       int NOT NULL,"  /* io_read kbytes/KB */
-            "disk_wrkb       int NOT NULL,"  /* io_write kbytes/KB */
+            "disk_rdB        int NOT NULL,"  /* io_read bytes */
+            "disk_wrB        int NOT NULL,"  /* io_write bytes */
             "disk_rdiops     int NOT NULL,"  /* io_read tps */
             "disk_wriops     int NOT NULL,"  /* io_write tps */
-            "net_rdkb        int NOT NULL,"  /* io_read kbytes/KB */
-            "net_wrkb        int NOT NULL,"  /* io_write kbytes/KB */
+            "net_rdB         int NOT NULL,"  /* 原始值除以 8，io_read bytes/B */
+            "net_wrB         int NOT NULL,"  /* 原始值除以 8，io_write bytes/B */
             "net_rdiops      int NOT NULL,"  /* io_read tps */
             "net_wriops      int NOT NULL,"  /* io_write tps */
 
@@ -369,7 +368,7 @@ znode_parse_and_insert(void *zpJTransRoot, char *zpContent, _i zRegionID) {
             if (cJSON_IsNumber(zpJTmp)) {
                 zpSv_->cpuNum = zpJTmp->valueint;
             } else {
-                zpSv_->cpuNum = 4;  // 默认 4 核
+                zpSv_->cpuNum = 1;  // 默认值 1
             }
 
             /* insert new node */
@@ -502,7 +501,7 @@ zget_sv_ops(void *zp) {
        zBufSiz = 0,
        i;
 
-    _f zData = 0;
+    _d zData = 0;
 
     struct zSvParam__ *zpSvParam_ = zp;
 
@@ -539,6 +538,7 @@ zget_sv_ops(void *zp) {
             zPrevStamp + 15 * 60 * 1000 - 1,
             zpSvParam_->p_paramSolid->p_dimensions);
 
+    zpJRoot = NULL;
     do {
         if (NULL != zpJRoot) {
             snprintf(zpBuf + zOffSet, zBufSiz - zOffSet,
@@ -562,7 +562,7 @@ zget_sv_ops(void *zp) {
             cJSON_Delete(zpJRoot);
 
             zPRINT_ERR_EASY("Datapoints ?");
-            return NULL;
+            return (void *) -1;
         }
 
         for (zpJ = zpJTmp->child; NULL != zpJ; zpJ = zpJ->next) {
@@ -647,13 +647,8 @@ zsv_cb_disk_total_spent(_i *zpBase, _f zNew) {
 }
 
 static void 
-zsv_cb_diskiokb(_i *zpBase, _f zNew) {
-    (*zpBase) += zNew / 1024;
-}
-
-static void 
-zsv_cb_netiokb(_i *zpBase, _f zNew) {
-    (*zpBase) += zNew / 8 / 1024;
+zsv_cb_netio_bytes(_i *zpBase, _f zNew) {
+    (*zpBase) += zNew / 8;
 }
 
 /* 监控信息按主机数量分组并发查询*/
@@ -747,9 +742,6 @@ zget_sv_one_region(void *zp) {
         zpTmp_[1]->p_next = NULL;  // must! avoid loop!
     }
 
-    /* 定义动态栈空间存放 tid */
-    pthread_t zTid[zSplitCnt][26];
-
     /* 注册参数 */
     struct zSvParam__ *zpSvParam_ = zalloc(26 * sizeof(struct zSvParam__));
 
@@ -789,10 +781,10 @@ zget_sv_one_region(void *zp) {
     zpSvParam_[17].cb = zsv_cb_disk_total_spent;
 
     zpSvParam_[18].p_metic = "disk_readbytes";
-    zpSvParam_[18].cb = zsv_cb_diskiokb;
+    zpSvParam_[18].cb = zsv_cb_default;
 
     zpSvParam_[19].p_metic = "disk_writebytes";
-    zpSvParam_[19].cb = zsv_cb_diskiokb;
+    zpSvParam_[19].cb = zsv_cb_default;
 
     zpSvParam_[20].p_metic = "disk_readiops";
     zpSvParam_[20].cb = zsv_cb_default;
@@ -801,16 +793,19 @@ zget_sv_one_region(void *zp) {
     zpSvParam_[21].cb = zsv_cb_default;
 
     zpSvParam_[22].p_metic = "networkin_rate";
-    zpSvParam_[22].cb = zsv_cb_netiokb;
+    zpSvParam_[22].cb = zsv_cb_netio_bytes;
 
     zpSvParam_[23].p_metic = "networkout_rate";
-    zpSvParam_[23].cb = zsv_cb_netiokb;
+    zpSvParam_[23].cb = zsv_cb_netio_bytes;
 
     zpSvParam_[24].p_metic = "networkin_packages";
     zpSvParam_[24].cb = zsv_cb_default;
 
     zpSvParam_[25].p_metic = "networkout_packages";
     zpSvParam_[25].cb = zsv_cb_default;
+
+    /* 定义动态栈空间存放 tid */
+    pthread_t zTid[zSplitCnt][26];
 
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 26; j++) {
@@ -859,8 +854,8 @@ zwrite_db(void) {
             "INSERT INTO sv_aliyun_ecs "
             "(time_stamp,instance_id,"
             "cpu_rate,mem_rate,disk_rate,load_1m,load_5m,load_15m,"
-            "disk_rdkb,disk_wrkb,disk_rdiops,disk_wriops,"
-            "net_rdkb,net_wrkb,net_rdiops,net_wriops,"
+            "disk_rdB,disk_wrB,disk_rdiops,disk_wriops,"
+            "net_rdB,net_wrB,net_rdiops,net_wriops,"
             "tcp_state_cnt) "
             "VALUES ");
 
