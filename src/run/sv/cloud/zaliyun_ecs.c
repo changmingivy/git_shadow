@@ -759,50 +759,50 @@ zget_sv_one_region(void *zp) {
         zSvParam_[i].cb = zsv_cb_default;
     }
 
-    zSvParam_[11].p_metic = "cpu_total";
-    zSvParam_[11].cb = zsv_cb_cpu_mem;
+    zSvParam_[11].p_metic = "diskusage_total";
+    zSvParam_[11].cb = zsv_cb_disk_total_spent;
 
-    zSvParam_[12].p_metic = "memory_usedutilization";
-    zSvParam_[12].cb = zsv_cb_cpu_mem;
+    zSvParam_[12].p_metic = "diskusage_used";
+    zSvParam_[12].cb = zsv_cb_disk_total_spent;
 
-    zSvParam_[13].p_metic = "load_1m";
-    zSvParam_[13].cb = zsv_cb_load;
+    zSvParam_[13].p_metic = "disk_readbytes";
+    zSvParam_[13].cb = zsv_cb_io;
 
-    zSvParam_[14].p_metic = "load_5m";
-    zSvParam_[14].cb = zsv_cb_load;
+    zSvParam_[14].p_metic = "disk_writebytes";
+    zSvParam_[14].cb = zsv_cb_io;
 
-    zSvParam_[15].p_metic = "load_15m";
-    zSvParam_[15].cb = zsv_cb_load;
+    zSvParam_[15].p_metic = "disk_readiops";
+    zSvParam_[15].cb = zsv_cb_io;
 
-    zSvParam_[16].p_metic = "diskusage_total";
-    zSvParam_[16].cb = zsv_cb_disk_total_spent;
+    zSvParam_[16].p_metic = "disk_writeiops";
+    zSvParam_[16].cb = zsv_cb_io;
 
-    zSvParam_[17].p_metic = "diskusage_used";
-    zSvParam_[17].cb = zsv_cb_disk_total_spent;
+    zSvParam_[17].p_metic = "networkin_rate";
+    zSvParam_[17].cb = zsv_cb_netio_bytes;
 
-    zSvParam_[18].p_metic = "disk_readbytes";
-    zSvParam_[18].cb = zsv_cb_io;
+    zSvParam_[18].p_metic = "networkout_rate";
+    zSvParam_[18].cb = zsv_cb_netio_bytes;
 
-    zSvParam_[19].p_metic = "disk_writebytes";
+    zSvParam_[19].p_metic = "networkin_packages";
     zSvParam_[19].cb = zsv_cb_io;
 
-    zSvParam_[20].p_metic = "disk_readiops";
+    zSvParam_[20].p_metic = "networkout_packages";
     zSvParam_[20].cb = zsv_cb_io;
 
-    zSvParam_[21].p_metic = "disk_writeiops";
-    zSvParam_[21].cb = zsv_cb_io;
+    zSvParam_[21].p_metic = "cpu_total";
+    zSvParam_[21].cb = zsv_cb_cpu_mem;
 
-    zSvParam_[22].p_metic = "networkin_rate";
-    zSvParam_[22].cb = zsv_cb_netio_bytes;
+    zSvParam_[22].p_metic = "memory_usedutilization";
+    zSvParam_[22].cb = zsv_cb_cpu_mem;
 
-    zSvParam_[23].p_metic = "networkout_rate";
-    zSvParam_[23].cb = zsv_cb_netio_bytes;
+    zSvParam_[23].p_metic = "load_1m";
+    zSvParam_[23].cb = zsv_cb_load;
 
-    zSvParam_[24].p_metic = "networkin_packages";
-    zSvParam_[24].cb = zsv_cb_io;
+    zSvParam_[24].p_metic = "load_5m";
+    zSvParam_[24].cb = zsv_cb_load;
 
-    zSvParam_[25].p_metic = "networkout_packages";
-    zSvParam_[25].cb = zsv_cb_io;
+    zSvParam_[25].p_metic = "load_15m";
+    zSvParam_[25].cb = zsv_cb_load;
 
     /* 定义动态栈空间存放 tid */
     pthread_t zTid[zSplitCnt][26];

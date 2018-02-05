@@ -52,11 +52,6 @@ struct zSvData__ {
     /* 分别处于 tcp 的 11 种状态的连接计数 */
     _i tcpState[11];
 
-    /* 可直接取到的不需要额外加工的数据项 */
-    _i cpu;
-    _i mem;
-    _i load[3];
-
     /*
      * 取磁盘列表的时，可得到以 GB 为单位的容量，
      * 不需要从监控数据中再取一次，
@@ -85,6 +80,11 @@ struct zSvData__ {
 
     _i net_rdiops;
     _i net_wriops;
+
+    /* 可直接取到的不需要额外加工的数据项 */
+    _i cpu;
+    _i mem;
+    _i load[3];
 
     /* 时间戳字段置于最后，与之前 26 个数据段分离 */
     _i timeStamp;
