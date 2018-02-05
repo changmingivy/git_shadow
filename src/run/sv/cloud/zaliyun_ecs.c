@@ -743,73 +743,79 @@ zget_sv_one_region(void *zp) {
     }
 
     /* 注册参数 */
-    struct zSvParam__ *zpSvParam_ = zalloc(26 * sizeof(struct zSvParam__));
+    struct zSvParam__ zSvParam_[26];
 
     for (i = 0; i < 26; i++) {
-        zpSvParam_[i].targetID = i;
+        zSvParam_[i].targetID = i;
     }
 
     for (i = 0; i < 11; i++) {
-        zpSvParam_[i].p_metic = "net_tcpconnection";
-        zpSvParam_[i].cb = zsv_cb_default;
+        zSvParam_[i].p_metic = "net_tcpconnection";
+        zSvParam_[i].cb = zsv_cb_default;
     }
 
-    zpSvParam_[11].p_metic = "cpu_total";
-    zpSvParam_[11].cb = zsv_cb_cpu_mem;
+    zSvParam_[11].p_metic = "cpu_total";
+    zSvParam_[11].cb = zsv_cb_cpu_mem;
 
-    zpSvParam_[12].p_metic = "memory_usedutilization";
-    zpSvParam_[12].cb = zsv_cb_cpu_mem;
+    zSvParam_[12].p_metic = "memory_usedutilization";
+    zSvParam_[12].cb = zsv_cb_cpu_mem;
 
-    zpSvParam_[13].p_metic = "load_1m";
-    zpSvParam_[13].cb = zsv_cb_load;
+    zSvParam_[13].p_metic = "load_1m";
+    zSvParam_[13].cb = zsv_cb_load;
 
-    zpSvParam_[14].p_metic = "load_5m";
-    zpSvParam_[14].cb = zsv_cb_load;
+    zSvParam_[14].p_metic = "load_5m";
+    zSvParam_[14].cb = zsv_cb_load;
 
-    zpSvParam_[15].p_metic = "load_15m";
-    zpSvParam_[15].cb = zsv_cb_load;
+    zSvParam_[15].p_metic = "load_15m";
+    zSvParam_[15].cb = zsv_cb_load;
 
-    zpSvParam_[16].p_metic = "diskusage_total";
-    zpSvParam_[16].cb = zsv_cb_disk_total_spent;
+    zSvParam_[16].p_metic = "diskusage_total";
+    zSvParam_[16].cb = zsv_cb_disk_total_spent;
 
-    zpSvParam_[17].p_metic = "diskusage_used";
-    zpSvParam_[17].cb = zsv_cb_disk_total_spent;
+    zSvParam_[17].p_metic = "diskusage_used";
+    zSvParam_[17].cb = zsv_cb_disk_total_spent;
 
-    zpSvParam_[18].p_metic = "disk_readbytes";
-    zpSvParam_[18].cb = zsv_cb_default;
+    zSvParam_[18].p_metic = "disk_readbytes";
+    zSvParam_[18].cb = zsv_cb_default;
 
-    zpSvParam_[19].p_metic = "disk_writebytes";
-    zpSvParam_[19].cb = zsv_cb_default;
+    zSvParam_[19].p_metic = "disk_writebytes";
+    zSvParam_[19].cb = zsv_cb_default;
 
-    zpSvParam_[20].p_metic = "disk_readiops";
-    zpSvParam_[20].cb = zsv_cb_default;
+    zSvParam_[20].p_metic = "disk_readiops";
+    zSvParam_[20].cb = zsv_cb_default;
 
-    zpSvParam_[21].p_metic = "disk_writeiops";
-    zpSvParam_[21].cb = zsv_cb_default;
+    zSvParam_[21].p_metic = "disk_writeiops";
+    zSvParam_[21].cb = zsv_cb_default;
 
-    zpSvParam_[22].p_metic = "networkin_rate";
-    zpSvParam_[22].cb = zsv_cb_netio_bytes;
+    zSvParam_[22].p_metic = "networkin_rate";
+    zSvParam_[22].cb = zsv_cb_netio_bytes;
 
-    zpSvParam_[23].p_metic = "networkout_rate";
-    zpSvParam_[23].cb = zsv_cb_netio_bytes;
+    zSvParam_[23].p_metic = "networkout_rate";
+    zSvParam_[23].cb = zsv_cb_netio_bytes;
 
-    zpSvParam_[24].p_metic = "networkin_packages";
-    zpSvParam_[24].cb = zsv_cb_default;
+    zSvParam_[24].p_metic = "networkin_packages";
+    zSvParam_[24].cb = zsv_cb_default;
 
-    zpSvParam_[25].p_metic = "networkout_packages";
-    zpSvParam_[25].cb = zsv_cb_default;
+    zSvParam_[25].p_metic = "networkout_packages";
+    zSvParam_[25].cb = zsv_cb_default;
 
     /* 定义动态栈空间存放 tid */
     pthread_t zTid[zSplitCnt][26];
 
+    struct zSvParam__ *zpSvParam_ = zalloc(zSplitCnt * 26 * sizeof(struct zSvParam__));
+    struct zSvParam__ *zpDynPtr = zpSvParam_;
     for (i = 0; i < zSplitCnt; i++) {
         for (j = 0; j < 11; j++) {
-            zpSvParam_[i].p_paramSolid = & zpTcpStateSolid[j][i];
-            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, & zpSvParam_[j]));
+            zpSvParam_[j].p_paramSolid = & zpTcpStateSolid[j][i];
+            memcpy(zpDynPtr, zpSvParam_[j].p_paramSolid, sizeof(struct zSvParam__));
+            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, zpDynPtr));
+            zpDynPtr++;
         }
         for (j = 11; j < 26; j++) {
-            zpSvParam_[i].p_paramSolid = & zpBaseSolid[i];
-            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, & zpSvParam_[j]));
+            zpSvParam_[j].p_paramSolid = & zpBaseSolid[i];
+            memcpy(zpDynPtr, zpSvParam_[j].p_paramSolid, sizeof(struct zSvParam__));
+            zCHECK_PT_ERR(pthread_create(& zTid[i][j], NULL, zget_sv_ops, zpDynPtr));
+            zpDynPtr++;
         }
     }
 
