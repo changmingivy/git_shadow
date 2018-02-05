@@ -626,27 +626,32 @@ zNextMark:;
 /*
  * 用于计算不同类别监控数据结果的 callback
  */
-static void 
+static void
 zsv_cb_cpu_mem(_i *zpBase, _f zNew) {
     *zpBase = zNew * 10;
 }
 
-static void 
+static void
 zsv_cb_load(_i *zpBase, _f zNew) {
     *zpBase = zNew * 1000;
 }
 
-static void 
+static void
 zsv_cb_default(_i *zpBase, _f zNew) {
     *zpBase = zNew;
 }
 
-static void 
+static void
 zsv_cb_disk_total_spent(_i *zpBase, _f zNew) {
     (*zpBase) += zNew / 1024 / 1024;  // 单位：M
 }
 
-static void 
+static void
+zsv_cb_io(_i *zpBase, _f zNew) {
+    (*zpBase) += zNew;
+}
+
+static void
 zsv_cb_netio_bytes(_i *zpBase, _f zNew) {
     (*zpBase) += zNew / 8;
 }
@@ -776,16 +781,16 @@ zget_sv_one_region(void *zp) {
     zSvParam_[17].cb = zsv_cb_disk_total_spent;
 
     zSvParam_[18].p_metic = "disk_readbytes";
-    zSvParam_[18].cb = zsv_cb_default;
+    zSvParam_[18].cb = zsv_cb_io;
 
     zSvParam_[19].p_metic = "disk_writebytes";
-    zSvParam_[19].cb = zsv_cb_default;
+    zSvParam_[19].cb = zsv_cb_io;
 
     zSvParam_[20].p_metic = "disk_readiops";
-    zSvParam_[20].cb = zsv_cb_default;
+    zSvParam_[20].cb = zsv_cb_io;
 
     zSvParam_[21].p_metic = "disk_writeiops";
-    zSvParam_[21].cb = zsv_cb_default;
+    zSvParam_[21].cb = zsv_cb_io;
 
     zSvParam_[22].p_metic = "networkin_rate";
     zSvParam_[22].cb = zsv_cb_netio_bytes;
@@ -794,10 +799,10 @@ zget_sv_one_region(void *zp) {
     zSvParam_[23].cb = zsv_cb_netio_bytes;
 
     zSvParam_[24].p_metic = "networkin_packages";
-    zSvParam_[24].cb = zsv_cb_default;
+    zSvParam_[24].cb = zsv_cb_io;
 
     zSvParam_[25].p_metic = "networkout_packages";
-    zSvParam_[25].cb = zsv_cb_default;
+    zSvParam_[25].cb = zsv_cb_io;
 
     /* 定义动态栈空间存放 tid */
     pthread_t zTid[zSplitCnt][26];
@@ -902,12 +907,12 @@ zwrite_db(void) {
                                     zpSv_->svData_[k].load[0] / zpSv_->cpuNum,
                                     zpSv_->svData_[k].load[1] / zpSv_->cpuNum,
                                     zpSv_->svData_[k].load[2] / zpSv_->cpuNum,
-                                    zpSv_->svData_[k].disk_rdkb,
-                                    zpSv_->svData_[k].disk_wrkb,
+                                    zpSv_->svData_[k].disk_rdB,
+                                    zpSv_->svData_[k].disk_wrB,
                                     zpSv_->svData_[k].disk_rdiops,
                                     zpSv_->svData_[k].disk_wriops,
-                                    zpSv_->svData_[k].net_rdkb,
-                                    zpSv_->svData_[k].net_wrkb,
+                                    zpSv_->svData_[k].net_rdB,
+                                    zpSv_->svData_[k].net_wrB,
                                     zpSv_->svData_[k].net_rdiops,
                                     zpSv_->svData_[k].net_wriops,
                                     zpSv_->svData_[k].tcpState[0],

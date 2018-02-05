@@ -74,14 +74,14 @@ struct zSvData__ {
      * 首先将 byte 换算成 KB(/1024)，以 KB 为单位累加计数，
      * 集齐所有设备的数据后，取得最终的 sum 值
      */
-    _i disk_rdkb;
-    _i disk_wrkb;
+    _i disk_rdB;
+    _i disk_wrB;
 
     _i disk_rdiops;
     _i disk_wriops;
 
-    _i net_rdkb;
-    _i net_wrkb;
+    _i net_rdB;
+    _i net_wrB;
 
     _i net_rdiops;
     _i net_wriops;
