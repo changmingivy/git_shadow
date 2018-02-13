@@ -677,9 +677,18 @@ zget_sv_one_region(void *zp) {
        k;
 
     /* 顺序不能变！ */
-    char *zpTcpState[] = { "LISTEN", "SYN_SENT", "ESTABLISHED",
-        "SYN_RECV", "FIN_WAIT1", "CLOSE_WAIT", "FIN_WAIT2",
-        "LAST_ACK", "TIME_WAIT", "CLOSING", "CLOSED"};
+    char *zpTcpState[] = {
+        "LISTEN",
+        "SYN_SENT",
+        "ESTABLISHED",
+        "SYN_RECV",
+        "FIN_WAIT1",
+        "CLOSE_WAIT",
+        "FIN_WAIT2",
+        "LAST_ACK",
+        "TIME_WAIT",
+        "CLOSING",
+        "CLOSED"};
 
     if (0 == zpRegion_->ecsCnt % zSPLIT_UNIT) {
         zSplitCnt = zpRegion_->ecsCnt / zSPLIT_UNIT;

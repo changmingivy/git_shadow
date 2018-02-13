@@ -127,7 +127,7 @@ zdaemonize(const char *zpWorkDir) {
     zCHECK_NEGATIVE_RETURN(chdir(NULL == zpWorkDir? "/" : zpWorkDir),);
 
     pid_t zPid = fork();
-    zCHECK_NEGATIVE_RETURN(zPid,);
+    zCHECK_NEGATIVE_EXIT(zPid);
 
     if (zPid > 0) {
         exit(0);
