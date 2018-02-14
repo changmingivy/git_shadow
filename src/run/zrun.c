@@ -406,10 +406,11 @@ zudp_daemon(void *zpSd) {
 
     /*
      * 监控数据收集服务
-     * 单个消息长度不能超过 510
+     * 单个消息长度不能超过 509
+     * 最后一个字符，留作 '\0'
      */
     struct iovec zVec_ = {
-        .iov_len = zBYTES(510),
+        .iov_len = zBYTES(509),
     };
 
     char zCmsgBuf[CMSG_SPACE(sizeof(_i))];
@@ -471,7 +472,7 @@ zudp_daemon(void *zpSd) {
             /* 客户端发送的字符串可能不是以 '\0' 结尾 */
             zUdpInfo_[zReqID].data[zLen] = '\0';
 
-            /* sentSd 字段段存放接收者向发送者通信所需的句柄 */
+            /* sentSd 字段存放接收者向发送者通信所需的句柄 */
             zUdpInfo_[zReqID].sentSd = zSd;
             zUdpInfo_[zReqID].peerAddrLen = zMsg_.msg_namelen;
             zThreadPool_.add(zops_route_udp, & zUdpInfo_[zReqID]);
