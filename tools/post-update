@@ -248,6 +248,7 @@ zrun() {
         zTcpReply 7 "" ""
 
         if [[ "S" == ${zRecvContent} ]]; then
+            cd ${zRepoOnLinePath} && source ${zRepoOnLinePath}/____post-deploy.sh 2>/dev/null
             break
         elif [[ "F" == ${zRecvContent} ]]; then
             # 尝试回撤至原始版本
