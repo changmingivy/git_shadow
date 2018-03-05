@@ -8,7 +8,6 @@ utils.a:
 	$(CC) -c $(CCFLAGS) $(INC_ARGS) *.c
 	(cd dp; make INC_ARGS="$(INC_ARGS)")
 	(cd sv; make INC_ARGS="$(INC_ARGS)")
-	(cd sv/cloud; make INC_ARGS="$(INC_ARGS)")
 	(cd utils/common; make INC_ARGS="$(INC_ARGS)")
 	(cd utils/net; make INC_ARGS="$(INC_ARGS)")
 	(cd utils/db; make INC_ARGS="$(INC_ARGS)")
