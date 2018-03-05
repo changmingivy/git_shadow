@@ -1,5 +1,5 @@
 # 一、概述    
-&emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景；同时具备监控数据收集、分析功能。
+&emsp;&emsp;**git_shadow** 是一套纯 C 语言实现的、基于 libgit2 的高性能布署系统，专注于最终线上产品的分发环节，支持无限量大规模布署场景；同时具备监控数据收集、分析功能；支撑 [svdp](https://github.com/kt10/svdp.git) 项目的布署功能。
 #### 1. 系统环境需求    
 &emsp;&emsp;- 服务端 [linux](https://www.kernel.org) 内核版本 >= 2.6.37    
 &emsp;&emsp;- 目标端 git  命令可用    
