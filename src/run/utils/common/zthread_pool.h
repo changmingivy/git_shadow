@@ -8,6 +8,8 @@
 
 typedef struct zThreadTask__ {
     pthread_cond_t condVar;
+    char pad[64];
+    pthread_mutex_t condLock;
 
     void * (* func) (void *);
     void *p_param;

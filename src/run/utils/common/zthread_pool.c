@@ -34,22 +34,6 @@ struct zThreadPool__ zThreadPool_ = {
 };
 
 
-/*
- * 线程退出时，释放自身占用的资源
- */
-static void
-zthread_canceled_cleanup(void *zp_) {
-    zThreadTask__ *zpSelfTask = (zThreadTask__ *) zp_;
-
-    /* 释放占用的系统全局信号量 */
-    sem_post(zThreadPool_.p_threadPoolSem);
-
-    /* 清理内部分配的静态资源 */
-    pthread_cond_destroy(&(zpSelfTask->condVar));
-    free(zpSelfTask);
-}
-
-
 static void *
 zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
     /* detach 自身 */
@@ -71,8 +55,9 @@ zthread_pool_meta_func(void *zp_ __attribute__ ((__unused__))) {
             pthread_cond_init(&(zpSelfTask->condVar), NULL)
             );
 
-    /* 线程退出时的资源清理动作 */
-    pthread_cleanup_push(zthread_canceled_cleanup, zpSelfTask);
+    zCHECK_PTHREAD_FUNC_EXIT(
+            pthread_mutex_init(&(zpSelfTask->condLock), NULL)
+            );
 
 zMark:
     pthread_mutex_lock(&zStackHeaderLock);
@@ -89,23 +74,17 @@ zMark:
 
         zpSelfTask->func = NULL;
         goto zMark;
+    } else {
+        /* 线程自毁逻辑分支 */
+        pthread_mutex_unlock(&zStackHeaderLock);
     }
 
-    /*
-     * 只有空闲线程数超过线程池栈深度时，
-     * 才会运行至此
-     */
-    pthread_mutex_unlock(&zStackHeaderLock);
+    /* 释放占用的系统全局信号量并清理资源占用 */
+    sem_post(zThreadPool_.p_threadPoolSem);
+    pthread_cond_destroy(&(zpSelfTask->condVar));
+    free(zpSelfTask);
 
-    /*
-     * 参数置为非 0 值，
-     * 则运行至此处时，
-     * 清理函数一定会被执行
-     * 不必再调用 pthread_exit();
-     */
-    pthread_cleanup_pop(1);
-
-    return NULL;
+    pthread_exit(NULL);
 }
 
 
@@ -192,27 +171,24 @@ zadd_to_thread_pool(void * (* zFunc) (void *), void *zpParam) {
     while (0 > zStackHeader) {
         pthread_mutex_unlock(&zStackHeaderLock);
 
-        /* 不能超过 git_shadow 在系统全局范围内启动的总线程数 */
+        /* 不能超过系统全局范围线程总数限制 */
         sem_wait(zThreadPool_.p_threadPoolSem);
 
-        pthread_create(
-                & zThreadPoolTidTrash,
-                NULL,
-                zthread_pool_meta_func, NULL);
+        pthread_create(&zThreadPoolTidTrash, NULL, zthread_pool_meta_func, NULL);
 
         pthread_mutex_lock(&zStackHeaderLock);
     }
 
+    pthread_mutex_lock(&zppPoolStack_[zStackHeader]->condLock);
+
     zppPoolStack_[zStackHeader]->func = zFunc;
     zppPoolStack_[zStackHeader]->p_param = zpParam;
 
-    /* 防止解锁后，瞬间改变的情况 */
-    _i zKeepStackHeader= zStackHeader;
+    pthread_mutex_unlock(&zppPoolStack_[zStackHeader]->condLock);
+    pthread_cond_signal(&(zppPoolStack_[zStackHeader]->condVar));
 
     zStackHeader--;
-
     pthread_mutex_unlock(&zStackHeaderLock);
-    pthread_cond_signal(&(zppPoolStack_[zKeepStackHeader]->condVar));
 
     return 0;
 }
