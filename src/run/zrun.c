@@ -675,7 +675,7 @@ zglob_data_config(zArgvInfo__ *zpArgvInfo_) {
             "passfile=",
             zpArgvInfo_->p_pgPassFilePath,
             "dbname=",
-            NULL == zpArgvInfo_->p_pgDBName ? "dpDB": zpArgvInfo_->p_pgDBName);
+            NULL == zpArgvInfo_->p_pgDBName ? "svdp": zpArgvInfo_->p_pgDBName);
 
     /* 初始化 serv_map 与 err_map */
     zserv_vec_init();

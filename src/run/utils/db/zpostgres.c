@@ -36,7 +36,7 @@ static _i zwrite_db(void *zp, _i zSd __attribute__ ((__unused__)),
         socklen_t zPeerAddrLen __attribute__ ((__unused__)));
 
 /* postgreSQL 连接池 */
-#define zDB_POOL_SIZ 64
+#define zDB_POOL_SIZ 16
 static pthread_mutex_t zDBPoolLock = PTHREAD_MUTEX_INITIALIZER;
 static zPgConnHd__ *zpDBPool_[zDB_POOL_SIZ] = { NULL };
 static _s zDBPoolStack[zDB_POOL_SIZ];
@@ -386,7 +386,7 @@ zwrite_db(void *zpCmd, _i zSd __attribute__ ((__unused__)),
 //         "port=9527"
 //         "user=admin"
 //         "passfile=/$HOME/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
-//         "dbname=dpDB"
+//         "dbname=svdp"
 //         "sslmode=allow"
 //         "connect_timeout=10";
 //

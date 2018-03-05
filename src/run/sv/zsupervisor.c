@@ -10,7 +10,6 @@ extern struct zRun__ zRun_;
 extern struct zNativeOps__ zNativeOps_;
 extern struct zThreadPool__ zThreadPool_;
 extern struct zPgSQL__ zPgSQL_;
-//extern struct zSvCloud__ zSvCloud_;
 
 extern zRepo__ *zpRepo_;
 
@@ -125,9 +124,6 @@ zsupervisor_prepare(void *zp __attribute__ ((__unused__))) {
     strcpy(zpOptiBuf, "INSERT INTO supervisor_log VALUES ");
     zOptiDataLen = sizeof("INSERT INTO supervisor_log VALUES ") - 1;
 
-    /* ==== 云监控数据收集 ==== */
-    //zSvCloud_.init();
-
     return NULL;
 }
 
@@ -182,18 +178,12 @@ zsys_monitor(void *zp __attribute__ ((__unused__))) {
         }
 
         if (0 == i % 900) {
-            /* 每 900 秒同步云监控数据 */
-            //zSvCloud_.data_sync();
-
             /*
              * 每天执行一次，
              * 主进程只负责时间维度的中层分区逻辑创建及统一销毁，
              * 最底层的实体表由各项目进程创建
              * */
             if (0 == i % 86400) {
-                /* 云监控同步分区表管理 */
-                //zSvCloud_.tb_mgmt();
-
                 /* 创建之后 10 * 24 小时的 supervisor_log 分区表 */
                 zBaseID = time(NULL) / 3600;
                 for (zID = 0; zID < 10 * 24; zID++) {

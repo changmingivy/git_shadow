@@ -105,7 +105,7 @@ main(_i zArgc, char **zppArgv) {
                         "[-P postgreSQL_port]  /* PQdb host serv port, default '5432' */\n"
                         "[-U postgreSQL_username]  /* PQdb login name, default 'git' */\n"
                         "[-F postgreSQL_passfile]  /* PQdb pass file, default '$HOME/.pgpass' */\n"
-                        "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'dpDB' */\n",
+                        "[-D postgreSQL_DBname]  /* which PQdb database to login, default 'svdp' */\n",
                         optopt,
                         zppArgv[0]);
                 exit(1);
