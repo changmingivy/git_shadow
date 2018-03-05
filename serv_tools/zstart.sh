@@ -85,7 +85,7 @@ echo "max_stack_depth = $((`ulimit -s` / 1024 - 1))MB" >> ${zPgDataPath}/postgre
 ${zPgBinPath}/pg_ctl -D ${zPgDataPath} initdb
 ${zPgBinPath}/pg_ctl stop -D ${zPgDataPath} -l ${zPgDataPath}/log
 ${zPgBinPath}/pg_ctl start -D ${zPgDataPath} -l ${zPgDataPath}/log
-${zPgBinPath}/createdb -O `whoami` dpDB
+${zPgBinPath}/createdb -O `whoami` svdp
 
 # 需要 root 权限，防止 postgresql 主进程被 linux OOM_killer 杀掉
 # zPgPid=`head -1 ${zPgDataPath}/postmaster.pid`

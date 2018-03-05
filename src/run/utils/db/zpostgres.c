@@ -386,7 +386,7 @@ zwrite_db(void *zpCmd, _i zSd __attribute__ ((__unused__)),
 //         "port=9527"
 //         "user=admin"
 //         "passfile=/$HOME/.pgpass"  // 文件权限必须设置为0600，每行的格式：hostname:port:database:username:password，井号#代表注释行
-//         "dbname=dpDB"
+//         "dbname=svdp"
 //         "sslmode=allow"
 //         "connect_timeout=10";
 //

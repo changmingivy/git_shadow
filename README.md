@@ -37,7 +37,7 @@
 |**-P**|[可选] PostgreSQL host serv port, default '5432'|
 |**-U**|[可选] PostgreSQL login name, default 'git'|
 |**-F**|[可选] PostgreSQL pass file, default '$HOME/.pgpass'|
-|**-D**|[可选] which database to login, default 'dpDB'|    
+|**-D**|[可选] which database to login, default 'svdp'|    
 #### 8. 设计模型
 **master process(multi threads) > project process(multi threads) > deploy process(single thread)**    
 >![](http://images.cnblogs.com/cnblogs_com/hadex/909098/o_process-ps.png)
